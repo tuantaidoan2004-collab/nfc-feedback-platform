@@ -9,6 +9,21 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nfc_test
+          POSTGRES_PASSWORD: test_only
+          POSTGRES_DB: nfc_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nfc_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://nfc_test:test_only@127.0.0.1:5432/nfc_test
+      SERVER_DATA_ENABLED: 'true'
+      APP_ORIGIN: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,6 +38,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
+      - run: node scripts/migrate.mjs
       - run: pnpm test
       - uses: actions/upload-artifact@v4
         if: failure()

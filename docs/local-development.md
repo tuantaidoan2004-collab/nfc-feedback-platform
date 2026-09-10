@@ -36,3 +36,7 @@ Test trình duyệt chạy trên production build bằng Node.js, không cần t
 ## Bước tiếp theo
 
 Xem và duyệt cảm giác trang khách trước; sau đó triển khai DB/auth bằng môi trường development riêng, kiểm tra cách ly shop và retry/revision phía server. Chưa bật deploy production hoặc mua dịch vụ.
+
+## Nhánh dữ liệu server
+
+`/<shop>` và `/ZZZ/<shop>` đã có luồng API/PostgreSQL riêng, không dùng demo-store. Xem `docs/server-data.md` và `.env.example`; DB/auth thật chưa được kết nối. Các đường demo trên vẫn dùng để xem giao diện cũ.

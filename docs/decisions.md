@@ -55,3 +55,9 @@ Chính sách Google đã tra: https://support.google.com/contributionpolicy/answ
 - Tài yêu cầu áp dụng `rohitg00/agentmemory` và `addyosmani/agent-skills` vào dự án.
 - Tích hợp skill ở phạm vi project; hướng dẫn sử dụng và nguồn phiên bản tại `docs/agent-skills.md`.
 - Quy tắc trí nhớ theo nhu cầu vẫn giữ nguyên. Chưa cài memory engine/MCP; dùng checkpoint và Obsidian hiện có, không thu thập hội thoại tự động.
+
+## Cập nhật — URL shop và lưu server
+
+- Tài xác nhận `/<shop>` là landing page, `/ZZZ/<shop>` là dashboard tương ứng, cùng domain tổng. Không chuyển khách qua dashboard sau khi chấm.
+- Tách vai trò: ứng dụng Node/Next.js chạy trang/API; PostgreSQL (mục tiêu Neon) lưu dữ liệu/cấu hình/quyền; R2 lưu ảnh và có thể video. Neon không chạy mã dashboard.
+- Bổ sung mã server theo shop, migration và kiểm tra quyền/revision; kích hoạt có chủ đích. Tiến độ và phần còn thiếu tại `docs/server-data.md`; chưa nối dịch vụ thật hoặc hoàn thành login/pilot.
