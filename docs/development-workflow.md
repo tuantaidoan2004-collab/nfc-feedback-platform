@@ -22,4 +22,4 @@ Tài là chủ dự án. Codex thiết kế/triển khai và báo bằng chứng
 
 ## Tiêu chí nền tảng hoàn tất
 
-Repo private được xác minh; tài liệu và snapshot đã lên GitHub; working tree local đồng bộ với commit remote; quyền fetch/push được kiểm tra hoặc giới hạn xác thực được ghi rõ. Thiết lập app/CI và Vercel là bước tiếp theo, không được ghi nhận hoàn thành sớm.
+Repo private được xác minh; tài liệu và snapshot đã lên GitHub; working tree local đồng bộ với commit remote; quyền fetch/push được kiểm tra hoặc giới hạn xác thực được ghi rõ. Nhánh app local bổ sung GitHub Actions chạy lint, typecheck, build và kiểm tra trình duyệt. Chỉ ghi nhận CI đạt khi có kết quả từ GitHub; Vercel vẫn chưa triển khai.

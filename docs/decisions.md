@@ -43,3 +43,9 @@ Chính sách Google đã tra: https://support.google.com/contributionpolicy/answ
 - Tài là chủ dự án; Codex đảm nhiệm kiến trúc. Vercel là nơi chạy mục tiêu, cần đường chuyển khi chi phí hoặc vận hành không phù hợp.
 - Thiết kế MVP hiện nằm tại `docs/mvp-architecture.md`; công nghệ đề xuất được phân biệt với hạ tầng đã triển khai.
 - Không cập nhật lại Obsidian trong bước này theo yêu cầu Tài.
+
+## Cập nhật 2026-09-10 — bắt đầu app local
+
+- Tài yêu cầu bắt đầu bước app local/CI; thêm hiệu ứng nút góp ý khi chấm 1–3 sao: phồng lên/thu lại, màu đậm hơn lúc phồng.
+- Lựa chọn triển khai: ba nhịp, dừng khi chấm 4–5 hoặc bấm nút; tôn trọng giảm chuyển động. Google vẫn giữ nguyên lời mời/vị trí ở mọi điểm.
+- App giai đoạn đầu dùng dữ liệu demo trên trình duyệt, chưa có auth/database hay deploy. LocalStorage là công cụ thử giao diện, không phải kiến trúc lưu dữ liệu production.

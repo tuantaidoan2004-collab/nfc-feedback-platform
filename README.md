@@ -2,7 +2,7 @@
 
 Dự án thẻ NFC mở trang thương hiệu và thu góp ý riêng cho chủ shop.
 
-**Trạng thái:** đang thống nhất sản phẩm qua mô phỏng. Chưa có ứng dụng thật, đăng nhập, database hay deployment.
+**Trạng thái:** app Next.js local cho trang khách và dashboard mẫu. Dữ liệu demo chỉ nằm trên trình duyệt; chưa có đăng nhập, database hoặc deployment.
 
 - `docs/decisions.md`: quyết định đã chốt và câu hỏi còn mở.
 - `prototypes/nfc-owner-demo.fragment.html`: bản mô phỏng mới nhất, dành cho giao diện visualize của Codex; không phải website độc lập hoặc ứng dụng production.
@@ -13,4 +13,11 @@ Repo private: https://github.com/tuantaidoan2004-collab/nfc-feedback-platform
 - `docs/mvp-architecture.md`: phân công Vercel, Neon, R2, domain, bảo mật, chi phí và cách chuyển hosting.
 - `docs/development-workflow.md`: vòng làm việc Codex → GitHub → preview → production.
 
-Kiến trúc mục tiêu: Next.js/TypeScript trên Vercel, PostgreSQL trên Neon, ảnh trên R2 và domain thuộc chủ dự án. Chưa cài app, kết nối Vercel hoặc mua dịch vụ. Bước tiếp theo là app local và kiểm thử luồng cốt lõi.
+Kiến trúc mục tiêu: Next.js/TypeScript trên Vercel, PostgreSQL trên Neon, ảnh trên R2 và domain thuộc chủ dự án. Chưa kết nối Vercel hoặc mua dịch vụ. Xem `docs/local-development.md` để chạy và kiểm thử. Bước tiếp theo là DB/auth sau khi duyệt bản local.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Trang khách: http://127.0.0.1:3000/t/demo · Dashboard mẫu: http://127.0.0.1:3000/demo/dashboard

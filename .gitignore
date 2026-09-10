@@ -9,3 +9,8 @@ coverage/
 *.pem
 *.key
 .vercel/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+.pnpm-store/
