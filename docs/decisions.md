@@ -49,3 +49,9 @@ Chính sách Google đã tra: https://support.google.com/contributionpolicy/answ
 - Tài yêu cầu bắt đầu bước app local/CI; thêm hiệu ứng nút góp ý khi chấm 1–3 sao: phồng lên/thu lại, màu đậm hơn lúc phồng.
 - Lựa chọn triển khai: ba nhịp, dừng khi chấm 4–5 hoặc bấm nút; tôn trọng giảm chuyển động. Google vẫn giữ nguyên lời mời/vị trí ở mọi điểm.
 - App giai đoạn đầu dùng dữ liệu demo trên trình duyệt, chưa có auth/database hay deploy. LocalStorage là công cụ thử giao diện, không phải kiến trúc lưu dữ liệu production.
+
+## Cập nhật — skill cho agent
+
+- Tài yêu cầu áp dụng `rohitg00/agentmemory` và `addyosmani/agent-skills` vào dự án.
+- Tích hợp skill ở phạm vi project; hướng dẫn sử dụng và nguồn phiên bản tại `docs/agent-skills.md`.
+- Quy tắc trí nhớ theo nhu cầu vẫn giữ nguyên. Chưa cài memory engine/MCP; dùng checkpoint và Obsidian hiện có, không thu thập hội thoại tự động.

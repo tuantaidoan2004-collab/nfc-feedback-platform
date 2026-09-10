@@ -11,3 +11,7 @@ Product invariants: identical Google review invitation at every rating; low scor
 The current UI is a local Next.js app with browser-only demo storage plus an archived conversation prototype; it is not a deployed product. Read docs/local-development.md for scope and commands. Never infer real customers, persisted data, completed Google reviews, authentication, or successful tests from the mockup. Do not treat assistant-suggested technologies and dashboard details as accepted scope.
 
 Keep NFC separate from Campus Laundry. Do not upload secrets, personal vault contents, supplier/payment data, or whole chat histories to GitHub. No paid service setup is currently selected.
+
+## Project skill integration
+
+Tai requested `rohitg00/agentmemory` and `addyosmani/agent-skills`. Read `docs/agent-skills.md` for scope and overrides. Skills live in `.agents/skills/`; use `using-agent-skills/SKILL.md` to select a relevant engineering workflow, then read only the relevant skill. For memory use the selected agentmemory skills with the on-demand checkpoint/Obsidian adaptation in that document. Their MCP/runtime is not installed; never claim a memory tool call occurred. Owner instructions and project invariants override upstream workflows, including automatic capture and mandatory per-turn saves. No background hooks, transcript import, or paid services are authorized by this integration.

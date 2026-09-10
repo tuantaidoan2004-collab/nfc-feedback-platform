@@ -1,0 +1,71 @@
+{
+  "scope": "nfc-project-only",
+  "sources": [
+    {
+      "repo": "https://github.com/addyosmani/agent-skills",
+      "commit": "6ca0cd7db39b41b1c37e26d335c507ee92382c6d",
+      "skills": 25
+    },
+    {
+      "repo": "https://github.com/rohitg00/agentmemory",
+      "commit": "e04ba88819c365c9acf9d6661ea802143e728bd6",
+      "skills": [
+        "recall",
+        "remember",
+        "recap",
+        "handoff",
+        "lesson",
+        "memory-discipline"
+      ],
+      "runtime_installed": false
+    }
+  ],
+  "sha256": {
+    "licenses/addy-agent-skills-MIT.txt": "6f202f8bd568cd730dbb2b0d1f8e243bc74c2fa1f64dbce9b2c7ea08bd5c9fd7",
+    "licenses/agentmemory-Apache-2.0.txt": "76c8d49ab42216a2533f603fbafa20a1bf71b56de136a401be52da034dcc012c",
+    "references/accessibility-checklist.md": "61c759d94d52296231f5f310b92b401f56c44e4430dc3cc95ebac5d7b1d5ffac",
+    "references/definition-of-done.md": "d1c75d2ae65d2c7a9cd01f93fa8de63e00e75f2fe5d08be224d576157054dcee",
+    "references/observability-checklist.md": "25fcd0e854596a5ab6f11b002050d245bf78f5ae0fcbd1df699b89451ae0e1e8",
+    "references/orchestration-patterns.md": "61e543d86f19f86b83074f8c1c769455c7085a2c72dd47b1da21a8c63785be4a",
+    "references/performance-checklist.md": "40f564d1e62341e277c01ba42c42d95264b9ef3b8e5a23249dc6e121a7e70067",
+    "references/security-checklist.md": "963922cb36bc87b81e56c8f86ff8f6db813ed7efe88066914dceaf6adba2ac90",
+    "references/testing-patterns.md": "f0bf05acd0edcadc27297ad5b74f104c8103ccfedba1a05cd6d6ae4af8364c56",
+    "skills/_shared/TROUBLESHOOTING.md": "1c0df6d064b4c3088077acac239957d95f8786029deb4094889f5f62bae765df",
+    "skills/api-and-interface-design/SKILL.md": "5dafd0c44a3aabf11cae5bcb34f6fcc24dfa5c01ba6e0d3176bce997f4d68bc8",
+    "skills/browser-testing-with-devtools/SKILL.md": "4e3aacd6a380cd25bc6c2d67fdd1c926a9b22535b8a62109ecd33cefd909e3d9",
+    "skills/ci-cd-and-automation/SKILL.md": "a6ed8ed56456b01ff8314c44eefc69897d9905ae4e06bb2b7036286efb79b5f0",
+    "skills/code-review-and-quality/SKILL.md": "8f3cabca581bbf7cb5f0add3f7454e7a4523f9d4353a6a4a217e6fa515309612",
+    "skills/code-simplification/SKILL.md": "f0c5ed754057eb0c1e027e2587f59de816651feb5e837242296c43ea21cf621d",
+    "skills/constraint-driven-development/SKILL.md": "06479d4305f286d23cfb99f5dc85695896785269664e1f6a8d800e3b71e70c10",
+    "skills/constraint-driven-development/references/floor-guard.md": "dba15dad8f5a5cbae464ec8457e6dd014a7bcb3ad13a360a6908d54991a5415e",
+    "skills/context-engineering/SKILL.md": "1392005054efb0a5c9cbbd83811f95ac30d34e5228a1f6837baf59fb7d588017",
+    "skills/debugging-and-error-recovery/SKILL.md": "21f3960f5d7ae2cc95c40896545004dbbcbbd752ea65fc2d53962554d4174220",
+    "skills/deprecation-and-migration/SKILL.md": "6a624f942e09c69863a4219b9bd5d56975026b67b0c70bc83385ffd2120b6142",
+    "skills/documentation-and-adrs/SKILL.md": "87ae44a0c7bb3eefc2131a9d11caabcc14e4d8dcb27d66a3a675551ee2ce1671",
+    "skills/doubt-driven-development/SKILL.md": "6fa1fcd8420c28daf7e53c5b08b0f20b907911efd2a6d9bce0b9740da20a4008",
+    "skills/frontend-ui-engineering/SKILL.md": "2b74ac4862be3902ec918dceac9366a6fe83b9e003601c0deaf6be09c1766aca",
+    "skills/git-workflow-and-versioning/SKILL.md": "b7465d187935c52546d39fdc7bd6ac36d94eda25a9500ef8c18b767d2eb116ea",
+    "skills/handoff/SKILL.md": "1a56957440917ffb5706db1f27d81c7d1a679d35eb8541516091c2c51411f9d5",
+    "skills/idea-refine/SKILL.md": "79e773058963adc7646b0115b4f8a4afc974c5ff95843e4ef1cafff3cb51899e",
+    "skills/idea-refine/examples.md": "563204bfbf2f80a444151695205af4cb759e722b3d1e5460e08f278a69c89ba1",
+    "skills/idea-refine/frameworks.md": "161ebc18fdf2d996bc62a87a2d747cf1bf53548354f8925de25c732c27f00309",
+    "skills/idea-refine/refinement-criteria.md": "1ca2973a4d01b5cb37ab7ddb2eff77fa4e792634a33d0ce44961c068fc88d51a",
+    "skills/idea-refine/scripts/idea-refine.sh": "f02a52408a4218047c032d221483abfbb48d11f090bb4915965c7419bf2e0e47",
+    "skills/incremental-implementation/SKILL.md": "df66536610071727feae1ca95f3c391c248ad828041750ccd3699cce763aa00b",
+    "skills/interview-me/SKILL.md": "1d94741d10d2c826cd0c191aea3981ee94c8abb27ef2a166f6a372117d06448f",
+    "skills/lesson/SKILL.md": "7ee51bb5c2e13e00419ab1cd6986e9f4bff7c4039a961d9c56a046773f15b256",
+    "skills/memory-discipline/SKILL.md": "f73a39df254a030614914c48d59c19188694cdbdf57fec81e77bde26a7515316",
+    "skills/observability-and-instrumentation/SKILL.md": "e7fcb0820306d46268de9594d676ad98e35040858926c412b7000faa52a61f87",
+    "skills/performance-optimization/SKILL.md": "00694d0c69bbde674d0e39de24052d90afea32d9fef9553eaee21a50a7e9b8cf",
+    "skills/planning-and-task-breakdown/SKILL.md": "ed0f90cc5951ddd4bcab7f871f64efec93a49af9279ef93bc470da77ad8da3f7",
+    "skills/recall/SKILL.md": "430a2527d09ca6edc0f6ad36daccd32c723f87113a9c0d169ce469f989511743",
+    "skills/recap/SKILL.md": "33e992570d0e10b614e71515f0611e3ed8d6a7264ecc14e9fb085d438acf880b",
+    "skills/remember/SKILL.md": "d9b6facf4cbecaa3385a53d26afeec755f59531ebd5a775fb2812b4f37476936",
+    "skills/security-and-hardening/SKILL.md": "4aa7a433a0a8042f47197f05893343bd9d1cc02a9179537ef3437c05c49b385d",
+    "skills/shipping-and-launch/SKILL.md": "af610cf4892db7eab2e91c899e33feba90e1000bac4528b2f8dde930816ac125",
+    "skills/source-driven-development/SKILL.md": "c59faf851377f0eeda45306398d16eb96d77ab1c2fd3e1a7fb58e9a0af33c1e9",
+    "skills/spec-driven-development/SKILL.md": "89411b435fc9f45cec0dd7437419e6bac64b7ddf43108791978647d453010a61",
+    "skills/test-driven-development/SKILL.md": "7c0c6ac057c19d7f8be65d9f49c3a638703b868f4625c78b70da5439d5d74fca",
+    "skills/using-agent-skills/SKILL.md": "30787ef2c77bf1a4729fffed0f6523ba6fcbe81bdc436b36371b78c21394d3c3"
+  }
+}
