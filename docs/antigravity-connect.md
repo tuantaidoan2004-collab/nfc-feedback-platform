@@ -270,3 +270,59 @@ Dấu hiệu dễ đọc sai: commit `e2529fe` có **một bản Ready và một
 `vercel-dev` (môi trường Development của Vercel, chưa dùng) vẫn rỗng — `insert` vào đó báo `relation "shops" does not exist`, đúng như dự kiến vì nó tách ra từ `production` lúc còn rỗng. Không phải sự cố mới.
 
 Branch mặc định `production` giờ đã có schema, nên branch preview Vercel tạo về sau tự kế thừa đủ bảng; đây là lý do migrate `production` thay vì chỉ migrate từng branch preview.
+
+---
+
+# Bộ test cần PostgreSQL — đã chạy — 2026-09-16
+
+## Dựng fixture trên macOS không có Homebrew
+
+Postgres.app (PostgreSQL18.6) cài vào `/Applications`; binary ở `/Applications/Postgres.app/Contents/Versions/latest/bin`. **Không dùng server mặc định của nó**; dựng cluster riêng đúng fixture mô tả trong `visit-rating-repository.md`:
+
+```
+PGBIN=/Applications/Postgres.app/Contents/Versions/latest/bin
+$PGBIN/initdb -D <datadir> -U nfc_test --auth=trust --encoding=UTF8 --locale=C
+$PGBIN/pg_ctl -D <datadir> -l <log> -o "-p 55439 -h 127.0.0.1" start
+$PGBIN/createdb -h 127.0.0.1 -p 55439 -U nfc_test -O nfc_test nfc_repo_test
+```
+
+Dừng bằng `pg_ctl -D <datadir> stop -m fast`. Cluster đã dừng sau khi chạy xong.
+
+## Kết quả
+
+| Bộ | Lệnh | Kết quả |
+|---|---|---|
+| repository | `--config=playwright.repository.config.ts`, `NFC_TEST_DATABASE_URL=postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test` | **53 passed**, exit0 |
+| public-v2 + browser-hardening | `run-local.mjs public-v2.spec.ts browser-hardening.spec.ts --build` | **15 passed,1 skipped** + **1 passed** (production gate), exit0 |
+| publishing | `run-local.mjs --publishing publishing.spec.ts --build` | **4 passed** + **1 passed**, exit0 |
+| owner dashboard | `run-local.mjs --owner owner-dashboard.spec.ts --build` | **3 passed** + **1 passed**, exit0 |
+
+Test skip duy nhất là `3E foreground visibility` với `test.skip(true, …)` do Astra đặt sẵn: môi trường automation desktop không sinh chuyển đổi visibility giữa tab. Có từ trước, không phải hồi quy.
+
+## Hai lỗi trong bộ test, không phải ở sản phẩm
+
+### `playwright.repository.config.ts` chạy song song trong khi login không cho
+
+Lần chạy đầu:48 passed,5 failed — toàn bộ `owner-dashboard.spec.ts` chết ở `OwnerAuth.login` với `LOGIN_FAILED`. `--workers=1` thì 8/8 pass.
+
+Nguyên nhân: `login()` giữ `pg_try_advisory_xact_lock` **phạm vi toàn database** để chỉ một KDF chạy mỗi lúc — hành vi sản phẩm đúng và cố ý. Nhưng test cô lập nhau bằng **schema**, không phải database, nên hai case login song song thì một case không lấy được lock và trả `null` → `LOGIN_FAILED`. Đọc log rất dễ nhầm thành lỗi xác thực.
+
+Sửa: `fullyParallel: false`, giữ `workers: 2`. Case trong cùng file chạy tuần tự, các file vẫn song song. Chỉ `owner-dashboard.spec.ts` login nên không còn trùng. Không giảm số test, không sửa sản phẩm.
+
+### `gate off retains legacy…` chứa assertion không bao giờ chạy được
+
+Test ở `public-v2.spec.ts:169` gọi `http://127.0.0.1:3319` — app build production. Harness **build và dựng cổng3319 sau** giai đoạn test chính, nên3319 chưa tồn tại lúc test chạy: `ECONNREFUSED`, **kể cả khi có `--build`**.
+
+Bốn dòng đó trùng y nguyên với test `production gate stays closed even with flag true` (dòng223), và test kia có `test.skip(process.env.NFC_TEST_PRODUCTION !== 'true')` nên chạy đúng pha. Mấy dòng này được thêm ở lát owner dashboard, mà lệnh của lát đó (`--owner owner-dashboard.spec.ts`) **không chạy file public-v2.spec.ts** — nên chúng chưa từng được chạy lại sau khi thêm.
+
+Sửa: bỏ ba dòng3319 khỏi test `gate off`, giữ phần thuộc chủ đề thật của nó (cổng3318 và `experiences > 0`). Coverage không giảm vì test `production gate` đã phủ đúng những assertion đó ở pha đúng.
+
+## Lệnh sai tôi đã chạy, ghi lại để khỏi lặp
+
+`run-local.mjs --owner --build` với toàn bộ spec cho 11 failed. Trong harness `publishing = owner || --publishing`, nên `--owner` bật luôn publishing và `/one` chuyển sang renderer publishing, mất nút sao — trong khi `public-v2`/`browser-hardening` được viết cho publishing tắt, và fixture chưa publish shop nào. **Ba lệnh trong bảng trên loại trừ nhau, phải chạy riêng.**
+
+## Ghi chú môi trường
+
+Có một `next-server` chạy liên tục hơn5 ngày từ phiên trước (PID25489) dù checkpoint ghi Next đã dừng. Chưa tắt, chờ Tài quyết.
+
+Production Vercel sau khi `main` được cập nhật: gate vẫn đóng (`/api/owner/v2/*`,`/owner/login` →404). `/caphe-demo` trả **200 kèm trang "Trang chưa sẵn sàng"**, tức nhánh xử lý lỗi DB, vì `SERVER_DATA_ENABLED` chỉ đặt cho Preview. Production trơ đúng như chủ ý. Đáng lưu ý cho sau này: cấu hình thiếu lại trả200 nên giám sát uptime sẽ tưởng site khoẻ; nên trả503.

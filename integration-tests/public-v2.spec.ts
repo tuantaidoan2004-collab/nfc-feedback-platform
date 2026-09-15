@@ -172,10 +172,10 @@ test('gate off retains legacy and v2 endpoint returns 404', async ({ page, reque
   await page.goto('http://127.0.0.1:3318/one');
   await expect(star(page, 5)).toBeEnabled(); await rated(page, 5);
   expect(v2).toEqual([]); expect(await count(db, 'visit_sessions')).toBe(0);
-  const ownerShell=await request.get('http://127.0.0.1:3319/ZZZ/one');expect(ownerShell.headers()['cache-control']).toContain('no-store');
-  for(const path of ['/api/owner/v2/one','/api/owner/v2/one/export','/owner/login?next=%2FZZZ%2Fone'])expect((await request.get(`http://127.0.0.1:3319${path}`)).status()).toBe(404);
-  expect((await request.post('http://127.0.0.1:3319/api/owner/v2/login',{data:{}})).status()).toBe(404);
   expect(await count(db, 'experiences')).toBeGreaterThan(0);
+  // The owner surfaces on the production build are asserted by 'production gate stays closed even with flag
+  // true', which the harness runs after it builds and starts that app. Asserting them here could never pass:
+  // this phase runs before the build exists.
   const off = await request.post('http://127.0.0.1:3318/api/v2/shops/one/visits', { data: {} });
   expect(off.status()).toBe(404);
 });
