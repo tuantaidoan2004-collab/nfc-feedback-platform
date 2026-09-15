@@ -1,3 +1,4 @@
+import { publishingEnabled } from '@/server/publishing-runtime';
 import { randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { database } from '@/server/db';
@@ -9,6 +10,7 @@ export const runtime = 'nodejs';
 type Context = { params: Promise<{shop:string}> };
 export async function POST(request: Request, context: Context) {
   try {
+    if (publishingEnabled()) throw new HttpError(404,'NOT_FOUND');
     sameOrigin(request); const shop = await shopBySlug((await context.params).shop);
     const name = `nfc_exp_${shop.id}`; const saved = (await cookies()).get(name)?.value;
     const token = saved && /^[a-f0-9]{64}$/.test(saved) ? saved : randomBytes(32).toString('hex');
@@ -18,6 +20,7 @@ export async function POST(request: Request, context: Context) {
 }
 export async function PATCH(request: Request, context: Context) {
   try {
+    if (publishingEnabled()) throw new HttpError(404,'NOT_FOUND');
     sameOrigin(request); const shop = await shopBySlug((await context.params).shop);
     const token = (await cookies()).get(`nfc_exp_${shop.id}`)?.value;
     if (!token || !/^[a-f0-9]{64}$/.test(token)) throw new HttpError(401,'EXPERIENCE_REQUIRED');

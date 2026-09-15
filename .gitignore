@@ -14,3 +14,9 @@ playwright-report/
 test-results/
 
 .pnpm-store/
+.vercel
+.env*
+!.env.example
+
+# The worktree node_modules is a symlink; "node_modules/" with a trailing slash does not match it.
+node_modules

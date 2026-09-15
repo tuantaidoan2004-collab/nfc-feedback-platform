@@ -1,6 +1,6 @@
 # Kiến trúc MVP — Vercel trước, có đường chuyển
 
-Ngày thiết kế: 2026-09-09. Đây là thiết kế của kiến trúc sư theo yêu cầu chủ dự án, chưa phải hạ tầng đã triển khai hoặc dịch vụ đã mua.
+Ngày thiết kế ban đầu: 2026-09-09; cập nhật đặc tả 2026-09-11. Neon development và migration 001_core đã có theo checkpoint. Các phần khác bên dưới là thiết kế mục tiêu, không phải xác nhận đã triển khai. Đặc tả vòng đời mới tại [platform-lifecycle.md](platform-lifecycle.md) ưu tiên khi khác mô hình sơ bộ bên dưới.
 
 ## Quyền sở hữu và phân công
 
@@ -32,23 +32,15 @@ Một shop không tương ứng một project Vercel hoặc database riêng. Nhi
 5. Góp ý riêng là thao tác gửi chủ động; mở form ở điểm thấp không ảnh hưởng lời mời/nút Google, vốn giữ cùng vị trí và độ nổi bật ở mọi điểm.
 6. Tiếng Việt mặc định; bộ chọn thủ công Việt/English dùng bản dịch sẵn. Không gọi dịch AI.
 
-Phân biệt `page_view`, `rating`, `feedback`, `google_link_click`. Website ghi nhận mở trang theo URL tag; không khẳng định mỗi lần mở là một lần chạm NFC vật lý, một người duy nhất hay review đã đăng Google.
+Phân biệt `page_visit`, `experience`, `rating`, `feedback`, `google_link_click`. Mỗi lần tải/tải lại có visit mới; chỉ tương tác mới tạo experience, đổi sao cùng lần mở cập nhật cùng experience. Website ghi nhận mở trang theo URL tag; không khẳng định mỗi lần mở là một lần chạm NFC vật lý, một người duy nhất hay review đã đăng Google.
 
 ## Luồng chủ và cấu trúc dữ liệu
 
 Chủ đăng nhập → kiểm tra membership → chỉ truy xuất shop được cấp quyền. Cache dashboard/private API luôn private/no-store, không dùng cache public của trang khách.
 
-- `users`, `accounts`, `sessions`: xác thực từ thư viện, không tự sáng tạo cơ chế mật khẩu.
-- `businesses`, `memberships`: shop và quan hệ người dùng/quyền hạn.
-- `tags`: mã thẻ, business_id, nhãn vị trí, trạng thái kích hoạt.
-- `page_configs`, `page_links`, `media`: thương hiệu, hai ngôn ngữ, liên kết cho phép, object key ảnh.
-- `experiences`: business_id, tag_id, mã phiên trải nghiệm, created_at, last_activity; không chứa định danh đoán từ IP.
-- `ratings`: unique experience_id, score, revision, updated_at.
-- `feedback`: experience_id, category, message, trạng thái xử lý.
-- `owner_notes`: ghi chú nội bộ có quyền đọc riêng.
-- `events`: loại sự kiện cần thiết, timestamp, business_id/tag_id; thời gian giữ log cần chốt trước pilot.
+Mô hình chi tiết đề xuất tại [platform-lifecycle.md](platform-lifecycle.md): `shops`, memberships, template versions, page drafts/releases, tags, preview sessions, page visits và experiences. Dùng tên `shops` theo migration hiện tại thay cho tên `businesses` trong bản phác thảo cũ. Schema hiện vẫn gộp rating/feedback/note trong experiences; việc tách bảng không được coi là đã triển khai.
 
-Giới hạn bản đầu: một shop/owner trên UI, nhưng schema membership cho phép mở rộng. Tài onboarding và tùy chỉnh cấu hình giúp shop trước; self-service editor chưa xây cho đến khi xác nhận cần.
+Editor giai đoạn đầu chỉ dành cho Tài. Dashboard chủ shop tập trung xem/lọc/xuất/xử lý, không chỉnh template. Workflow quản trị: tạo shop → slug → template/version → tài nguyên/link → preview/test → publish → tag → test → kích hoạt. Bản publish bất biến và dữ liệu preview tách khỏi live theo thiết kế mới.
 
 ## Riêng tư và kiểm thử bắt buộc trước pilot
 

@@ -1,0 +1,105 @@
+import { test as base, expect, type Page } from '@playwright/test';
+import { Pool } from 'pg';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { PublishingAdmin } from '../lib/publishing/repository';
+import { defaultConfig } from '../lib/publishing/config';
+const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
+if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
+type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; release: string };
+const test = base.extend<{ fixture: Fixture }>({ fixture: async ({}, provideFixture) => {
+  const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
+  try {
+    await db.query('TRUNCATE shops, template_versions CASCADE');
+    const shop = randomUUID();
+    await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'one','Legacy fixture')", [shop]);
+    const admin = new PublishingAdmin(db, async () => ({ actorId: 'local-fixture-only' }));
+    const template = await admin.createTemplate('neutral', 1);
+    await admin.createDraft(shop, template, defaultConfig('Release One'));
+    const published = await admin.publish(shop, 1);
+    await provideFixture({ db, admin, shop, release: published.releaseId });
+  } finally { await db.end(); }
+} });
+const star = (page: Page, n: number) => page.getByRole('button', { name: `${n} sao`, exact: true });
+const origin = 'http://127.0.0.1:3317';
+const openBody = () => ({ loadKey: randomUUID(), navigationKind: 'load' });
+test.beforeEach(async ({ page }) => {
+  await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
+});
+test('render R1 → publish R2 → open remains R1; reload shares session and revisions, immutable sources', async ({ page, fixture: f }) => {
+  let release!: () => void;
+  const latch = new Promise<void>(resolve => { release = resolve; });
+  let hold = true;
+  await page.route('**/api/v2/pages/visits', async route => { if (hold) { hold = false; await latch; } await route.continue(); });
+  const pending = page.waitForRequest('**/api/v2/pages/visits');
+  await page.goto('/one'); await pending;
+  await expect(page.getByText('Release One', { exact: true }).first()).toBeVisible();
+  await f.admin.saveDraft(f.shop, 2, defaultConfig('Release Two'));
+  const second = await f.admin.publish(f.shop, 3);
+  release(); await expect(star(page, 5)).toBeEnabled();
+  await star(page, 5).click(); await expect(page.locator('.rating-receipt')).toContainText('5/5');
+  const google = await page.locator('.google-invitation').innerText();
+  await page.reload(); await expect(star(page, 2)).toBeEnabled();
+  await expect(page.getByText('Release Two', { exact: true }).first()).toBeVisible();
+  await star(page, 2).click(); await expect(page.locator('.rating-receipt')).toContainText('2/5');
+  expect(await page.locator('.google-invitation').innerText()).toBe(google);
+  await expect(page.locator('.pulse-fill')).toHaveCSS('animation-name', 'feedback-breathe');
+  const response = page.waitForResponse('**/feedback');
+  await page.locator('#message').fill('Private publishing fixture');
+  await page.getByRole('button', { name: 'Gửi góp ý', exact: true }).click();
+  expect(await (await response).text()).not.toContain('Private publishing fixture');
+  await expect(page.locator('#message')).toHaveValue('');
+  expect((await f.db.query('SELECT rating,revision::int FROM rating_experiences')).rows).toEqual([{ rating: 2, revision: 3 }]);
+  expect((await f.db.query('SELECT count(*)::int n FROM visit_sessions')).rows[0].n).toBe(1);
+  expect((await f.db.query('SELECT c.release_id FROM rating_intent_receipts r JOIN published_visit_contexts c ON c.visit_id=r.visit_id ORDER BY r.applied_revision')).rows.map(r => r.release_id)).toEqual([f.release, second.releaseId, second.releaseId]);
+  for (const table of ['session_initial_contexts', 'experience_origin_contexts']) expect((await f.db.query(`SELECT c.release_id FROM ${table} o JOIN published_visit_contexts c ON c.visit_id=o.visit_id`)).rows[0].release_id).toBe(f.release);
+  await page.getByLabel(/Language/).selectOption('en');
+  await expect(page.getByRole('button', { name: 'Send feedback', exact: true })).toBeVisible();
+});
+test('preview uses HttpOnly capability, test scope; tag tested→active→disabled blocks existing tab', async ({ page, context, fixture: f }) => {
+  const tag = await f.admin.createTag(f.shop, 'fixture-tag');
+  const preview = await f.admin.preview(f.shop, { kind: 'draft', revision: 2 }, 900, tag);
+  const exchanged = await context.request.post('/preview/exchange', { headers: { Origin: origin }, data: { token: preview.token } });
+  expect(exchanged.status()).toBe(204); expect(await exchanged.text()).toBe('');
+  expect((await context.cookies()).find(c => c.name === 'nfc_preview')).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
+  let proof = '';
+  page.on('request', r => { if (r.url().endsWith('/api/v2/pages/visits')) proof = r.headers()['x-nfc-render']; });
+  await page.goto('/preview'); await expect(star(page, 5)).toBeEnabled();
+  expect(await page.evaluate(() => document.cookie)).not.toContain(preview.token);
+  expect(await page.content()).not.toContain(preview.token); expect(page.url()).not.toContain(preview.token);
+  await star(page, 5).click(); await expect(page.locator('.rating-receipt')).toContainText('5/5');
+  expect((await f.db.query("SELECT count(*)::int n FROM rating_experiences WHERE scope='live'")).rows[0].n).toBe(0);
+  // Valid public attribution proof is insufficient without the separate preview capability.
+  await context.clearCookies();
+  const denied = await context.request.post('/api/v2/pages/visits', { headers: { Origin: origin, Authorization: `Bearer ${randomBytes(32).toString('hex')}`, 'X-NFC-Render': proof }, data: openBody() });
+  expect(denied.status()).toBe(403); expect(await denied.json()).toEqual({ error: 'PREVIEW_UNAVAILABLE' });
+  await f.admin.setTagState(f.shop, tag, 'tested', preview.id); await f.admin.setTagState(f.shop, tag, 'active');
+  await page.goto('/t/fixture-tag'); await expect(star(page, 5)).toBeEnabled();
+  expect((await f.db.query("SELECT tag_id,release_id FROM published_visit_contexts WHERE scope='live'")).rows).toEqual([{ tag_id: tag, release_id: f.release }]);
+  await f.admin.setTagState(f.shop, tag, 'disabled');
+  const response = page.waitForResponse('**/rating'); await star(page, 4).click();
+  expect((await response).status()).toBe(403);
+  expect((await f.db.query("SELECT count(*)::int n FROM rating_experiences WHERE scope='live'")).rows[0].n).toBe(0);
+  await page.reload(); await expect(page.getByRole('heading', { name: 'Trang chưa sẵn sàng' })).toBeVisible();
+});
+test('proof tamper, legacy bypass, suspended shop and cross-origin exchange are denied', async ({ page, request, fixture: f }) => {
+  let proof = '';
+  page.on('request', r => { if (r.url().endsWith('/api/v2/pages/visits')) proof = r.headers()['x-nfc-render']; });
+  await page.goto('/one'); await expect(star(page, 5)).toBeEnabled();
+  const headers = { Origin: origin, Authorization: `Bearer ${randomBytes(32).toString('hex')}`, 'X-NFC-Render': proof };
+  const bad = await request.post('/api/v2/pages/visits', { headers: { ...headers, 'X-NFC-Render': proof + 'x' }, data: openBody() });
+  expect(bad.status()).toBe(403); expect(await bad.json()).toEqual({ error: 'INVALID_RENDER_PROOF' });
+  for (const url of ['/api/v2/shops/one/visits', '/api/shops/one/experience']) expect((await request.post(url, { headers, data: openBody() })).status()).toBe(404);
+  const cap = await f.admin.preview(f.shop, { kind: 'release', id: f.release });
+  expect((await request.post('/preview/exchange', { headers: { Origin: 'https://invalid.example' }, data: { token: cap.token } })).status()).toBe(403);
+  await f.admin.setShopState(f.shop, 'suspended');
+  const response = page.waitForResponse('**/rating'); await star(page, 5).click();
+  expect((await response).status()).toBe(403);
+  expect((await f.db.query('SELECT count(*)::int n FROM rating_experiences')).rows[0].n).toBe(0);
+});
+test('publishing gate off and demo retain legacy behavior', async ({ page, request, fixture: f }) => {
+  expect((await request.post('http://127.0.0.1:3318/api/v2/pages/visits', { data: {} })).status()).toBe(404);
+  await page.goto('http://127.0.0.1:3318/one'); await expect(page.getByText('Legacy fixture', { exact: true }).first()).toBeVisible();
+  await page.goto('/t/demo'); await expect(star(page, 5)).toBeEnabled();
+  await star(page, 5).click();
+  expect((await f.db.query('SELECT count(*)::int n FROM page_visits')).rows[0].n).toBe(0);
+});

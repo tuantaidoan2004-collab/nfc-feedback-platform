@@ -1,0 +1,25 @@
+# node_modules here is a symlink to another checkout. The .gitignore pattern "node_modules/" does not match a
+# symlink, so without this line the upload follows it and ships 1.9GB of another project's dependencies.
+node_modules
+
+.next
+.vercel
+test-results
+playwright-report
+*.tsbuildinfo
+*.log
+
+# Test suites and harnesses never run on the platform; they need a local PostgreSQL fixture.
+client-tests
+integration-tests
+repository-tests
+tests
+playwright.*.config.ts
+playwright.config.ts
+
+prototypes
+docs
+.agents
+
+# Vercel CLI writes .env.local with an OIDC token; env files never belong in an upload.
+.env*

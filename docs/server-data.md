@@ -1,3 +1,7 @@
+# Trạng thái mới nhất
+
+APIv2 development đã chuyển sang session15phút (browser token chung, open event riêng); chưa nối UI hoặc bật trên dịch vụ thật. Các đoạn trước đó về token riêng document đã bị thay thế. Xem docs/visit-v2-api.md và docs/visit-rating-repository.md. Phần legacy bên dưới vẫn mô tả code đang phục vụ UI.
+
 # Ranh giới server và dữ liệu shop
 
 ## URL và trách nhiệm
@@ -22,7 +26,7 @@ Khách chấm ở `/A` vẫn ở `/A`; chủ mở/làm mới `/ZZZ/A` để th�
 
 ## Chưa được coi là sẵn sàng pilot
 
-Chưa kết nối Neon thật; máy hiện tại chưa có PostgreSQL. CI dùng PostgreSQL 17 tách biệt. Chưa có nhà cung cấp đăng nhập hoặc màn hình login: bảng session/membership và kiểm tra quyền đã có, test tạo phiên trong DB test. Không có endpoint login giả hoặc khóa mặc định. Chủ chưa thể tự đăng nhập bản thật cho đến bước nối auth.
+Theo checkpoint, Neon development Singapore đã kết nối và migration 001_core chạy thành công; không kiểm tra lại hạ tầng trong bước đặc tả 2026-09-11. CI dùng PostgreSQL 17 tách biệt. Chưa có nhà cung cấp đăng nhập hoặc màn hình login: bảng session/membership và kiểm tra quyền đã có, test tạo phiên trong DB test. Không có endpoint login giả hoặc khóa mặc định. Chủ chưa thể tự đăng nhập bản thật cho đến bước nối auth.
 
 Chưa có rate limit dùng chung, RLS role deployment, retention/xóa dữ liệu, backup/restore, chống tạo trải nghiệm hàng loạt, cấu hình onboarding/link tùy chỉnh cho shop, hoặc upload R2. Không bật `SERVER_DATA_ENABLED` trên môi trường công khai trước khi hoàn thành các phần này. Không dùng cookie 30 ngày như nhận diện chắc chắn một người hay một lần ghé.
 
@@ -33,3 +37,19 @@ Bản demo cũ tại `/t/demo` và `/demo/dashboard` vẫn chỉ dùng trình du
 - https://node-postgres.com/features/queries
 - https://nextjs.org/docs/app/api-reference/file-conventions/route
 - https://developers.cloudflare.com/r2/objects/
+
+## Khoảng cách với đặc tả 2026-09-11
+
+Code hiện tại gọi POST experience khi component mở và tái dùng cookie 30 ngày. Đây là hành vi cũ, chưa đáp ứng quyết định page_visit riêng mỗi lần tải và rating experience dùng chung session15phút. Schema legacy001 chưa có page_visits, tags, template versions, drafts/releases hoặc preview scope; không được suy luận đã có phân tách test/live từ việc lọc shop_id. Owner API hiện có phân trang, ghi chú/trạng thái; chưa có lọc nghiệp vụ, export hoặc editor Tài.
+
+Thiết kế thay thế và cách chuyển tiếp nằm tại [platform-lifecycle.md](platform-lifecycle.md). Không sửa migration 001_core đã chạy; thay đổi schema tương lai phải dùng migration mới, giữ dữ liệu cũ có nhãn legacy, không tự bịa visit lịch sử.
+
+
+## Repository v2 riêng — chưa nối runtime
+
+Migration002 và lib/repositories/visit-ratings.ts đã được kiểm thử PostgreSQL local: visit theo lần mở, lazy rating experience và intent receipts. Xem docs/visit-rating-repository.md. Runner hiện tại vẫn chỉ áp dụng001; không chạy002 trên Neon. Các endpoint/cookie/UI mô tả ở trên vẫn dùng legacy, chưa thay đổi theo v2.
+
+
+## API v2 development — chưa bật hoặc nối UI
+
+Hai POST mới tại `/api/v2/shops/<shop>/visits` và `/api/v2/shops/<shop>/visits/<visitId>/rating` delegate sang handler token. Scope live cố định, server time, không cookie. Chỉ hoạt động khi NFC_VISITS_V2_ENABLED=true và NODE_ENV không phải production, đồng thời DB/APP_ORIGIN được cấu hình; chưa thiết lập các giá trị này. Migration002 mới chỉ test local. Chi tiết contract/test/giới hạn tại docs/visit-v2-api.md. Runtime UI và endpoint legacy vẫn chưa chuyển sang v2.
