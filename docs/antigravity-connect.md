@@ -211,3 +211,40 @@ Connection string branch `development` đã bị dán vào hội thoại. Nó ch
 - Chưa deploy, chưa tạo tài nguyên Vercel/R2, chưa chạy migration lên Neon, chưa xác minh cookie `Secure` trên HTTPS thật, chưa test iPhone/Safari.
 - `DATABASE_URL_DIRECT` mới là đường code, chưa chạy thật qua pooler Neon lần nào.
 - Chưa đụng admin editor, media/R2, renderer showcase.
+
+---
+
+# Deploy Vercel — 2026-09-15
+
+## Đã làm
+
+- `npm i -g vercel` → CLI59.17.0. Tài tự `vercel login` (agent không nhập credential).
+- Máy Tài **chưa từng có `~/.zshrc`**, nên node/nvm chỉ sống trong phiên terminal lúc cài. Đã tạo `~/.zshrc` nạp nvm; shell tương tác mới thấy `v24.21.0` và `vercel`.
+- Project `mount-pro/nfc-feedback-platform`. Lượt deploy đầu bị Vercel gán vào **production** (hành vi mặc định cho deployment đầu tiên), không phải preview.
+- Bản production đó **không có biến môi trường nào** → gate đóng. Kiểm qua HTTPS thật tại `https://nfc-feedback-platform.vercel.app`: `/api/owner/v2/one` và `/owner/login` trả **404**; legacy `/one`, `/t/demo`, `/demo/dashboard` trả200; header `no-store`/`DENY`/CSP `frame-ancestors 'none'`/`nosniff`/`no-referrer` áp đúng. **Lần đầu gate được chứng minh trên hạ tầng thật, không phải localhost.**
+- Đặt6 biến cho môi trường Preview: `NFC_BUILD_TARGET=vercel`, `NFC_ENV=preview`, `SERVER_DATA_ENABLED=true`, `NFC_VISITS_V2_ENABLED=true`, `NFC_OWNER_V2_ENABLED=true`, `NFC_PUBLISHING_ENABLED=false`.
+
+## Hai cái bẫy đã gỡ
+
+- **`node_modules` symlink không bị `.gitignore` bắt.** Pattern `node_modules/` có gạch chéo cuối không khớp symlink, nên nó nằm trong danh sách untracked và Vercel CLI sẽ đi theo symlink mà upload **1.9GB** dependency của checkout khác. Đã thêm `node_modules` (không gạch chéo) vào `.gitignore` và `.vercelignore`.
+- **`vercel link` nối thêm `.vercel` và `.env*` vào `.gitignore` nhưng đặt sau `!.env.example`**, làm `.env.example` bị ignore ngược lại vì luật cuối thắng. Đã thêm lại `!.env.example` ở cuối.
+
+## Rà secrets trước khi push
+
+Quét189 file sắp commit: không chuỗi kết nối thật, không token (`npg_`/`sk-`/`ghp_`/`AKIA`/`xox`), không private key, không secret gán cứng, không file >500KB. Chỉ `.github/workflows/ci.yml` có `postgresql://nfc_test:test_only@127.0.0.1:5432` — container CI tạm, không phải secret. `.env.example` không dòng nào có giá trị thật. Host và mật khẩu Neon không xuất hiện ở đâu.
+
+Repo GitHub là **private** (API ẩn danh trả404), nên push source không phơi công khai.
+
+## Commit
+
+Tài cho phép; một commit `2dd90b2` trên `feat/local-app-foundation`, push `172af2f..2dd90b2`. **Không đụng `main`.** 106 file: 94 file nền Astra chưa từng lên GitHub + 12 file sửa của lát A. Gộp một commit vì vài file Astra tạo đã bị lát A sửa, tách ra phải dựng lại nội dung cũ, rủi ro hơn lợi.
+
+## Đang chặn
+
+`vercel git connect` thất bại: tài khoản Vercel đăng nhập bằng email, chưa có Login Connection tới GitHub, nên không thấy repo private. Cần Tài nối GitHub trong Vercel rồi mới có preview URL ổn định theo branch.
+
+Không có Git integration thì preview deployment nhận URL ngẫu nhiên mỗi lượt, trong khi `APP_ORIGIN` phải khớp chính xác để chặn origin hoạt động (`server/http.ts`, `server/owner-v2.ts:13`). Đó là lý do phải có alias ổn định trước khi bật app.
+
+## Chưa làm
+
+`APP_ORIGIN`, `DATABASE_URL`, `DATABASE_URL_DIRECT` chưa đặt. Chưa seed shop demo nên `/<shop>` chưa có gì hiện. Chưa kiểm rating/feedback/cookie `Secure` trên HTTPS thật. Chưa test iPhone. Production giữ trạng thái đóng, không đặt biến.
