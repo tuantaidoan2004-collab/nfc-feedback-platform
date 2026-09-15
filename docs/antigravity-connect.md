@@ -248,3 +248,25 @@ Không có Git integration thì preview deployment nhận URL ngẫu nhiên mỗ
 ## Chưa làm
 
 `APP_ORIGIN`, `DATABASE_URL`, `DATABASE_URL_DIRECT` chưa đặt. Chưa seed shop demo nên `/<shop>` chưa có gì hiện. Chưa kiểm rating/feedback/cookie `Secure` trên HTTPS thật. Chưa test iPhone. Production giữ trạng thái đóng, không đặt biến.
+
+## Vì sao mọi deployment sau bản đầu bị chặn
+
+Ba deployment liên tiếp hiện `UNKNOWN` với build `0ms` trong `vercel ls`. Dashboard cho lý do thật: **Deployment Blocked — commit author email `doantai@192.168.2.26` không hợp lệ.**
+
+Máy chưa từng có `~/.gitconfig` và repo không có `user.email`/`user.name`, nên Git tự dựng danh tính từ tên máy và IP nội bộ. Vercel chặn deployment mà commit author email không thuộc tài khoản Git nào. Không liên quan gói dịch vụ, hàng đợi build hay code: cùng commit đó build sạch ở local, và bản production đầu tiên (`vercel deploy` trước khi có commit nào) build được 57s.
+
+Dấu hiệu dễ đọc sai: commit `e2529fe` có **một bản Ready và một bản Blocked** cùng lúc — hai đường kích hoạt khác nhau, chỉ đường mang danh tính commit bị chặn. `vercel ls` hiển thị `Blocked` thành `UNKNOWN`, nên chỉ đọc CLI thì tưởng là hàng đợi bị treo.
+
+Đã đặt `git config --global user.email/user.name`. Ba commit đã push (`2dd90b2`, `e2529fe`, `848af8f`) vẫn giữ author cũ; không viết lại lịch sử đã push. Commit mới trở đi mang danh tính đúng, và Vercel chỉ xét commit của deployment đó nên deploy sau sẽ thông.
+
+## Deployment Protection đang bật trên Preview
+
+`GET` bất kỳ đường nào trên alias branch đều trả `302` tới `https://vercel.com/sso-api`. Preview yêu cầu đăng nhập Vercel. Đúng ý Tài đã chọn (production đóng, preview bảo vệ), nhưng **ảnh hưởng trực tiếp tới mục tiêu test iPhone/Safari**: mở link trên điện thoại sẽ ra trang đăng nhập Vercel chứ không phải app, trừ khi đăng nhập Vercel trên thiết bị đó trước. Chưa tự tắt.
+
+## Neon sau khi sửa gốc
+
+`production` và `preview/feat/local-app-foundation`: mỗi branch4 migration, đủ23 bảng. Shop demo `caphe-demo` đã seed vào branch preview qua SQL Editor, không dùng chuỗi kết nối.
+
+`vercel-dev` (môi trường Development của Vercel, chưa dùng) vẫn rỗng — `insert` vào đó báo `relation "shops" does not exist`, đúng như dự kiến vì nó tách ra từ `production` lúc còn rỗng. Không phải sự cố mới.
+
+Branch mặc định `production` giờ đã có schema, nên branch preview Vercel tạo về sau tự kế thừa đủ bảng; đây là lý do migrate `production` thay vì chỉ migrate từng branch preview.
