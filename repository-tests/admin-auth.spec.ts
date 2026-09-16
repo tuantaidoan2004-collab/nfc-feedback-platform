@@ -133,3 +133,23 @@ test('rollback refuses to discard administrative identities or the audit trail',
  try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('ADMIN_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
  expect((await f.db.query('SELECT count(*)::int n FROM platform_admins')).rows[0].n).toBe(1);
 });
+
+test('a forgotten password is reset in place, revoking sessions and leaving the trail intact',async({f})=>{
+ // An administrator cannot be deleted and recreated: admin_audit references the actor and refuses DELETE, so
+ // the only way back from a forgotten password is a reset that keeps the same identity.
+ const url=`${uri}?options=-c%20search_path%3D${f.schema}`;
+ const first='a-sufficiently-long-admin-secret',second='another-long-enough-admin-secret';
+ await run(process.execPath,['scripts/bootstrap-admin.mjs','scripted'],{env:{...process.env,NFC_ADMIN_PASSWORD:first,DATABASE_URL:url}});
+ const before=await f.auth.login('scripted',first);
+ await run(process.execPath,['scripts/bootstrap-admin.mjs','scripted','--reset'],{env:{...process.env,NFC_ADMIN_PASSWORD:second,DATABASE_URL:url}});
+
+ await expect(f.auth.login('scripted',first)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('scripted',second)).resolves.toBeTruthy();
+ const client=await f.db.connect();
+ try{await expect(authorizeAdmin(client,before.token)).rejects.toThrow('ADMIN_LOGIN_REQUIRED');}finally{client.release();}
+
+ expect((await f.db.query('SELECT count(*)::int n FROM platform_admins')).rows[0].n).toBe(1);
+ expect((await f.db.query('SELECT action FROM admin_audit ORDER BY id')).rows.map(r=>r.action)).toEqual(['admin.bootstrap','admin.password_reset']);
+ await expect(run(process.execPath,['scripts/bootstrap-admin.mjs','ghost','--reset'],{env:{...process.env,NFC_ADMIN_PASSWORD:second,DATABASE_URL:url}}))
+  .rejects.toThrow(/No administrator named ghost/);
+});

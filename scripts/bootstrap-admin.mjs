@@ -15,9 +15,11 @@ const derive = (password, salt) => new Promise((resolve, reject) =>
   scrypt(password, Buffer.from(salt, 'hex'), 32, { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 },
     (error, key) => error ? reject(error) : resolve(key)));
 
-const name = (process.argv[2] ?? '').trim().toLowerCase();
+const args = process.argv.slice(2);
+const reset = args.includes('--reset');
+const name = (args.find(a => !a.startsWith('--')) ?? '').trim().toLowerCase();
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL required');
-if (!/^[a-z0-9][a-z0-9_.-]{2,63}$/.test(name)) throw new Error('Usage: node scripts/bootstrap-admin.mjs <username>');
+if (!/^[a-z0-9][a-z0-9_.-]{2,63}$/.test(name)) throw new Error('Usage: node scripts/bootstrap-admin.mjs <username> [--reset]');
 
 // Read the password from stdin rather than an argument, so it never reaches shell history or the process list.
 // Typing shows an asterisk per character: a prompt that looks frozen is a prompt people abandon or mistype.
@@ -82,14 +84,20 @@ const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
 try {
   await client.query('BEGIN');
-  const id = (await client.query(
-    'INSERT INTO platform_admins(username,password_salt,password_key,password_scheme)VALUES($1,$2,$3,$4)RETURNING id',
-    [name, salt, key, SCHEME])).rows[0].id;
-  // Self-recorded, because no administrator existed to authorise it. The trail still shows where this came from.
-  await client.query("INSERT INTO admin_audit(actor_id,action,detail)VALUES($1,'admin.bootstrap',$2)",
-    [id, JSON.stringify({ username: name, via: 'scripts/bootstrap-admin.mjs' })]);
+  // An administrator is never deleted: admin_audit references the actor and refuses UPDATE or DELETE, so the
+  // trail would break. A forgotten password is therefore reset in place, and every session is revoked with it.
+  const id = reset
+    ? (await client.query('UPDATE platform_admins SET password_salt=$2,password_key=$3,password_scheme=$4 WHERE username=$1 RETURNING id',
+        [name, salt, key, SCHEME])).rows[0]?.id
+    : (await client.query('INSERT INTO platform_admins(username,password_salt,password_key,password_scheme)VALUES($1,$2,$3,$4)RETURNING id',
+        [name, salt, key, SCHEME])).rows[0].id;
+  if (!id) throw new Error(`No administrator named ${name}; drop --reset to create one.`);
+  if (reset) await client.query('UPDATE admin_auth_sessions SET revoked_at=clock_timestamp() WHERE admin_id=$1 AND revoked_at IS NULL', [id]);
+  // Self-recorded, because no administrator authorised it. The trail still shows where this came from.
+  await client.query('INSERT INTO admin_audit(actor_id,action,detail)VALUES($1,$2,$3)',
+    [id, reset ? 'admin.password_reset' : 'admin.bootstrap', JSON.stringify({ username: name, via: 'scripts/bootstrap-admin.mjs' })]);
   await client.query('COMMIT');
-  console.log(`Created platform administrator ${name} (${id}).`);
+  console.log(reset ? `Reset the password for ${name} (${id}); existing sessions revoked.` : `Created platform administrator ${name} (${id}).`);
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;
