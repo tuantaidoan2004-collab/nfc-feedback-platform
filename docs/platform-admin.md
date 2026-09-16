@@ -164,3 +164,25 @@ Mạo danh (hai quyền tách theo `commercial-model.md` mục 8), bảng danh s
 **`vercel env pull` cần `--git-branch`.** Chuỗi Neon do tích hợp quản lý được gắn phạm vi `Preview (feat/local-app-foundation)`, nên `vercel env pull --environment=preview` **không** trả về nó. Thêm `--git-branch=feat/local-app-foundation` thì lấy được. Nhờ vậy chạy migration lên preview không cần ai dán chuỗi kết nối vào đâu cả: Vercel → file cục bộ → biến môi trường → `migrate.mjs`, rồi xoá file.
 
 **`vercel deploy` từ CLI không di chuyển alias theo branch.** Chỉ deployment do Git kích hoạt mới cập nhật `…-git-<branch>-….vercel.app`. Bản deploy bằng CLI chạy đúng khi gọi thẳng URL của nó, nhưng alias vẫn trỏ bản cũ — và vì `APP_ORIGIN` đặt theo alias, đăng nhập qua URL deployment sẽ bị chặn origin. Đổi biến môi trường xong thì **push một commit** để Git deploy, đừng dùng `vercel deploy`.
+
+## Xoay mật khẩu database thì phải deploy lại
+
+Sau khi Tài reset mật khẩu `neondb_owner` trong Neon, mọi đường chạm database trên preview bắt đầu trả 503 và trang khách chuyển sang "Trang chưa sẵn sàng". Log runtime cho lý do thật:
+
+```
+ADMIN_UNEXPECTED error: password authentication failed for user 'neondb_owner'
+```
+
+Nghịch lý làm rõ cơ chế: `vercel env pull` lấy về chuỗi **mới** và chuỗi đó xác thực thành công từ máy local, trong khi deployment đang phục vụ vẫn hỏng. **Vercel chụp ảnh biến môi trường tại thời điểm tạo deployment**; tích hợp Neon cập nhật cấu hình project, nhưng bản đang chạy giữ ảnh chụp cũ. Đổi biến không có hiệu lực cho tới khi có deployment mới — và vì `vercel deploy` không di chuyển alias theo branch, cách đúng là **push một commit**.
+
+Ghi lại vì nó sẽ lặp: **mỗi lần xoay credential database, phải deploy lại**, nếu không sẽ thấy một hệ thống "tự dưng hỏng" mà mọi kiểm tra thủ công đều báo bình thường.
+
+Dòng log này chính là thứ commit "Record why an administrative request failed unexpectedly" thêm vào. Không có nó thì chỉ thấy `SERVICE_UNAVAILABLE` và không có gì để lần.
+
+## Về chi phí 1,9 giây của scrypt
+
+Đo trên preview khi hệ thống chạy đúng: POST bị chặn origin 0,41s · GET có database 0,66s · POST login 2,54s. Phần chênh ~1,9s là `scrypt`.
+
+**Đây không phải lỗi hiệu năng cần sửa.** `N=131072, r=8, p=1` đúng bằng mức OWASP khuyến nghị cho scrypt; nó **cố tình đắt** để kẻ tấn công không dò được hàng loạt. Máy local nhanh hơn ~10 lần chỉ vì Apple Silicon mạnh hơn CPU chia sẻ của serverless, không phải vì nền tảng kém. Giảm tham số là hạ mức bảo vệ mật khẩu xuống dưới khuyến nghị, và còn phải bump `password_scheme` rồi băm lại toàn bộ.
+
+Với một thao tác vài lần mỗi ngày, 1,9s là cái giá đúng. Điều đáng ghi nhận để bàn sau: `login()` **giữ một kết nối database và một transaction suốt thời gian chạy scrypt** — trên local 0,2s nên không ai thấy, trên serverless là 2 giây giữ chỗ trong pool chỉ để tính CPU.
