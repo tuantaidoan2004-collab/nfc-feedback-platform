@@ -7,6 +7,7 @@
 // the CHECK on that column then rejects a stale write instead of silently storing an unusable hash.
 import { randomBytes, scrypt } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
+import { StringDecoder } from 'node:string_decoder';
 import pg from 'pg';
 
 const SCHEME = 'scrypt-131072-8-1';
@@ -19,17 +20,61 @@ if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL required');
 if (!/^[a-z0-9][a-z0-9_.-]{2,63}$/.test(name)) throw new Error('Usage: node scripts/bootstrap-admin.mjs <username>');
 
 // Read the password from stdin rather than an argument, so it never reaches shell history or the process list.
+// Typing shows an asterisk per character: a prompt that looks frozen is a prompt people abandon or mistype.
+function promptHidden(label) {
+  process.stdout.write(label);
+  process.stdin.setRawMode(true); process.stdin.resume();
+  const decoder = new StringDecoder('utf8');
+  return new Promise(resolve => {
+    let value = '';
+    const onData = chunk => {
+      for (const byte of chunk) {
+        if (byte === 3) { process.stdout.write('\n'); process.exit(130); }
+        if (byte === 13 || byte === 10) {
+          process.stdin.off('data', onData); process.stdin.setRawMode(false); process.stdin.pause();
+          process.stdout.write('\n'); return resolve(value);
+        }
+        if (byte === 127 || byte === 8) { if (value) { value = value.slice(0, -1); process.stdout.write('\b \b'); } continue; }
+        if (byte < 32) continue;
+        // One byte at a time through the decoder, so a multi-byte character counts once and deletes once.
+        const piece = decoder.write(Buffer.from([byte]));
+        if (piece) { value += piece; process.stdout.write('*'); }
+      }
+    };
+    process.stdin.on('data', onData);
+  });
+}
+
+const invalid = value => value.length < 16 ? 'Password must be at least 16 characters.'
+  : Buffer.byteLength(value) > 256 ? 'Password must be at most 256 bytes.' : null;
+
 async function readPassword() {
-  if (process.env.NFC_ADMIN_PASSWORD) return process.env.NFC_ADMIN_PASSWORD;
-  const tty = process.stdin.isTTY;
-  if (tty) process.stdout.write('Password (at least 16 characters, not echoed): ');
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: tty });
-  if (tty) rl.output.write = () => true;
-  try { return (await rl.question('')).trim(); } finally { rl.close(); if (tty) process.stdout.write('\n'); }
+  if (process.env.NFC_ADMIN_PASSWORD) {
+    const reason = invalid(process.env.NFC_ADMIN_PASSWORD);
+    if (reason) throw new Error(reason);
+    return process.env.NFC_ADMIN_PASSWORD;
+  }
+  if (!process.stdin.isTTY) {
+    const rl = createInterface({ input: process.stdin });
+    try {
+      const piped = (await rl.question('')).trim();
+      const reason = invalid(piped);
+      if (reason) throw new Error(reason);
+      return piped;
+    } finally { rl.close(); }
+  }
+  // Asking twice catches a typo now instead of at the login form, where the message is deliberately vague.
+  for (let attempt = 3; attempt > 0; attempt--) {
+    const value = await promptHidden(`Password for ${name} (at least 16 characters): `);
+    const reason = invalid(value);
+    if (reason) { console.error(`  ${reason} ${attempt - 1} attempt(s) left.`); continue; }
+    if (value !== await promptHidden('Repeat it: ')) { console.error(`  The two entries differ. ${attempt - 1} attempt(s) left.`); continue; }
+    return value;
+  }
+  throw new Error('No valid password entered; nothing was created.');
 }
 
 const password = await readPassword();
-if (password.length < 16 || Buffer.byteLength(password) > 256) throw new Error('Password must be 16 to 256 bytes');
 
 const salt = randomBytes(16).toString('hex');
 const key = (await derive(password, salt)).toString('hex');
