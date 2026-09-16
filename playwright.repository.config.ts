@@ -1,9 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
-// Tests isolate with a schema per case, but owner login takes a database-wide advisory lock so that only one
-// KDF runs at a time. Two cases logging in at once therefore make one of them fail to acquire it and read as
-// LOGIN_FAILED. Cases within a file run in order for that reason; files still run across both workers.
+// One worker, not two. Cases isolate with a schema, but owner and administrator login each take an advisory
+// lock scoped to the whole database so that only one KDF runs at a time. Two cases logging in at once — in one
+// file or in two — leave one unable to take it, which surfaces as LOGIN_FAILED and reads like an auth bug.
+// Raising this again means giving each file its own database, not its own schema.
 export default defineConfig({
-  testDir: './repository-tests', fullyParallel: false, workers: 2,
+  testDir: './repository-tests', fullyParallel: false, workers: 1,
   forbidOnly: !!process.env.CI, reporter: 'list',
 });
