@@ -13,3 +13,16 @@
 .login button:disabled,.shell button:disabled{opacity:.55;cursor:wait}
 .login :focus-visible,.shell :focus-visible{outline:3px solid #cd923c;outline-offset:3px}
 @media(max-width:650px){.login{margin:8vh 16px}.shell{padding:20px 14px 40px}.shell h1{font-size:25px}}
+.panel{background:white;border:1px solid #e0e8df;border-radius:14px;padding:20px;margin:20px 0;box-shadow:0 5px 18px #16362909}
+.panel h2{font-size:19px;margin:0 0 4px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:end;margin-top:14px}
+.form label{grid-column:span 1}
+.wide{overflow-x:auto}
+.table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+.table th,.table td{text-align:left;padding:10px 12px;border-bottom:1px solid #e8eee7;vertical-align:top}
+.table th{font-weight:600;color:#52695e;white-space:nowrap}
+.table code{font-size:12px;word-break:break-all}
+.handover{background:#e6eee5;border:1px solid #cdd9d0;border-radius:12px;padding:16px;margin-top:16px}
+.handover code{display:block;word-break:break-all;background:white;border:1px solid #cdd9d0;border-radius:8px;padding:10px;margin:8px 0;font-size:13px}
+.muted{font-size:13px;color:#52695e;line-height:1.6}
+@media(max-width:650px){.form{grid-template-columns:1fr}}

@@ -71,3 +71,42 @@ test('production gate keeps administration closed even with the flag true',async
  expect((await request.post(`${built}/gov/api/login`,{headers:{origin:built},data:{username:'boss',password:secret}})).status()).toBe(404);
  expect((await request.post(`${built}/gov/api/logout`,{headers:{origin:built},data:{}})).status()).toBe(404);
 });
+
+test('generate a shop, hand over the link, and the shop signs in on its own',async({page,admin})=>{
+ await page.goto('/gov/login');
+ await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
+
+ await page.getByLabel('Tên shop',{exact:true}).fill('Cà Phê Ban Mai');
+ await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
+ await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
+ await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
+ await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
+
+ await expect(page.getByRole('heading',{name:'Gửi liên kết này cho chủ shop'})).toBeVisible();
+ // Selected by a data attribute, not a class: CSS modules hash class names at build time.
+ const setupUrl=(await page.locator('[data-handover] code').first().textContent())??'';
+ expect(setupUrl).toContain('/owner/setup/');
+ const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
+ await expect(page.getByRole('cell',{name:slug})).toBeVisible();
+
+ // The shop opens the link itself and chooses a password the operator never sees.
+ await page.goto(setupUrl);
+ await expect(page.getByRole('heading',{name:'Đặt mật khẩu',exact:true})).toBeVisible();
+ await page.getByLabel('Mật khẩu mới',{exact:true}).fill('chosen-by-the-shop');
+ await page.getByLabel('Nhập lại',{exact:true}).fill('chosen-by-the-shop');
+ await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
+ await expect(page).toHaveURL(new RegExp('/owner/login'));
+
+ // Spent once: the same link is dead even before anyone tries the new password.
+ await page.goto(setupUrl);
+ await expect(page.getByRole('heading',{name:'Liên kết không dùng được'})).toBeVisible();
+
+ await page.goto(`/ZZZ/${slug}`);
+ await page.getByLabel('Tài khoản',{exact:true}).fill('caphe-banmai');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await expect(page.locator('[data-metric="opens"]')).toBeVisible();
+});

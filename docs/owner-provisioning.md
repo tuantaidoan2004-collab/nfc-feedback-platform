@@ -46,3 +46,45 @@ Thêm spec này làm lộ lại lỗi cũ ở dạng nặng hơn. Owner login gi
 ## Chưa có
 
 Gửi email thật (cần Tài chọn nhà cung cấp), route HTTP, trang đặt mật khẩu, nút Generate, xác minh email.
+
+---
+
+# Lát 3 — nút Generate và trang đặt mật khẩu — 2026-09-16
+
+Vòng lặp hoàn chỉnh: Tài bấm một nút → ra shop, thẻ, tài khoản chủ shop và một liên kết → gửi qua Zalo → chủ shop tự đặt mật khẩu → tự đăng nhập dashboard của mình. Tài **không bao giờ biết mật khẩu đó**.
+
+## Thứ tự các bước là thứ giữ cho lỗi vô hại
+
+`PublishingAdmin` mở transaction riêng cho mỗi lệnh, nên cả chuỗi không thể nằm trong một transaction. Bản đầu xếp sai thứ tự và **test bắt được**: `publish()` chạy trước khi tạo owner, nên một username trùng để lại **một shop `active` không có chủ** — trang công khai mà không ai đăng nhập vào sửa được.
+
+Đã sửa hai chỗ:
+- **Kiểm username/email trùng trước khi ghi bất cứ thứ gì.** Đây là lỗi thường gặp nhất, bắt sớm thì không có gì để dọn.
+- **`publish()` xuống cuối cùng.** Tới dòng đó shop mới có active release; hỏng ở bất kỳ bước nào phía trên chỉ để lại một hàng tối, resolver từ chối, không ai thấy.
+
+Test khẳng định trực tiếp: sau một lần bị từ chối vì trùng, số shop và số tag **không tăng**.
+
+## Chi tiết đáng ghi
+
+- **Thẻ sinh ra ở trạng thái `prepared`, không phải `active`.** Đúng thực tế: thẻ vật lý còn phải ghi và thử trước khi khách quét được. `tag_transition()` ở migration 003 cũng chỉ cho `prepared → tested → active`.
+- **Một template dùng chung** cho mọi shop thay vì mỗi shop một cái, nên tất cả render qua cùng một renderer có version.
+- **Slug là mã ngẫu nhiên 12 ký tự.** Đổi sang tên đẹp sau không hỏng gì: thẻ mang mã tag, mọi lịch sử khoá theo `shops.id`.
+- **Liên kết chỉ hiện một lần**, trong phản hồi `no-store`, vì hệ thống chỉ giữ bản băm. Mất thì phát lại — có sẵn nút, và phát lại sẽ **huỷ liên kết cũ**, nên đó cũng là cách cắt một liên kết lỡ gửi nhầm chỗ.
+- **Trang đặt mật khẩu nói một câu duy nhất** cho hết hạn, đã dùng, bị thay và chưa từng tồn tại. Phân biệt ra là nói cho người dò liên kết biết họ đã trúng.
+
+## Token nằm trong đường dẫn
+
+`/owner/setup/<token>` — token đi vào log request của nền tảng. Giảm nhẹ bằng: dùng một lần, hết hạn 48 giờ, chỉ lưu bản băm, và `/owner/:path*` đã trả `no-store` + `no-referrer`. Muốn token không bao giờ tới máy chủ thì phải để nó trong fragment và cho trình duyệt POST lên; ghi nhận, chưa làm.
+
+## Hai lỗi trong lúc làm, ghi lại vì dễ lặp
+
+**Quên thêm migration 006 vào harness integration.** Đã thêm vào fixture repository nhưng không thêm vào `run-local.mjs`, nên cột `email` không tồn tại, `list()` ném lỗi và trang `/gov` hiện "Dịch vụ đang gián đoạn" — trông hệt như lỗi hạ tầng. **Thêm migration là phải sửa cả hai chỗ.**
+
+**Chọn phần tử test bằng tên class của CSS module.** Class bị băm lúc build nên `.handover` không khớp gì. Đổi sang thuộc tính `data-handover`.
+
+## Kiểm chứng — 2026-09-16
+
+Bảy bộ đều exit 0: contracts 60 · client 73 · repository **73** · public+browser 15 passed 1 skipped + 2 production gate · publishing 4+2 · owner 3+2 · **admin 3+2**, trong đó có test chạy trọn vòng lặp qua trình duyệt thật.
+
+## Chưa có
+
+Mạo danh (lát 4). Kích hoạt thẻ `prepared → tested → active`. Gửi email tự động. Thanh toán. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy; bật nó cần mọi shop có release, kể cả `caphe-demo` vốn được seed bằng INSERT thẳng.

@@ -83,7 +83,7 @@ export class ShopProvisioning {
     return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id) tags,
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id AND t.state='active') active_tags,
-        i.username owner_username,i.email owner_email,
+        i.id owner_user_id,i.username owner_username,i.email owner_email,
         (SELECT max(p.opened_at) FROM page_visits p WHERE p.shop_id=s.id) last_seen
       FROM shops s
       LEFT JOIN owner_memberships_v2 m ON m.shop_id=s.id AND m.active
