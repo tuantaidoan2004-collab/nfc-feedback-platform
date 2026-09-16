@@ -159,7 +159,7 @@ test('a piped password is read to end of stream, with or without a trailing newl
  // newline, and it exited on an unsettled await having written nothing at all.
  const url=`${uri}?options=-c%20search_path%3D${f.schema}`;
  // A minimal environment, so the variable that short-circuits the prompt cannot leak in from this process.
- const env={PATH:process.env.PATH??'',DATABASE_URL:url};
+ const env={PATH:process.env.PATH??'',NODE_ENV:process.env.NODE_ENV,DATABASE_URL:url};
  const bare='piped-password-no-newline',withNewline='piped-password-with-newline';
  execFileSync(process.execPath,['scripts/bootstrap-admin.mjs','piped'],{env,input:bare});
  await expect(f.auth.login('piped',bare)).resolves.toBeTruthy();
