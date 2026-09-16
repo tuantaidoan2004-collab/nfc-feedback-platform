@@ -377,3 +377,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kiểm chứng sau thay đổi: **7 bộ đều exit0** — contracts60, client73, repository61, public+browser15+1skip và2 production gate, publishing4+2, owner3+2, **admin HTTP2+2**. Test production gate của admin chỉ khẳng định HTTP404 nên chạy cả ở lượt không bật cờ admin.
 - Một test viết sai đã sửa: `getByRole('alert')` vi phạm strict mode vì Next render `__next-route-announcer__` cũng `role="alert"`; thu hẹp bằng `getByRole('main')`.
 - Chưa có: mạo danh, bảng danh sách shop, nút Generate, thanh toán. Chi tiết: [platform-admin.md](platform-admin.md).
+
+## Admin chạy thật trên preview — 2026-09-16
+
+- Chuỗi đầy đủ đã chứng minh trên hạ tầng thật: bootstrap danh tính → `--reset` mật khẩu → đăng nhập → phiên với cookie `path=/gov` → vỏ `/gov`. Production vẫn trả404 cho `/gov` và `/gov/login`.
+- **Lỗi lớn nhất của lát này không nằm trong code ứng dụng: Vercel chụp ảnh biến môi trường tại thời điểm tạo deployment.** Sau khi Tài xoay mật khẩu Neon, mọi đường chạm database trả503 trong khi `vercel env pull` lấy về chuỗi mới và chuỗi đó xác thực được từ máy local — bản đang phục vụ vẫn giữ ảnh chụp cũ. **Xoay credential database thì phải deploy lại**, và vì `vercel deploy` không di chuyển alias theo branch, cách đúng là push một commit.
+- Thứ trả lời được câu hỏi đó là dòng log `ADMIN_UNEXPECTED` thêm ở commit trước: trước đó chỉ thấy `SERVICE_UNAVAILABLE` và không có gì để lần. `ownerFailure` vẫn nuốt lỗi tương tự — đáng thêm log khi có dịp.
+- **Không xoá được tài khoản admin** vì `admin_audit` tham chiếu actor và trigger chặn DELETE. Đúng về toàn vẹn sổ sách, nhưng thiếu đường đặt lại mật khẩu là kẹt; đã thêm `--reset` (thay hash, thu hồi mọi phiên, ghi `admin.password_reset`).
+- Hai lỗi trong script bootstrap đã sửa và có test: prompt gõ tay không phản hồi rồi thoát hẳn khi sai; nhánh đọc qua ống dùng readline đợi hết *dòng* nên treo vĩnh viễn với input không có ký tự xuống dòng, thoát mà không ghi gì và không báo lỗi nào ra ngoài. Nghi ngờ mật khẩu đầu tiên sai do **bộ gõ tiếng Việt** biến đổi ký tự ngay tại Terminal — số ký tự khớp, nội dung không; không chứng minh được nên chỉ ghi là nghi ngờ. Khuyến nghị: đặt mật khẩu qua đường ống, không gõ tay.
+- Đo trên preview: POST chặn origin0,41s · GET có database0,66s · POST login2,54s. Phần chênh ~1,9s là scrypt, đúng mức OWASP khuyến nghị, **không phải lỗi hiệu năng cần tinh chỉnh**. Ghi nhận để bàn sau: `login()` giữ một kết nối database suốt thời gian chạy scrypt.
+- Repository suite **63 passed**. Một commit đã lỡ push khi typecheck đỏ vì chuỗi lệnh không chặn; đã sửa ở commit kế và từ đó nối `&&` để commit chỉ chạy sau khi typecheck, lint và test đều xanh.
