@@ -7,6 +7,13 @@ import {OwnerSetupLinks,setupTokenHash,ownerEmail} from '../lib/owner/setup-link
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const allow=async()=>{};
+const noAudit=async()=>{};
+// Reissuing names a shop the owner belongs to, so these accounts get one.
+const shopFor=async(db:Pool,userId:string)=>{
+ const shopId=(await db.query("INSERT INTO shops(slug,name)VALUES($1,'Fixture')RETURNING id",[`s${randomUUID().slice(0,8)}`])).rows[0].id as string;
+ await db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')",[userId,shopId]);
+ return shopId;
+};
 const test=base.extend<{f:{db:Pool;links:OwnerSetupLinks;auth:OwnerAuth}}>({f:async({},provide)=>{
  const schema=`nfc_setup_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
@@ -61,8 +68,9 @@ test('a link is spent once, expires, and is retired when a newer one is issued',
  expect(await f.links.inspect(link.token)).toBeNull();
  await expect(f.auth.login('shopkeeper','a-different-password')).rejects.toThrow('LOGIN_FAILED');
 
- const older=await f.links.issue(userId,'reset');
- const newer=await f.links.issue(userId,'reset');
+ const shopId=await shopFor(f.db,userId);
+ const older=await f.links.reissue(userId,shopId,noAudit);
+ const newer=await f.links.reissue(userId,shopId,noAudit);
  expect(await f.links.inspect(older.token)).toBeNull();
  expect(await f.links.inspect(newer.token)).not.toBeNull();
  await expect(f.links.consume(older.token,'yet-another-password')).rejects.toThrow('SETUP_LINK_INVALID');
@@ -73,7 +81,7 @@ test('a link is spent once, expires, and is retired when a newer one is issued',
  expect(await f.links.inspect(stale)).toBeNull();
  await expect(f.links.consume(stale,'expired-link-password')).rejects.toThrow('SETUP_LINK_INVALID');
  await expect(f.links.consume('not-a-token','expired-link-password')).rejects.toThrow('SETUP_LINK_INVALID');
- await expect(f.links.issue(randomUUID(),'reset')).rejects.toThrow('OWNER_NOT_FOUND');
+ await expect(f.links.reissue(randomUUID(),shopId,noAudit)).rejects.toThrow('OWNER_NOT_FOUND');
 });
 
 test('a rejected password leaves the link unspent, and a spent one ends every session',async({f})=>{
@@ -83,7 +91,7 @@ test('a rejected password leaves the link unspent, and a spent one ends every se
  await f.links.consume(link.token,'first-chosen-password');
 
  const session=await f.auth.login('shopkeeper','first-chosen-password');
- const reset=await f.links.issue(userId,'reset');
+ const reset=await f.links.reissue(userId,await shopFor(f.db,userId),noAudit);
  await f.links.consume(reset.token,'second-chosen-password');
  expect((await f.db.query('SELECT count(*)::int n FROM owner_auth_sessions_v2 WHERE token_hash=$1 AND revoked_at IS NOT NULL',
   [(await import('../lib/owner/auth')).sessionHash(session.token)])).rows[0].n).toBe(1);

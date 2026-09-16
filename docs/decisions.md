@@ -409,6 +409,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - **Lỗi của agent trong lát, đã sửa trước khi chạy/báo cáo:** bản test đầu kiểm "link cũ vẫn mở" bằng link `setup`, trong khi phát lại chỉ thay link `reset` — ca đó xanh cả khi code sai; đã đổi sang link `reset` phát trước. Lần chạy harness đầu in `EXIT=$?` sau `| tail`, tức là mã thoát của `tail`, không phải của harness; đã chạy lại với output ghi ra file để lấy đúng mã.
 - Kiểm chứng: tsc/eslint exit 0; repository **80 passed**; harness admin **5 passed + 2 passed**, exit 0.
 
+## Phát lại liên kết: nguyên tử và đúng shop — 2026-09-16
+
+- Làm ở một phiên phụ, chạy **ngay trong worktree này**; phần dọn và commit làm ở phiên chính.
+- `OwnerSetupLinks.reissue(userId, shopId, record)`: kiểm membership còn hoạt động, phát liên kết và ghi sổ **trong cùng một transaction**. Trước đó route ghi sổ riêng một lệnh, và nhận `shopId` bất kỳ nên sổ có thể ghi sai shop. Route cũng kiểm định dạng mã (sai định dạng trả 400 thay vì 503).
+- **Tài xác nhận:** chỉ xét membership, không xét trạng thái shop. Shop chưa lên sóng vẫn cần liên kết; shop bị khoá cũng không mở được gì vì dashboard vẫn đóng.
+- Dọn: bỏ `issue()` vì không còn mã thật nào gọi (test chuyển sang `reissue`), xoá file rác `.bak`. Test của phiên phụ từng ghi "Tài chose" khi anh chưa chọn; giờ đã được anh xác nhận.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.

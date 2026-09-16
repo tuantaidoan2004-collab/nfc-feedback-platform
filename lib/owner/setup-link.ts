@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { OwnerError, passwordKey, transaction, username, validPassword } from './auth';
 
 /** Its own hash domain, so a setup token can never be replayed as a session token or the other way round. */
@@ -42,16 +42,25 @@ export class OwnerSetupLinks {
     });
   }
 
-  /** Issuing a link retires any other open one for the same purpose: only the newest can ever be used. */
-  async issue(userId: string, purpose: SetupPurpose = 'reset') {
+  /**
+   * Reissues a link for one shop's owner. The shop is checked against a live membership, because the caller names it
+   * only to attribute the work; `record` writes that attribution in the same transaction, so a link never exists
+   * without its trace. Only the membership counts, not the shop's publishing state: a shop that is not live yet
+   * still needs a way in.
+   */
+  async reissue(userId: string, shopId: string, record: (db: PoolClient) => Promise<void>) {
     return transaction(this.pool, async db => {
-      if (!(await db.query('SELECT 1 FROM owner_identities_v2 WHERE id=$1 AND active FOR SHARE', [userId])).rowCount)
+      if (!(await db.query(`SELECT 1 FROM owner_memberships_v2 m JOIN owner_identities_v2 u ON u.id=m.user_id
+        WHERE m.user_id=$1 AND m.shop_id=$2 AND m.active AND u.active FOR SHARE OF m,u`, [userId, shopId])).rowCount)
         throw new OwnerError(404, 'OWNER_NOT_FOUND');
-      return this.write(db, userId, purpose);
+      const link = await this.write(db, userId, 'reset');
+      await record(db);
+      return link;
     });
   }
 
-  private async write(db: Pool | Parameters<Parameters<typeof transaction>[1]>[0], userId: string, purpose: SetupPurpose): Promise<SetupLink> {
+  /** Issuing a link retires any other open one for the same purpose: only the newest can ever be used. */
+  private async write(db: PoolClient, userId: string, purpose: SetupPurpose): Promise<SetupLink> {
     await db.query('UPDATE owner_setup_tokens SET superseded_at=clock_timestamp() WHERE user_id=$1 AND purpose=$2 AND used_at IS NULL AND superseded_at IS NULL',
       [userId, purpose]);
     const token = randomBytes(32).toString('hex');

@@ -117,6 +117,26 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await expect(page.locator('[data-metric="opens"]')).toBeVisible();
 });
 
+test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{
+ const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,shops=new ShopProvisioning(admin.db);
+ const one=await shops.create(actor,{name:'Quán Một',ownerUsername:'quan-mot',ownerEmail:'mot@example.com',googleUrl:''});
+ const two=await shops.create(actor,{name:'Quán Hai',ownerUsername:'quan-hai',ownerEmail:'hai@example.com',googleUrl:''});
+ await signIn(page,admin.username);
+ const post=(data:unknown)=>page.request.post(`${origin}/gov/api/setup-links`,{headers:{origin},data});
+ const trail=async()=>(await admin.db.query("SELECT shop_id,on_behalf_of FROM admin_audit WHERE action='owner.link.reissue'")).rows;
+ const resets=async()=>(await admin.db.query("SELECT count(*)::int n FROM owner_setup_tokens WHERE purpose='reset'")).rows[0].n;
+
+ expect((await post({ownerUserId:one.ownerUserId,shopId:two.shopId})).status()).toBe(404);
+ expect((await post({ownerUserId:one.ownerUserId,shopId:'not-a-uuid'})).status()).toBe(400);
+ expect(await trail()).toEqual([]);
+ expect(await resets()).toBe(0);
+
+ const ok=await post({ownerUserId:one.ownerUserId,shopId:one.shopId});
+ expect(ok.status()).toBe(200);
+ expect(await trail()).toEqual([{shop_id:one.shopId,on_behalf_of:one.ownerUserId}]);
+ expect(await resets()).toBe(1);
+});
+
 async function signIn(page:Page,username:string){
  await page.goto('/gov/login');
  await page.getByLabel('Tài khoản',{exact:true}).fill('boss');

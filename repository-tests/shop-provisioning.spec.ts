@@ -6,6 +6,7 @@ import {ShopProvisioning} from '../lib/admin/provisioning';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {OwnerAuth,authorize} from '../lib/owner/auth';
 import {AdminAuth} from '../lib/admin/auth';
+import {recordAdminAction} from '../lib/admin/audit';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:{db:Pool;shops:ShopProvisioning;links:OwnerSetupLinks;auth:OwnerAuth;actorId:string}}>({f:async({},provide)=>{
@@ -78,4 +79,38 @@ test('shops share one renderer and never share a slug, a card code or an owner',
  expect(rows).toHaveLength(2);
  expect(rows.map(r=>r.owner_username).sort()).toEqual(['quan-caphe','quan-tra']);
  expect(rows.every(r=>r.publishing_state==='active'&&r.tags===1&&r.active_tags===0&&r.last_seen===null)).toBe(true);
+});
+
+test('a reissued link is audited against the owner\'s own shop, or not issued at all',async({f})=>{
+ const one=await f.shops.create(f.actorId,input);
+ const two=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-tra',ownerEmail:'tra@example.com'});
+ const audit=(shopId:string,ownerUserId:string)=>(db:Parameters<typeof recordAdminAction>[0])=>
+  recordAdminAction(db,f.actorId,{action:'owner.link.reissue',shopId,onBehalfOf:ownerUserId});
+ const count=async(sql:string)=>(await f.db.query(sql)).rows[0].n;
+ const tokens='SELECT count(*)::int n FROM owner_setup_tokens',trail="SELECT count(*)::int n FROM admin_audit WHERE action='owner.link.reissue'";
+
+ // Naming another shop would attribute the reissue to it. Refused before anything is written.
+ await expect(f.links.reissue(one.ownerUserId,two.shopId,audit(two.shopId,one.ownerUserId))).rejects.toThrow('OWNER_NOT_FOUND');
+ expect(await count(tokens)).toBe(2);
+ expect(await count(trail)).toBe(0);
+
+ const link=await f.links.reissue(one.ownerUserId,one.shopId,audit(one.shopId,one.ownerUserId));
+ expect(await f.links.inspect(link.token)).toMatchObject({purpose:'reset',username:'quan-caphe'});
+ expect((await f.db.query("SELECT actor_id,shop_id,on_behalf_of FROM admin_audit WHERE action='owner.link.reissue'")).rows)
+  .toEqual([{actor_id:f.actorId,shop_id:one.shopId,on_behalf_of:one.ownerUserId}]);
+
+ // An audit write that fails takes the new link with it, and the reset link it would have retired stays open.
+ await expect(f.links.reissue(one.ownerUserId,one.shopId,async db=>{await audit(one.shopId,one.ownerUserId)(db);throw Error('AUDIT_FAILED');}))
+  .rejects.toThrow('AUDIT_FAILED');
+ expect(await count(tokens)).toBe(3);
+ expect(await count(trail)).toBe(1);
+ expect(await f.links.inspect(link.token)).not.toBeNull();
+
+ // Tài confirmed 2026-09-16: membership decides, not the shop's state. A shop that is not live still needs a way in;
+ // a suspended one gains nothing, because its dashboard stays closed. A membership that ended does not.
+ await f.db.query("UPDATE shops SET publishing_state='suspended' WHERE id=$1",[one.shopId]);
+ await expect(f.links.reissue(one.ownerUserId,one.shopId,audit(one.shopId,one.ownerUserId))).resolves.toBeTruthy();
+ await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1',[one.ownerUserId]);
+ await expect(f.links.reissue(one.ownerUserId,one.shopId,audit(one.shopId,one.ownerUserId))).rejects.toThrow('OWNER_NOT_FOUND');
+ expect(await count(trail)).toBe(2);
 });
