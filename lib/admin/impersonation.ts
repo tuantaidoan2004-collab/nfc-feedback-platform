@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-import { impersonationHash, ownerShop, transaction, type ImpersonationScope } from '../owner/auth';
+import { impersonationHash, ownerShop, supportGranted, transaction, type ImpersonationScope } from '../owner/auth';
 import { uuid } from '../owner/filters';
 import { adminSessionHash, authorizeAdmin, AdminError } from './auth';
 import { recordAdminAction } from './audit';
@@ -50,6 +50,8 @@ export class AdminImpersonation {
       // Checked before anything is written, through the same gate the owner's own sign-in passes.
       const shop = await ownerShop(db, ownerUserId, { id: shopId });
       if (!shop) throw new AdminError(403, 'OWNER_NOT_AVAILABLE');
+      // Reading feedback is the shop's to allow. The overview needs no permission and leaves the same trace.
+      if (scope === 'feedback' && !await supportGranted(db, shop.id, 'feedback')) throw new AdminError(403, 'SUPPORT_NOT_GRANTED');
       await closeOpen(db, principal.adminId, '', [], 'superseded');
       const token = randomBytes(32).toString('hex');
       const row = (await db.query(`WITH t AS (SELECT clock_timestamp() now)

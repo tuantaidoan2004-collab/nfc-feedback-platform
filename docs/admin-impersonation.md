@@ -1,5 +1,7 @@
 # Lát mạo danh — admin xem dashboard thay mặt chủ shop — 2026-09-16
 
+> **Đã sửa ở lát kế tiếp (chủ shop cấp quyền, cùng ngày):** admin **không bao giờ export**, ở mọi phạm vi; phạm vi `feedback` chỉ mở được, và chỉ dùng được, khi chủ shop đang bật công tắc. Xem mục "Chủ shop cấp quyền" cuối file. Các đoạn nói admin export được ở phạm vi `feedback` bên dưới là lịch sử của lát này.
+
 Thực hiện mục 8 của [commercial-model.md](commercial-model.md), phần **đọc dữ liệu dashboard**. Quyền **sửa cấu hình hộ** chưa làm vì chưa có editor để sửa; nó đi cùng lát editor (Tài duyệt a).
 
 ## Tài đã chốt
@@ -98,3 +100,21 @@ Test bị skip là `3E foreground visibility`, đã có `test.skip(true, …)` t
 - Cookie mạo danh của một phiên bị **thay** (mở phiên mới cho shop khác) vẫn nằm trên đường của shop cũ cho tới khi hết hạn (≤30 phút). Nó không mở được gì (401 `IMPERSONATION_ENDED`), nhưng nếu admin cũng là chủ shop cũ thì phải bấm kết thúc hoặc chờ hết hạn mới thấy dashboard của mình.
 - Chưa có quyền sửa cấu hình hộ (chờ editor).
 - `app/gov/api/setup-links/route.ts` ghi sổ **ngoài** transaction phát link và không kiểm `shopId` khớp với chủ shop. Nằm ngoài lát này; đã sửa sau đó, xem `decisions.md` mục "Phát lại liên kết".
+
+## Chủ shop cấp quyền — lát kế tiếp, 2026-09-16
+
+Tài chốt sau lát mạo danh ([commercial-model.md](commercial-model.md) mục 8): sau khi bàn giao, admin hỗ trợ trong phạm vi chủ shop cho phép.
+
+| | Chủ shop | Mạo danh `overview` | Mạo danh `feedback` |
+|---|---|---|---|
+| Mở phiên | — | **luôn được**, có dấu vết | **chỉ khi công tắc bật**, nếu không 403 `SUPPORT_NOT_GRANTED` |
+| Số liệu, danh sách phiên | được | được, không có nội dung góp ý | được **khi công tắc còn bật**; tắt giữa phiên thì request kế tiếp 403 `SUPPORT_NOT_GRANTED` |
+| Tải dữ liệu | được | **403 `IMPERSONATION_NO_EXPORT`** | **403 `IMPERSONATION_NO_EXPORT`** |
+| Ghi | được | 403 `IMPERSONATION_READ_ONLY` | 403 `IMPERSONATION_READ_ONLY` |
+| Bật/tắt công tắc | **chỉ vai `owner`** (manager 403 `OWNER_ROLE_REQUIRED`) | 403 `IMPERSONATION_READ_ONLY` | 403 `IMPERSONATION_READ_ONLY` |
+
+- **Migration 008 `shop_support_grant_events`:** chỉ thêm (trigger `publishing_immutable`), permission hiện chỉ có `feedback`. Trạng thái là dòng mới nhất; chưa có dòng nghĩa là tắt. Không có cột trạng thái riêng, nên lịch sử và thứ quyết định quyền không thể lệch nhau. Công tắc chỉ bật/tắt, không hạn giờ, đúng như Tài chọn.
+- `PUT /api/owner/v2/[shop]/support` → `OwnerDashboard.setSupport()`. Đi qua loại việc `write` nên phiên mạo danh bị từ chối **trước khi** xét vai. Hai lần bật cùng lúc được xếp hàng bằng advisory lock theo shop; lặp lại trạng thái hiện tại thì không ghi gì.
+- Nhánh export dành cho admin (đếm dòng, ghi `impersonation.export`) đã **bỏ**, vì không còn đường tới. Mục "Lượt truy cập của quản trị" chỉ còn đếm số lần xem.
+- Dashboard: mục "Hỗ trợ từ quản trị" có công tắc (chỉ chủ shop bấm được) và lịch sử bật/tắt. Khi admin vào, mục tải dữ liệu **ẩn hẳn** ở cả hai phạm vi. `/gov` hiện cột "Đọc góp ý"; lựa chọn "Kèm góp ý" bị khoá khi shop chưa cho phép.
+- Gỡ từng lớp chặn để kiểm test: chặn export (2 failed), kiểm công tắc mỗi request (1), kiểm công tắc khi mở phiên (1), kiểm vai owner (1), cho `setSupport` đi qua `overview` thay vì `write` (1). Lần cuối cho thấy thứ tự kiểm quan trọng: đi qua `overview` thì phiên mạo danh mang vai `owner` của người được thay mặt và **bật được công tắc**.

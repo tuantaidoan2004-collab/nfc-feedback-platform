@@ -178,6 +178,30 @@ Ba luật kèm theo:
 
 **Trạng thái:** quyền **đọc** đã làm, chỉ đọc, hai phạm vi `overview`/`feedback` — xem [admin-impersonation.md](admin-impersonation.md). Quyền **sửa cấu hình hộ** chờ lát editor.
 
+### Chủ shop cấp quyền — Tài chốt 2026-09-16 (sau lát mạo danh)
+
+Hướng "khách hàng là thượng đế": sau khi bàn giao, admin chỉ hỗ trợ **trong phạm vi chủ shop cho phép**.
+
+| Việc của admin | Điều kiện |
+|---|---|
+| Xem tổng quan | **luôn được**, không cần xin phép. Mỗi lượt để lại dấu vết cho shop thấy; Tài mail báo khách trước khi vào. Lý do: cần xem tiến trình thật để cải tiến sản phẩm |
+| Đọc nội dung góp ý | **chỉ khi chủ shop bật công tắc** |
+| Sửa cấu hình hộ | cũng qua công tắc, làm cùng lát editor |
+| Tải CSV/JSONL | **không bao giờ**, ở mọi phạm vi. Ẩn nút **và** server từ chối. Dữ liệu là của khách |
+
+- Công tắc **chỉ bật/tắt, không hạn giờ**. Xong việc thì Tài nhắn khách tắt.
+- **Chỉ tài khoản chủ shop (`owner`) được bật/tắt.**
+- Giai đoạn setup, trước khi shop đặt mật khẩu: admin tạo trang khách + dashboard, nhập email cho tài khoản, và (khi có editor) chỉnh cấu hình đợt đầu. Không cần xin phép.
+- Khi khách khiếu nại dữ liệu sai: chính **chủ shop tự export** rồi đối chiếu với lịch sử không sửa được (`rating_intent_receipts`). Admin không cần giữ dữ liệu. Đây cũng là cách Shopify (đối tác phải được chủ cửa hàng duyệt) và Google Cloud (Access Approval, Access Transparency) làm.
+
+### Tài khoản phụ — hướng đã chốt, chưa làm
+
+Một shop có thể có nhiều tài khoản vào cùng dashboard. Chủ shop có nút tạo tài khoản phụ với một trong hai vai:
+- **Quản lý:** quản lý và điều hành.
+- **Nhân viên:** chỉ xem và bình luận. Chỉ thấy nội dung góp ý của khách **nếu chủ shop cho phép** nhân viên đó.
+
+Bảng `owner_memberships_v2` đã có `role` (`owner`/`manager`); vai nhân viên và quyền xem góp ý theo từng người là thay đổi schema của lát đó.
+
 ### Mật khẩu đầu tiên — Tài không bao giờ biết
 
 Không sinh mật khẩu rồi đưa khách: như vậy Tài **từng biết** mật khẩu của khách, và ngày shop khiếu nại sẽ không chứng minh được. Thay bằng **link thiết lập dùng một lần, hết hạn 24–48 giờ**, gửi qua Zalo, khách tự đặt mật khẩu. Cần vào hộ thì dùng đường mạo danh — có sổ, có hạn giờ, minh bạch.

@@ -22,7 +22,7 @@ const opaque = (token: unknown): token is string => typeof token === 'string' &&
 export type OwnerCredential = string | undefined | { impersonation: string | undefined };
 /**
  * What the caller is about to do. Every caller names it, so no route can forget to ask:
- * overview = counts and rows without feedback text · feedback = feedback text · export = bulk files · write = change anything.
+ * overview = counts and rows without feedback text · feedback = feedback text · export = bulk files, never for support · write = change anything.
  */
 export type OwnerNeed = 'overview' | 'feedback' | 'export' | 'write';
 export type ImpersonationScope = 'overview' | 'feedback';
@@ -41,6 +41,13 @@ export async function ownerShop(db: PoolClient, userId: string, shop: { slug: st
     JOIN owner_identities_v2 u ON u.id=m.user_id
     WHERE m.user_id=$1 AND ${where} AND u.active AND m.active AND s.publishing_state='active' FOR SHARE OF m,s,u`, [userId, key])).rows[0] as
     { id: string; slug: string; name: string; role: 'owner' | 'manager' } | undefined;
+}
+
+export type SupportPermission = 'feedback';
+/** The owner's switch. No row yet means off: a shop that never touched it has granted nothing. */
+export async function supportGranted(db: PoolClient, shopId: string, permission: SupportPermission) {
+  return (await db.query('SELECT enabled FROM shop_support_grant_events WHERE shop_id=$1 AND permission=$2 ORDER BY id DESC LIMIT 1',
+    [shopId, permission])).rows[0]?.enabled === true;
 }
 
 async function now(db: PoolClient) { return (await db.query('SELECT clock_timestamp() now')).rows[0].now as Date; }
@@ -70,10 +77,14 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   if (!row) throw new OwnerError(401, 'IMPERSONATION_ENDED');
   // Refused here, not in the interface: a request sent by hand meets the same answer as a disabled button.
   if (need === 'write') throw new OwnerError(403, 'IMPERSONATION_READ_ONLY');
-  if (need !== 'overview' && row.scope !== 'feedback') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
+  // The shop's data leaves only through the shop's own hands. No scope and no switch opens bulk export to support.
+  if (need === 'export') throw new OwnerError(403, 'IMPERSONATION_NO_EXPORT');
+  if (need === 'feedback' && row.scope !== 'feedback') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
   const shop = await ownerShop(db, row.owner_user_id, { slug });
   // The cookie is scoped to one shop's paths, but the session is what decides: it names exactly one shop.
   if (!shop || shop.id !== row.shop_id) throw new OwnerError(403, 'ACCESS_DENIED');
+  // Asked on every request, so switching it off takes effect at once rather than when the session runs out.
+  if (row.scope === 'feedback' && !await supportGranted(db, shop.id, 'feedback')) throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
   if (await now(db) >= row.expires_at) throw new OwnerError(401, 'IMPERSONATION_ENDED');
   return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role,
     actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, sessionId: row.id, scope: row.scope, reason: row.reason,

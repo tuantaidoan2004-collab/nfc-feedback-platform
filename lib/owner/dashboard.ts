@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
-import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
+import { authorize, supportGranted, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './filters';
 export const utc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
@@ -14,7 +14,8 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
 export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number;experience_revision:string;topic:string|null;message:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
-export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number;exports:number;exported_rows:number};
+export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
+export type SupportChange = {enabled:boolean;by:string;at:string};
 /**
  * Every administrator session on this shop, shown to whoever runs the shop. It protects both sides: a shop that
  * suspects its feedback was read has a record to check, and the operator has one to point to.
@@ -22,13 +23,17 @@ export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';rea
 async function adminVisits(db: PoolClient, shopId: string) {
   return (await db.query(`SELECT i.id,a.username admin,i.scope,i.reason,${utc('i.created_at')} started_at,${utc('i.expires_at')} expires_at,
     ${utc('i.ended_at')} ended_at,i.end_reason,
-    (SELECT count(*)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.read' AND x.detail->>'session'=i.id::text) reads,
-    (SELECT count(*)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.export' AND x.detail->>'session'=i.id::text) exports,
-    (SELECT COALESCE(sum((x.detail->>'rows')::int),0)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.export' AND x.detail->>'session'=i.id::text) exported_rows
+    (SELECT count(*)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.read' AND x.detail->>'session'=i.id::text) reads
     FROM admin_impersonation_sessions i JOIN platform_admins a ON a.id=i.admin_id
     WHERE i.shop_id=$1 ORDER BY i.created_at DESC,i.id LIMIT 20`, [shopId])).rows as AdminVisit[];
 }
-const viewer = (access: OwnerAccess) => access.actor.kind === 'owner' ? { kind: 'owner' as const }
+/** The switch as it stands and who moved it, newest first. The shop sees its own decisions next to support's visits. */
+async function support(db: PoolClient, shopId: string) {
+  const history = (await db.query(`SELECT g.enabled,u.username "by",${utc('g.recorded_at')} "at" FROM shop_support_grant_events g
+    JOIN owner_identities_v2 u ON u.id=g.actor_id WHERE g.shop_id=$1 AND g.permission='feedback' ORDER BY g.id DESC LIMIT 20`, [shopId])).rows as SupportChange[];
+  return { feedback: await supportGranted(db, shopId, 'feedback'), history };
+}
+const viewer = (access: OwnerAccess) => access.actor.kind === 'owner' ? { kind: 'owner' as const, role: access.role }
   : { kind: 'admin' as const, admin: access.actor.adminUsername, scope: access.actor.scope, reason: access.actor.reason, expiresAt: access.actor.expiresAt };
 export class OwnerDashboard {
   constructor(private pool: Pool) {}
@@ -53,7 +58,27 @@ export class OwnerDashboard {
       const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,note:''}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
         detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
-      return {shop:{slug:access.slug,name:access.name},viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
+      return {shop:{slug:access.slug,name:access.name},viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),support:await support(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
+    });
+  }
+  /**
+   * The owner's switch for support. Only the account holding the owner role may move it, and never through an
+   * impersonation: the write need refuses support before the role is even looked at. A request that repeats the
+   * current state writes nothing, so the history holds changes only.
+   */
+  async setSupport(credential: OwnerCredential, slug: string, input: unknown) {
+    const data = input as Record<string, unknown>;
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(data).sort().join() !== 'enabled,permission'
+      || data.permission !== 'feedback' || typeof data.enabled !== 'boolean') throw new OwnerError(400, 'INVALID_SUPPORT');
+    const enabled = data.enabled;
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'write');
+      if (access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
+      // Two switches at once are applied one after the other, so the newest row is always the last decision.
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-support-grant:'||$1,0))", [access.shopId]);
+      if (await supportGranted(db, access.shopId, 'feedback') !== enabled)
+        await db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'feedback',$2,$3)", [access.shopId, enabled, access.userId]);
+      return { feedback: enabled };
     });
   }
   async update(credential: OwnerCredential, slug:string, input: unknown) {

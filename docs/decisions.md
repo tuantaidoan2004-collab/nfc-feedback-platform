@@ -416,6 +416,14 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - **Tài xác nhận:** chỉ xét membership, không xét trạng thái shop. Shop chưa lên sóng vẫn cần liên kết; shop bị khoá cũng không mở được gì vì dashboard vẫn đóng.
 - Dọn: bỏ `issue()` vì không còn mã thật nào gọi (test chuyển sang `reissue`), xoá file rác `.bak`. Test của phiên phụ từng ghi "Tài chose" khi anh chưa chọn; giờ đã được anh xác nhận.
 
+## Lát chủ shop cấp quyền — 2026-09-16
+
+- Tài chốt: admin **luôn xem được tổng quan** (có dấu vết, Tài mail báo khách trước); **đọc góp ý chỉ khi chủ shop bật công tắc**; **admin không bao giờ tải dữ liệu**, ẩn nút và server từ chối; công tắc chỉ bật/tắt, không hạn giờ; **chỉ vai `owner` bấm được**. Hướng tài khoản phụ (quản lý; nhân viên chỉ xem và bình luận, thấy góp ý nếu chủ cho phép) đã ghi ở `commercial-model.md`, chưa làm.
+- Migration 008 `shop_support_grant_events` (chỉ thêm), route `PUT /api/owner/v2/[shop]/support`. `authorize` trả `IMPERSONATION_NO_EXPORT` cho mọi phiên mạo danh, và kiểm công tắc ở **mỗi request** của phiên `feedback`. Nhánh export của admin đã bỏ.
+- Trước lát này đã commit riêng phần việc của phiên phụ (phát lại liên kết), và sửa một test mạo danh chập chờn do gọi `clock_timestamp()` hai lần.
+- Kiểm chứng: tsc/eslint exit 0; repository **81 passed**; harness admin 5+2, owner 3+2, publishing 4+2, public 15+1 skip+2, tất cả exit 0; migrate 001–008 rồi báo up to date; rollback 008 xoá sạch khi trống và từ chối khi có dữ liệu. Gỡ 5 lớp chặn mới, lần nào test cũng đỏ.
+- Chi tiết và bảng quyền: [admin-impersonation.md](admin-impersonation.md), mục cuối.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -426,7 +434,7 @@ Branch `feat/local-app-foundation`, đã đồng bộ `main`. Preview Vercel ch�
 
 Chạy được trên preview: trang khách · dashboard chủ shop · quản trị `/gov` (đăng nhập, tạo shop, phát lại liên kết) · trang chủ shop tự đặt mật khẩu.
 
-**Mạo danh (chỉ đọc) đã xong ở local, CHƯA lên preview.** Migration 007 chưa áp lên Neon. **Phải migrate 007 lên branch mặc định và branch preview TRƯỚC khi push**: dashboard chủ shop giờ đọc `admin_impersonation_sessions`, nên thiếu bảng là dashboard trả 503 cho mọi chủ shop.
+**Mạo danh + công tắc chủ shop cấp quyền đã xong ở local, CHƯA lên preview.** Migration 007 **và 008** chưa áp lên Neon. **Phải migrate cả hai lên branch mặc định và branch preview TRƯỚC khi push**: dashboard chủ shop và bảng shop ở `/gov` giờ đọc `admin_impersonation_sessions` và `shop_support_grant_events`, nên thiếu bảng là trả 503.
 
 Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy.
 
@@ -446,7 +454,7 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-1. **Đưa mạo danh lên preview**: migrate 007 (Tài làm bước có credential), push, rồi thử thật trên preview.
+1. **Đưa mạo danh + công tắc lên preview**: Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
 4. **Bật `NFC_PUBLISHING_ENABLED`** — cần mọi shop có release, kể cả `caphe-demo` vốn seed bằng INSERT thẳng.

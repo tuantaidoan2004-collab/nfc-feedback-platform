@@ -1,6 +1,5 @@
 import type { Pool } from 'pg';
 import { OwnerAuth, OwnerError, type OwnerCredential } from './auth';
-import { recordAdminAction } from '../admin/audit';
 import { cohort, type Filters } from './filters';
 import { experienceSelect, utc } from './dashboard';
 export type Dataset='experiences'|'page_visits'|'receipts';
@@ -45,26 +44,18 @@ export const exportHeaders=(format:'csv'|'jsonl'|'dictionary',dataset:Dataset)=>
 });
 /** Fixed 256-row database cursor; backpressure + cancel/abort/idle timeout release the connection. */
 export async function exportStream(pool:Pool, credential:OwnerCredential, slug:string, f:Filters, dataset:Dataset, format:'csv'|'jsonl', signal:AbortSignal, cursorPool:Pool=pool){
- const auth=new OwnerAuth(pool),access=await auth.access(credential,slug,'export'),actor=access.actor,q=cohort(access.shopId,{...f,cursor:undefined});
+ const auth=new OwnerAuth(pool),access=await auth.access(credential,slug,'export'),q=cohort(access.shopId,{...f,cursor:undefined});
  const db=await cursorPool.connect();let closed=false;let timer:ReturnType<typeof setTimeout>|undefined;let control:ReadableStreamDefaultController<Uint8Array>|undefined;
  const finish=()=>{if(closed)return;closed=true;clearTimeout(timer);signal.removeEventListener('abort',abort);db.removeListener('error',abort);db.release(true);};
  const abort=()=>{if(closed)return;finish();control?.error(new Error('Export interrupted'));};
  signal.addEventListener('abort',abort,{once:true});db.on('error',abort);
  try{
   if(signal.aborted)throw new Error('Export interrupted');
-  // At most one active export per person. A slow reader cannot occupy the whole pool on its own. An administrator
-  // is keyed separately, so standing in for an owner neither blocks nor is blocked by the owner's own export.
-  const holder=actor.kind==='owner'?`owner-export:${access.userId}`:`admin-export:${actor.adminId}`;
-  if(!(await db.query('SELECT pg_try_advisory_lock(hashtextextended($1,0)) locked',[holder])).rows[0].locked)throw new OwnerError(409,'EXPORT_BUSY');
+  // At most one active export per owner. A slow reader cannot occupy the whole pool on its own. Support never gets
+  // here: authorize refuses export to every impersonation.
+  if(!(await db.query('SELECT pg_try_advisory_lock(hashtextextended($1,0)) locked',[`owner-export:${access.userId}`])).rows[0].locked)throw new OwnerError(409,'EXPORT_BUSY');
   await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
   await db.query("SET LOCAL idle_in_transaction_session_timeout='65s'");
-  if(actor.kind==='admin'){
-   // Counted inside the same snapshot the cursor reads, so the number recorded is the number a complete file holds.
-   // One line per export, written before the first byte leaves: an interrupted download is still on record.
-   const rows=(await db.query(`${q.sql} SELECT count(*)::int n FROM (${exportSelect(dataset)}) x`,q.values)).rows[0].n as number;
-   await recordAdminAction(pool,actor.adminId,{action:'impersonation.export',shopId:access.shopId,onBehalfOf:access.userId,
-    detail:{session:actor.sessionId,scope:actor.scope,dataset,format,rows}});
-  }
   await db.query(`DECLARE owner_export NO SCROLL CURSOR FOR ${q.sql} ${exportSelect(dataset)}`,q.values);
  }catch(error){finish();throw error;}
  const encoder=new TextEncoder();let header=true;

@@ -20,12 +20,22 @@ const endings:Record<string,string>={ended:'đã kết thúc',superseded:'bị t
 export type Impersonation={admin:string;scope:'overview'|'feedback';reason:string;expiresAt:string};
 function AdminVisits({visits}:{visits:Data['adminVisits']}){
  return <section aria-label="Lượt truy cập của quản trị" data-admin-visits><h2>Lượt truy cập của quản trị</h2>
- <p className={styles.explain}>Mỗi lần quản trị viên nền tảng xem dashboard thay mặt shop đều được ghi lại ở đây, kèm lý do. Quản trị viên chỉ được xem, không sửa được gì.</p>
+ <p className={styles.explain}>Mỗi lần quản trị viên nền tảng xem dashboard thay mặt shop đều được ghi lại ở đây, kèm lý do. Quản trị viên chỉ được xem, không sửa và không tải được dữ liệu.</p>
  {visits.length===0?<p>Chưa có lượt nào.</p>:visits.map(v=><article className={styles.card} key={v.id} data-admin-visit={v.id}>
  <div className={styles.row}><strong>{v.admin}</strong><time>{time(v.started_at)}</time><span>{scopes[v.scope]}</span></div>
  <p data-reason>{v.reason}</p>
- <p className={styles.muted}>{v.ended_at?`${endings[v.end_reason??'ended']} lúc ${time(v.ended_at)}`:`hết hạn lúc ${time(v.expires_at)}`} · {v.reads} lần xem · {v.exports} lần tải ({v.exported_rows} dòng)</p>
+ <p className={styles.muted}>{v.ended_at?`${endings[v.end_reason??'ended']} lúc ${time(v.ended_at)}`:`hết hạn lúc ${time(v.expires_at)}`} · {v.reads} lần xem</p>
  </article>)}</section>;
+}
+function Support({support,canChange,change}:{support:Data['support'];canChange:boolean;change:(enabled:boolean)=>Promise<void>}){
+ const [busy,setBusy]=useState(false);
+ return <section className={styles.exports} aria-label="Hỗ trợ từ quản trị" data-support={support.feedback?'on':'off'}><h2>Hỗ trợ từ quản trị</h2>
+ <p>Quản trị viên nền tảng luôn xem được số liệu tổng quan để hỗ trợ, và mỗi lượt đều hiện ở mục bên dưới. Nội dung góp ý của khách chỉ đọc được khi công tắc này đang bật. Xong việc thì tắt lại.</p>
+ <label className={styles.switch}><input type="checkbox" role="switch" checked={support.feedback} disabled={!canChange||busy}
+  onChange={async e=>{setBusy(true);await change(e.target.checked);setBusy(false);}}/>Cho phép quản trị đọc góp ý riêng tư</label>
+ {!canChange&&<p>Chỉ tài khoản chủ shop đổi được công tắc này.</p>}
+ {support.history.length>0&&<p data-support-history>{support.history.map(h=>`${h.enabled?'Bật':'Tắt'} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
+ </section>;
 }
 export default function OwnerDashboard({slug,name,impersonation}:{slug:string;name:string;impersonation:Impersonation|null}){
  const router=useRouter(),latest=useRef(0);
@@ -39,12 +49,18 @@ export default function OwnerDashboard({slug,name,impersonation}:{slug:string;na
  return fetch(`${endpoint}?${query}${cursor?`&cursor=${encodeURIComponent(cursor)}`:''}`,{cache:'no-store',signal}).then(async response=>{
  if(signal?.aborted||sequence!==latest.current)return;
  if(response.status===401){setExpired(true);setData(null);setNotice(impersonation?'Phiên xem thay mặt đã kết thúc.':'Phiên đăng nhập đã hết hạn.');return;}
+ if(response.status===403&&impersonation&&(await response.clone().json().catch(()=>({}))).error==='SUPPORT_NOT_GRANTED'){setData(null);setNotice('Chủ shop đã tắt quyền đọc góp ý. Kết thúc phiên này và mở lại ở phạm vi tổng quan.');return;}
  if(!response.ok){setData(null);setNotice(response.status===403?'Bạn không còn quyền truy cập shop này.':'Không thể tải dữ liệu. Vui lòng thử lại.');return;}
  const loaded=await response.json();if(!signal?.aborted&&sequence===latest.current&&document.visibilityState!=='hidden'){setData(loaded);setExpired(false);}
  }).catch(()=>{if(!signal?.aborted&&sequence===latest.current){setData(null);setNotice('Không thể kết nối. Vui lòng thử lại.');}}).finally(()=>{if(!signal?.aborted&&sequence===latest.current)setBusy(false);});
  },[endpoint,query,cursor,impersonation]);
  useEffect(()=>{const controller=new AbortController();void refresh(controller.signal);return()=>controller.abort();},[refresh]);
  useEffect(()=>{const change=()=>{if(document.visibilityState==='hidden'){latest.current++;setData(null);}else void refresh();};const restored=(event:PageTransitionEvent)=>{if(event.persisted)void refresh();};document.addEventListener('visibilitychange',change);window.addEventListener('pageshow',restored);return()=>{document.removeEventListener('visibilitychange',change);window.removeEventListener('pageshow',restored);};},[refresh]);
+ const changeSupport=async(enabled:boolean)=>{
+ try{const response=await fetch(`${endpoint}/support`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({permission:'feedback',enabled})});
+ if(!response.ok){setNotice(response.status===401?'Phiên đăng nhập đã hết hạn.':'Chưa đổi được công tắc. Thử lại.');return;}
+ setNotice(enabled?'Đã cho phép quản trị đọc góp ý.':'Đã tắt quyền đọc góp ý của quản trị.');await refresh();
+ }catch{setNotice('Chưa xác nhận được công tắc. Tải lại để kiểm tra.');}};
  const save=async(row:ExperienceRow,status:string,note:string)=>{
  try{const response=await fetch(endpoint,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:row.session_id,expectedCaseRevision:row.case_revision,expectedExperienceRevision:row.experience_revision,status,note})});
  if(response.status===401){setExpired(true);setData(null);setNotice('Phiên đăng nhập đã hết hạn.');return false;}
@@ -74,8 +90,7 @@ export default function OwnerDashboard({slug,name,impersonation}:{slug:string;na
  {!busy&&!data&&!expired&&<button onClick={()=>void refresh()}>Thử lại</button>}
  {data&&<>
  <section className={styles.metrics} aria-label="Tổng quan">{Object.entries({opens:'Lượt mở trang',sessions:'Phiên 15 phút',rated:'Trải nghiệm chấm sao',average:'Điểm nội bộ trung bình',feedback:'Có góp ý riêng',unresolved:'Góp ý chưa xử lý'}).map(([key,label])=><article key={key}><span>{label}</span><strong data-metric={key}>{data.metrics[key]??'—'}</strong></article>)}</section>
- {impersonation?.scope==='overview'?<section className={styles.exports}><h2>Tải dữ liệu</h2><p>Phiên xem thay mặt ở phạm vi tổng quan không được tải dữ liệu.</p></section>:
- <section className={styles.exports}><h2>Tải dữ liệu</h2><label>Loại dữ liệu<select value={dataset} onChange={e=>setDataset(e.target.value)}><option value="experiences">Trải nghiệm hiện tại</option><option value="page_visits">Lượt mở trang</option><option value="receipts">Lịch sử đánh giá / góp ý</option></select></label>
+ {!impersonation&&<section className={styles.exports}><h2>Tải dữ liệu</h2><label>Loại dữ liệu<select value={dataset} onChange={e=>setDataset(e.target.value)}><option value="experiences">Trải nghiệm hiện tại</option><option value="page_visits">Lượt mở trang</option><option value="receipts">Lịch sử đánh giá / góp ý</option></select></label>
  {['csv','jsonl','dictionary'].map(format=><a key={format} href={`${endpoint}/export?${query}&dataset=${dataset}&format=${format}`}>{format==='dictionary'?'Từ điển dữ liệu':format.toUpperCase()}</a>)}
  <p>CSV cho Excel. JSONL đọc theo từng dòng cho dữ liệu lớn. File giữ cùng bộ lọc đang áp dụng; lịch sử gồm toàn bộ sự kiện của nhóm phiên đã chọn.</p></section>}
  <section aria-label="Danh sách trải nghiệm"><h2>Trải nghiệm & góp ý</h2>{data.records.length===0?<p>Chưa có trải nghiệm phù hợp bộ lọc.</p>:data.records.map(row=><article className={styles.card} key={`${row.session_id}:${row.case_revision}:${row.experience_revision}`}>
@@ -84,6 +99,7 @@ export default function OwnerDashboard({slug,name,impersonation}:{slug:string;na
  {row.message&&<><p className={styles.message}>{row.message}</p><p className={styles.muted}>Chủ đề: {row.topic}</p>{impersonation?(row.note&&<p className={styles.muted}>Ghi chú nội bộ: {row.note}</p>):<CaseForm row={row} save={save}/>}</>}
  {!row.message&&impersonation?.scope==='overview'&&row.status&&<p className={styles.muted}>Nội dung góp ý ẩn trong phạm vi tổng quan.</p>}
  </article>)}</section>
+ <Support support={data.support} canChange={!impersonation&&data.viewer.kind==='owner'&&data.viewer.role==='owner'} change={changeSupport}/>
  <AdminVisits visits={data.adminVisits}/>
  <nav className={styles.row} aria-label="Phân trang">{cursor&&<button onClick={()=>setCursor('')}>Về trang đầu</button>}{data.nextCursor&&<button onClick={()=>setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>
  </>}

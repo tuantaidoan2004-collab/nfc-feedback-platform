@@ -84,7 +84,8 @@ export class ShopProvisioning {
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id) tags,
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id AND t.state='active') active_tags,
         i.id owner_user_id,i.username owner_username,i.email owner_email,
-        (SELECT max(p.opened_at) FROM page_visits p WHERE p.shop_id=s.id) last_seen
+        (SELECT max(p.opened_at) FROM page_visits p WHERE p.shop_id=s.id) last_seen,
+        COALESCE((SELECT g.enabled FROM shop_support_grant_events g WHERE g.shop_id=s.id AND g.permission='feedback' ORDER BY g.id DESC LIMIT 1),false) feedback_support
       FROM shops s
       LEFT JOIN owner_memberships_v2 m ON m.shop_id=s.id AND m.active
       LEFT JOIN owner_identities_v2 i ON i.id=m.user_id

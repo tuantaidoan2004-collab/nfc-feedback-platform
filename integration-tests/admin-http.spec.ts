@@ -153,7 +153,7 @@ async function standIn(page:Page,shop:string,scope:'overview'|'feedback',reason:
  await expect(page.locator(`[data-impersonation="${scope}"]`)).toBeVisible();
 }
 
-test('impersonation: cookie stays on one shop, the server refuses writes and overview exports sent by hand, the owner reads the reason',async({page,context,browser,admin})=>{
+test('impersonation: cookie stays on one shop, support never exports, feedback only while the owner allows it',async({page,context,browser,admin})=>{
  const shopName='Quán Hỗ Trợ',ownerPassword='chosen-by-the-shop';
  const made=await new ShopProvisioning(admin.db).create((await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,
   {name:shopName,ownerUsername:'quan-hotro',ownerEmail:'hotro@example.com',googleUrl:'https://maps.google.com/?cid=9'});
@@ -162,6 +162,11 @@ test('impersonation: cookie stays on one shop, the server refuses writes and ove
  const api=`/api/owner/v2/${made.slug}`;
  const patch={sessionId:x.session.sessionId,expectedCaseRevision:0,expectedExperienceRevision:'2',status:'resolved',note:'Sửa hộ'};
  const exports=['experiences','page_visits','receipts'].flatMap(dataset=>['csv','jsonl','dictionary'].map(format=>`${api}/export?dataset=${dataset}&format=${format}`));
+ const refusedExports=async()=>{for(const url of exports){
+  const response=await context.request.get(url);
+  expect(response.status(),url).toBe(403);
+  expect(await response.json()).toEqual({error:'IMPERSONATION_NO_EXPORT'});
+ }};
  const overviewReason='Kiểm tra <b>số liệu</b> giúp shop, theo yêu cầu qua Zalo';
 
  await signIn(page,admin.username);
@@ -169,9 +174,9 @@ test('impersonation: cookie stays on one shop, the server refuses writes and ove
  await expect(page).toHaveURL(`${origin}/ZZZ/${made.slug}`);
  await expect(page.locator('[data-metric="feedback"]')).toHaveText('1');
  await expect(page.getByText('Góp ý kín của khách')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Đăng xuất'})).toHaveCount(0);
+ for(const name of ['Lưu xử lý','Đăng xuất'])await expect(page.getByRole('button',{name})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('switch')).toBeDisabled();
 
  const cookies=(await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1');
  expect(cookies.map(c=>c.path).sort()).toEqual([`/ZZZ/${made.slug}`,`/api/owner/v2/${made.slug}`].sort());
@@ -189,32 +194,18 @@ test('impersonation: cookie stays on one shop, the server refuses writes and ove
  const write=await context.request.patch(api,{headers:{Origin:origin},data:patch});
  expect(write.status()).toBe(403);
  expect(await write.json()).toEqual({error:'IMPERSONATION_READ_ONLY'});
- for(const url of exports){
-  const response=await context.request.get(url);
-  expect(response.status(),url).toBe(403);
-  expect(await response.text()).not.toContain('Góp ý kín của khách');
- }
+ const flip=await context.request.put(`${api}/support`,{headers:{Origin:origin},data:{permission:'feedback',enabled:true}});
+ expect(flip.status()).toBe(403);
+ await refusedExports();
  // The owner API of any other shop is out of reach: the cookie is not even sent there.
  expect((await context.request.get('/api/owner/v2/one')).status()).toBe(401);
+ // Feedback is refused while the switch is off, even when asked for directly.
+ const early=await context.request.post('/gov/api/impersonations',{headers:{origin},
+  data:{shopId:made.shopId,ownerUserId:made.ownerUserId,scope:'feedback',reason:'Đọc góp ý khi chưa được phép'}});
+ expect(early.status()).toBe(403);
+ expect(await early.json()).toEqual({error:'SUPPORT_NOT_GRANTED'});
 
- // Feedback scope replaces the overview session: bulk export works, writing still does not.
- await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
- await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
- await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
- const csv=await context.request.get(`${api}/export?dataset=experiences&format=csv`);
- expect(csv.status()).toBe(200);
- expect(await csv.text()).toContain('Góp ý kín của khách');
- expect((await context.request.patch(api,{headers:{Origin:origin},data:patch})).status()).toBe(403);
- expect((await admin.db.query('SELECT count(*)::int n FROM owner_feedback_cases')).rows[0].n).toBe(0);
- expect((await admin.db.query("SELECT detail->>'rows' n FROM admin_audit WHERE action='impersonation.export'")).rows).toEqual([{n:'1'}]);
-
- await page.getByRole('button',{name:'Kết thúc phiên',exact:true}).click();
- await expect(page).toHaveURL(`${origin}/gov`);
- expect((await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1')).toEqual([]);
- expect((await context.request.get(api)).status()).toBe(401);
- expect((await admin.db.query('SELECT end_reason FROM admin_impersonation_sessions ORDER BY created_at')).rows).toEqual([{end_reason:'superseded'},{end_reason:'ended'}]);
-
- // The owner, in a browser of their own, sees both visits with the reason exactly as typed.
+ // The owner, in a browser of their own, switches reading on.
  const owner=await browser.newContext({baseURL:origin});
  try{
   const ownerPage=await owner.newPage();
@@ -223,11 +214,43 @@ test('impersonation: cookie stays on one shop, the server refuses writes and ove
   await ownerPage.getByLabel('Tài khoản',{exact:true}).fill('quan-hotro');
   await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  const visits=ownerPage.locator('[data-admin-visits] [data-admin-visit]');
-  await expect(visits).toHaveCount(2);
+  const toggle=ownerPage.getByRole('switch',{name:'Cho phép quản trị đọc góp ý riêng tư'});
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect(ownerPage.locator('[data-support="on"]')).toBeVisible();
+
+  await page.goto('/gov');
+  await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-feedback-support="on"]')).toBeVisible();
+  await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
+  await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
+  await refusedExports();
+  expect((await context.request.patch(api,{headers:{Origin:origin},data:patch})).status()).toBe(403);
+  expect((await admin.db.query('SELECT count(*)::int n FROM owner_feedback_cases')).rows[0].n).toBe(0);
+  expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.export'")).rows[0].n).toBe(0);
+
+  // Switched off: support's next request is refused at once.
+  await toggle.click();
+  await expect(ownerPage.locator('[data-support="off"]')).toBeVisible();
+  const after=await context.request.get(api);
+  expect(after.status()).toBe(403);
+  expect(await after.json()).toEqual({error:'SUPPORT_NOT_GRANTED'});
+
+  await page.getByRole('button',{name:'Kết thúc phiên',exact:true}).click();
+  await expect(page).toHaveURL(`${origin}/gov`);
+  expect((await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1')).toEqual([]);
+  expect((await context.request.get(api)).status()).toBe(401);
+  expect((await admin.db.query('SELECT end_reason FROM admin_impersonation_sessions ORDER BY created_at')).rows).toEqual([{end_reason:'superseded'},{end_reason:'ended'}]);
+
+  // The owner sees both visits with the reason exactly as typed, and their own two switches.
+  await ownerPage.reload();
+  await expect(ownerPage.locator('[data-admin-visits] [data-admin-visit]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-reason]').filter({hasText:overviewReason})).toHaveText(overviewReason);
-  await expect(visits.first()).toContainText('1 lần tải (1 dòng)');
+  await expect(ownerPage.locator('[data-support-history]')).toContainText('Tắt bởi quan-hotro');
+  await expect(ownerPage.locator('[data-support-history]')).toContainText('Bật bởi quan-hotro');
   await expect(ownerPage.locator('[data-impersonation]')).toHaveCount(0);
   await expect(ownerPage.getByRole('button',{name:'Lưu xử lý'})).toBeVisible();
+  await expect(ownerPage.getByRole('link',{name:'CSV',exact:true})).toBeVisible();
  }finally{await owner.close();}
 });
