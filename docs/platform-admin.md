@@ -152,3 +152,15 @@ DATABASE_URL='…' node scripts/bootstrap-admin.mjs <username>
 ## Chưa có
 
 Mạo danh (hai quyền tách theo `commercial-model.md` mục 8), bảng danh sách shop, nút Generate, thanh toán. Vỏ `/gov` hiện chỉ hiện tên người đăng nhập và nút đăng xuất — đó là chỗ cho bảng admin ở lát 5.
+
+## Bật trên preview — 2026-09-16
+
+- `NFC_ADMIN_ENABLED=true` cho môi trường Preview (phạm vi Preview, không gắn branch).
+- Migration 005 đã áp lên Neon branch `preview/feat/local-app-foundation` (host `ep-bold-moon-azqi1spp`): `Applied 005_platform_admin.`, chạy lại báo up-to-date, đủ 4 bảng, 0 admin.
+- Sau khi Tài reset mật khẩu `neondb_owner`, tích hợp Neon–Vercel tự xoay chuỗi: preview vẫn nối DB được, `/caphe-demo` trả 200 với dữ liệu thật.
+
+### Hai điều về vận hành Vercel, dễ mất thời gian nếu không biết
+
+**`vercel env pull` cần `--git-branch`.** Chuỗi Neon do tích hợp quản lý được gắn phạm vi `Preview (feat/local-app-foundation)`, nên `vercel env pull --environment=preview` **không** trả về nó. Thêm `--git-branch=feat/local-app-foundation` thì lấy được. Nhờ vậy chạy migration lên preview không cần ai dán chuỗi kết nối vào đâu cả: Vercel → file cục bộ → biến môi trường → `migrate.mjs`, rồi xoá file.
+
+**`vercel deploy` từ CLI không di chuyển alias theo branch.** Chỉ deployment do Git kích hoạt mới cập nhật `…-git-<branch>-….vercel.app`. Bản deploy bằng CLI chạy đúng khi gọi thẳng URL của nó, nhưng alias vẫn trỏ bản cũ — và vì `APP_ORIGIN` đặt theo alias, đăng nhập qua URL deployment sẽ bị chặn origin. Đổi biến môi trường xong thì **push một commit** để Git deploy, đừng dùng `vercel deploy`.
