@@ -12,7 +12,9 @@ const admin = new pg.Pool({ connectionString: local });
 const scoped = new URL(local); scoped.searchParams.set('options', `-c search_path=${schema}`);
 const db = new pg.Pool({ connectionString: scoped.href });
 const children = [], logs = [];
-const owner = process.argv.includes('--owner');
+// Administration needs migration 004 as well: admin_audit references owner identities for on-behalf-of work.
+const platformAdmin = process.argv.includes('--admin');
+const owner = platformAdmin || process.argv.includes('--owner');
 const publishing = owner || process.argv.includes('--publishing');
 const signingFixture = randomBytes(32).toString('hex');
 const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1' };
@@ -35,7 +37,7 @@ async function startApp(name, port, flag, builtApp) {
   // The built app deliberately leaves NFC_ENV unset: the production gate test proves feature flags alone
   // never open v2. Dev apps declare it so the rest of the suite exercises the enabled surfaces.
   const env = { ...safeEnv, NODE_ENV: builtApp ? 'production' : 'development', ...(builtApp ? {} : { NFC_ENV: 'local' }), SERVER_DATA_ENABLED: 'true', DATABASE_URL: scoped.href,
-    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: publishing && flag === 'true' ? 'true' : 'false', NFC_RENDER_SIGNING_KEY: signingFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false' };
+    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: publishing && flag === 'true' ? 'true' : 'false', NFC_RENDER_SIGNING_KEY: signingFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
   const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...(builtApp ? ['start'] : ['dev', '--webpack']), '--hostname', '127.0.0.1', '--port', String(port)],
     { cwd, env, stdio: ['ignore', log.fd, log.fd] });
   children.push(child);
@@ -48,13 +50,13 @@ async function startApp(name, port, flag, builtApp) {
 }
 try {
   await admin.query(`CREATE SCHEMA ${schema}`);
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', ...(publishing ? ['003_publishing.sql'] : []), ...(owner ? ['004_owner_dashboard.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  for (const migration of ['001_core.sql', '002_visit_ratings.sql', ...(publishing ? ['003_publishing.sql'] : []), ...(owner ? ['004_owner_dashboard.sql'] : []), ...(platformAdmin ? ['005_platform_admin.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');
   if (!buildOnly) {
   await startApp('off', 3318, 'false');
-  await run(process.argv.includes('--safari') ? ['integration-tests/safari-local.mjs'] : ['node_modules/@playwright/test/cli.js', 'test', '--config=playwright.integration.config.ts', '--grep-invert', 'production gate', ...process.argv.slice(2).filter(a => a !== '--build' && a !== '--publishing' && a !== '--owner')], root,
+  await run(process.argv.includes('--safari') ? ['integration-tests/safari-local.mjs'] : ['node_modules/@playwright/test/cli.js', 'test', '--config=playwright.integration.config.ts', '--grep-invert', 'production gate', ...process.argv.slice(2).filter(a => a !== '--build' && a !== '--publishing' && a !== '--owner' && a !== '--admin')], root,
     { ...safeEnv, NFC_TEST_DATABASE_URL: local, NFC_TEST_SCHEMA: schema });
   }
   if (process.argv.includes('--build') || buildOnly) {

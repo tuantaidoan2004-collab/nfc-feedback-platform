@@ -76,3 +76,79 @@ Bản sửa tất định: so sánh trực tiếp hai giá trị `hashtextextend
 ## Bước tiếp — lát 1b
 
 Route HTTP `/api/admin/login|logout`, cookie `nfc_admin_v1` (HttpOnly, SameSite=Strict, Secure khi HTTPS), kiểm Origin + Sec-Fetch-Site như `ownerOrigin`, cổng runtime `nfcEnvDeclared() && NFC_ADMIN_ENABLED`, thêm tiền tố admin vào header bảo mật trong `next.config.ts`, và trang đăng nhập.
+
+---
+
+# Lát 1b — tầng HTTP của admin — 2026-09-16
+
+## File
+
+| Mới | |
+|---|---|
+| `server/admin.ts` | cổng runtime, cookie, kiểm origin, đọc body, helper JSON |
+| `app/gov/api/login/route.ts`, `app/gov/api/logout/route.ts` | API |
+| `app/gov/login/page.tsx`, `app/gov/page.tsx` | trang đăng nhập và vỏ admin |
+| `components/admin-login.tsx`, `components/admin-sign-out.tsx`, `components/admin.module.css` | UI |
+| `integration-tests/admin-http.spec.ts` | 3 case (1 chạy ở pha production) |
+
+| Sửa | |
+|---|---|
+| `next.config.ts` | thêm `/gov` và `/gov/:path*` vào nhóm header riêng tư |
+| `.env.example` | `NFC_ADMIN_ENABLED` |
+| `integration-tests/run-local.mjs` | cờ `--admin`: áp migration 005, bật `NFC_ADMIN_ENABLED` |
+
+## API nằm dưới `/gov`, không phải `/api/admin`
+
+Lệch quy ước của owner một cách có chủ ý. Cookie chỉ nhận **một** path; đặt cả trang lẫn API dưới `/gov` cho phép `path:'/gov'`, nên **credential mở được mọi shop không bao giờ đi kèm request vào trang khách**. Owner cookie hiện vẫn `path:'/'` (`app/api/owner/v2/login/route.ts:9`); thu hẹp nó là thay đổi trên route đã kiểm thử, không thuộc lát này.
+
+Test khẳng định trực tiếp điều này: sau khi đăng nhập, cookie có `path='/gov'`, `httpOnly`, `sameSite='Strict'`; rồi điều hướng sang `/one` và kiểm **header `cookie` của request điều hướng không chứa `nfc_admin_v1`**.
+
+Phụ thêm: một tiền tố `/gov/:path*` phủ cả trang lẫn API trong `next.config.ts`, không phải khai báo hai nhóm.
+
+## Không có tham số chuyển hướng
+
+Owner login nhận `next` nên cần `safeDestination()` chặn open-redirect. Admin luôn về `/gov` cố định, nên **không có bề mặt đó**. Route từ chối mọi khoá ngoài `username` và `password` — gửi kèm `next` sẽ bị `INVALID_INPUT`, và test khẳng định điều đó.
+
+## Tái dùng thay vì chép
+
+`adminOrigin` và `adminInput` gọi thẳng `ownerOrigin`/`ownerInput` rồi **dịch kiểu lỗi** sang `AdminError`. Một bộ đọc body đã được làm chặt, sửa ở một chỗ; route admin vẫn không bao giờ trả mã lỗi của owner. Cùng lý do với việc dùng chung `passwordKey`: chia sẻ phần cơ học, tách hoàn toàn phần quyết định quyền.
+
+## `/gov` khi phiên hỏng so với khi database hỏng
+
+Phiên bị từ chối → chuyển về `/gov/login`. Database lỗi → hiện trang "Dịch vụ đang gián đoạn". Nếu gộp hai nhánh, một sự cố database sẽ đẩy người dùng vào vòng lặp giữa hai trang.
+
+## Kiểm chứng — 2026-09-16, sau khi sửa `next.config.ts` và harness
+
+| Bộ | Kết quả |
+|---|---|
+| contracts | 60 passed |
+| client (Chrome thật) | 73 passed |
+| repository | 61 passed |
+| public-v2 + browser-hardening | 15 passed, 1 skipped + 2 production gate |
+| publishing | 4 passed + 2 |
+| owner dashboard | 3 passed + 2 |
+| **admin HTTP** | **2 passed + 2** |
+
+Tất cả exit 0. Pha production gate giờ là **2** ở mọi lượt `--build` vì test admin chạy cùng test cũ: nó chỉ khẳng định HTTP 404 nên không cần migration 005, tức admin đóng kể cả ở lượt chạy không bật cờ admin.
+
+## Một test viết sai, đã sửa
+
+Bản đầu dùng `page.getByRole('alert')` và vi phạm strict mode: Next tự render `__next-route-announcer__` với `role="alert"` trên mọi trang. Thu hẹp thành `getByRole('main').getByRole('alert')`.
+
+## Chạy
+
+```
+node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
+```
+
+`--admin` kéo theo `--owner` và publishing, vì `admin_audit` tham chiếu `owner_identities_v2`. Như các lệnh khác, **chạy riêng**, không gộp với spec khác.
+
+Tạo admin đầu tiên:
+
+```
+DATABASE_URL='…' node scripts/bootstrap-admin.mjs <username>
+```
+
+## Chưa có
+
+Mạo danh (hai quyền tách theo `commercial-model.md` mục 8), bảng danh sách shop, nút Generate, thanh toán. Vỏ `/gov` hiện chỉ hiện tên người đăng nhập và nút đăng xuất — đó là chỗ cho bảng admin ở lát 5.
