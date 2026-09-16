@@ -1,8 +1,9 @@
-import { ownerEnabled,ownerToken } from '@/server/owner-v2';
+import { ownerEnabled,ownerCredential } from '@/server/owner-v2';
 import { OwnerAuth,OwnerError } from '@/lib/owner/auth';
 import { database } from '@/server/db';
 import OwnerDashboard from '@/components/owner-dashboard-v2';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import ShopDashboard from '@/components/shop-dashboard';
 import { requireOwner } from '@/server/auth';
 import { shopBySlug } from '@/server/shops';
@@ -12,10 +13,15 @@ export default async function Page({params}:{params:Promise<{shop:string}>}) {
  if(ownerEnabled()){
   const slug=(await params).shop;
   let access;
-  try{access=await new OwnerAuth(database()).access(await ownerToken(),slug);}
-  catch(error){if(error instanceof OwnerError && error.status===401)redirect(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
+  const credential=await ownerCredential();
+  try{access=await new OwnerAuth(database()).access(credential,slug,'overview');}
+  catch(error){
+   // A finished impersonation must not fall through to the owner's sign-in form: the administrator is not the owner.
+   if(error instanceof OwnerError && error.code==='IMPERSONATION_ENDED')return <main className="dashboard-wrap"><h1>Phiên xem thay mặt đã kết thúc</h1><p>Mở phiên mới từ trang quản trị nếu vẫn cần hỗ trợ shop này.</p><Link href="/gov">Về trang quản trị</Link></main>;
+   if(error instanceof OwnerError && error.status===401)redirect(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
    return <main className="dashboard-wrap"><h1>Không thể mở dashboard</h1><p>Bạn chưa có quyền với shop này hoặc dịch vụ đang gián đoạn.</p></main>;}
-  return <OwnerDashboard slug={access.slug} name={access.name}/>;
+  const actor=access.actor;
+  return <OwnerDashboard slug={access.slug} name={access.name} impersonation={actor.kind==='admin'?{admin:actor.adminUsername,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
  }
  let shop;
  try{shop=await shopBySlug((await params).shop);await requireOwner(shop.id);}

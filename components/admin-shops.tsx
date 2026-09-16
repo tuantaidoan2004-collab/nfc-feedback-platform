@@ -20,6 +20,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
   const [shops, setShops] = useState(initial);
   const [handover, setHandover] = useState<Handover | null>(null);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [standIn, setStandIn] = useState<ShopRow | null>(null);
 
   const refresh = async () => {
     const response = await fetch('/gov/api/shops', { credentials: 'same-origin' });
@@ -40,7 +41,49 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
+  const impersonate = async (row: ShopRow, form: FormData) => {
+    if (!row.owner_user_id) return;
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/gov/api/impersonations', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: row.id, ownerUserId: row.owner_user_id, scope: form.get('scope'), reason: form.get('reason') }) });
+      if (!response.ok) {
+        setError(response.status === 400 ? 'Lý do cần từ 10 đến 200 ký tự, không xuống dòng.'
+          : response.status === 403 ? 'Shop hoặc chủ shop đang không hoạt động nên không xem thay mặt được.' : failed(response.status));
+        return;
+      }
+      window.location.assign((await response.json()).url);
+    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  };
+
+  const endStandIn = async () => {
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/gov/api/impersonations', { method: 'DELETE', credentials: 'same-origin' });
+      setError(response.ok ? ((await response.json()).ended ? 'Đã kết thúc phiên xem thay mặt.' : 'Không có phiên nào đang mở.') : failed(response.status));
+    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  };
+
   return <>
+    {standIn && <section className={styles.panel} data-impersonate-form>
+      <h2>Xem thay mặt {standIn.name}</h2>
+      <p className={styles.muted}>
+        Phiên chỉ xem, tối đa 30 phút, mỗi lúc một phiên. Chủ shop <strong>{standIn.owner_username}</strong> sẽ thấy phiên này
+        cùng lý do nguyên văn. Chỉ chọn kèm góp ý riêng tư khi việc hỗ trợ thật sự cần đọc góp ý.
+      </p>
+      <form className={styles.form} onSubmit={event => { event.preventDefault(); void impersonate(standIn, new FormData(event.currentTarget)); }}>
+        <label>Phạm vi<select name="scope" defaultValue="overview">
+          <option value="overview">Chỉ số liệu tổng quan</option>
+          <option value="feedback">Kèm góp ý riêng tư và tải dữ liệu</option>
+        </select></label>
+        <label>Lý do (chủ shop sẽ đọc)<input name="reason" required minLength={10} maxLength={200} placeholder="Shop nhờ kiểm vì sao số lượt mở giảm"/></label>
+        <button disabled={busy}>Mở dashboard</button>
+        <button type="button" disabled={busy} onClick={() => setStandIn(null)}>Huỷ</button>
+      </form>
+      {error && <p className={styles.muted} data-impersonate-error>{error}</p>}
+    </section>}
+
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
       <p className={styles.muted}>Một lần bấm tạo trang khách, bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
@@ -82,7 +125,8 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
     </section>
 
     <section className={styles.panel}>
-      <h2>Shop đang có ({shops.length})</h2>
+      <div className={styles.row}><h2>Shop đang có ({shops.length})</h2>
+        <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
       <div className={styles.wide}>
         <table className={styles.table}>
           <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trạng thái</th><th>Hoạt động</th><th/></tr></thead>
@@ -95,7 +139,10 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
               <td>{row.active_tags}/{row.tags} hoạt động</td>
               <td>{row.publishing_state}</td>
               <td>{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
-              <td>{row.owner_user_id && <button disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>}</td>
+              <td>{row.owner_user_id && <>
+                <button disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>
+                <button disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
+              </>}</td>
             </tr>)}
             {!shops.length && <tr><td colSpan={8} className={styles.muted}>Chưa có shop nào.</td></tr>}
           </tbody>

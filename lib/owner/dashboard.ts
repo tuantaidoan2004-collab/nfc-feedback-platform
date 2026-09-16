@@ -1,5 +1,6 @@
-import type { Pool } from 'pg';
-import { authorize, transaction, OwnerError } from './auth';
+import type { Pool, PoolClient } from 'pg';
+import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
+import { recordAdminAction } from '../admin/audit';
 import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './filters';
 export const utc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_at')} first_rated_at,${utc('e.updated_at')} updated_at,
@@ -13,11 +14,27 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
 export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number;experience_revision:string;topic:string|null;message:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
+export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number;exports:number;exported_rows:number};
+/**
+ * Every administrator session on this shop, shown to whoever runs the shop. It protects both sides: a shop that
+ * suspects its feedback was read has a record to check, and the operator has one to point to.
+ */
+async function adminVisits(db: PoolClient, shopId: string) {
+  return (await db.query(`SELECT i.id,a.username admin,i.scope,i.reason,${utc('i.created_at')} started_at,${utc('i.expires_at')} expires_at,
+    ${utc('i.ended_at')} ended_at,i.end_reason,
+    (SELECT count(*)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.read' AND x.detail->>'session'=i.id::text) reads,
+    (SELECT count(*)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.export' AND x.detail->>'session'=i.id::text) exports,
+    (SELECT COALESCE(sum((x.detail->>'rows')::int),0)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.export' AND x.detail->>'session'=i.id::text) exported_rows
+    FROM admin_impersonation_sessions i JOIN platform_admins a ON a.id=i.admin_id
+    WHERE i.shop_id=$1 ORDER BY i.created_at DESC,i.id LIMIT 20`, [shopId])).rows as AdminVisit[];
+}
+const viewer = (access: OwnerAccess) => access.actor.kind === 'owner' ? { kind: 'owner' as const }
+  : { kind: 'admin' as const, admin: access.actor.adminUsername, scope: access.actor.scope, reason: access.actor.reason, expiresAt: access.actor.expiresAt };
 export class OwnerDashboard {
   constructor(private pool: Pool) {}
-  async read(token: string | undefined, slug: string, f: Filters) {
+  async read(credential: OwnerCredential, slug: string, f: Filters) {
     return transaction(this.pool, async db => {
-      const access = await authorize(db,token,slug), q=cohort(access.shopId,f);
+      const access = await authorize(db,credential,slug,'overview'), q=cohort(access.shopId,f);
       // One SQL statement gives KPI and rows a consistent READ COMMITTED statement snapshot.
       const values=[...q.values]; let pageWhere='';
       if(f.cursor){values.push(f.cursor.time,f.cursor.id);pageWhere=`WHERE (e.first_interaction_at,e.session_id)<($${values.length-1}::timestamptz,$${values.length}::uuid)`;}
@@ -31,11 +48,15 @@ export class OwnerDashboard {
         COALESCE((SELECT jsonb_agg(releases) FROM (SELECT id,created_at FROM page_releases WHERE shop_id=$1 ORDER BY created_at DESC,id LIMIT 100) releases),'[]') releases,
         COALESCE((SELECT jsonb_agg(page ORDER BY first_rated_at DESC,session_id DESC) FROM page),'[]') records`,values)).rows[0];
       const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];delete result.records;delete result.tags;delete result.releases;
-      const records=rows.slice(0,50);
-      return {shop:{slug:access.slug,name:access.name},tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
+      const actor=access.actor, hidden=actor.kind==='admin'&&actor.scope==='overview';
+      // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
+      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,note:''}:row);
+      if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
+        detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
+      return {shop:{slug:access.slug,name:access.name},viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
     });
   }
-  async update(token: string|undefined, slug:string, input: unknown) {
+  async update(credential: OwnerCredential, slug:string, input: unknown) {
     if(!input || typeof input!=='object' || Array.isArray(input))throw new OwnerError(400,'INVALID_CASE');
     const data=input as Record<string,unknown>;
     if(Object.keys(data).sort().join()!=='expectedCaseRevision,expectedExperienceRevision,note,sessionId,status' || typeof data.sessionId!=='string' || !uuid(data.sessionId) ||
@@ -43,7 +64,7 @@ export class OwnerDashboard {
       typeof data.expectedExperienceRevision!=='string' || !/^[1-9][0-9]{0,15}$/.test(data.expectedExperienceRevision) ||
       !['new','progress','resolved'].includes(String(data.status)) || typeof data.note!=='string' || [...data.note].length>2000 || /\u0000/.test(data.note))throw new OwnerError(400,'INVALID_CASE');
     return transaction(this.pool,async db=>{
-      const access=await authorize(db,token,slug);
+      const access=await authorize(db,credential,slug,'write');
       const e=(await db.query("SELECT * FROM rating_experiences WHERE shop_id=$1 AND scope='live' AND session_id=$2 FOR UPDATE",[access.shopId,data.sessionId])).rows[0];
       if(!e?.feedback_message)throw new OwnerError(404,'NOT_FOUND');
       const current=(await db.query('SELECT revision FROM owner_feedback_cases WHERE session_id=$1',[data.sessionId])).rows[0];

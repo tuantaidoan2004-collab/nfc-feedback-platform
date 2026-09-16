@@ -11,7 +11,7 @@ const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provideFixture)=>{
  const schema=`nfc_owner_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  await provideFixture(await ownerFixture(db));}finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const filters=()=>parseFilters(new URLSearchParams());
@@ -22,12 +22,12 @@ test('real password login, opaque hash, rotation/logout/expiry/disabled membersh
  const stored=(await f.db.query('SELECT token_hash FROM owner_auth_sessions_v2 WHERE user_id=$1',[a.id])).rows[0];expect(stored.token_hash).toBe(sessionHash(a.token));expect(stored.token_hash).not.toBe(a.token);
  await expect(auth.login(a.username,'incorrect-password')).rejects.toThrow('LOGIN_FAILED');await expect(auth.login('unknown-user','incorrect-password')).rejects.toThrow('LOGIN_FAILED');
  await expect(dashboard.read(a.token,'two',filters())).rejects.toThrow('ACCESS_DENIED');
- const second=await auth.login(a.username,a.password,a.token);expect(second.token).not.toBe(a.token);await expect(auth.access(a.token,'one')).rejects.toThrow('LOGIN_REQUIRED');
+ const second=await auth.login(a.username,a.password,a.token);expect(second.token).not.toBe(a.token);await expect(auth.access(a.token,'one','overview')).rejects.toThrow('LOGIN_REQUIRED');
  await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1',[a.id]);await expect(dashboard.read(second.token,'one',filters())).rejects.toThrow('ACCESS_DENIED');
- await f.db.query('UPDATE owner_memberships_v2 SET active=true WHERE user_id=$1',[a.id]);await auth.logout(second.token);await expect(auth.access(second.token,'one')).rejects.toThrow('LOGIN_REQUIRED');
+ await f.db.query('UPDATE owner_memberships_v2 SET active=true WHERE user_id=$1',[a.id]);await auth.logout(second.token);await expect(auth.access(second.token,'one','overview')).rejects.toThrow('LOGIN_REQUIRED');
  const third=await auth.login(a.username,a.password);await f.db.query("UPDATE owner_auth_sessions_v2 SET created_at=clock_timestamp()-interval '9 hours',expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1",[sessionHash(third.token)]);
- await expect(auth.access(third.token,'one')).rejects.toThrow('LOGIN_REQUIRED');
- await f.db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1',[f.users[1].id]);await expect(auth.access(f.users[1].token,'two')).rejects.toThrow('LOGIN_REQUIRED');
+ await expect(auth.access(third.token,'one','overview')).rejects.toThrow('LOGIN_REQUIRED');
+ await f.db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1',[f.users[1].id]);await expect(auth.access(f.users[1].token,'two','overview')).rejects.toThrow('LOGIN_REQUIRED');
 });
 test('DB-backed login throttling is generic and attempts survive failed authentication',async({f})=>{
  for(let i=0;i<8;i++)await expect(f.auth.login(f.users[0].username,'wrong-password')).rejects.toThrow('LOGIN_FAILED');
@@ -107,7 +107,7 @@ test('two slow export cursors cannot consume the separate authorization pool',as
  try{
  first=await exportStream(f.db,f.users[0].token,'one',filters(),'experiences','jsonl',new AbortController().signal,cursors);
  second=await exportStream(f.db,f.users[1].token,'two',filters(),'experiences','jsonl',new AbortController().signal,cursors);
- expect((await f.auth.access(f.users[0].token,'one')).shopId).toBe(f.shops[0]);
+ expect((await f.auth.access(f.users[0].token,'one','overview')).shopId).toBe(f.shops[0]);
  const readers=[first.getReader(),second.getReader()];const chunks=await Promise.all(readers.map(r=>r.read()));expect(chunks.every(c=>!!c.value)).toBe(true);
  await Promise.all(readers.map(r=>r.cancel()));
  }finally{await cursors.end();}

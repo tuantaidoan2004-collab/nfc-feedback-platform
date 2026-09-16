@@ -176,6 +176,8 @@ Ba luật kèm theo:
 2. Audit phải ghi *"admin **thay mặt** chủ shop làm X"*, không được ghi thành *"chủ shop làm X"* — nếu không, sổ của chính chủ shop bị nhiễm và tranh chấp sau không gỡ được.
 3. **Chủ shop nhìn thấy** dòng ghi đó. Nó bảo vệ Tài: khi shop nghi ngờ bị xem trộm, có bản ghi công khai để đối chiếu.
 
+**Trạng thái:** quyền **đọc** đã làm, chỉ đọc, hai phạm vi `overview`/`feedback` — xem [admin-impersonation.md](admin-impersonation.md). Quyền **sửa cấu hình hộ** chờ lát editor.
+
 ### Mật khẩu đầu tiên — Tài không bao giờ biết
 
 Không sinh mật khẩu rồi đưa khách: như vậy Tài **từng biết** mật khẩu của khách, và ngày shop khiếu nại sẽ không chứng minh được. Thay bằng **link thiết lập dùng một lần, hết hạn 24–48 giờ**, gửi qua Zalo, khách tự đặt mật khẩu. Cần vào hộ thì dùng đường mạo danh — có sổ, có hạn giờ, minh bạch.

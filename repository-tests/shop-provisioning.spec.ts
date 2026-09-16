@@ -47,7 +47,7 @@ test('the link the operator hands over is what opens the account',async({f})=>{
  const session=await f.auth.login('quan-caphe','chosen-by-the-shop');
  const client=await f.db.connect();
  try{
-  const access=await authorize(client,session.token,made.slug);
+  const access=await authorize(client,session.token,made.slug,'overview');
   expect(access).toMatchObject({shopId:made.shopId,role:'owner'});
  }finally{client.release();}
 });

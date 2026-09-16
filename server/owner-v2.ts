@@ -1,15 +1,39 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { OwnerError } from '@/lib/owner/auth';
+import { OwnerError, type OwnerCredential } from '@/lib/owner/auth';
 import { nfcEnvDeclared } from './env';
 export const ownerEnabled=()=>nfcEnvDeclared()&&process.env.NFC_OWNER_V2_ENABLED==='true';
 export const ownerCookie='nfc_owner_v2';
 export async function ownerToken(){return (await cookies()).get(ownerCookie)?.value;}
+// An administrator standing in for an owner carries a cookie of its own, scoped to that one shop's dashboard and
+// API paths. When both are present the impersonation wins: it is the narrower of the two, read-only and short.
+export const impersonationCookie='nfc_impersonation_v1';
+export const impersonationPaths=(slug:string)=>[`/ZZZ/${slug}`,`/api/owner/v2/${slug}`];
+/**
+ * Written as raw headers on purpose. `response.cookies.set` keys cookies by name, so a second call for the same
+ * name on another path silently replaces the first, and only one of the two paths ever received the cookie.
+ * Pass null to clear. The slug must already be validated: it becomes part of a cookie attribute.
+ */
+export function setImpersonationCookies(response:NextResponse,request:Request,slug:string,token:string|null,expires?:Date){
+ const secure=new URL(request.url).protocol==='https:';
+ const lifetime=token?`Expires=${expires!.toUTCString()}`:'Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+ for(const path of impersonationPaths(slug))
+  response.headers.append('Set-Cookie',`${impersonationCookie}=${token??''}; Path=${path}; ${lifetime}; HttpOnly; SameSite=Strict${secure?'; Secure':''}`);
+}
+export async function ownerCredential():Promise<OwnerCredential>{
+ const jar=await cookies(),impersonation=jar.get(impersonationCookie);
+ return impersonation?{impersonation:impersonation.value}:jar.get(ownerCookie)?.value;
+}
 export function ownerGate(){if(!ownerEnabled())throw new OwnerError(404,'NOT_FOUND');}
 export const privateHeaders={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
 export const ownerJson=(value:unknown,status=200)=>NextResponse.json(value,{status,headers:privateHeaders});
-export const ownerFailure=(error:unknown)=>error instanceof OwnerError?ownerJson({error:error.code},error.status):ownerJson({error:'SERVICE_UNAVAILABLE'},503);
+export const ownerFailure=(error:unknown)=>{
+ if(error instanceof OwnerError)return ownerJson({error:error.code},error.status);
+ // Same rule as adminFailure: the generic answer keeps its cause in the server log, name and message only.
+ console.error('OWNER_UNEXPECTED',error instanceof Error?`${error.name}: ${error.message}`:String(error));
+ return ownerJson({error:'SERVICE_UNAVAILABLE'},503);
+};
 export function ownerOrigin(request:Request){const expected=process.env.APP_ORIGIN;
  if(!expected||new URL(expected).origin!==expected||request.headers.get('origin')!==expected||(request.headers.has('sec-fetch-site')&&request.headers.get('sec-fetch-site')!=='same-origin'))throw new OwnerError(403,'ORIGIN_NOT_ALLOWED');}
 export async function ownerInput(request:Request){

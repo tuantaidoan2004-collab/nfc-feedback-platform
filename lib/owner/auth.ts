@@ -15,18 +15,69 @@ export async function transaction<T>(pool: Pool, operation: (db: PoolClient) => 
   try { await db.query('BEGIN'); const result = await operation(db); await db.query('COMMIT'); return result; }
   catch (error) { await db.query('ROLLBACK'); throw error; } finally { db.release(); }
 }
-export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager' };
-/** Each caller supplies a transaction. Share locks linearize revoke/membership/suspend against a read or write. */
-export async function authorize(db: PoolClient, token: string | undefined, slug: string): Promise<OwnerAccess> {
-  if (!token || !/^[a-f0-9]{64}$/.test(token)) throw new OwnerError(401, 'LOGIN_REQUIRED');
+export const impersonationHash = (token: string) => createHash('sha256').update(`nfc-impersonation-v1\0${token}`).digest('hex');
+const opaque = (token: unknown): token is string => typeof token === 'string' && /^[a-f0-9]{64}$/.test(token);
+
+/** A bare string is an owner session token. An administrator standing in for the owner presents the other form. */
+export type OwnerCredential = string | undefined | { impersonation: string | undefined };
+/**
+ * What the caller is about to do. Every caller names it, so no route can forget to ask:
+ * overview = counts and rows without feedback text · feedback = feedback text · export = bulk files · write = change anything.
+ */
+export type OwnerNeed = 'overview' | 'feedback' | 'export' | 'write';
+export type ImpersonationScope = 'overview' | 'feedback';
+export type OwnerActor = { kind: 'owner' }
+  | { kind: 'admin'; adminId: string; adminUsername: string; sessionId: string; scope: ImpersonationScope; reason: string; expiresAt: string };
+export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager'; actor: OwnerActor };
+
+/**
+ * The one gate both kinds of caller pass through: the owner identity is active, the membership is active and the
+ * shop is active. An impersonation stands in for a specific owner, so it is held to exactly the same conditions
+ * as that owner signing in — a shop that is suspended, or an owner who was switched off, is closed to both.
+ */
+export async function ownerShop(db: PoolClient, userId: string, shop: { slug: string } | { id: string }) {
+  const [where, key] = 'slug' in shop ? ['lower(s.slug)=lower($2)', shop.slug] : ['s.id=$2', shop.id];
+  return (await db.query(`SELECT s.id,s.slug,s.name,m.role FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
+    JOIN owner_identities_v2 u ON u.id=m.user_id
+    WHERE m.user_id=$1 AND ${where} AND u.active AND m.active AND s.publishing_state='active' FOR SHARE OF m,s,u`, [userId, key])).rows[0] as
+    { id: string; slug: string; name: string; role: 'owner' | 'manager' } | undefined;
+}
+
+async function now(db: PoolClient) { return (await db.query('SELECT clock_timestamp() now')).rows[0].now as Date; }
+
+/** Each caller supplies a transaction. Share locks linearize revoke/membership/suspend/ending against a read or write. */
+export async function authorize(db: PoolClient, credential: OwnerCredential, slug: string, need: OwnerNeed): Promise<OwnerAccess> {
+  if (typeof credential === 'object') return authorizeImpersonation(db, credential.impersonation, slug, need);
+  const token = credential;
+  if (!opaque(token)) throw new OwnerError(401, 'LOGIN_REQUIRED');
   const session = (await db.query(`SELECT a.user_id,a.expires_at FROM owner_auth_sessions_v2 a JOIN owner_identities_v2 u ON u.id=a.user_id
     WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active FOR SHARE OF a,u`, [sessionHash(token)])).rows[0];
   if (!session) throw new OwnerError(401, 'LOGIN_REQUIRED');
-  const shop = (await db.query(`SELECT s.id,s.slug,s.name,m.role FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
-    WHERE m.user_id=$1 AND lower(s.slug)=lower($2) AND m.active AND s.publishing_state='active' FOR SHARE OF m,s`, [session.user_id, slug])).rows[0];
+  const shop = await ownerShop(db, session.user_id, { slug });
   if (!shop) throw new OwnerError(403, 'ACCESS_DENIED');
-  if ((await db.query('SELECT clock_timestamp() now')).rows[0].now >= session.expires_at) throw new OwnerError(401,'LOGIN_REQUIRED');
-  return { userId: session.user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role };
+  if (await now(db) >= session.expires_at) throw new OwnerError(401,'LOGIN_REQUIRED');
+  return { userId: session.user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, actor: { kind: 'owner' } };
+}
+
+async function authorizeImpersonation(db: PoolClient, token: string | undefined, slug: string, need: OwnerNeed): Promise<OwnerAccess> {
+  if (!opaque(token)) throw new OwnerError(401, 'IMPERSONATION_ENDED');
+  // Alive only while the administrator is: the session that opened it still valid, the account still active.
+  const row = (await db.query(`SELECT i.id,i.admin_id,a.username,i.owner_user_id,i.shop_id,i.scope,i.reason,
+      LEAST(i.expires_at,s.expires_at) expires_at
+    FROM admin_impersonation_sessions i JOIN admin_auth_sessions s ON s.token_hash=i.admin_session_hash JOIN platform_admins a ON a.id=i.admin_id
+    WHERE i.token_hash=$1 AND i.ended_at IS NULL AND i.expires_at>clock_timestamp()
+      AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND a.active FOR SHARE OF i,s,a`, [impersonationHash(token)])).rows[0];
+  if (!row) throw new OwnerError(401, 'IMPERSONATION_ENDED');
+  // Refused here, not in the interface: a request sent by hand meets the same answer as a disabled button.
+  if (need === 'write') throw new OwnerError(403, 'IMPERSONATION_READ_ONLY');
+  if (need !== 'overview' && row.scope !== 'feedback') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
+  const shop = await ownerShop(db, row.owner_user_id, { slug });
+  // The cookie is scoped to one shop's paths, but the session is what decides: it names exactly one shop.
+  if (!shop || shop.id !== row.shop_id) throw new OwnerError(403, 'ACCESS_DENIED');
+  if (await now(db) >= row.expires_at) throw new OwnerError(401, 'IMPERSONATION_ENDED');
+  return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role,
+    actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, sessionId: row.id, scope: row.scope, reason: row.reason,
+      expiresAt: (row.expires_at as Date).toISOString() } };
 }
 export class OwnerAuth {
   constructor(private pool: Pool) {}
@@ -64,10 +115,10 @@ export class OwnerAuth {
   async logout(token?: string) {
     if (token && /^[a-f0-9]{64}$/.test(token)) await this.pool.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE token_hash=$1 AND revoked_at IS NULL', [sessionHash(token)]);
   }
-  async access(token: string | undefined, slug: string) {
-    const access = await transaction(this.pool, db => authorize(db, token, slug));
+  async access(credential: OwnerCredential, slug: string, need: OwnerNeed) {
+    const access = await transaction(this.pool, db => authorize(db, credential, slug, need));
     // Approximate use timestamp, no sliding expiry. No credential value is returned to dashboard code.
-    await this.pool.query("UPDATE owner_auth_sessions_v2 SET last_used_at=clock_timestamp() WHERE token_hash=$1 AND last_used_at<clock_timestamp()-interval '5 minutes'", [sessionHash(token!)]);
+    if (typeof credential === 'string') await this.pool.query("UPDATE owner_auth_sessions_v2 SET last_used_at=clock_timestamp() WHERE token_hash=$1 AND last_used_at<clock_timestamp()-interval '5 minutes'", [sessionHash(credential)]);
     return access;
   }
 }

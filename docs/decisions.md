@@ -388,6 +388,27 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Đo trên preview: POST chặn origin0,41s · GET có database0,66s · POST login2,54s. Phần chênh ~1,9s là scrypt, đúng mức OWASP khuyến nghị, **không phải lỗi hiệu năng cần tinh chỉnh**. Ghi nhận để bàn sau: `login()` giữ một kết nối database suốt thời gian chạy scrypt.
 - Repository suite **63 passed**. Một commit đã lỡ push khi typecheck đỏ vì chuỗi lệnh không chặn; đã sửa ở commit kế và từ đó nối `&&` để commit chỉ chạy sau khi typecheck, lint và test đều xanh.
 
+## Lát mạo danh — admin xem dashboard thay mặt chủ shop — 2026-09-16
+
+- Tài duyệt: tách quyền sửa cấu hình sang lát editor (chưa có gì để sửa); **phiên mạo danh chỉ đọc**; **lý do bắt buộc, chủ shop đọc nguyên văn**, giới hạn 10–200 ký tự. Bốn yêu cầu thêm: chặn export `overview` **ở server**; chặn ghi **trong `authorize`**; **tái dùng cổng owner**; **một phiên sống mỗi admin**. Ghi sổ theo request, export một dòng kèm số lượng.
+- `authorize()` nhận thêm **loại việc bắt buộc** (`overview`/`feedback`/`export`/`write`). Cổng chung `ownerShop()` (identity + membership + shop active) dùng cho cả hai nhánh. Mạo danh còn phụ thuộc phiên admin: **admin đăng xuất là phiên mạo danh chết theo**.
+- Migration 007: `admin_impersonation_sessions`, CHECK tối đa 30 phút, unique index một phiên sống, trigger chỉ cho đóng một lần. `admin_audit` ghi `impersonation.start/read/export/end`. Số dòng export đếm trong cùng snapshot với cursor và ghi **trước** byte đầu tiên.
+- Chủ shop thấy mục "Lượt truy cập của quản trị" gồm lý do nguyên văn, số lần xem, số lần tải và số dòng đã tải.
+- **Lỗi của agent trong lát, đã sửa:** `response.cookies.set` của Next lưu theo tên, nên đặt cùng cookie cho hai `path` chỉ ra một header; dashboard không nhận cookie. Repository test không bắt được, test HTTP bắt được. Sửa bằng cách tự ghi `Set-Cookie`. Thêm một lỗi test: lùi `expires_at` mà quên `created_at` nên vi phạm CHECK.
+- Nợ cũ đã trả: `ownerFailure` giờ ghi `OWNER_UNEXPECTED`.
+- Kiểm chứng: tsc/eslint exit 0; repository **79 passed**; harness admin 4+2, owner 3+2, publishing 4+2, public 15+1 skip+2, tất cả exit 0; migrate 001–007 idempotent. Đã **gỡ từng lớp chặn** (ghi, phạm vi, shop active, xoá nội dung, ghi sổ export) và lần nào test cũng đỏ. Chi tiết: [admin-impersonation.md](admin-impersonation.md).
+- Ngoài phạm vi lát này: `app/gov/api/setup-links/route.ts` ghi sổ ngoài transaction và không kiểm `shopId` khớp chủ shop. **Đã sửa ở mục kế tiếp.**
+
+## Phát lại liên kết: một transaction, đúng shop — 2026-09-16
+
+- Lỗi cũ ở `app/gov/api/setup-links/route.ts`: phát link rồi mới ghi `admin_audit` bằng **hai câu lệnh rời**, nên link có thể tồn tại mà không có dòng sổ; và `shopId` lấy thẳng từ request ghi vào sổ **không kiểm chủ shop có thuộc shop đó**, nên sổ có thể quy việc phát lại cho sai shop.
+- Sửa: `OwnerSetupLinks.reissue(userId, shopId, record)` kiểm membership, phát link và gọi `record` (ghi sổ) **trong cùng một transaction**. Route kiểm `ownerUserId`/`shopId` đúng dạng UUID.
+- **Tài chọn: chỉ kiểm membership** (membership active + danh tính active), không xét `publishing_state`. Shop draft hoặc bị đình chỉ vẫn phát lại link được; membership đã tắt thì không. Không dùng `ownerShop()` vì nó đòi shop `active`.
+- Lỗi phụ phát hiện khi sửa: `OwnerError('OWNER_NOT_FOUND')` không được `adminFailure` dịch, nên chủ shop không tồn tại trả **503** thay vì 404. Route giờ đổi `OwnerError` thành `AdminError`: shop sai hoặc chủ shop không còn → 404, id lệch dạng → 400.
+- Test: repository thêm ca shop sai, ghi sổ thất bại (link mới bị huỷ, link reset trước đó vẫn mở), shop đình chỉ vẫn được, membership tắt bị chặn. Harness admin thêm ca HTTP 404/400/200 và đếm dòng sổ. **Gỡ từng lớp** (bỏ kiểm shop, bỏ kiểm membership active, ghi sổ ngoài transaction) — lần nào test cũng đỏ.
+- **Lỗi của agent trong lát, đã sửa trước khi chạy/báo cáo:** bản test đầu kiểm "link cũ vẫn mở" bằng link `setup`, trong khi phát lại chỉ thay link `reset` — ca đó xanh cả khi code sai; đã đổi sang link `reset` phát trước. Lần chạy harness đầu in `EXIT=$?` sau `| tail`, tức là mã thoát của `tail`, không phải của harness; đã chạy lại với output ghi ra file để lấy đúng mã.
+- Kiểm chứng: tsc/eslint exit 0; repository **80 passed**; harness admin **5 passed + 2 passed**, exit 0.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -398,7 +419,9 @@ Branch `feat/local-app-foundation`, đã đồng bộ `main`. Preview Vercel ch�
 
 Chạy được trên preview: trang khách · dashboard chủ shop · quản trị `/gov` (đăng nhập, tạo shop, phát lại liên kết) · trang chủ shop tự đặt mật khẩu.
 
-Chưa có: mạo danh · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy.
+**Mạo danh (chỉ đọc) đã xong ở local, CHƯA lên preview.** Migration 007 chưa áp lên Neon. **Phải migrate 007 lên branch mặc định và branch preview TRƯỚC khi push**: dashboard chủ shop giờ đọc `admin_impersonation_sessions`, nên thiếu bảng là dashboard trả 503 cho mọi chủ shop.
+
+Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy.
 
 ### Thứ tự đọc cho phiên mới
 
@@ -406,7 +429,7 @@ Chưa có: mạo danh · kích hoạt thẻ (`prepared → tested → active`, n
 2. **`docs/operations-gotchas.md`** — mọi bẫy đã dính, đọc trước khi dựng môi trường hay deploy
 3. `docs/commercial-model.md` — mô hình kinh doanh, bảng giá, tầng admin, quyền. Đây là nơi chốt **cái gì** phải xây
 4. Khối này, rồi lùi lên các checkpoint gần nhất trong `decisions.md`
-5. Chỉ đọc tài liệu lát cụ thể khi sắp sửa đúng phần đó: `platform-admin.md`, `owner-provisioning.md`, `publishing-core.md`, `owner-dashboard-v2.md`, `antigravity-connect.md`
+5. Chỉ đọc tài liệu lát cụ thể khi sắp sửa đúng phần đó: `platform-admin.md`, `admin-impersonation.md`, `owner-provisioning.md`, `publishing-core.md`, `owner-dashboard-v2.md`, `antigravity-connect.md`
 
 ### Dựng môi trường
 
@@ -416,7 +439,7 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-1. **Mạo danh** — Tài vào dashboard khách, để lại dấu chân. Thiết kế đã chốt ở `commercial-model.md` mục 8: tách hai quyền (sửa cấu hình hộ ≠ đọc góp ý riêng tư), phiên có hạn ~30 phút, audit ghi `on_behalf_of`, chủ shop nhìn thấy.
+1. **Đưa mạo danh lên preview**: migrate 007 (Tài làm bước có credential), push, rồi thử thật trên preview.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
 4. **Bật `NFC_PUBLISHING_ENABLED`** — cần mọi shop có release, kể cả `caphe-demo` vốn seed bằng INSERT thẳng.
