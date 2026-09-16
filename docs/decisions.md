@@ -387,3 +387,40 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Hai lỗi trong script bootstrap đã sửa và có test: prompt gõ tay không phản hồi rồi thoát hẳn khi sai; nhánh đọc qua ống dùng readline đợi hết *dòng* nên treo vĩnh viễn với input không có ký tự xuống dòng, thoát mà không ghi gì và không báo lỗi nào ra ngoài. Nghi ngờ mật khẩu đầu tiên sai do **bộ gõ tiếng Việt** biến đổi ký tự ngay tại Terminal — số ký tự khớp, nội dung không; không chứng minh được nên chỉ ghi là nghi ngờ. Khuyến nghị: đặt mật khẩu qua đường ống, không gõ tay.
 - Đo trên preview: POST chặn origin0,41s · GET có database0,66s · POST login2,54s. Phần chênh ~1,9s là scrypt, đúng mức OWASP khuyến nghị, **không phải lỗi hiệu năng cần tinh chỉnh**. Ghi nhận để bàn sau: `login()` giữ một kết nối database suốt thời gian chạy scrypt.
 - Repository suite **63 passed**. Một commit đã lỡ push khi typecheck đỏ vì chuỗi lệnh không chặn; đã sửa ở commit kế và từ đó nối `&&` để commit chỉ chạy sau khi typecheck, lint và test đều xanh.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
+
+Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
+
+### Đang ở đâu
+
+Branch `feat/local-app-foundation`, đã đồng bộ `main`. Preview Vercel chạy thật với Neon branch `preview/feat/local-app-foundation` (migration 001–006). Production deploy được nhưng **đóng**: không đặt `NFC_ENV` nên mọi bề mặt v2 trả 404, và không có `SERVER_DATA_ENABLED` nên không chạm database.
+
+Chạy được trên preview: trang khách · dashboard chủ shop · quản trị `/gov` (đăng nhập, tạo shop, phát lại liên kết) · trang chủ shop tự đặt mật khẩu.
+
+Chưa có: mạo danh · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy.
+
+### Thứ tự đọc cho phiên mới
+
+1. `AGENTS.md` — quy tắc làm việc
+2. **`docs/operations-gotchas.md`** — mọi bẫy đã dính, đọc trước khi dựng môi trường hay deploy
+3. `docs/commercial-model.md` — mô hình kinh doanh, bảng giá, tầng admin, quyền. Đây là nơi chốt **cái gì** phải xây
+4. Khối này, rồi lùi lên các checkpoint gần nhất trong `decisions.md`
+5. Chỉ đọc tài liệu lát cụ thể khi sắp sửa đúng phần đó: `platform-admin.md`, `owner-provisioning.md`, `publishing-core.md`, `owner-dashboard-v2.md`, `antigravity-connect.md`
+
+### Dựng môi trường
+
+Node 24 qua nvm (`~/.zshrc` đã nạp sẵn). PostgreSQL dùng binary Postgres.app, **dựng cluster riêng cổng 55439** — lệnh đầy đủ trong `antigravity-connect.md`. Cluster nằm ở thư mục tạm nên **mất sau khi khởi động lại máy**, dựng lại từ đầu là bình thường.
+
+Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_modules/eslint/bin/eslint.js .` · bốn lệnh harness trong `operations-gotchas.md`. **Không dùng `pnpm <script>`.**
+
+### Lát tiếp theo, theo thứ tự đề xuất
+
+1. **Mạo danh** — Tài vào dashboard khách, để lại dấu chân. Thiết kế đã chốt ở `commercial-model.md` mục 8: tách hai quyền (sửa cấu hình hộ ≠ đọc góp ý riêng tư), phiên có hạn ~30 phút, audit ghi `on_behalf_of`, chủ shop nhìn thấy.
+2. **Kích hoạt thẻ** để `/t/<mã>` sống.
+3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
+4. **Bật `NFC_PUBLISHING_ENABLED`** — cần mọi shop có release, kể cả `caphe-demo` vốn seed bằng INSERT thẳng.
+
+### Việc còn treo của Tài
+
+Mua tên miền (`quitesensational`, chưa kiểm còn trống). Đăng ký Cloudflare R2. Xoay mật khẩu `neondb_owner` và mật khẩu admin `tai` khi xong giai đoạn thử — cả hai đã xuất hiện trong hội thoại.
