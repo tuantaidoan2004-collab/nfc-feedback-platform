@@ -5,7 +5,7 @@ import {Pool} from 'pg';
 import {AdminAuth,adminSessionHash,authorizeAdmin} from '../lib/admin/auth';
 import {recordAdminAction} from '../lib/admin/audit';
 import {OwnerAuth} from '../lib/owner/auth';
-import {execFile} from 'node:child_process';
+import {execFile,execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
 const run=promisify(execFile);
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
@@ -152,4 +152,18 @@ test('a forgotten password is reset in place, revoking sessions and leaving the 
  expect((await f.db.query('SELECT action FROM admin_audit ORDER BY id')).rows.map(r=>r.action)).toEqual(['admin.bootstrap','admin.password_reset']);
  await expect(run(process.execPath,['scripts/bootstrap-admin.mjs','ghost','--reset'],{env:{...process.env,NFC_ADMIN_PASSWORD:second,DATABASE_URL:url}}))
   .rejects.toThrow(/No administrator named ghost/);
+});
+
+test('a piped password is read to end of stream, with or without a trailing newline',async({f})=>{
+ // Reading to end of line instead of end of stream left the process waiting forever on input that carried no
+ // newline, and it exited on an unsettled await having written nothing at all.
+ const url=`${uri}?options=-c%20search_path%3D${f.schema}`;
+ // A minimal environment, so the variable that short-circuits the prompt cannot leak in from this process.
+ const env={PATH:process.env.PATH??'',DATABASE_URL:url};
+ const bare='piped-password-no-newline',withNewline='piped-password-with-newline';
+ execFileSync(process.execPath,['scripts/bootstrap-admin.mjs','piped'],{env,input:bare});
+ await expect(f.auth.login('piped',bare)).resolves.toBeTruthy();
+ execFileSync(process.execPath,['scripts/bootstrap-admin.mjs','piped','--reset'],{env,input:`${withNewline}\n`});
+ await expect(f.auth.login('piped',withNewline)).resolves.toBeTruthy();
+ await expect(f.auth.login('piped',bare)).rejects.toThrow('ADMIN_LOGIN_FAILED');
 });

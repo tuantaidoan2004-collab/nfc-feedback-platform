@@ -6,7 +6,6 @@
 // rejects. If the parameters ever change, change them here too and bump password_scheme in both places;
 // the CHECK on that column then rejects a stale write instead of silently storing an unusable hash.
 import { randomBytes, scrypt } from 'node:crypto';
-import { createInterface } from 'node:readline/promises';
 import { StringDecoder } from 'node:string_decoder';
 import pg from 'pg';
 
@@ -57,13 +56,15 @@ async function readPassword() {
     return process.env.NFC_ADMIN_PASSWORD;
   }
   if (!process.stdin.isTTY) {
-    const rl = createInterface({ input: process.stdin });
-    try {
-      const piped = (await rl.question('')).trim();
-      const reason = invalid(piped);
-      if (reason) throw new Error(reason);
-      return piped;
-    } finally { rl.close(); }
+    // Read to end of stream rather than to end of line: input arriving without a trailing newline would
+    // otherwise leave the read waiting forever, and the process exits on an unsettled await with nothing
+    // written. Only one trailing newline is removed, so a password ending in a space survives intact.
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    const piped = Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+    const reason = invalid(piped);
+    if (reason) throw new Error(reason);
+    return piped;
   }
   // Asking twice catches a typo now instead of at the login form, where the message is deliberately vague.
   for (let attempt = 3; attempt > 0; attempt--) {
