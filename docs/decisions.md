@@ -459,42 +459,67 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - `.claude/skills` là symlink tới `.agents/skills` để hai agent dùng chung. ESLint và `.vercelignore` bỏ qua hai thư mục này (một file mẫu JS trong `algorithmic-art` đã làm ESLint sinh 14 cảnh báo).
 - `remotion-best-practices` không có giấy phép, nên chỉ cài trên máy Tài, không vào repo. `nano-banana-2` cần dịch vụ trả phí và chưa được dùng. `hyperframes-cli` không được gửi telemetry.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
+## Dọn trước khi sang phiên mới — 2026-09-17
+
+- Gỡ 7 skill mattpocock cần issue tracker (`to-spec`, `to-tickets`, `triage`, `wayfinder`, `setup-matt-pocock-skills`, `ask-matt`, `to-questionnaire`). Thêm **bảng chọn skill** ở đầu `agent-skills.md`: mỗi loại việc có một skill chính. `AGENTS.md` trỏ tới bảng đó; câu về agentmemory đã sửa cho khớp (không dùng vì chưa cài MCP).
+- Xoá rác của phiên: thư mục tạm khoảng 660 MB (cluster Postgres test, bản clone skill, log) và `test-results/`. Giữ `.env.local` (Vercel CLI tạo, có thể chứa token) và worktree `f5a3` (không phải của phiên này).
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`, đã đồng bộ `main`. Preview Vercel chạy thật với Neon branch `preview/feat/local-app-foundation` (migration 001–006). Production deploy được nhưng **đóng**: không đặt `NFC_ENV` nên mọi bề mặt v2 trả 404, và không có `SERVER_DATA_ENABLED` nên không chạm database.
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–009 đã có trên cả branch production và preview của Neon**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
-Chạy được trên preview: trang khách · dashboard chủ shop · quản trị `/gov` (đăng nhập, tạo shop, phát lại liên kết) · trang chủ shop tự đặt mật khẩu.
+Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
-**Migration 001–008 đã có trên Neon** (production và preview). **Lát A cần migration 009: phải migrate lên cả hai branch TRƯỚC khi push**, vì bảng shop ở `/gov` và nút Tạo shop giờ đọc `shops.is_template`; thiếu cột là trả 503.
+Đã chạy trên preview:
+- trang khách qua renderer publishing;
+- dashboard chủ shop: link trang khách, công tắc cho quản trị đọc góp ý, mục lượt truy cập của quản trị;
+- `/gov`: đăng nhập, tạo shop (nhân bản từ khuôn), phát lại liên kết, mạo danh chỉ đọc, tạo shop khuôn, tạo tài khoản test `yourshop` / `1`;
+- trang chủ shop tự đặt mật khẩu, xong thì vào thẳng dashboard.
 
-Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` đã bật trên preview từ 17/09 (có `NFC_RENDER_SIGNING_KEY`).
+Shop trên preview:
+- khuôn "YOUR SHOP" (`pripi01r8e9u`);
+- `cà phê Dê` (`8irrsv53fiva`, chủ `dedede`, email khách giả `bingchillinmaho@gmail.com`);
+- `caphe-demo` đã bỏ, hiện "Trang chưa sẵn sàng".
+
+Chưa có:
+- trang khách v2 (**chưa vẽ nền, video, logo hay nút từ cấu hình**);
+- dashboard mới 3 tab; editor; công tắc 4 vị trí;
+- kích hoạt thẻ (`/t/<mã>` chưa sống);
+- thanh toán; email; R2; tên miền riêng.
+
+### Lát tiếp theo
+
+1. **Lát B: trang khách v2**, theo [redesign-v2.md](redesign-v2.md): hai bố cục, video nền kèm ảnh tĩnh thay thế, watermark, poster, logo, nút Facebook và Liên hệ, khung góp ý riêng mở/thu gọn và gửi được khi chưa chấm sao (**nút Google luôn trong màn hình**), popup cảm ơn kèm pháo giấy. Có đổi schema theo version và đổi API góp ý. **Effort high.** Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt rồi mới sửa.
+2. Lát C: dashboard mới (khung, ô chuyển shop, tab Dữ liệu).
+3. Lát D: tab Thiết kế giao diện và công tắc 4 vị trí.
+4. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
+5. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
+
+### Skill cho lát B
+
+Theo bảng ở đầu `docs/agent-skills.md`: `ui-ux-pro-max` và `frontend-design` (giao diện) · `frontend-ui-engineering` (code, a11y) · `tdd` (logic và API góp ý) · `security-and-hardening` (đổi API công khai) · `diagnosing-bugs` khi có lỗi · `code-review-and-quality` trước khi commit. Chỉ nạp skill cần tới.
 
 ### Thứ tự đọc cho phiên mới
 
-1. `AGENTS.md` — quy tắc làm việc
-2. **`docs/operations-gotchas.md`** — mọi bẫy đã dính, đọc trước khi dựng môi trường hay deploy
-3. `docs/commercial-model.md` — mô hình kinh doanh, bảng giá, tầng admin, quyền. Đây là nơi chốt **cái gì** phải xây
-4. Khối này, rồi lùi lên các checkpoint gần nhất trong `decisions.md`
-5. Chỉ đọc tài liệu lát cụ thể khi sắp sửa đúng phần đó: `platform-admin.md`, `admin-impersonation.md`, `owner-provisioning.md`, `publishing-core.md`, `owner-dashboard-v2.md`, `antigravity-connect.md`
+1. `AGENTS.md`: quy tắc làm việc
+2. **`docs/operations-gotchas.md`**: mọi bẫy đã dính, cộng lệnh chạy **7 bộ test**
+3. `docs/commercial-model.md`: mô hình kinh doanh, quyền, công tắc 4 vị trí
+4. `docs/redesign-v2.md`: thiết kế trang khách và dashboard đang làm
+5. Khối này, rồi các checkpoint gần nhất phía trên
+6. `docs/agent-skills.md`: bảng chọn skill
+7. Tài liệu lát cụ thể khi sắp sửa đúng phần đó: `admin-impersonation.md`, `platform-admin.md`, `owner-provisioning.md`, `publishing-core.md`, `owner-dashboard-v2.md`, `antigravity-connect.md`
 
 ### Dựng môi trường
 
-Node 24 qua nvm (`~/.zshrc` đã nạp sẵn). PostgreSQL dùng binary Postgres.app, **dựng cluster riêng cổng 55439** — lệnh đầy đủ trong `antigravity-connect.md`. Cluster nằm ở thư mục tạm nên **mất sau khi khởi động lại máy**, dựng lại từ đầu là bình thường.
-
-Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_modules/eslint/bin/eslint.js .` · bộ `contracts` và `client` · bộ repository · bốn lệnh harness. Lệnh đầy đủ trong `operations-gotchas.md`. **Không dùng `pnpm <script>`.**
-
-### Lát tiếp theo, theo thứ tự đề xuất
-
-0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md). Lát A đã xong, publishing đã bật trên preview. **Tiếp theo: lát B.**
-1. **Mạo danh + công tắc đã lên preview** (push `a725976`); Tài đã thử 1 và 2: Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
-2. **Kích hoạt thẻ** để `/t/<mã>` sống.
-3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
-4. ~~Bật `NFC_PUBLISHING_ENABLED`~~ — xong trên preview 17/09; `caphe-demo` bỏ.
+Node 24 qua nvm. PostgreSQL dùng binary Postgres.app, **dựng cluster riêng cổng 55439** (lệnh trong `antigravity-connect.md`). Cluster nằm ở thư mục tạm nên mất sau mỗi phiên, dựng lại là bình thường; **tắt cluster khi xong việc**. **Không dùng `pnpm <script>`.** Kiểm commit trong worktree tạm với đủ 7 bộ, và đọc `git diff --cached --stat` trước khi commit.
 
 ### Việc còn treo của Tài
 
-Mua tên miền (`quitesensational`, chưa kiểm còn trống). Đăng ký Cloudflare R2. Xoay mật khẩu `neondb_owner` và mật khẩu admin `tai` khi xong giai đoạn thử — cả hai đã xuất hiện trong hội thoại. Đổi mật khẩu `yourshop` (đang là `1`) khi siết mật khẩu đồng loạt.
+- Mua tên miền (`quitesensational`, chưa kiểm còn trống).
+- Đăng ký Cloudflare R2 (cần cho việc tải ảnh, video riêng của từng shop).
+- Khi siết mật khẩu đồng loạt: xoay mật khẩu `neondb_owner` và mật khẩu admin `tai` (cả hai đã xuất hiện trong hội thoại), đổi mật khẩu `yourshop` (đang là `1`).
+- `nano-banana-2` cần đăng ký RunComfy (trả phí) nếu muốn dùng.

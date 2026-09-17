@@ -9,6 +9,40 @@ Tài yêu cầu áp dụng hai bộ skill vào cách Codex làm việc trong d�
 
 Chỉ nạp skill liên quan đến việc đang làm. Không đọc toàn bộ bộ skill vào mỗi lượt. Không tự cập nhật upstream; lần nâng cấp sau phải đọc thay đổi.
 
+## Bảng chọn skill — đọc cái này trước
+
+Mỗi loại việc có **một skill chính**; skill phụ chỉ dùng khi skill chính không đủ. Hai bộ addyosmani và mattpocock trùng nhiều việc; bảng này chọn sẵn để không phải cân nhắc lại. Chỉ nạp skill của việc đang làm.
+
+| Việc | Skill chính | Phụ khi cần |
+|---|---|---|
+| Chọn skill / bắt đầu phiên | `using-agent-skills` | `context-engineering` |
+| Ý còn mơ hồ, cần hỏi Tài cho rõ | `grill-with-docs` (hỏi và ghi luôn vào tài liệu) | `grill-me`, `interview-me`, `idea-refine` |
+| Tài nói chưa hiểu tin nhắn trước | `wait-what` | — |
+| Viết thiết kế trước khi code | `spec-driven-development` | `domain-modeling` |
+| Chia lát, làm từng phần | `planning-and-task-breakdown` → `incremental-implementation` | `implement` (khi đã có spec rõ) |
+| Viết code logic, sửa bug có test | `tdd` | `test-driven-development` |
+| Lỗi, test đỏ, chập chờn | `diagnosing-bugs` | `debugging-and-error-recovery` |
+| Thiết kế module, ranh giới, API | `codebase-design` | `api-and-interface-design`, `improve-codebase-architecture` |
+| Giao diện: bố cục, màu, chữ, chuyển động | `ui-ux-pro-max` | `frontend-design`, `theme-factory` |
+| Giao diện: code, a11y, responsive | `frontend-ui-engineering` | — |
+| Kiểm giao diện trong trình duyệt | trình duyệt tích hợp của phiên | `webapp-testing`, `browser-testing-with-devtools` |
+| Thử nhanh một ý giao diện, bỏ đi sau | `prototype` | — |
+| Auth, quyền, dữ liệu nhạy cảm | `security-and-hardening` | `doubt-driven-development` |
+| Review trước khi commit | `code-review-and-quality` | `/code-review` có sẵn của Claude Code |
+| Commit, branch | `git-workflow-and-versioning` | `resolving-merge-conflicts` |
+| Bước Tài phải tự làm (credential, Vercel, Neon) | `wizard` | — |
+| Tra cứu tài liệu gốc | `source-driven-development` | `research` |
+| Ghi quyết định | `documentation-and-adrs` | — |
+| Log, theo dõi production | `observability-and-instrumentation` | — |
+| Hiệu năng | `performance-optimization` | — |
+| Deploy, ra mắt | `shipping-and-launch` | `ci-cd-and-automation` |
+| Viết tài liệu cho agent (AGENTS.md, skill) | `writing-for-agents` | `skill-creator` |
+| Nền chuyển động, video | `hyperframes-cli` (chỉ render trên máy) | `remotion-best-practices` (chỉ trên máy Tài), `algorithmic-art` |
+| Poster, ảnh tĩnh | `canvas-design` | `nano-banana-2` (**trả phí, chưa dùng**) |
+| Giải thích khái niệm cho Tài | `teach` | — |
+
+**Không dùng:** `recall`, `remember`, `recap`, `memory-discipline` (chưa cài MCP agentmemory; dùng `docs/decisions.md`, `docs/operations-gotchas.md` và bộ nhớ riêng của agent). `handoff` chỉ đọc bối cảnh NFC. `lesson`: ghi bài học vào `docs/operations-gotchas.md`.
+
 ## Cách áp dụng
 
 - Bắt đầu công việc: đọc `docs/decisions.md`; thiếu bối cảnh mới tra ghi chú Obsidian đã chỉ định.
@@ -33,7 +67,7 @@ Tài yêu cầu nạp thêm bảy nguồn. Agent đã **đọc nội dung trư�
 
 | Nguồn | Commit | Giấy phép | Đã chép vào `.agents/skills/` | Bỏ qua, lý do |
 |---|---|---|---|---|
-| `mattpocock/skills` | `959a8e9` | MIT | engineering: `ask-matt`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `implement`, `improve-codebase-architecture`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `tdd`, `to-spec`, `to-tickets`, `triage`, `wayfinder`, `wizard` · productivity: `grill-me`, `grilling`, `teach`, `to-questionnaire`, `wait-what`, `writing-for-agents` | `code-review` (trùng skill có sẵn của Claude Code), `handoff` (trùng skill dự án đã có), `misc/` và `in-progress/` (chưa ổn định hoặc sửa cấu hình repo) |
+| `mattpocock/skills` | `959a8e9` | MIT | engineering: `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `implement`, `improve-codebase-architecture`, `prototype`, `research`, `resolving-merge-conflicts`, `tdd`, `wizard` · productivity: `grill-me`, `grilling`, `teach`, `wait-what`, `writing-for-agents` | `code-review` (trùng skill có sẵn của Claude Code), `handoff` (trùng skill dự án đã có), `misc/`, `in-progress/`. **Gỡ lại cùng ngày để gọn:** `to-spec`, `to-tickets`, `triage`, `wayfinder`, `setup-matt-pocock-skills`, `ask-matt`, `to-questionnaire`, vì chúng cần issue tracker (dự án dùng `docs/decisions.md`) hoặc chỉ dẫn đường tới các skill đó |
 | `anthropics/skills` | `34040c9` | Apache 2.0 cho từng skill đã chép | `frontend-design`, `webapp-testing`, `theme-factory`, `canvas-design`, `skill-creator`, `algorithmic-art` | `docx`/`pdf`/`pptx`/`xlsx` giữ bản quyền, không được phân phối lại (đã có sẵn dạng plugin trong phiên); `doc-coauthoring` không có giấy phép; các skill còn lại không liên quan dự án |
 | `vercel-labs/agent-browser` | `aff6125` | Apache 2.0 | `agent-browser` (chỉ là file dẫn đường) | CLI `agent-browser` **chưa cài** (cần `npm i -g` và tải Chromium). Phiên hiện đã có trình duyệt tích hợp |
 | `heygen-com/hyperframes` | `a8a9fdb` | Apache 2.0 | `hyperframes-cli` | các skill video khác |
@@ -49,6 +83,6 @@ Giấy phép gốc nằm trong `.agents/licenses/`; các skill của Anthropic g
 - **`nano-banana-2`:** gọi API **trả phí** của RunComfy. **Không dùng** tới khi Tài chọn dịch vụ và tự đăng nhập; agent không nhập API key. Bỏ qua dòng `npx skills add … -g` trong skill.
 - **`agent-browser`:** chỉ cài CLI khi Tài yêu cầu. Mặc định dùng trình duyệt tích hợp của phiên.
 - **`ui-ux-pro-max`:** script Python chỉ đọc CSV cục bộ, không gọi mạng (đã đọc mã 17/09). Nguyên tắc sản phẩm (Google invariant, tiếng Việt mặc định) vẫn ưu tiên hơn gợi ý của skill.
-- **`setup-matt-pocock-skills`:** chỉ chạy khi Tài yêu cầu, vì skill này ghi vào `AGENTS.md`. Các skill của mattpocock nói tới issue tracker GitHub: dự án chưa dùng, nên checkpoint vẫn là `docs/decisions.md`.
+- **Skill của mattpocock:** nơi nào skill nói "publish to the issue tracker" hay "create a ticket", dự án ghi vào `docs/decisions.md` hoặc tài liệu lát. `implement` tự commit vào branch hiện tại: vẫn phải qua quy trình kiểm và đọc `git diff --cached --stat` trước khi commit.
 - **`remotion-best-practices`:** phần mềm Remotion có giấy phép riêng cho công ty. Kiểm lại trước khi dùng cho mục đích thương mại.
 - Skill cài giữa phiên chỉ xuất hiện trong danh sách skill của agent từ **phiên sau**.
