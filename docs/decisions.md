@@ -501,7 +501,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước,
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). **Migration 011 (lát B4) phải được Tài chạy trên cả hai branch trước khi push B4.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). Migration 011 (lát B4) Tài chạy trên cả hai branch tối 18/09, mỗi branch báo `Applied 011_feedback_phone.`; tức **001–011 đã có trên production và preview**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
