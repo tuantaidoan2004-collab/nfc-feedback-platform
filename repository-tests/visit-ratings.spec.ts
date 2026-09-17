@@ -27,6 +27,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query("INSERT INTO shops(id,slug,name) VALUES($1,'one','One'),($2,'two','Two')", [shopId,otherShopId]);
       const old = await pool.query("INSERT INTO experiences(shop_id,token_hash,rating,revision,message) VALUES($1,'legacy',3,7,'preserve me') RETURNING id", [shopId]);
       await pool.query(await readFile('db/migrations/002_visit_ratings.sql','utf8'));
+      await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql','utf8'));
       let time = initial;
       await provideFixture({ pool, repo: new VisitRatingRepository(pool, () => new Date(time)),
         context: { shopId, scope:'live', entryKey:'direct:shop' }, otherShopId, hash: randomBytes(32).toString('hex'),
@@ -201,10 +202,44 @@ test('legacy has no fabricated sessions; guarded down/reapply preserves old rows
 
 const privateCommand = (expectedRevision = 1, message = 'private 🦋 message', intentId: string = randomUUID()) => ({ expectedRevision, message, topic: 'general', intentId });
 
-test('private feedback requires rating; shared snapshot update preserves5→2 and public projections redact', async ({ db }) => {
+test('private feedback needs no rating; a later rating joins the same experience and keeps the text', async ({ db }) => {
   const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
-  expect(await db.repo.recordPrivateFeedback(first.visit, privateCommand(0), db.hash)).toEqual({ kind: 'rejected', code: 'RATING_REQUIRED' });
-  expect((await counts(db.pool)).experiences).toBe(0);
+  const intent = privateCommand(0, 'before any star');
+  expect(await db.repo.recordPrivateFeedback(first.visit, privateCommand(1), db.hash)).toEqual({ kind: 'rejected', code: 'REVISION_CONFLICT' });
+  expect(await db.repo.recordPrivateFeedback(first.visit, intent, db.hash)).toMatchObject({ kind: 'applied',
+    experience: { rating: null, revision: 1, firstInteractionAt: iso(0), feedback: { message: 'before any star' } },
+    receipt: { experience: { rating: null, revision: 1 } } });
+  expect((await counts(db.pool)).experiences).toBe(1);
+  expect((await db.repo.registerVisit(db.context, 'first', 'load', db.hash)).experience).toMatchObject({ rating: null, revision: 1 });
+  db.setTime(1);
+  expect(await db.repo.recordRating(first.visit, command(2, 1), db.hash)).toMatchObject({ kind: 'applied',
+    experience: { rating: 2, revision: 2, firstInteractionAt: iso(0), updatedAt: iso(1) } });
+  expect(await db.repo.recordPrivateFeedback(first.visit, intent, db.hash)).toMatchObject({ kind: 'replayed',
+    experience: { rating: 2, revision: 2 }, receipt: { experience: { rating: null, revision: 1 } } });
+  expect((await db.pool.query('SELECT rating,feedback_message FROM rating_experiences')).rows).toEqual([{ rating: 2, feedback_message: 'before any star' }]);
+  expect((await db.pool.query('SELECT operation,score FROM rating_intent_receipts ORDER BY applied_revision')).rows)
+    .toEqual([{ operation: 'feedback', score: null }, { operation: 'rating', score: 2 }]);
+});
+
+test('database keeps a star on every rating receipt; rollback 010 refuses while unrated feedback exists', async ({ db }) => {
+  const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
+  await db.repo.recordPrivateFeedback(first.visit, privateCommand(0, 'no star'), db.hash);
+  await expect(db.pool.query(`INSERT INTO rating_intent_receipts
+    (shop_id,scope,entry_key,session_id,visit_id,intent_id,expected_revision,score,applied_revision,first_interaction_at,applied_at,operation)
+    SELECT shop_id,scope,entry_key,session_id,visit_id,'rating-without-star',1,NULL,2,first_interaction_at,applied_at,'rating'
+    FROM rating_intent_receipts`)).rejects.toMatchObject({ code: '23514' });
+  const down = await readFile('db/rollback/010_feedback_without_rating.sql', 'utf8'), client = await db.pool.connect();
+  try {
+    await client.query('BEGIN'); await expect(client.query(down)).rejects.toThrow('UNRATED_FEEDBACK_PRESENT'); await client.query('ROLLBACK');
+    await client.query('BEGIN'); await client.query('DELETE FROM rating_intent_receipts'); await client.query('DELETE FROM rating_experiences');
+    await client.query(down);
+    await expect(client.query("INSERT INTO rating_experiences(session_id,shop_id,scope,entry_key,rating,revision,first_interaction_at,updated_at) VALUES($1,$2,'live','direct:shop',NULL,1,now(),now())",
+      [first.session.sessionId, db.context.shopId])).rejects.toMatchObject({ code: '23502' });
+  } finally { await client.query('ROLLBACK'); client.release(); }
+});
+
+test('shared snapshot update preserves5→2 and public projections redact', async ({ db }) => {
+  const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
   const ratingIntent = command(); await db.repo.recordRating(first.visit, ratingIntent, db.hash);
   db.setTime(1); const feedbackIntent = privateCommand();
   const feedback = await db.repo.recordPrivateFeedback(first.visit, feedbackIntent, db.hash);
@@ -272,7 +307,7 @@ test('private expiry and closed-session replay preserve activity and context/cap
   db.setTime(IDLE_WINDOW_MS + 1);
   expect(await db.repo.recordPrivateFeedback(first.visit, privateCommand(2), db.hash)).toEqual({ kind: 'rejected', code: 'SESSION_EXPIRED' });
   const resumed = await db.repo.registerVisit(db.context, 'resume', 'resume', db.hash);
-  expect(await db.repo.recordPrivateFeedback(resumed.visit, privateCommand(0), db.hash)).toEqual({ kind: 'rejected', code: 'RATING_REQUIRED' });
+  expect(await db.repo.recordPrivateFeedback(resumed.visit, privateCommand(0, 'new session'), db.hash)).toMatchObject({ kind: 'applied', experience: { rating: null, revision: 1 } });
   expect(await db.repo.recordPrivateFeedback(first.visit, intent, db.hash)).toMatchObject({ kind: 'replayed' });
   for (const context of [{ ...first.visit, shopId: db.otherShopId }, { ...first.visit, scope: 'test' as const }, { ...first.visit, entryKey: 'other' }, { ...first.visit, visitId: randomUUID() }]) {
     expect(await db.repo.recordPrivateFeedback(context, intent, db.hash)).toEqual({ kind: 'rejected', code: 'CONTEXT_MISMATCH' });

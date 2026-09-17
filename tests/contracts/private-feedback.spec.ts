@@ -9,9 +9,17 @@ const rating = (expectedRevision = 0, score = 5, intentId = 'rating'): RatingInt
 const feedback = (expectedRevision = 1, message = ' Góp ý chất lượng ', intentId = 'feedback'): FeedbackIntent => ({ ...opened.visit, expectedRevision, message, topic: 'service', intentId });
 const rated = () => rateFeedbackExperience(empty(), opened.visit, rating(), at(1)).state;
 
-test('no rating means no experience and feedback is rejected without mutation', () => {
-  const state = empty(); const result = submitPrivateFeedback(state, opened.visit, feedback(0), at(1));
-  expect(result).toMatchObject({ kind: 'rejected', code: 'RATING_REQUIRED' }); expect(result.state).toBe(state);
+test('feedback before any rating starts the experience with no star; a later rating keeps the feedback', () => {
+  const state = empty();
+  const stale = submitPrivateFeedback(state, opened.visit, feedback(1), at(1));
+  expect(stale).toMatchObject({ kind: 'rejected', code: 'REVISION_CONFLICT' }); expect(stale.state).toBe(state);
+  const result = submitPrivateFeedback(state, opened.visit, feedback(0), at(1));
+  expect(result.kind).toBe('applied');
+  expect(result.state.experience).toMatchObject({ rating: null, revision: 1, firstInteractionAt: at(1), updatedAt: at(1),
+    feedback: { topic: 'service', message: 'Góp ý chất lượng', submittedAt: at(1), updatedAt: at(1) } });
+  const later = rateFeedbackExperience(result.state, opened.visit, rating(1, 2, 'later'), at(2)).state;
+  expect(later.experience).toMatchObject({ rating: 2, revision: 2, firstInteractionAt: at(1), updatedAt: at(2) });
+  expect(later.experience!.feedback).toEqual(result.state.experience!.feedback);
 });
 for (const score of [1, 2, 3, 4, 5]) test(`private feedback permitted after rating ${score}`, () => {
   const state = rateFeedbackExperience(empty(), opened.visit, rating(0, score), at(1)).state;

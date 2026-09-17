@@ -4,6 +4,8 @@ Chưa DB/API/client/UI. `lib/domain/private-feedback.ts` là aggregate contract 
 
 ## Bất biến và snapshot
 
+> **Đã thay 2026-09-17 (lát B1, migration 010):** góp ý riêng **không cần sao**. Góp ý đầu tiên với `expectedRevision: 0` tạo experience có `rating: null`, revision 1; chấm sao sau đó dùng tiếp chuỗi revision đó. `RATING_REQUIRED` không còn tồn tại. Xem [redesign-v2.md](redesign-v2.md) mục Lát B1.
+
 Không rating thì không experience: feedback đầu tiên trả RATING_REQUIRED, không tạo session/experience hay tự chấm sao. Sau bất kỳ1–5 sao, feedback được phép; low score mở form chỉ là UI, không phải quyền ghi. Google invitation giống nhau mọi sao; nội dung riêng không gửi Google. Contract không có chức năng mạng hay Google.
 
 FeedbackExperience mở rộng RatingExperience bằng feedback:null hoặc {topic,message,submittedAt,updatedAt}. experience.revision là revision chung duy nhất, dùng expectedRevision cho cả rating và feedback; không có feedback concurrency token riêng. firstInteractionAt giữ lần rating đầu. Mỗi write applied tăng revision đúng1, cập nhật experience.updatedAt và session.lastActivity đơn điệu bằng server time được caller truyền. Feedback submittedAt giữ lần gửi riêng đầu, updatedAt chỉ đổi khi gửi riêng. Đổi rating giữ toàn bộ feedback; timestamp không lùi khi clock server lùi. Đây là activity của thao tác được chấp nhận, không thêm KPI click/form.

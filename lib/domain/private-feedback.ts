@@ -13,7 +13,7 @@ export type FeedbackSessionState = Omit<SessionState, 'experience' | 'receipts'>
   feedbackReceipts: readonly FeedbackReceipt[];
 }>;
 type Result<R> = { kind: 'applied' | 'replayed'; state: FeedbackSessionState; receipt: R }
-  | { kind: 'rejected'; state: FeedbackSessionState; code: Rejection | 'RATING_REQUIRED' };
+  | { kind: 'rejected'; state: FeedbackSessionState; code: Rejection };
 const sameContext = (a: VisitContext | RatingExperience, b: RatingExperience | VisitContext | FeedbackSessionState['session']) =>
   a.shopId === b.shopId && a.scope === b.scope && a.entryKey === b.entryKey && a.sessionId === b.sessionId;
 const latest = (a: string, b: string) => new Date(Math.max(Date.parse(a), Date.parse(b))).toISOString();
@@ -45,7 +45,7 @@ export function rateFeedbackExperience(state: FeedbackSessionState, visit: PageV
 }
 
 export function submitPrivateFeedback(state: FeedbackSessionState, visit: PageVisit, intent: FeedbackIntent, receivedAt: string): Result<FeedbackReceipt> {
-  const reject = (code: Rejection | 'RATING_REQUIRED'): Result<FeedbackReceipt> => ({ kind: 'rejected', state, code });
+  const reject = (code: Rejection): Result<FeedbackReceipt> => ({ kind: 'rejected', state, code });
   if (!sameContext(visit, state.session) || !sameContext(intent, state.session) || visit.visitId !== intent.visitId ||
       (state.experience && !sameContext(state.experience, state.session))) return reject('CONTEXT_MISMATCH');
   const content = normalizeFeedback(intent.topic, intent.message);
@@ -60,15 +60,16 @@ export function submitPrivateFeedback(state: FeedbackSessionState, visit: PageVi
         prior.intent.topic !== content.topic || prior.intent.message !== content.message) return reject('INTENT_CONFLICT');
     return { kind: 'replayed', state, receipt: prior };
   }
-  if (!state.experience) return reject('RATING_REQUIRED');
   if (!canReuseSession(state.session, state.session, receivedAt)) return reject('SESSION_EXPIRED');
-  if (intent.expectedRevision !== state.experience.revision) return reject('REVISION_CONFLICT');
+  if (intent.expectedRevision !== (state.experience?.revision ?? 0)) return reject('REVISION_CONFLICT');
   const at = new Date(receivedAt).toISOString();
-  const updatedAt = latest(state.experience.updatedAt, at);
-  const feedback: PrivateFeedback = { ...content, submittedAt: state.experience.feedback?.submittedAt ?? updatedAt,
-    updatedAt };
-  const experience: FeedbackExperience = { ...state.experience, feedback, revision: state.experience.revision + 1,
-    updatedAt: latest(state.experience.updatedAt, at) };
+  // Feedback may come before any star; the experience then starts here with no rating.
+  const base: FeedbackExperience = state.experience ?? { shopId: state.session.shopId, scope: state.session.scope,
+    entryKey: state.session.entryKey, sessionId: state.session.sessionId, rating: null, revision: 0,
+    firstInteractionAt: at, updatedAt: at, feedback: null };
+  const updatedAt = latest(base.updatedAt, at);
+  const feedback: PrivateFeedback = { ...content, submittedAt: base.feedback?.submittedAt ?? updatedAt, updatedAt };
+  const experience: FeedbackExperience = { ...base, feedback, revision: base.revision + 1, updatedAt };
   const receipt: FeedbackReceipt = { intent: normalized, experience };
   return { kind: 'applied', receipt, state: { ...state, experience,
     session: { ...state.session, lastActivity: latest(state.session.lastActivity, at) }, feedbackReceipts: [...state.feedbackReceipts, receipt] } };

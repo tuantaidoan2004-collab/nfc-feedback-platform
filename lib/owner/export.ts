@@ -11,16 +11,16 @@ const fields = {
 const descriptions:Record<string,string>={
  schemaVersion:'Export schema version, nfc-owner-export-v1.',dataset:'Row family: experiences, page_visits or receipts.',
  session_id:'Opaque 15-minute session ID, not a unique person.',visit_id:'One registered load/reload/restore event; not proof of NFC tap.',
- first_rated_at:'First rating time of this experience.',updated_at:'Latest customer rating/feedback update.',opened_at:'Server registration time.',
- rating:'Internal 1–5 rating; never Google review.',experience_revision:'Current shared customer rating/feedback revision.',revision:'Immutable applied customer revision.',
+ first_rated_at:'First customer action (rating or private feedback) of this experience.',updated_at:'Latest customer rating/feedback update.',opened_at:'Server registration time.',
+ rating:'Internal 1–5 rating, null when the customer sent private feedback without a star; never Google review.',experience_revision:'Current shared customer rating/feedback revision.',revision:'Immutable applied customer revision.',
  topic:'Customer feedback topic.',message:'Private customer feedback; receipts include the snapshot at that revision.',status:'Effective case status; newer feedback reopens as new.',
  note:'Latest internal owner note.',case_revision:'Independent optimistic handling revision; 0 means no handling row.',case_updated_at:'Latest owner handling time.',
  tag_id:'Tag of matching open (experience) or source visit (event); null for direct/unattributed.',source_label:'Tag label or direct source of latest matching open.',
  release_id:'Release of latest matching open (experience) or source visit (event); null means historical attribution unknown.',
- origin_release_id:'Immutable first-rating release; can differ from matching open.',navigation_kind:'Client navigation classification, not verified physical tap.',
+ origin_release_id:'Immutable release of the first rating or private feedback; can differ from matching open.',navigation_kind:'Client navigation classification, not verified physical tap.',
  operation:'rating or feedback.',applied_at:'DB time of applied immutable intent.',
 };
-const nullable=new Set(['topic','message','status','case_updated_at','tag_id','release_id','origin_release_id']);
+const nullable=new Set(['rating','topic','message','status','case_updated_at','tag_id','release_id','origin_release_id']);
 export function dictionary(dataset:Dataset){return {schemaVersion:'nfc-owner-export-v1',dataset,scope:'live',storageTimezone:'UTC',displayTimezone:'Asia/Ho_Chi_Minh',
  filterSemantics:'Inclusive Ho Chi Minh calendar start; exclusive day-after-end. Cohort = matching live opens filtered by source/release and current rating/case status. Experiences are current state of cohort sessions; receipts are complete immutable history of those sessions, including events outside the open date/release filter.',
  consistency:'Repeatable-read database snapshot per export. Authorization rechecked with fresh database state before each chunk. No credential/browser hash/proof fields.',

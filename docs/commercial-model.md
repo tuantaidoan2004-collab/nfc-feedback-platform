@@ -277,7 +277,7 @@ Chỉ có `username`, `password_salt`, `password_key`, `active`. **Không có c�
 | Nút Liên hệ (gọi điện) | **chặn cứng**: `url()` chỉ cho `https:`, `tel:` bị từ chối |
 | Bố cục card | `layout` chỉ nhận `'full-bleed'` |
 | Gradient chuyển động | gradient hiện tĩnh (2 màu + góc) |
-| Nút "Gửi phản hồi riêng tư" hiện sẵn | API trả `RATING_REQUIRED`, phải chấm sao trước |
+| Nút "Gửi phản hồi riêng tư" hiện sẵn | ~~API trả `RATING_REQUIRED`~~ — xong ở lát B1 (migration 010) |
 
 Đều là **thay đổi schema có version**, không phải sửa CSS.
 

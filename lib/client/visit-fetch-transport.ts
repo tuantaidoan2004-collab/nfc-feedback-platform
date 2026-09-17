@@ -3,7 +3,7 @@ import type { CoordinatorPorts, OpenSnapshot, RatingReply, TransportReply } from
 export type RenderBinding = Readonly<{ proof: string; preview: boolean }>;
 export type FeedbackCommand = Readonly<{ intentId: string; expectedRevision: number; topic: string; message: string }>;
 export type FeedbackReply = Readonly<{ outcome: 'applied' | 'replayed';
-  experience: { rating: number; revision: number; firstInteractionAt: string; updatedAt: string };
+  experience: { rating: number | null; revision: number; firstInteractionAt: string; updatedAt: string };
   receipt: { intentId: string; revision: number; updatedAt: string } }>;
 type FeedbackTransport = { feedback: (secret: string, visitId: string, command: FeedbackCommand) => Promise<TransportReply<FeedbackReply>> };
 type Timer = { set: (callback: () => void, milliseconds: number) => unknown; clear: (handle: unknown) => void };
@@ -15,7 +15,7 @@ const time = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test
 const revision = (v: unknown) => Number.isSafeInteger(v) && Number(v) > 0;
 const score = (v: unknown) => Number.isInteger(v) && Number(v) >= 1 && Number(v) <= 5;
 const timestamps = (v: Record<string, unknown>) => time(v.firstInteractionAt) && time(v.updatedAt);
-const rating = (v: unknown) => object(v) && score(v.rating) && revision(v.revision) && timestamps(v);
+const rating = (v: unknown) => object(v) && (v.rating === null || score(v.rating)) && revision(v.revision) && timestamps(v);
 function openSnapshot(v: unknown): v is OpenSnapshot & { visit: { navigationKind: string } } {
   return object(v) && object(v.visit) && object(v.session) && uuid(v.visit.id) && uuid(v.session.id) &&
     v.visit.sessionId === v.session.id && time(v.visit.openedAt) && time(v.session.lastActivity) &&
@@ -23,7 +23,7 @@ function openSnapshot(v: unknown): v is OpenSnapshot & { visit: { navigationKind
     (v.experience === null || rating(v.experience));
 }
 function ratingReply(v: unknown): v is RatingReply {
-  return object(v) && (v.outcome === 'applied' || v.outcome === 'replayed') && rating(v.experience) &&
+  return object(v) && (v.outcome === 'applied' || v.outcome === 'replayed') && object(v.experience) && rating(v.experience) && score(v.experience.rating) &&
     object(v.receipt) && uuid(v.receipt.intentId) && score(v.receipt.score) && revision(v.receipt.revision) && timestamps(v.receipt);
 }
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k));
@@ -39,7 +39,7 @@ const errorStatus: Record<string, number> = {
   INVALID_BODY: 400, INVALID_INPUT: 400, VISIT_NOT_AUTHORIZED: 401, ORIGIN_NOT_ALLOWED: 403,
   NOT_FOUND: 404, SHOP_NOT_FOUND: 404, METHOD_NOT_ALLOWED: 405,
   VISIT_CONFLICT: 409, INTENT_CONFLICT: 409, REVISION_CONFLICT: 409, SESSION_EXPIRED: 409,
-  BODY_TOO_LARGE: 413, JSON_REQUIRED: 415, RATING_REQUIRED: 409,
+  BODY_TOO_LARGE: 413, JSON_REQUIRED: 415,
   INVALID_RENDER_PROOF: 403, RENDER_CONTEXT_MISMATCH: 403, PAGE_UNAVAILABLE: 403, TAG_UNAVAILABLE: 403, PREVIEW_UNAVAILABLE: 403, PREVIEW_EXPIRED: 403,
 };
 

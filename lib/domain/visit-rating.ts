@@ -10,7 +10,9 @@ export type VisitSession = SessionContext & Readonly<{
 }>;
 export type PageVisit = VisitContext & Readonly<{ openedAt: string; navigationKind: NavigationKind }>;
 export type RatingExperience = SessionContext & Readonly<{
-  firstInteractionAt: string; updatedAt: string; rating: number; revision: number;
+  firstInteractionAt: string; updatedAt: string;
+  /** Null while the session holds private feedback but no star yet. */
+  rating: number | null; revision: number;
 }>;
 export type RatingIntent = VisitContext & Readonly<{ intentId: string; expectedRevision: number; score: number }>;
 export type RatingReceipt = Readonly<{ intent: RatingIntent; experience: RatingExperience }>;

@@ -138,11 +138,19 @@ test('feedback request preserves exact content/intent and uses existing secure t
   expect(new Headers(h.requests[0].init.headers).get('authorization')).toBe(`Bearer ${secret}`);
   expect(h.clears()).toBe(1);
 });
-test('feedback accepts replay/current revision, maps RATING_REQUIRED and rejects leaked/mismatched response', async () => {
+test('feedback accepts replay/current revision and an unrated experience, rejects leaked/mismatched response', async () => {
   const h = harness(async () => Response.json({ ...feedbackReply, outcome: 'replayed', experience: { ...feedbackReply.experience, revision: 4 } }));
   expect((await h.transport.feedback(secret, id, feedbackCommand)).kind).toBe('ok');
-  const missing = harness(async () => Response.json({ error: 'RATING_REQUIRED' }, { status: 409 }));
-  expect(await missing.transport.feedback(secret, id, feedbackCommand)).toEqual({ kind: 'rejected', code: 'RATING_REQUIRED' });
+  const unrated = harness(async () => Response.json({ ...feedbackReply, experience: { ...feedbackReply.experience, rating: null } }));
+  expect(await unrated.transport.feedback(secret, id, feedbackCommand)).toMatchObject({ kind: 'ok', data: { experience: { rating: null } } });
+  const reopened = harness(async () => Response.json({ ...opened, experience: { rating: null, revision: 1, ...times } }));
+  expect(await reopened.transport.register(secret, event)).toMatchObject({ kind: 'ok', data: { experience: { rating: null } } });
+  const starless = harness(async () => Response.json({ ...saved, experience: { ...saved.experience, rating: null } }));
+  expect(await starless.transport.rating(secret, id, command)).toEqual({ kind: 'unknown' });
+  for (const rating of [0, 6, '5', 2.5]) {
+    const invalid = harness(async () => Response.json({ ...feedbackReply, experience: { ...feedbackReply.experience, rating } }));
+    expect(await invalid.transport.feedback(secret, id, feedbackCommand)).toEqual({ kind: 'unknown' });
+  }
   for (const value of [{ ...feedbackReply, message: 'private' }, { ...feedbackReply, receipt: { ...feedbackReply.receipt, topic: 'private' } },
     { ...feedbackReply, experience: { ...feedbackReply.experience, feedback: 'private' } },
     { ...feedbackReply, receipt: { ...feedbackReply.receipt, intentId: 'wrong' } },

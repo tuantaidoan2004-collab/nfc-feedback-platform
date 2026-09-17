@@ -5,7 +5,7 @@ const time = '2026-09-12T00:00:00.000Z';
 const event = (loadKey: string) => ({ loadKey, navigationKind: 'load' as const });
 const unknown = { kind: 'unknown' } as const;
 function fixture() {
-  let ids = 0, revision = 1, rating = 5, session = 's1';
+  let ids = 0, revision = 1, rating: number | null = 5, session = 's1';
   const calls: Array<{ kind: string; visit: string; secret: string; command: RatingCommand | FeedbackCommand }> = [];
   const controls = {
     rating: async (command: RatingCommand): Promise<TransportReply<RatingReply>> => {
@@ -24,7 +24,7 @@ function fixture() {
     rating: async (secret, visit, command) => { calls.push({ kind: 'rating', secret, visit, command }); return controls.rating(command); },
     feedback: async (secret, visit, command) => { calls.push({ kind: 'feedback', secret, visit, command }); return controls.feedback(command); },
   };
-  return { coordinator: createVisitCoordinator(ports), controls, calls, setRevision: (r: number) => { revision = r; }, rollover: () => { session = 's2'; revision = 0; } };
+  return { coordinator: createVisitCoordinator(ports), controls, calls, setRevision: (r: number) => { revision = r; }, setRating: (r: number | null) => { rating = r; }, rollover: () => { session = 's2'; revision = 0; } };
 }
 
 test('rating unknown then feedback uses confirmed next revision; original rating retry unchanged', async () => {
@@ -101,10 +101,14 @@ for (const rollover of [false, true]) test(`load change clears buffered feedback
   expect(h.coordinator.state().current?.event.loadKey).toBe('b');
 });
 
-test('no rating and expired feedback do not generate intents or resume old recovery', async () => {
-  const h = fixture(); h.setRevision(0); await h.coordinator.open(event('a'));
-  expect(await h.coordinator.feedback('general', 'PRIVATE_A')).toEqual({ kind: 'error', code: 'RATING_REQUIRED' }); expect(h.calls).toHaveLength(0);
-  await h.coordinator.rate(5); h.controls.feedback = async () => unknown;
+test('feedback before any star starts at revision 0; expired feedback does not resume old recovery', async () => {
+  const h = fixture(); h.setRevision(0); h.setRating(null); await h.coordinator.open(event('a'));
+  expect(await h.coordinator.feedback('general', 'PRIVATE_FIRST')).toMatchObject({ kind: 'saved', mutation: 'feedback',
+    snapshot: { experience: { rating: null, revision: 1 } } });
+  expect(h.calls.map(c => [c.kind, c.command.expectedRevision])).toEqual([['feedback', 0]]);
+  await h.coordinator.rate(5);
+  expect(h.calls.map(c => [c.kind, c.command.expectedRevision])).toEqual([['feedback', 0], ['rating', 1]]);
+  expect(h.coordinator.state().current?.snapshot?.experience).toEqual({ rating: 5, revision: 2 }); h.controls.feedback = async () => unknown;
   await h.coordinator.feedback('general', 'PRIVATE_A'); await h.coordinator.rate(2);
   h.controls.feedback = async () => ({ kind: 'rejected', code: 'SESSION_EXPIRED' });
   expect(await h.coordinator.retry()).toEqual({ kind: 'error', code: 'SESSION_EXPIRED' });

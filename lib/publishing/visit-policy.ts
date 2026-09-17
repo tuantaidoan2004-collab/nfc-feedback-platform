@@ -37,8 +37,8 @@ export function publishingVisitPolicy(c: RenderContext, previewToken?: string): 
       await db.query(`INSERT INTO session_initial_contexts(session_id,shop_id,scope,entry_key,visit_id)
         SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS(SELECT 1 FROM page_visits WHERE session_id=$1 AND id<>$5)`, keys);
     },
-    async applied(db, visit, firstRating) {
-      if (firstRating) await db.query('INSERT INTO experience_origin_contexts(session_id,shop_id,scope,entry_key,visit_id) VALUES($1,$2,$3,$4,$5)', [visit.sessionId, c.shopId, c.scope, c.entryKey, visit.visitId]);
+    async applied(db, visit, firstWrite) {
+      if (firstWrite) await db.query('INSERT INTO experience_origin_contexts(session_id,shop_id,scope,entry_key,visit_id) VALUES($1,$2,$3,$4,$5)', [visit.sessionId, c.shopId, c.scope, c.entryKey, visit.visitId]);
     },
   };
 }

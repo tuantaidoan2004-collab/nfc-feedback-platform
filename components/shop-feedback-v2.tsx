@@ -19,7 +19,6 @@ const messages = {
     conflict: 'Đánh giá đã thay đổi ở lần thao tác khác. Đã cập nhật sao hiện tại; hãy kiểm tra rồi chọn hoặc gửi lại.',
     expired: 'Phiên đã hết hạn. Hãy chọn sao lại để bắt đầu phiên mới; góp ý cũ chưa được gửi lại.',
     unavailable: 'Chưa kết nối được. Bạn có thể tải lại trang để thử lại.',
-    ratingRequired: 'Vui lòng chờ sao được lưu trước khi gửi góp ý.',
     waiting: 'Chờ thao tác hiện tại được xác nhận trước khi gửi góp ý.',
     recovery: 'Hãy thử lại thao tác đang chờ trước khi tiếp tục.',
     changed: 'Trang vừa được mở lại. Thao tác chờ chưa được chuyển sang lần mở mới; hãy kiểm tra trước khi gửi tiếp.',
@@ -33,7 +32,6 @@ const messages = {
     conflict: 'The rating changed in another action. The current stars are now shown; review them before choosing or submitting again.',
     expired: 'This session expired. Choose stars again to start a new session; previous feedback has not been resubmitted.',
     unavailable: 'Could not connect. You can reload this page to try again.',
-    ratingRequired: 'Please wait for your rating to be saved before sending feedback.',
     waiting: 'Wait for the current action to be confirmed before sending feedback.',
     recovery: 'Retry the pending action before continuing.',
     changed: 'The page reopened. Queued actions were not moved to this opening; review before submitting again.',
@@ -48,7 +46,6 @@ function resultMessage(result: CoordinatorResult | null | undefined): MessageKey
   if (result.kind === 'pending') return 'pending';
   if (result.kind === 'error') {
     if (result.code === 'SESSION_EXPIRED') return 'expired';
-    if (result.code === 'RATING_REQUIRED') return 'ratingRequired';
     if (result.code === 'INVALID_INPUT') return 'invalid';
     if (['RATING_RECOVERY_REQUIRED', 'REVISION_RECONCILIATION_REQUIRED'].includes(result.code)) return 'recovery';
     return 'unavailable';
@@ -89,7 +86,7 @@ export default function ShopFeedbackV2(shop: Props) {
   const crossContext = !!mutation?.pending && mutation.pending.loadKey !== current?.event.loadKey;
   const rating = busy && selection && selection.loadKey === current?.event.loadKey ? selection.score : snapshot?.experience?.rating ?? 0;
   const disabledStars = !snapshot || !!opening?.running || sendingFeedback || crossContext || mutation?.pending?.phase === 'refresh';
-  const canSend = !!snapshot?.experience && snapshot.session.active && !busy && !opening?.running && !sendingFeedback;
+  const canSend = !!snapshot && snapshot.session.active && !busy && !opening?.running && !sendingFeedback;
   const feedbackLocked = sendingFeedback || mutation?.pending?.kind === 'feedback';
   const completed = mutation?.result;
   const resultHere = completed && 'snapshot' in completed && completed.snapshot.visit.id === snapshot?.visit.id ? completed : null;
@@ -128,13 +125,13 @@ export default function ShopFeedbackV2(shop: Props) {
     {shop.heroUrl ? shop.heroKind === 'video' ? <video className="shop-media" src={shop.heroUrl} controls playsInline preload="none" /> : <div className="shop-media" role="img" aria-label={shop.name} style={{ backgroundImage: `url(${JSON.stringify(shop.heroUrl)})` }} /> : <div className="cover"><strong>{shop.name}</strong></div>}
     <div className="customer-content"><h1>{shop.name}</h1><p className="question">{question}</p>
       <div className="stars" role="group" aria-label={question}>{[1, 2, 3, 4, 5].map(n => <button key={n} disabled={disabledStars} aria-label={`${n} ${t.stars}`} aria-pressed={rating === n} data-filled={n <= rating} onClick={() => rate(n)}>★</button>)}</div>
-      <p className="rating-receipt">{snapshot?.experience ? `${m.saved} ${snapshot.experience.rating}/5` : '\u00a0'}</p>
+      <p className="rating-receipt">{snapshot?.experience?.rating ? `${m.saved} ${snapshot.experience.rating}/5` : '\u00a0'}</p>
       <section className="google-invitation"><p>{t.invite}</p>{shop.googleUrl ? <a className="google-button" href={shop.googleUrl} target="_blank" rel="noopener noreferrer">G · Google Maps ↗</a> : <button className="google-button" disabled>Google Maps</button>}<p className="muted small">{t.thanks}</p></section>
       <button id="private-feedback" className={`feedback-trigger${rating > 0 && rating <= 3 ? ' needs-attention' : ''}`} aria-expanded={open} aria-controls="private-form" onClick={() => { setOpen(!open); setPulse(0); }}><span key={pulse} className={`pulse-fill${pulse ? '' : ' idle'}`} aria-hidden="true" /><span className="trigger-label">{t.private}</span></button>
       {open && <form id="private-form" className="feedback-form" onSubmit={e => { e.preventDefault(); send(); }}>
         <p>{t.privateNote}</p><label htmlFor="topic">{t.topic}</label><select id="topic" disabled={feedbackLocked} value={topic} onChange={e => setTopic(e.target.value as Topic)}>{topics.map(key => <option key={key} value={key}>{t[key]}</option>)}</select>
         <label htmlFor="message">{t.message}</label><textarea id="message" rows={4} required disabled={feedbackLocked} value={message} placeholder={t.placeholder} onChange={e => { setMessage(e.target.value); setValidation(null); }} />
-        {!canSend && <p id="feedback-wait" className="muted small">{!snapshot?.experience ? m.ratingRequired : !snapshot.session.active ? m.expired : m.waiting}</p>}
+        {!canSend && <p id="feedback-wait" className="muted small">{!snapshot ? m.loading : !snapshot.session.active ? m.expired : m.waiting}</p>}
         <button className="primary" disabled={!canSend} aria-describedby={!canSend ? 'feedback-wait' : undefined}>{t.send}</button>
       </form>}
       <p role="status">{m[status]}</p>

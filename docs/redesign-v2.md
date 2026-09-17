@@ -11,7 +11,7 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 | Dashboard | **Theo mẫu, không tùy biến.** Ba tab và ô chuyển shop, giống nhau cho mọi shop. Phần tùy biến nằm ở trang khách |
 | Bố cục trang khách | Hai lựa chọn: **tràn màn hình** (đang có) và **dạng thẻ** (gọn hơn) |
 | Google | **Luôn là nút nổi bật nhất**, có chữ nhấn như bản cũ. Không điền sẵn số sao (chốt 17/09) |
-| Phản hồi riêng | Nút **luôn hiện**, **gửi được khi chưa chấm sao**. Cần đổi API: hiện API trả `RATING_REQUIRED` |
+| Phản hồi riêng | Nút **luôn hiện**, **gửi được khi chưa chấm sao**. API đã đổi ở lát B1 |
 | Video nền | File mp4 Tài gửi (720×1280, 20 giây, H.264, 3 MB). Tạm đặt trong mã nguồn làm nền mặc định của khuôn cho tới khi có R2 |
 | QR | Không làm |
 
@@ -44,7 +44,7 @@ Theo ảnh mockup. Khung chung gồm logo NFC Feedback, ô "Shop đang xem" (m�
 
 - `layout`: thêm `card`.
 - Icon: thêm `facebook`, `phone`. Link `tel:` cho nút Liên hệ; hiện `url()` chỉ nhận `https:`.
-- Phản hồi riêng không cần sao trước: đổi API và cách đếm số liệu (một phiên có góp ý nhưng không có sao).
+- ~~Phản hồi riêng không cần sao trước~~: xong ở lát B1 (migration 010).
 - ~~Shop khuôn~~: xong ở lát A (migration 009).
 - Công tắc 4 vị trí: migration mới, chỉ thêm, giữ nguyên lịch sử của migration 008.
 
@@ -73,3 +73,15 @@ Tải ảnh và video riêng cho từng shop cần **Cloudflare R2**; đó là v
 - **`caphe-demo` (4Rau) bỏ, Tài chốt 17/09.** Không làm nút "Phát hành từ khuôn". Khi bật publishing, trang đó hiện "Trang chưa sẵn sàng"; dữ liệu cũ giữ nguyên. Mọi chỉnh sửa làm trên khuôn.
 - **Việc tiếp theo trước lát B:** bật `NFC_PUBLISHING_ENABLED=true` cho môi trường Preview trên Vercel, rồi push một commit để deploy lại.
 - Chỗ trải nghiệm còn thiếu, để lát C xử lý: chủ shop A đang đăng nhập mà mở dashboard shop B thì thấy "Không thể mở dashboard", không có lối đăng nhập bằng tài khoản khác.
+
+## Lát B1 — góp ý không cần sao — xong 2026-09-17
+
+Tài duyệt phạm vi 17/09, chia lát B làm hai: B1 (máy chủ) và B2 (giao diện). Tài cũng chốt: **tự viết pháo giấy**, không thêm `canvas-confetti`; **giữ khung "POSTER SỰ KIỆN"** khi shop chưa có poster.
+
+- **Migration 010** (`010_feedback_without_rating.sql`): `rating_experiences.rating` và `rating_intent_receipts.score` được để trống. Hai ràng buộc mới: experience phải có sao **hoặc** góp ý; receipt loại `rating` **luôn** có sao. Rollback từ chối (`UNRATED_FEEDBACK_PRESENT`) khi đã có góp ý không sao.
+- **Luật ghi:** góp ý đầu tiên gửi `expectedRevision: 0`, tạo experience `rating: null`, revision 1, `firstInteractionAt` là lúc gửi góp ý. Chấm sao sau đó dùng revision 2, giữ nguyên góp ý. Receipt của góp ý ghi số sao **tại thời điểm đó**, có thể trống. `RATING_REQUIRED` bị bỏ ở mọi tầng.
+- **Nguồn release** (`experience_origin_contexts`) ghi ở **lượt ghi đầu tiên**, dù là sao hay góp ý. Trước đây chỉ ghi ở lượt chấm sao đầu, nên phiên góp ý trước sẽ mất nguồn.
+- **API công khai:** `experience.rating` có thể là `null` ở response mở trang và gửi góp ý. Response chấm sao vẫn bắt buộc có sao; client từ chối response chấm sao không có sao. Không echo nội dung góp ý, như cũ.
+- **Số liệu:** "Trải nghiệm chấm sao" chỉ đếm phiên có sao; điểm trung bình bỏ qua phiên không sao. Phiên chỉ có góp ý vẫn tính vào "Có góp ý riêng" và "chưa xử lý", xử lý được như thường. Dashboard hiện "Chưa chấm sao". Export: `rating` là `null` và được khai `nullable`.
+- **Giao diện hiện tại** chỉ sửa đủ để gửi góp ý khi chưa chấm sao; B2 vẽ lại toàn bộ.
+- **Triển khai:** Tài phải **migrate Neon (production và preview) trước khi push**. Mã cũ đọc được schema mới vì chưa có dòng nào không sao; mã mới ghi dòng không sao nên cần schema mới trước.

@@ -41,7 +41,7 @@ test('real page: initial once, rapid 5→2, shared feedback revision, reload, Go
   expect(opens).toHaveLength(1); expect(opens[0].navigationKind).toBe('load');
   expect(await count(db, 'rating_experiences')).toBe(0);
   await page.locator('#private-feedback').click();
-  await expect(page.getByRole('button', { name: 'Gửi góp ý', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Gửi góp ý', exact: true })).toBeEnabled();
   const google = await page.locator('.google-invitation').innerText();
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
@@ -191,15 +191,30 @@ test('demo remains browser-only with development gate on', async ({ page, db }) 
   for (const table of ['visit_sessions', 'rating_experiences', 'experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
 });
 
-test('Next HTTP rejects private feedback without a rating and never echoes text', async ({ request, db }) => {
+test('Next HTTP saves private feedback without a rating and never echoes text', async ({ request, db }) => {
   const headers = { origin: 'http://127.0.0.1:3317', authorization: `Bearer ${randomBytes(32).toString('hex')}` };
   const opened = await request.post('/api/v2/shops/one/visits', { headers, data: { loadKey: randomUUID(), navigationKind: 'load' } });
   expect(opened.status()).toBe(200); const visit = (await opened.json()).visit;
   const response = await request.post(`/api/v2/shops/one/visits/${visit.id}/feedback`, { headers,
     data: { intentId: randomUUID(), expectedRevision: 0, topic: 'other', message: 'PRIVATE_NO_RATING' } });
-  expect(response.status()).toBe(409); expect(await response.json()).toEqual({ error: 'RATING_REQUIRED' });
+  expect(response.status()).toBe(200);
+  const body = await response.text();
+  expect(JSON.parse(body)).toMatchObject({ outcome: 'applied', experience: { rating: null, revision: 1 } });
+  expect(body).not.toContain('PRIVATE_NO_RATING');
   expect(response.headers()['cache-control']).toContain('no-store');
-  expect(await count(db, 'rating_experiences')).toBe(0);
+  expect(await experience(db)).toEqual([expect.objectContaining({ rating: null, revision: 1, feedback_message: 'PRIVATE_NO_RATING' })]);
+});
+
+test('real page sends private feedback before any star, then a star joins the same experience', async ({ page, db }) => {
+  await ready(page);
+  await page.locator('#private-feedback').click();
+  await page.locator('#message').fill('Chưa chấm sao nhưng muốn góp ý');
+  await page.getByRole('button', { name: 'Gửi góp ý', exact: true }).click();
+  await expect(page.locator('#message')).toHaveValue('');
+  await expect(page.locator('.rating-receipt')).not.toContainText('/5');
+  expect(await experience(db)).toEqual([expect.objectContaining({ rating: null, revision: 1, feedback_message: 'Chưa chấm sao nhưng muốn góp ý' })]);
+  await rated(page, 4);
+  expect(await experience(db)).toEqual([expect.objectContaining({ rating: 4, revision: 2, feedback_message: 'Chưa chấm sao nhưng muốn góp ý' })]);
 });
 
 test('synthetic resume drops stale UI error, records a new open; draft is not automatically sent', async ({ page, db }) => {
@@ -216,7 +231,8 @@ test('synthetic resume drops stale UI error, records a new open; draft is not au
   await expect(page.getByRole('status')).toContainText('Bạn có thể chọn sao');
   expect(await count(db, 'visit_sessions')).toBe(2); expect(await count(db, 'page_visits')).toBe(2);
   await expect(page.locator('#message')).toHaveValue('Keep this draft');
-  await expect(page.getByRole('button', { name: 'Gửi góp ý', exact: true })).toBeDisabled();
+  // Feedback no longer needs a star, so the customer may send it to the new session, but only by pressing Send.
+  await expect(page.getByRole('button', { name: 'Gửi góp ý', exact: true })).toBeEnabled();
   expect((await experience(db))[0].feedback_message).toBeNull();
 });
 

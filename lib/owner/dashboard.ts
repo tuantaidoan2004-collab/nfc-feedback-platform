@@ -13,7 +13,7 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  LEFT JOIN tags t ON t.id=s.tag_id
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
-export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number;experience_revision:string;topic:string|null;message:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
+export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
 export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
 export type SupportChange = {enabled:boolean;by:string;at:string};
 /**
@@ -45,7 +45,7 @@ export class OwnerDashboard {
       if(f.cursor){values.push(f.cursor.time,f.cursor.id);pageWhere=`WHERE (e.first_interaction_at,e.session_id)<($${values.length-1}::timestamptz,$${values.length}::uuid)`;}
       const result=(await db.query(`${q.sql}, page AS (${experienceSelect} ${pageWhere} ORDER BY e.first_interaction_at DESC,e.session_id DESC LIMIT 51)
         SELECT (SELECT count(*)::text FROM matched) opens,(SELECT count(*)::text FROM selected) sessions,
-        (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id) rated,
+        (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id WHERE e.rating IS NOT NULL) rated,
         (SELECT round(avg(e.rating),2)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id) average,
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id WHERE e.feedback_message IS NOT NULL) feedback,
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id WHERE ${effectiveStatus}<>'resolved') unresolved,

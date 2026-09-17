@@ -17,7 +17,8 @@ export type StoredRatingResult =
 export interface VisitPolicy {
   guard(client: PoolClient, context: ResolvedShopContext): Promise<Date | undefined>;
   registered(client: PoolClient, visit: PageVisit, fresh: boolean): Promise<void>;
-  applied(client: PoolClient, visit: PageVisit, firstRating: boolean): Promise<void>;
+  /** firstWrite: this write created the session's experience, by rating or by private feedback. */
+  applied(client: PoolClient, visit: PageVisit, firstWrite: boolean): Promise<void>;
 }
 export class VisitAccessDenied extends Error { constructor(public readonly code: string) { super(code); } }
 export class VisitCapabilityConflict extends Error { constructor() { super('VISIT_CONFLICT'); } }
@@ -25,14 +26,14 @@ export class VisitCapabilityConflict extends Error { constructor() { super('VISI
 export type FeedbackCommand = Pick<FeedbackIntent, 'intentId' | 'expectedRevision' | 'topic' | 'message'>;
 export type StoredFeedbackResult =
  | { kind: 'applied' | 'replayed'; experience: FeedbackExperience; receipt: FeedbackReceipt }
- | { kind: 'rejected'; code: Rejection | 'RATING_REQUIRED' };
+ | { kind: 'rejected'; code: Rejection };
 type FeedbackRow = { feedback_topic: string | null; feedback_message: string | null;
   feedback_submitted_at: Date | null; feedback_updated_at: Date | null };
 type SessionRow = { id: string; shop_id: string; scope: DataScope; entry_key: string; browser_hash: string;
   started_at: Date; last_activity: Date; closed_at: Date | null };
 type OpenRow = SessionRow & { visit_id: string; opened_at: Date; navigation_kind: NavigationKind };
-type ExperienceRow = FeedbackRow & { rating: number; revision: string; first_interaction_at: Date; updated_at: Date };
-type ReceiptRow = FeedbackRow & { operation: 'rating' | 'feedback'; visit_id: string; intent_id: string; expected_revision: string; score: number;
+type ExperienceRow = FeedbackRow & { rating: number | null; revision: string; first_interaction_at: Date; updated_at: Date };
+type ReceiptRow = FeedbackRow & { operation: 'rating' | 'feedback'; visit_id: string; intent_id: string; expected_revision: string; score: number | null;
   applied_revision: string; first_interaction_at: Date; applied_at: Date };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const valid = (c: ResolvedShopContext, hash: string) => uuid.test(c.shopId) && ['live','test'].includes(c.scope) &&
@@ -125,7 +126,7 @@ export class VisitRatingRepository {
   }
   async recordRating(context: ResolvedVisitContext, command: RatingCommand, browserHash: string): Promise<StoredRatingResult> {
     const result = await this.write(context, { kind: 'rating', command }, browserHash);
-    if (result.kind === 'rejected') return { kind: 'rejected', code: result.code as Rejection };
+    if (result.kind === 'rejected') return { kind: 'rejected', code: result.code };
     // Explicit projection for BOTH current snapshot and original receipt; never spread private aggregate.
     const receipt = result.receipt as SharedRatingReceipt;
     return { kind: result.kind, experience: publicExperience(result.experience), receipt: {
@@ -155,7 +156,7 @@ export class VisitRatingRepository {
           visitId: prior.visit_id, intentId: prior.intent_id, expectedRevision: Number(prior.expected_revision) };
         const experience: FeedbackExperience = { ...expFrom(session, { rating: prior.score, revision: prior.applied_revision,
           first_interaction_at: prior.first_interaction_at, updated_at: prior.applied_at }), feedback: feedbackFrom(prior) };
-        if (prior.operation === 'rating') receipts.push({ intent: { ...base, score: prior.score }, experience });
+        if (prior.operation === 'rating') receipts.push({ intent: { ...base, score: prior.score! }, experience });
         else feedbackReceipts.push({ intent: { ...base, topic: prior.feedback_topic!, message: prior.feedback_message! }, experience });
       }
       const state = { session, experience: current, receipts, feedbackReceipts };
@@ -179,7 +180,7 @@ export class VisitRatingRepository {
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [...key, visit.visitId, action.command.intentId, action.command.expectedRevision, exp.rating, exp.revision,
             exp.firstInteractionAt, exp.updatedAt, action.kind, ...feedbackValues(exp)]);
-        await this.policy?.applied(client, visit, !currentRow && action.kind === 'rating');
+        await this.policy?.applied(client, visit, !currentRow);
         await client.query('UPDATE visit_sessions SET last_activity=$2 WHERE id=$1', [session.sessionId, outcome.state.session.lastActivity]);
       }
       return { kind: outcome.kind, experience: exp, receipt: outcome.receipt };

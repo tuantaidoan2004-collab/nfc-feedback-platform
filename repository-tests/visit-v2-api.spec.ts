@@ -30,6 +30,7 @@ const test = base.extend<{ db: Fixture }>({
       await admin.query(`CREATE SCHEMA ${schema}`);
       await pool.query(await readFile('db/migrations/001_core.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/002_visit_ratings.sql', 'utf8'));
+      await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql', 'utf8'));
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
       await pool.query(`INSERT INTO experiences(shop_id,token_hash,note,message)
@@ -221,11 +222,26 @@ test('disabled configuration never touches database and infrastructure errors re
   await expectError(await badConfig(request(secret(), { loadKey: randomUUID() }), { shop: 'one' }, 'register'), 503, 'SERVICE_UNAVAILABLE');
 });
 
+test('feedback before any star is saved with no rating, and a later star keeps its revision chain', async ({ db }) => {
+  const token = secret(), visit = await register(db, token), context = { shop: 'one', visitId: visit.id };
+  const body = { ...feedbackBody(), expectedRevision: 0 };
+  const saved = await db.api(request(token, body), context, 'feedback');
+  expect(saved.status).toBe(200);
+  const initial = await saved.json();
+  expect(initial).toMatchObject({ outcome: 'applied', experience: { rating: null, revision: 1 }, receipt: { intentId: body.intentId, revision: 1 } });
+  const reopened = await (await db.api(request(token, { loadKey: randomUUID() }), { shop: 'one' }, 'register')).json();
+  expect(reopened.experience).toMatchObject({ rating: null, revision: 1 });
+  const rated = await db.api(request(token, { ...command(), expectedRevision: 1, score: 1 }), context, 'rating');
+  expect(await rated.json()).toMatchObject({ outcome: 'applied', experience: { rating: 1, revision: 2 }, receipt: { score: 1, revision: 2 } });
+  for (const value of [initial, reopened]) {
+    for (const forbidden of ['message', 'topic', body.message, token]) expect(JSON.stringify(value)).not.toContain(forbidden);
+  }
+});
 const feedbackBody = () => ({ intentId: randomUUID(), expectedRevision: 1, topic: 'general', message: 'PRIVATE_CONTENT_é' });
 test('feedback save/replay/interleaved rating share revision and never echo content', async ({ db }) => {
   const token = secret(), visit = await register(db, token), context = { shop: 'one', visitId: visit.id };
   const body = feedbackBody();
-  await expectError(await db.api(request(token, body), context, 'feedback'), 409, 'RATING_REQUIRED');
+  await expectError(await db.api(request(token, body), context, 'feedback'), 409, 'REVISION_CONFLICT');
   await db.api(request(token, command()), context, 'rating');
   const saved = await db.api(request(token, body), context, 'feedback');
   expect(saved.status).toBe(200); expect(saved.headers.get('cache-control')).toContain('no-store');

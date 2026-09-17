@@ -1,14 +1,15 @@
 import type { FeedbackCommand, FeedbackReply } from './visit-fetch-transport';
 import type { BrowserIdentity } from './browser-identity';
 import type { OpenEvent } from './open-lifecycle';
-export type RatingSnapshot = Readonly<{ rating: number; revision: number }>;
+/** rating is null while the session holds private feedback but no star yet. */
+export type RatingSnapshot = Readonly<{ rating: number | null; revision: number }>;
 export type OpenSnapshot = Readonly<{
   visit: { id: string; sessionId: string };
   session: { id: string; active: boolean };
   experience: RatingSnapshot | null;
 }>;
 export type RatingCommand = Readonly<{ intentId: string; expectedRevision: number; score: number }>;
-export type RatingReply = Readonly<{ outcome: 'applied' | 'replayed'; experience: RatingSnapshot;
+export type RatingReply = Readonly<{ outcome: 'applied' | 'replayed'; experience: RatingSnapshot & { rating: number };
   receipt: { intentId: string; score: number; revision: number } }>;
 /** HTTP adapter (later slice) must map network/timeout/5xx/malformed responses to unknown. */
 export type TransportReply<T> = { kind: 'ok'; data: T } | { kind: 'rejected'; code: string } | { kind: 'unknown' };
@@ -34,7 +35,8 @@ type Target = { loadKey: string; sessionId: string };
 type Desired = Target & ({ kind: 'rating'; score: number } | { kind: 'feedback'; topic: string; message: string });
 type MutationWork = { secret: string; entry: Entry; snapshot: OpenSnapshot; phase: 'rating' | 'feedback' | 'refresh' } &
   ({ kind: 'rating'; command: RatingCommand } | { kind: 'feedback'; command: FeedbackCommand });
-const validRating = (r: RatingSnapshot) => r && Number.isInteger(r.rating) && r.rating >= 1 && r.rating <= 5 && Number.isSafeInteger(r.revision) && r.revision > 0;
+const validScore = (score: unknown) => Number.isInteger(score) && Number(score) >= 1 && Number(score) <= 5;
+const validRating = (r: RatingSnapshot) => r && (r.rating === null || validScore(r.rating)) && Number.isSafeInteger(r.revision) && r.revision > 0;
 const validOpen = (s: OpenSnapshot) => s && typeof s.visit?.id === 'string' && !!s.visit.id &&
   typeof s.session?.id === 'string' && !!s.session.id && s.visit.sessionId === s.session.id &&
   typeof s.session.active === 'boolean' && (s.experience === null || validRating(s.experience));
@@ -128,7 +130,7 @@ export function createVisitCoordinator(ports: CoordinatorPorts) {
       }
       const reply = request.kind === 'rating'
         ? await exchange(() => ports.rating(request.secret, request.snapshot.visit.id, request.command), data =>
-          data && ['applied', 'replayed'].includes(data.outcome) && validRating(data.experience) &&
+          data && ['applied', 'replayed'].includes(data.outcome) && validRating(data.experience) && validScore(data.experience.rating) &&
           data.receipt?.intentId === request.command.intentId && data.receipt.score === request.command.score &&
           data.receipt.revision === request.command.expectedRevision + 1 && data.experience.revision >= data.receipt.revision &&
           (data.experience.revision !== data.receipt.revision || data.experience.rating === data.receipt.score))
@@ -167,7 +169,7 @@ export function createVisitCoordinator(ports: CoordinatorPorts) {
       return { kind: 'saved', snapshot, reply: structuredClone(reply.data as RatingReply) };
 
     }
-    return lastMutation ?? error('RATING_REQUIRED');
+    return lastMutation ?? error('NOTHING_TO_SEND');
   }
   function runMutation(start?: Desired): Promise<CoordinatorResult> {
     if (mutationFlight) return mutationFlight;
@@ -193,7 +195,6 @@ export function createVisitCoordinator(ports: CoordinatorPorts) {
     if (!ports.feedback) return Promise.resolve(error('FEEDBACK_UNAVAILABLE'));
     const snapshot = current();
     if (preparing || !snapshot || !head) return Promise.resolve(error(head ? 'OPEN_PENDING' : 'OPEN_REQUIRED'));
-    if (!snapshot.experience) return Promise.resolve(error('RATING_REQUIRED'));
     const action: Desired = { kind: 'feedback', topic, message, loadKey: head.event.loadKey, sessionId: snapshot.session.id };
     if (pending || mutationFlight) return Promise.resolve(buffer(action));
     if (!snapshot.session.active) return Promise.resolve(error('SESSION_EXPIRED'));

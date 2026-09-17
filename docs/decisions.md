@@ -464,13 +464,20 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Gỡ 7 skill mattpocock cần issue tracker (`to-spec`, `to-tickets`, `triage`, `wayfinder`, `setup-matt-pocock-skills`, `ask-matt`, `to-questionnaire`). Thêm **bảng chọn skill** ở đầu `agent-skills.md`: mỗi loại việc có một skill chính. `AGENTS.md` trỏ tới bảng đó; câu về agentmemory đã sửa cho khớp (không dùng vì chưa cài MCP).
 - Xoá rác của phiên: thư mục tạm khoảng 660 MB (cluster Postgres test, bản clone skill, log) và `test-results/`. Giữ `.env.local` (Vercel CLI tạo, có thể chứa token) và worktree `f5a3` (không phải của phiên này).
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17
+## Lát B1: góp ý không cần sao — 2026-09-17
+
+- Tài duyệt phạm vi lát B, chia làm B1 (máy chủ) và B2 (giao diện); chốt tự viết pháo giấy và giữ khung "POSTER SỰ KIỆN". Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát B1.
+- Migration 010: `rating`/`score` được để trống; experience phải có sao hoặc góp ý; receipt chấm sao luôn có sao. `RATING_REQUIRED` bỏ ở mọi tầng. "Trải nghiệm chấm sao" chỉ đếm phiên có sao.
+- **Lỗi của agent:** vòng `for` trong zsh truyền `"--owner owner-dashboard.spec.ts"` thành một tham số; ba lệnh harness thoát 1 với `unknown option`, không phải test đỏ. Chạy lại từng lệnh thì xanh. Ghi trong gotchas.
+- Một test UI cũ (synthetic resume) đỏ vì kiểm "nút Gửi bị khoá" theo luật cũ; bất biến "nháp không tự gửi" vẫn giữ. Sửa câu kiểm, ghi lý do trong test.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B1)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–009 đã có trên cả branch production và preview của Neon**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–009 đã có trên cả branch production và preview của Neon. Migration 010 (lát B1) chưa lên Neon: Tài phải migrate branch production (branch mặc định) và preview trước khi push.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
@@ -486,14 +493,14 @@ Shop trên preview:
 - `caphe-demo` đã bỏ, hiện "Trang chưa sẵn sàng".
 
 Chưa có:
-- trang khách v2 (**chưa vẽ nền, video, logo hay nút từ cấu hình**);
+- trang khách v2 (**chưa vẽ nền, video, logo hay nút từ cấu hình**); phần máy chủ đã xong ở B1: góp ý gửi được khi chưa chấm sao;
 - dashboard mới 3 tab; editor; công tắc 4 vị trí;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát B: trang khách v2**, theo [redesign-v2.md](redesign-v2.md): hai bố cục, video nền kèm ảnh tĩnh thay thế, watermark, poster, logo, nút Facebook và Liên hệ, khung góp ý riêng mở/thu gọn và gửi được khi chưa chấm sao (**nút Google luôn trong màn hình**), popup cảm ơn kèm pháo giấy. Có đổi schema theo version và đổi API góp ý. **Effort high.** Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt rồi mới sửa.
+1. **Lát B2: giao diện trang khách v2**, theo [redesign-v2.md](redesign-v2.md): schema v2 (`card`, `facebook`, `phone`, `tel:`; đọc được v1), hai bố cục, video nền kèm ảnh tĩnh thay thế, watermark, khung poster, logo, nút Facebook và Liên hệ, khung góp ý mở/thu gọn (**nút Google luôn trong màn hình kể cả khi chấm 1–3 sao**; không điền sẵn sao), popup cảm ơn kèm pháo giấy tự viết. Phạm vi file và 8 tiêu chí nghiệm thu Tài đã duyệt 17/09 (xem mục Lát B1 trong redesign-v2.md). **Effort high** (đổi schema cấu hình).
 2. Lát C: dashboard mới (khung, ô chuyển shop, tab Dữ liệu).
 3. Lát D: tab Thiết kế giao diện và công tắc 4 vị trí.
 4. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
