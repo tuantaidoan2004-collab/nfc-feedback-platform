@@ -469,6 +469,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Tài duyệt phạm vi lát B, chia làm B1 (máy chủ) và B2 (giao diện); chốt tự viết pháo giấy và giữ khung "POSTER SỰ KIỆN". Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát B1.
 - Migration 010: `rating`/`score` được để trống; experience phải có sao hoặc góp ý; receipt chấm sao luôn có sao. `RATING_REQUIRED` bỏ ở mọi tầng. "Trải nghiệm chấm sao" chỉ đếm phiên có sao.
 - **Lỗi của agent:** vòng `for` trong zsh truyền `"--owner owner-dashboard.spec.ts"` thành một tham số; ba lệnh harness thoát 1 với `unknown option`, không phải test đỏ. Chạy lại từng lệnh thì xanh. Ghi trong gotchas.
+- Kiểm commit `c969313` trong worktree tạm: tsc/eslint exit 0; repository **89 passed**; contracts **61 passed**; client **73 passed**; public-v2 + browser-hardening **16 passed, 1 skipped + 2 passed**; publishing **4 + 2**; owner **3 + 2**; admin **5 + 2**; tất cả exit 0. `scripts/migrate.mjs` trên database trống áp 001–010 rồi báo up to date; rollback 010 đặt lại `NOT NULL` khi chưa có góp ý không sao.
 - Một test UI cũ (synthetic resume) đỏ vì kiểm "nút Gửi bị khoá" theo luật cũ; bất biến "nháp không tự gửi" vẫn giữ. Sửa câu kiểm, ghi lý do trong test.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B1)
