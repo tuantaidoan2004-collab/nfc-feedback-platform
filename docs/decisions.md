@@ -424,6 +424,14 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kiểm chứng: tsc/eslint exit 0; repository **81 passed**; harness admin 5+2, owner 3+2, publishing 4+2, public 15+1 skip+2, tất cả exit 0; migrate 001–008 rồi báo up to date; rollback 008 xoá sạch khi trống và từ chối khi có dữ liệu. Gỡ 5 lớp chặn mới, lần nào test cũng đỏ.
 - Chi tiết và bảng quyền: [admin-impersonation.md](admin-impersonation.md), mục cuối.
 
+## Sửa sau lần thử trên preview — 2026-09-17
+
+- Tài thử trên preview. **Lỗi:** đặt mật khẩu xong, trang về `/owner/login` mà không kèm địa chỉ dashboard, nên chỉ hiện "Mở đường dẫn dashboard…". Test cũ tự mở `/ZZZ/<slug>` bằng tay nên không bắt được. **Sửa:** `POST /api/owner/v2/setup` trả `next` (dashboard của tài khoản, ưu tiên vai owner); test giờ đi đúng đường khách đi, và đã kiểm là test đỏ khi gỡ bản sửa.
+- Dashboard hiện **link trang khách**, kèm Sao chép và Chia sẻ, dựng từ `APP_ORIGIN`, để Tài thử bằng các điện thoại khác. Không QR.
+- Dashboard "không có dữ liệu" không phải lỗi: shop mới chưa có lượt nào. Trang khách `/<slug>` đã chạy trên preview; `/t/<mã>` chờ lát kích hoạt thẻ.
+- Tài giữ nguyên nguyên tắc không điền sẵn số sao sang Google. Các ý cho buổi brainstorm dashboard đã ghi ở `commercial-model.md`.
+- **Mất một vòng vì test chạy lẻ:** chạy riêng test mạo danh thì đỏ do server dev tải lại mọi trang sau khi biên dịch. Agent đã bỏ nhầm `router.refresh()` trước khi tìm ra nguyên nhân, rồi hoàn lại. Đã ghi vào gotchas.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -454,7 +462,8 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-1. **Đưa mạo danh + công tắc lên preview**: Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
+0. **Brainstorm giao diện dashboard** theo mockup ba tab của Tài (xem `commercial-model.md`, mục "Cần brainstorm").
+1. **Đưa mạo danh + công tắc lên preview** (đã migrate và push `6286f43`; bản sửa ngày 17/09 cần push thêm): Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
 4. **Bật `NFC_PUBLISHING_ENABLED`** — cần mọi shop có release, kể cả `caphe-demo` vốn seed bằng INSERT thẳng.

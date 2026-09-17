@@ -194,6 +194,19 @@ Hướng "khách hàng là thượng đế": sau khi bàn giao, admin chỉ hỗ
 - Giai đoạn setup, trước khi shop đặt mật khẩu: admin tạo trang khách + dashboard, nhập email cho tài khoản, và (khi có editor) chỉnh cấu hình đợt đầu. Không cần xin phép.
 - Khi khách khiếu nại dữ liệu sai: chính **chủ shop tự export** rồi đối chiếu với lịch sử không sửa được (`rating_intent_receipts`). Admin không cần giữ dữ liệu. Đây cũng là cách Shopify (đối tác phải được chủ cửa hàng duyệt) và Google Cloud (Access Approval, Access Transparency) làm.
 
+### Chốt thêm 2026-09-17
+
+- **Không điền sẵn số sao sang Google.** Tài giữ nguyên nguyên tắc "lời mời Google giống hệt nhau ở mọi mức sao". Lý do: Google không có tham số chính thức cho việc này; chính sách Google cấm chủ động chỉ xin đánh giá tốt, nên dễ bị xem là dẫn dắt khách, và hình phạt là xoá review của quán.
+- **Không làm mã QR** ở giai đoạn này. Dashboard chỉ hiện link trang khách, kèm nút Sao chép và Chia sẻ.
+
+### Cần brainstorm trước khi xây (Tài nêu 2026-09-17)
+
+Tài gửi ba màn mockup: Dữ liệu · Thiết kế giao diện · Sản phẩm & link, cùng ô chuyển shop.
+- **Sản phẩm & link là của chủ shop:** tuỳ chỉnh nút (Instagram, Zalo…) và gắn link vào nút; **tự nhân bản trang review** khi thêm bàn, rồi tự làm thẻ NFC hoặc QR cho bàn đó.
+- **Admin vào chỉnh theo quyền chủ shop cấp, ba mức:** (1) chỉ xem; (2) chỉ sửa giao diện, nút và link, **không xem dữ liệu**; (3) toàn quyền.
+  - **Cần làm rõ khi brainstorm:** mức 3 có bao gồm tải dữ liệu không? Quyết định ngày 16/09 là admin **không bao giờ** có nút tải dữ liệu.
+  - Ba mức này thay cho công tắc "đọc góp ý" hiện tại hay chồng lên nó?
+
 ### Tài khoản phụ — hướng đã chốt, chưa làm
 
 Một shop có thể có nhiều tài khoản vào cùng dashboard. Chủ shop có nút tạo tài khoản phụ với một trong hai vai:

@@ -27,6 +27,19 @@ function AdminVisits({visits}:{visits:Data['adminVisits']}){
  <p className={styles.muted}>{v.ended_at?`${endings[v.end_reason??'ended']} lúc ${time(v.ended_at)}`:`hết hạn lúc ${time(v.expires_at)}`} · {v.reads} lần xem</p>
  </article>)}</section>;
 }
+/** The shop's customer page, to open on other phones or send over Zalo. No QR code: Tài chose not to add one. */
+function CustomerLink({url}:{url:string}){
+ const [status,setStatus]=useState('');
+ const copy=async()=>{try{await navigator.clipboard.writeText(url);setStatus('Đã sao chép.');}catch{setStatus('Chưa sao chép được. Giữ lâu vào đường dẫn để sao chép.');}};
+ return <section className={styles.exports} aria-label="Trang khách" data-customer-link={url}><h2>Trang khách</h2>
+ <p>Đây là trang khách chấm sao và gửi góp ý. Mở trên điện thoại khác hoặc gửi qua Zalo để thử; mỗi lượt sẽ hiện trong dashboard này.</p>
+ <a href={url} target="_blank" rel="noreferrer">{url}</a>
+ <button type="button" onClick={copy}>Sao chép</button>
+ {/* Phones open their own share sheet; a browser without one copies instead. */}
+ <button type="button" onClick={()=>{if('share' in navigator)void navigator.share({title:'Trang đánh giá',url}).catch(()=>{});else void copy();}}>Chia sẻ</button>
+ {status&&<p>{status}</p>}
+ </section>;
+}
 function Support({support,canChange,change}:{support:Data['support'];canChange:boolean;change:(enabled:boolean)=>Promise<void>}){
  const [busy,setBusy]=useState(false);
  return <section className={styles.exports} aria-label="Hỗ trợ từ quản trị" data-support={support.feedback?'on':'off'}><h2>Hỗ trợ từ quản trị</h2>
@@ -37,7 +50,7 @@ function Support({support,canChange,change}:{support:Data['support'];canChange:b
  {support.history.length>0&&<p data-support-history>{support.history.map(h=>`${h.enabled?'Bật':'Tắt'} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
  </section>;
 }
-export default function OwnerDashboard({slug,name,impersonation}:{slug:string;name:string;impersonation:Impersonation|null}){
+export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{slug:string;name:string;customerUrl:string;impersonation:Impersonation|null}){
  const router=useRouter(),latest=useRef(0);
  const [data,setData]=useState<Data|null>(null),[busy,setBusy]=useState(true),[notice,setNotice]=useState(''),[expired,setExpired]=useState(false);
  const [filters,setFilters]=useState({from:localDate(29),to:localDate(),source:'',release:'',rating:'',status:''});
@@ -99,6 +112,7 @@ export default function OwnerDashboard({slug,name,impersonation}:{slug:string;na
  {row.message&&<><p className={styles.message}>{row.message}</p><p className={styles.muted}>Chủ đề: {row.topic}</p>{impersonation?(row.note&&<p className={styles.muted}>Ghi chú nội bộ: {row.note}</p>):<CaseForm row={row} save={save}/>}</>}
  {!row.message&&impersonation?.scope==='overview'&&row.status&&<p className={styles.muted}>Nội dung góp ý ẩn trong phạm vi tổng quan.</p>}
  </article>)}</section>
+ <CustomerLink url={customerUrl}/>
  <Support support={data.support} canChange={!impersonation&&data.viewer.kind==='owner'&&data.viewer.role==='owner'} change={changeSupport}/>
  <AdminVisits visits={data.adminVisits}/>
  <nav className={styles.row} aria-label="Phân trang">{cursor&&<button onClick={()=>setCursor('')}>Về trang đầu</button>}{data.nextCursor&&<button onClick={()=>setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>

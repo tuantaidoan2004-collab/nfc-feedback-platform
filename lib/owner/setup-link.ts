@@ -70,6 +70,15 @@ export class OwnerSetupLinks {
     return { token, expiresAt: row.expires_at as Date };
   }
 
+  /**
+   * Where a new password should lead: the dashboard of a shop this account runs. Owner memberships come first;
+   * a chain owner with several shops lands on one of them and switches from there.
+   */
+  async dashboardSlug(userId: string) {
+    return ((await this.pool.query(`SELECT s.slug FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
+      WHERE m.user_id=$1 AND m.active ORDER BY m.role<>'owner',s.slug LIMIT 1`, [userId])).rows[0]?.slug as string | undefined) ?? null;
+  }
+
   /** Reads a link without spending it, so the form can be shown before a password is typed. */
   async inspect(token: unknown) {
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return null;

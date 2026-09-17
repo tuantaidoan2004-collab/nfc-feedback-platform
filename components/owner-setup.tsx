@@ -26,7 +26,8 @@ export default function OwnerSetup({ token, username }: { token: string; usernam
             : 'Dịch vụ đang gián đoạn. Vui lòng thử lại.');
           return;
         }
-        router.replace('/owner/login'); router.refresh();
+        const { next } = await response.json() as { next: string | null };
+        router.replace(next ? `/owner/login?next=${encodeURIComponent(next)}` : '/owner/login'); router.refresh();
       } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
     }}>
       <label>Mật khẩu mới<input name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>

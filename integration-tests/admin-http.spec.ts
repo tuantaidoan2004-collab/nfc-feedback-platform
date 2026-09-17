@@ -104,17 +104,20 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Mật khẩu mới',{exact:true}).fill('chosen-by-the-shop');
  await page.getByLabel('Nhập lại',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
- await expect(page).toHaveURL(new RegExp('/owner/login'));
-
- // Spent once: the same link is dead even before anyone tries the new password.
- await page.goto(setupUrl);
- await expect(page.getByRole('heading',{name:'Liên kết không dùng được'})).toBeVisible();
-
- await page.goto(`/ZZZ/${slug}`);
+ // Straight on to this shop's own sign-in, the way the shop experiences it: no address to find by hand.
+ await expect(page).toHaveURL(`${origin}/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
  await page.getByLabel('Tài khoản',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.locator('[data-metric="opens"]')).toBeVisible();
+ await expect(page).toHaveURL(`${origin}/ZZZ/${slug}`);
+ // The customer page is right there, to open on other phones.
+ await expect(page.locator(`[data-customer-link="${origin}/${slug}"]`)).toBeVisible();
+ await expect(page.getByRole('link',{name:`${origin}/${slug}`,exact:true})).toHaveAttribute('href',`${origin}/${slug}`);
+
+ // Spent once: the same link is dead now that the password is set.
+ await page.goto(setupUrl);
+ await expect(page.getByRole('heading',{name:'Liên kết không dùng được'})).toBeVisible();
 });
 
 test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{
@@ -168,7 +171,6 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   expect(await response.json()).toEqual({error:'IMPERSONATION_NO_EXPORT'});
  }};
  const overviewReason='Kiểm tra <b>số liệu</b> giúp shop, theo yêu cầu qua Zalo';
-
  await signIn(page,admin.username);
  await standIn(page,shopName,'overview',overviewReason);
  await expect(page).toHaveURL(`${origin}/ZZZ/${made.slug}`);

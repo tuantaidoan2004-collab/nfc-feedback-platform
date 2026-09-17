@@ -21,7 +21,7 @@ export default async function Page({params}:{params:Promise<{shop:string}>}) {
    if(error instanceof OwnerError && error.status===401)redirect(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
    return <main className="dashboard-wrap"><h1>Không thể mở dashboard</h1><p>Bạn chưa có quyền với shop này hoặc dịch vụ đang gián đoạn.</p></main>;}
   const actor=access.actor;
-  return <OwnerDashboard slug={access.slug} name={access.name} impersonation={actor.kind==='admin'?{admin:actor.adminUsername,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
+  return <OwnerDashboard slug={access.slug} name={access.name} customerUrl={`${process.env.APP_ORIGIN ?? ''}/${access.slug}`} impersonation={actor.kind==='admin'?{admin:actor.adminUsername,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
  }
  let shop;
  try{shop=await shopBySlug((await params).shop);await requireOwner(shop.id);}
