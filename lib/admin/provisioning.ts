@@ -75,6 +75,21 @@ export class ShopProvisioning {
   }
 
   /**
+   * Publishes today's built-in defaults (templateConfig) on the template as a new release, so the operator can
+   * adopt new defaults without an editor (Tài, 2026-09-18). Older releases stay in history, and shops made earlier
+   * keep the page they were cloned with; only shops created afterwards start from the new one.
+   */
+  async resetTemplate(actorId: string) {
+    const template = await this.ensureTemplate(actorId);
+    const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
+    const draft = Number((await this.pool.query('SELECT revision FROM page_drafts WHERE shop_id=$1', [template.shopId])).rows[0].revision);
+    const saved = await admin.saveDraft(template.shopId, draft, templateConfig());
+    const { releaseId } = await admin.publish(template.shopId, saved);
+    await recordAdminAction(this.pool, actorId, { action: 'template.reset', shopId: template.shopId, detail: { releaseId } });
+    return { ...template, releaseId };
+  }
+
+  /**
    * A sign-in to the template's own dashboard, for testing: username `yourshop`, password `1`, as Tài asked on
    * 2026-09-17. It deliberately bypasses the 12-character minimum, so the caller must refuse it in production
    * (`allowed`). An existing account is attached to the template but its password is never reset here. Rotating it

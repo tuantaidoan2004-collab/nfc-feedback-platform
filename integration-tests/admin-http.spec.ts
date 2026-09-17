@@ -95,6 +95,10 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await expect(templateRow).toContainText('YOUR SHOP');
  await expect(page.getByRole('button',{name:'Tạo shop khuôn',exact:true})).toHaveCount(0);
  await expect(templateRow.getByRole('button')).toHaveCount(0);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Đưa khuôn về mặc định mới',exact:true}).click();
+ await expect(page.getByRole('main')).toContainText('Khuôn đã dùng cấu hình mặc định mới');
+ expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.reset'")).rows[0].n).toBe(1);
  const templateSlug=(await admin.db.query('SELECT slug FROM shops WHERE is_template')).rows[0].slug;
  expect((await page.request.get(`/${templateSlug}`)).status()).toBe(200);
 

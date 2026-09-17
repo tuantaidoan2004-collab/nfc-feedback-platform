@@ -3,51 +3,61 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
-import { defaultConfig, STEM_BACKGROUND, type LinkIcon, type MediaRef } from '@/lib/publishing/config';
+import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
 import './guest-page.css';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
 import { normalizeFeedback } from '@/lib/domain/private-feedback';
-
 import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
-import type { PageConfig } from '@/lib/publishing/config';
+
+/**
+ * Guest page v2 (lát B3, 2026-09-18). The page itself asks for nothing but the Google review: the Google invitation is
+ * the same for every visitor because no rating is asked before it. Private feedback lives behind a floating button
+ * and opens a spotlight card with its own stars; the stars and the text are saved only when the customer presses Send.
+ */
 type Props = { render?: RenderBinding; pageConfig?: PageConfig; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
 const messages = {
   vi: {
-    loading: 'Đang kết nối…', ready: 'Bạn có thể chọn sao để chia sẻ trải nghiệm.',
-    saving: 'Đang lưu. Vui lòng giữ trang mở.', saved: 'Đã lưu trên máy chủ.',
-    feedbackSaved: 'Đã gửi góp ý riêng. Nội dung đã được xóa khỏi ô nhập.',
-    pending: 'Chưa xác nhận lưu. Giữ trang mở và thử lại để kiểm tra đúng lần gửi này.',
-    conflict: 'Đánh giá đã thay đổi ở lần thao tác khác. Đã cập nhật sao hiện tại; hãy kiểm tra rồi chọn hoặc gửi lại.',
-    expired: 'Phiên đã hết hạn. Hãy chọn sao lại để bắt đầu phiên mới; góp ý cũ chưa được gửi lại.',
+    loading: 'Đang kết nối…', ready: 'Chọn sao, viết góp ý, hoặc cả hai.',
+    saving: 'Đang gửi. Vui lòng giữ trang mở.', saved: 'Đã gửi.',
+    pending: 'Chưa xác nhận đã gửi. Giữ trang mở và thử lại để kiểm tra đúng lần gửi này.',
+    conflict: 'Đánh giá đã thay đổi ở lần thao tác khác. Đã cập nhật sao hiện tại; hãy kiểm tra rồi gửi lại.',
+    expired: 'Phiên đã hết hạn. Chọn sao rồi bấm Gửi để bắt đầu phiên mới; góp ý chưa được gửi.',
     unavailable: 'Chưa kết nối được. Bạn có thể tải lại trang để thử lại.',
-    waiting: 'Chờ thao tác hiện tại được xác nhận trước khi gửi góp ý.',
+    waiting: 'Chờ thao tác hiện tại được xác nhận trước khi gửi.',
     recovery: 'Hãy thử lại thao tác đang chờ trước khi tiếp tục.',
     changed: 'Trang vừa được mở lại. Thao tác chờ chưa được chuyển sang lần mở mới; hãy kiểm tra trước khi gửi tiếp.',
+    empty: 'Hãy chọn sao hoặc viết vài dòng trước khi gửi.',
     invalid: 'Góp ý cần từ 1 đến 2.000 ký tự văn bản hợp lệ.', retry: 'Thử lại lần gửi', retryOpen: 'Thử kết nối lại',
   },
   en: {
-    loading: 'Connecting…', ready: 'Choose a star rating to share your experience.',
-    saving: 'Saving. Please keep this page open.', saved: 'Saved on the server.',
-    feedbackSaved: 'Private feedback sent. The text has been cleared from the form.',
-    pending: 'Save not confirmed. Keep this page open and retry to check this same submission.',
-    conflict: 'The rating changed in another action. The current stars are now shown; review them before choosing or submitting again.',
-    expired: 'This session expired. Choose stars again to start a new session; previous feedback has not been resubmitted.',
+    loading: 'Connecting…', ready: 'Choose stars, write feedback, or both.',
+    saving: 'Sending. Please keep this page open.', saved: 'Sent.',
+    pending: 'Not confirmed yet. Keep this page open and retry to check this same submission.',
+    conflict: 'The rating changed in another action. The current stars are now shown; review them and send again.',
+    expired: 'This session expired. Choose stars and press Send to start a new session; your feedback was not sent.',
     unavailable: 'Could not connect. You can reload this page to try again.',
-    waiting: 'Wait for the current action to be confirmed before sending feedback.',
+    waiting: 'Wait for the current action to be confirmed before sending.',
     recovery: 'Retry the pending action before continuing.',
     changed: 'The page reopened. Queued actions were not moved to this opening; review before submitting again.',
+    empty: 'Choose stars or write a few words before sending.',
     invalid: 'Feedback needs 1 to 2,000 valid text characters.', retry: 'Retry submission', retryOpen: 'Retry connection',
   },
 } as const;
 type MessageKey = keyof typeof messages.vi;
 const pageCopy = {
-  vi: { google: 'Đánh giá trên Google', poster: 'POSTER SỰ KIỆN', thanksTitle: 'Cảm ơn bạn đã góp ý!', thanksBody: 'Góp ý đã được gửi riêng cho quản lý.', close: 'Đóng', links: 'Kết nối với shop' },
-  en: { google: 'Review us on Google', poster: 'EVENT POSTER', thanksTitle: 'Thank you for your feedback!', thanksBody: 'Your feedback went privately to the manager.', close: 'Close', links: 'Connect with the shop' },
+  vi: { google: 'Đánh giá trên Google', poster: 'POSTER SỰ KIỆN', links: 'Kết nối với shop', close: 'Đóng',
+    hint: 'Có điều gì muốn nhắn riêng cho quán?', title: 'Gửi góp ý riêng cho quản lý', feeling: 'Bạn cảm thấy thế nào?',
+    thanks: 'Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn' },
+  en: { google: 'Review us on Google', poster: 'EVENT POSTER', links: 'Connect with the shop', close: 'Close',
+    hint: 'Anything to tell us privately?', title: 'Send private feedback to the manager', feeling: 'How do you feel?',
+    thanks: 'Thank you — we are grateful for your feedback' },
 } as const;
-const THANKS_MS = 2800;
+/** The chosen score turns every filled star into that score's face. */
+const FACES = ['😡', '😤', '😕', '😊', '🤩'] as const;
+const HINT_DELAY_MS = 2000;
 
 const noop = () => () => {};
 function subscribeReducedMotion(change: () => void) {
@@ -92,11 +102,38 @@ const ICON_PATHS: Record<LinkIcon, string> = {
   facebook: 'M14 8h3V4h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V8Z',
   zalo: 'M4 5h16v11H9l-4 3v-3H4V5Zm4 3h5l-5 5h5',
   phone: 'M6 3h3l2 5-2 1a11 11 0 0 0 6 6l1-2 5 2v3a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2Z',
+  tiktok: 'M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5M14 3c.4 2.6 2.2 4.4 5 4.6',
   booking: 'M4 6h16v14H4V6Zm0 4h16M8 3v5m8-5v5',
   link: 'M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1m2 4a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1',
 };
+/** Brand marks for the common buttons, drawn simply; other icons use a line glyph. */
 function LinkGlyph({ icon }: { icon: LinkIcon }) {
-  return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={ICON_PATHS[icon]} /></svg>;
+  if (icon === 'instagram') return <svg className="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <defs><radialGradient id="ig-grad" cx="30%" cy="107%" r="150%"><stop offset="0" stopColor="#fdf497"/><stop offset=".05" stopColor="#fdf497"/><stop offset=".45" stopColor="#fd5949"/><stop offset=".6" stopColor="#d6249f"/><stop offset=".9" stopColor="#285AEB"/></radialGradient></defs>
+    <rect width="24" height="24" rx="6.5" fill="url(#ig-grad)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" strokeWidth="1.8"/>
+    <circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" strokeWidth="1.8"/><circle cx="16.1" cy="7.9" r="1" fill="#fff"/></svg>;
+  if (icon === 'zalo') return <svg className="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <rect width="24" height="24" rx="6.5" fill="#0068FF"/><path d="M5.2 6.6h13.6v8.6H11l-3.6 2.6v-2.6H5.2Z" fill="#fff"/>
+    <text x="12" y="13.2" textAnchor="middle" fontSize="5.2" fontWeight="800" fontFamily="Arial, sans-serif" fill="#0068FF">Zalo</text></svg>;
+  if (icon === 'tiktok') return <svg className="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <rect width="24" height="24" rx="6.5" fill="#111"/>
+    <path d="M13.6 5.5v8.7a2.6 2.6 0 1 1-2.6-2.6" fill="none" stroke="#25F4EE" strokeWidth="2" strokeLinecap="round" transform="translate(-.6 -.4)"/>
+    <path d="M13.6 5.5v8.7a2.6 2.6 0 1 1-2.6-2.6" fill="none" stroke="#FE2C55" strokeWidth="2" strokeLinecap="round" transform="translate(.6 .4)"/>
+    <path d="M13.6 5.5v8.7a2.6 2.6 0 1 1-2.6-2.6M13.6 5.5c.3 2 1.7 3.4 3.8 3.6" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>;
+  if (icon === 'facebook') return <svg className="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M13.3 19v-5.6h1.9l.3-2.2h-2.2V9.8c0-.6.2-1.1 1.1-1.1h1.2V6.8a15 15 0 0 0-1.7-.1c-1.7 0-2.9 1-2.9 3v1.5H9.1v2.2H11V19Z" fill="#fff"/></svg>;
+  return <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={ICON_PATHS[icon]} /></svg>;
+}
+const FEEDBACK_ICONS: Record<FeedbackButton['icon'], string> = {
+  plane: 'M3.5 11.2 20.6 3.6c.6-.3 1.2.3 1 .9l-5.2 15.8c-.2.6-1 .7-1.4.2l-3.9-4.4-4.2 3.2c-.4.3-.9 0-.9-.5v-4.5L3.3 12.6c-.6-.3-.5-1.2.2-1.4ZM11.1 15.3l8.3-10.4',
+  chat: 'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.6 3.7c-.4.3-.9 0-.9-.5V16A2.5 2.5 0 0 1 4 13.5Z',
+  mail: 'M3.5 6.5A1.5 1.5 0 0 1 5 5h14a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5ZM4 6.5l8 6.5 8-6.5',
+};
+/** No disc behind it: the glyph itself, filled with the shop colour and outlined, floats over the page. */
+function FeedbackGlyph({ button }: { button: FeedbackButton }) {
+  return <svg viewBox="0 0 24 24" width="46" height="46" aria-hidden="true">
+    <path d={FEEDBACK_ICONS[button.icon]} fill={button.color} stroke={button.outline} strokeWidth="1.6" strokeLinejoin="round" paintOrder="stroke" />
+  </svg>;
 }
 function GoogleMark() {
   return <svg className="google-mark" viewBox="0 0 48 48" width="22" height="22" aria-hidden="true">
@@ -109,7 +146,7 @@ function GoogleMark() {
 
 function resultMessage(result: CoordinatorResult | null | undefined): MessageKey | null {
   if (!result) return null;
-  if (result.kind === 'saved') return result.mutation === 'feedback' ? 'feedbackSaved' : 'saved';
+  if (result.kind === 'saved') return 'saved';
   if (result.kind === 'conflict') return 'conflict';
   if (result.kind === 'pending') return 'pending';
   if (result.kind === 'error') {
@@ -121,9 +158,26 @@ function resultMessage(result: CoordinatorResult | null | undefined): MessageKey
   return null;
 }
 
+/** The hint appears once the visitor has reached the bottom of the page and stayed two seconds, then stays. */
+function useBottomHint() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (shown) return;
+    let timer: number | undefined;
+    const check = () => {
+      const bottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
+      if (bottom && timer === undefined) timer = window.setTimeout(() => setShown(true), HINT_DELAY_MS);
+    };
+    check();
+    window.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check);
+    return () => { window.removeEventListener('scroll', check); window.removeEventListener('resize', check); window.clearTimeout(timer); };
+  }, [shown]);
+  return shown;
+}
+
 export default function ShopFeedbackV2(shop: Props) {
-  const [lang, setLang] = useState<Language>('vi'); const t = copy[lang], m = messages[lang];
-  const question = shop.pageConfig?.text.question[lang] ?? t.question;
+  const [lang, setLang] = useState<Language>('vi'); const t = copy[lang], m = messages[lang], p = pageCopy[lang];
   const [service, setService] = useState<DocumentFeedbackService | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   // Initialize after hydration. StrictMode/remount resolves the same document-owned service.
@@ -140,127 +194,152 @@ export default function ShopFeedbackV2(shop: Props) {
   const state = client.state?.queue.coordinator, current = state?.current;
   const snapshot = current?.snapshot, mutation = state?.mutation;
   const opening = state?.opens.find(entry => entry.event.loadKey === current?.event.loadKey);
-  const [selection, setSelection] = useState<{ loadKey: string; score: number } | null>(null);
-  const [message, setMessage] = useState(''); const [topic, setTopic] = useState<Topic>('other');
-  const [open, setOpen] = useState(false); const [pulse, setPulse] = useState(0);
-  const [validationState, setValidationState] = useState<{ key: MessageKey; loadKey?: string } | null>(null);
-  const validation = validationState?.loadKey === current?.event.loadKey ? validationState?.key : null;
-  function setValidation(key: MessageKey | null) {
-    setValidationState(key ? { key, loadKey: current?.event.loadKey } : null);
-  }
-  const submitted = useRef(false);
   const reduced = useReducedMotion();
-  const p = pageCopy[lang];
+  const hint = useBottomHint();
   const config = shop.pageConfig ?? { ...defaultConfig(shop.name),
     poster: shop.heroUrl && shop.heroKind ? { kind: shop.heroKind, url: shop.heroUrl } : null };
-  const googleRef = useRef<HTMLAnchorElement & HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLFormElement>(null), triggerRef = useRef<HTMLButtonElement>(null), starsRef = useRef<HTMLDivElement>(null), actionsRef = useRef<HTMLDivElement>(null);
-  const mainRef = useRef<HTMLElement>(null);
-  const [reveal, setReveal] = useState(0);
-  const [thanks, setThanks] = useState(0);
-  // A low score opens the panel and scrolls just enough to show it, never so far that the Google button leaves the screen.
-  useEffect(() => {
-    if (!reveal) return;
-    const google = googleRef.current?.getBoundingClientRect(), panel = panelRef.current?.getBoundingClientRect();
-    if (!google || !panel) return;
-    const view = window.innerHeight, margin = 12;
-    const showPanel = Math.min(panel.bottom - view + margin, google.top - margin);
-    const keepGoogle = google.bottom - view + margin;
-    const delta = Math.max(showPanel, keepGoogle);
-    if (delta > 0) window.scrollBy({ top: delta, behavior: reduced ? 'auto' : 'smooth' });
-  }, [reveal, reduced]);
-  // Tapping outside the panel folds it back into its button. Stars, the button itself and the status/retry area do not count.
-  useEffect(() => {
-    if (!open) return;
-    const fold = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if ([panelRef, triggerRef, starsRef, actionsRef].some(ref => ref.current?.contains(target))) return;
-      setOpen(false);
-    };
-    document.addEventListener('pointerdown', fold);
-    return () => document.removeEventListener('pointerdown', fold);
-  }, [open]);
-  useEffect(() => {
-    if (!thanks) return;
-    if (!reduced && mainRef.current) burstConfetti(mainRef.current);
-    const close = () => setThanks(0);
-    const timer = window.setTimeout(close, THANKS_MS);
-    document.addEventListener('pointerdown', close);
-    return () => { window.clearTimeout(timer); document.removeEventListener('pointerdown', close); };
-    // Confetti fires once per thank-you, not again when the motion preference changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thanks]);
-  const [sendingFeedback, setSendingFeedback] = useState(false);
+  const feedbackButton = config.feedbackButton ?? DEFAULT_FEEDBACK_BUTTON;
+
+  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<'form' | 'thanks'>('form');
+  const [choice, setChoice] = useState(0);
+  const [message, setMessage] = useState(''); const [topic, setTopic] = useState<Topic>('other');
+  const [validationState, setValidationState] = useState<{ key: MessageKey; loadKey?: string } | null>(null);
+  const validation = validationState?.loadKey === current?.event.loadKey ? validationState?.key : null;
+  function setValidation(key: MessageKey | null) { setValidationState(key ? { key, loadKey: current?.event.loadKey } : null); }
+  const [sending, setSending] = useState(false);
+  const submitted = useRef(false);
+  // Text waiting for its star to be confirmed: Send saves the star first, then the text.
+  const queued = useRef<{ topic: string; message: string } | null>(null);
+  const planeRef = useRef<HTMLButtonElement>(null), modalRef = useRef<HTMLDivElement>(null), cardRef = useRef<HTMLDivElement>(null);
+
   const busy = !!mutation?.running || !!mutation?.pending || !!client.state?.actionsRunning;
   const crossContext = !!mutation?.pending && mutation.pending.loadKey !== current?.event.loadKey;
-  const rating = busy && selection && selection.loadKey === current?.event.loadKey ? selection.score : snapshot?.experience?.rating ?? 0;
-  const disabledStars = !snapshot || !!opening?.running || sendingFeedback || crossContext || mutation?.pending?.phase === 'refresh';
-  const canSend = !!snapshot && snapshot.session.active && !busy && !opening?.running && !sendingFeedback;
-  const feedbackLocked = sendingFeedback || mutation?.pending?.kind === 'feedback';
+  const disabledStars = !snapshot || !!opening?.running || sending || crossContext || mutation?.pending?.phase === 'refresh';
+  const canSend = !!snapshot && !busy && !opening?.running && !sending && !crossContext;
+  const locked = sending || !!mutation?.pending;
   const completed = mutation?.result;
   const resultHere = completed && 'snapshot' in completed && completed.snapshot.visit.id === snapshot?.visit.id ? completed : null;
   let status: MessageKey = validation ?? resultMessage(resultHere) ?? 'ready';
   if (!validation) {
     if (unavailable) status = 'unavailable';
     else if (!snapshot) status = opening?.running || !opening ? 'loading' : resultMessage(opening.result) ?? 'unavailable';
-    else if (!snapshot.session.active) status = 'expired';
     else if (mutation?.running || opening?.running) status = 'saving';
     else if (mutation?.pending) status = 'pending';
     else if (state?.notice) status = state.notice === 'DESIRED_CONTEXT_CHANGED' ? 'changed' : 'conflict';
+    if (status === 'saved' && phase === 'form') status = 'ready';
   }
-  function accept(result: CoordinatorResult) {
-    if (result.kind === 'saved' && result.mutation === 'feedback') {
-      setMessage(''); setTopic('other'); submitted.current = false; setSendingFeedback(false); setThanks(n => n + 1);
-    } else if (result.kind !== 'pending') {
-      submitted.current = false; setSendingFeedback(false);
+  const connectionProblem = unavailable || (!snapshot && !!opening && !opening.running);
+
+  // Reopening keeps whatever the customer chose or typed and has not sent yet.
+  function openCard() { setPhase('form'); setValidation(null); setOpen(true); }
+  function closeCard() {
+    setOpen(false); setPhase('form');
+    planeRef.current?.focus({ preventScroll: true });
+  }
+  function finish(result: CoordinatorResult) {
+    if (result.kind === 'saved') {
+      const next = queued.current;
+      if (result.mutation !== 'feedback' && next) {
+        queued.current = null;
+        void client.feedback(next.topic, next.message).then(finish);
+        return;
+      }
+      submitted.current = false; setSending(false);
+      setMessage(''); setTopic('other'); setChoice(0); setPhase('thanks');
+      return;
     }
+    if (result.kind === 'pending') return;
+    submitted.current = false; setSending(false); queued.current = null;
+    if (result.kind === 'conflict') setChoice(result.snapshot.experience?.rating ?? 0);
     if (result.kind === 'error') setValidation(resultMessage(result));
   }
-  function rate(score: number) {
-    if (disabledStars || !current) return;
-    setValidation(null); setSelection({ loadKey: current.event.loadKey, score });
-    if (score <= 3) { setOpen(true); setPulse(value => value + 1); setReveal(value => value + 1); } else setPulse(0);
-    void client.rate(score).then(accept);
-  }
   function send() {
-    // A disabled submit is explained inline; guard same-tick double clicks as well.
     if (!canSend || submitted.current) return;
-    if (!normalizeFeedback(topic, message)) { setValidation('invalid'); return; }
-    submitted.current = true; setSendingFeedback(true); setValidation(null);
-    void client.feedback(topic, message).then(accept);
+    const text = message.trim();
+    if (!choice && !text) { setValidation('empty'); return; }
+    if (text && !normalizeFeedback(topic, message)) { setValidation('invalid'); return; }
+    submitted.current = true; setSending(true); setValidation(null);
+    if (choice) {
+      queued.current = text ? { topic, message } : null;
+      void client.rate(choice).then(finish);
+    } else void client.feedback(topic, message).then(finish);
   }
-  const links = config.links;
-  return <main ref={mainRef} className="guest" lang={lang} data-layout={config.layout} data-schema={config.schemaVersion}>
+
+  // Spotlight: the page behind stops scrolling, Escape closes, focus moves into the card.
+  useEffect(() => {
+    if (!open) return;
+    const root = document.documentElement, previous = root.style.overflow;
+    root.style.overflow = 'hidden';
+    cardRef.current?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') closeCard(); };
+    document.addEventListener('keydown', onKey);
+    return () => { root.style.overflow = previous; document.removeEventListener('keydown', onKey); };
+  }, [open]);
+  useEffect(() => {
+    if (phase === 'thanks' && !reduced && modalRef.current) burstConfetti(modalRef.current);
+    // Confetti fires once per thank-you, not again when the motion preference changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  const statusLine = <p role="status" className="guest-status">{m[status]}</p>;
+  const retryButtons = <>
+    {mutation?.pending && !mutation.running && <button type="button" className="guest-send" onClick={() => { setValidation(null); void client.retry().then(finish); }}>{m.retry}</button>}
+    {state?.opens.filter(entry => entry.result?.kind === 'pending' && !entry.running).map((entry, index) => <button type="button" key={entry.event.loadKey} className="guest-send" onClick={() => { setValidation(null); void client.retryOpen(entry.event.loadKey); }}>{m.retryOpen}{index > 0 ? ` (${index + 1})` : ''}</button>)}
+  </>;
+
+  return <main className="guest" lang={lang} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}>
     <Background config={config} reduced={reduced} />
-    <article className="guest-sheet">
+    <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
       <Poster poster={config.poster} label={p.poster} />
       <div className="guest-logo">{config.logo ? <img src={config.logo.url} alt="" /> : <span aria-hidden="true">{initials(config.name)}</span>}</div>
       <div className="guest-body">
-        <h1>{shop.name}</h1><p className="question">{question}</p>
-        <div ref={starsRef} className="stars guest-stars" role="group" aria-label={question}>{[1, 2, 3, 4, 5].map(n => <button key={n} disabled={disabledStars} aria-label={`${n} ${t.stars}`} aria-pressed={rating === n} data-filled={n <= rating} onClick={() => rate(n)}>★</button>)}</div>
-        <p className="rating-receipt">{snapshot?.experience?.rating ? `${m.saved} ${snapshot.experience.rating}/5` : '\u00a0'}</p>
+        <h1>{shop.name}</h1>
         <section className="google-invitation"><p>{t.invite}</p>
           {shop.googleUrl
-            ? <a ref={googleRef} className="google-button" data-google href={shop.googleUrl} target="_blank" rel="noopener noreferrer"><GoogleMark /><span>{p.google}</span></a>
-            : <button ref={googleRef} className="google-button" data-google disabled><GoogleMark /><span>{p.google}</span></button>}
+            ? <a className="google-button" data-google href={shop.googleUrl} target="_blank" rel="noopener noreferrer"><GoogleMark /><span>{p.google}</span></a>
+            : <button className="google-button" data-google disabled><GoogleMark /><span>{p.google}</span></button>}
           <p className="guest-note">{t.thanks}</p></section>
-        <button ref={triggerRef} id="private-feedback" className={`feedback-trigger${rating > 0 && rating <= 3 ? ' needs-attention' : ''}`} aria-expanded={open} aria-controls="private-form" onClick={() => { setOpen(!open); setPulse(0); }}><span key={pulse} className={`pulse-fill${pulse ? '' : ' idle'}`} aria-hidden="true" /><span className="trigger-label">{t.private}<span aria-hidden="true">{open ? '−' : '+'}</span></span></button>
-        {open && <form ref={panelRef} id="private-form" className="guest-panel" onSubmit={e => { e.preventDefault(); send(); }}>
-          <p className="guest-note">{t.privateNote}</p><label htmlFor="topic">{t.topic}</label><select id="topic" disabled={feedbackLocked} value={topic} onChange={e => setTopic(e.target.value as Topic)}>{topics.map(key => <option key={key} value={key}>{t[key]}</option>)}</select>
-          <label htmlFor="message">{t.message}</label><textarea id="message" rows={4} required disabled={feedbackLocked} value={message} placeholder={t.placeholder} onChange={e => { setMessage(e.target.value); setValidation(null); }} />
-          {!canSend && <p id="feedback-wait" className="guest-note">{!snapshot ? m.loading : !snapshot.session.active ? m.expired : m.waiting}</p>}
-          <button className="guest-send" disabled={!canSend} aria-describedby={!canSend ? 'feedback-wait' : undefined}>{t.send}</button>
-        </form>}
-        <div ref={actionsRef}><p role="status" className="guest-status">{m[status]}</p>
-        {mutation?.pending && !mutation.running && <button className="guest-send" onClick={() => { setValidation(null); void client.retry().then(accept); }}>{m.retry}</button>}
-        {state?.opens.filter(entry => entry.result?.kind === 'pending' && !entry.running).map((entry, index) => <button key={entry.event.loadKey} className="guest-send" onClick={() => { setValidation(null); void client.retryOpen(entry.event.loadKey); }}>{m.retryOpen}{index > 0 ? ` (${index + 1})` : ''}</button>)}</div>
-        {links.length > 0 && <nav className="guest-links" aria-label={p.links}>{links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
+        {config.links.length > 0 && <nav className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
           {...(link.url.startsWith('https:') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><LinkGlyph icon={link.icon} /><span>{link.label[lang]}</span></a>)}</nav>}
+        {!open && connectionProblem && <div className="guest-connection">{statusLine}{retryButtons}</div>}
       </div>
     </article>
-    {thanks > 0 && <div className="guest-thanks-layer"><div key={thanks} className="guest-thanks" role="dialog" aria-labelledby="thanks-title" data-thanks>
-      <p id="thanks-title">{p.thanksTitle}</p><p>{p.thanksBody}</p><button type="button" onClick={() => setThanks(0)}>{p.close}</button>
-    </div></div>}
+
+    <div className="guest-float" aria-hidden={open || undefined}>
+      <button ref={planeRef} type="button" id="private-feedback" className="guest-plane" aria-label={p.title} aria-haspopup="dialog" aria-expanded={open}
+        aria-controls="private-card" data-icon={feedbackButton.icon} onClick={openCard}><FeedbackGlyph button={feedbackButton} /></button>
+      {hint && !open && <button type="button" className="guest-hint" data-hint onClick={openCard}>{p.hint}</button>}
+    </div>
+
+    {open && <div ref={modalRef} className="guest-modal" onPointerDown={event => { if (event.target === event.currentTarget) closeCard(); }}>
+      <div ref={cardRef} id="private-card" className="guest-card" role="dialog" aria-modal="true" aria-labelledby="private-card-title" tabIndex={-1} data-phase={phase}>
+        <button type="button" className="guest-close" aria-label={p.close} onClick={closeCard}>×</button>
+        {phase === 'thanks'
+          ? <div className="guest-thanks" data-thanks>
+              <p id="private-card-title">{p.thanks}</p>
+              <button type="button" className="guest-send" onClick={closeCard}>{p.close}</button>
+            </div>
+          : <form id="private-form" onSubmit={e => { e.preventDefault(); send(); }}>
+              <h2 id="private-card-title">{p.title}</h2>
+              <p className="guest-note">{t.privateNote}</p>
+              <p className="guest-feeling">{p.feeling}</p>
+              <div className="guest-stars" role="group" aria-label={p.feeling}>{[1, 2, 3, 4, 5].map(n => {
+                const face = n <= choice ? FACES[choice - 1] : null;
+                return <button type="button" key={n} disabled={disabledStars} aria-label={`${n} ${t.stars}`} aria-pressed={choice === n}
+                  data-filled={!!face} onClick={() => { setValidation(null); setChoice(n); }}>
+                  <span key={face ?? 'star'} className={face ? 'guest-face' : 'guest-star'} style={face && !reduced ? { animationDelay: `${(n - 1) * 40}ms` } : undefined}>{face ?? '★'}</span>
+                </button>;
+              })}</div>
+              <label htmlFor="topic">{t.topic}</label>
+              <select id="topic" disabled={locked} value={topic} onChange={e => setTopic(e.target.value as Topic)}>{topics.map(key => <option key={key} value={key}>{t[key]}</option>)}</select>
+              <label htmlFor="message">{t.message}</label>
+              <textarea id="message" rows={4} disabled={locked} value={message} placeholder={t.placeholder} onChange={e => { setMessage(e.target.value); setValidation(null); }} />
+              <button className="guest-send" disabled={!canSend}>{t.send}</button>
+              {statusLine}{retryButtons}
+            </form>}
+      </div>
+    </div>}
   </main>;
 }

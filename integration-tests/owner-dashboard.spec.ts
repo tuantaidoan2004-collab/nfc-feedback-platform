@@ -19,8 +19,9 @@ async function login(page:Page,user:{username:string;password:string},shop='one'
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
 test('Publishing v2 customer→owner login→real metrics/filter/handling/export, responsive and logout',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/one');const star=page.getByRole('button',{name:'2 sao',exact:true});await expect(star).toBeEnabled();await star.click();
- await expect(page.locator('.rating-receipt')).toContainText('2/5');await page.locator('#message').fill('=SUM(1,2)');await page.getByRole('button',{name:'Gửi góp ý',exact:true}).click();await expect(page.locator('#message')).toHaveValue('');
+ // Guest page v2: the stars are in the private card, and Send saves the star and then the text.
+ await page.goto('/one');await expect(page.locator('main[data-ready]')).toBeVisible();await page.locator('#private-feedback').click({force:true});
+ await page.getByRole('button',{name:'2 sao',exact:true}).click();await page.locator('#message').fill('=SUM(1,2)');await page.getByRole('button',{name:'Gửi góp ý',exact:true}).click();await expect(page.locator('[data-thanks]')).toBeVisible();
  await login(page,f.users[0]);
  for(const key of ['opens','sessions','rated','feedback','unresolved'])await expect(page.locator(`[data-metric="${key}"]`)).toHaveText('1');
  const cookie=(await context.cookies()).find(c=>c.name==='nfc_owner_v2')!;expect(cookie).toMatchObject({httpOnly:true,sameSite:'Strict'});expect(await page.evaluate(()=>document.cookie)).not.toContain(cookie.value);

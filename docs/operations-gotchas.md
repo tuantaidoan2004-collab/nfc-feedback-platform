@@ -86,6 +86,12 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **"Chạm ra ngoài thì thu gọn" phải trừ mọi nút thuộc cùng luồng.** Bản đầu thu khung khi bấm "Thử lại lần gửi" (nút nằm ngoài khung), test public-v2 bắt được vì ô nhập biến mất. Vùng trạng thái, nút thử lại, sao và nút mở khung đều tính là bên trong.
 
+**Playwright không bấm được nút đang có animation lặp.** Nút máy bay nổi lên xuống liên tục; `click()` chờ phần tử đứng yên nên hết giờ (60 giây mỗi test, cả bộ publishing mất hơn 5 phút). Nút nổi là cố ý: test bấm bằng `click({ force: true })`.
+
+**Chữ trong SVG tính vào text của link.** Logo Zalo có `<text>Zalo</text>`, nên `toHaveText` của link đọc ra "ZaloZalo". Logo đã `aria-hidden`; kiểm nhãn bằng `span` hoặc `getByRole('link', { name })`.
+
+**macOS không có lệnh `timeout`.** Lệnh báo exit 127 mà không chạy gì.
+
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.
 
 **`getByRole('alert')` vi phạm strict mode.** Next render `__next-route-announcer__` cũng mang `role="alert"` trên mọi trang. Thu hẹp bằng `getByRole('main')`.

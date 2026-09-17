@@ -3,11 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { defaultConfig, validateConfig } from '../../lib/publishing/config';
 import { canonical, signContext, verifyContext, type RenderContext } from '../../lib/publishing/proof';
 const ring = { active: 'fixture', keys: { fixture: 'test-only-key-at-least-thirty-two-bytes' } };
-const v1 = () => ({ ...defaultConfig(), schemaVersion: 1 as const, layout: 'full-bleed' as const });
+const v1 = () => { const { feedbackButton: _unused, ...rest } = defaultConfig(); void _unused; return { ...rest, schemaVersion: 1 as const, layout: 'full-bleed' as const, links: [] }; };
 const link = (icon: string, url: string) => ({ label: { vi: 'Liên hệ', en: 'Contact' }, url, icon });
 test('v1 releases stay readable but cannot use v2 layouts or buttons', () => {
   expect(validateConfig(v1())).toEqual(v1());
-  for (const patch of [{ layout: 'card' }, { links: [link('facebook', 'https://facebook.com/x')] }, { links: [link('phone', 'tel:0901234567')] }, { schemaVersion: 3 }]) {
+  for (const patch of [{ layout: 'card' }, { links: [link('facebook', 'https://facebook.com/x')] }, { links: [link('phone', 'tel:0901234567')] },
+    { links: [link('tiktok', 'https://www.tiktok.com/@x')] }, { feedbackButton: defaultConfig().feedbackButton }, { schemaVersion: 3 }]) {
     expect(() => validateConfig({ ...v1(), ...patch })).toThrow('INVALID_CONFIG');
   }
 });
@@ -18,6 +19,19 @@ test('v2 adds the card layout, Facebook and a tel: contact button only', () => {
   for (const links of [[link('link', 'tel:0901234567')], [link('phone', 'https://example.com')], [link('phone', 'tel:090;ext=1')],
     [link('phone', 'tel:')], [link('phone', 'javascript:alert(1)')], [link('facebook', 'http://facebook.com/x')]]) {
     expect(() => validateConfig({ ...defaultConfig(), links })).toThrow('INVALID_CONFIG');
+  }
+});
+test('v2 ships Instagram, Zalo and TikTok buttons and a configurable feedback button', () => {
+  const config = defaultConfig();
+  expect(config.links.map(l => [l.icon, l.url])).toEqual([['instagram', 'https://www.instagram.com/quitesensational/'],
+    ['zalo', 'https://zalo.me/0961036265'], ['tiktok', 'https://www.tiktok.com/@taidoan450']]);
+  expect(config.feedbackButton).toEqual({ icon: 'plane', color: '#229ED9', outline: '#FFFFFF' });
+  for (const icon of ['plane', 'chat', 'mail']) expect(validateConfig({ ...config, feedbackButton: { ...config.feedbackButton, icon } }).feedbackButton?.icon).toBe(icon);
+  const { feedbackButton: _unused, ...missing } = config; void _unused;
+  for (const bad of [missing, { ...config, feedbackButton: { ...config.feedbackButton, icon: 'rocket' } },
+    { ...config, feedbackButton: { ...config.feedbackButton, color: 'red' } }, { ...config, feedbackButton: { ...config.feedbackButton, outline: '#fff' } },
+    { ...config, feedbackButton: { ...config.feedbackButton, image: 'https://example.com/x.png' } }]) {
+    expect(() => validateConfig(bad)).toThrow('INVALID_CONFIG');
   }
 });
 test('allowlist accepts branding and rejects injection, rating gating and unsupported layouts', () => {

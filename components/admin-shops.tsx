@@ -69,6 +69,15 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
+  const resetTemplate = async () => {
+    if (!window.confirm('Phát hành cấu hình mặc định mới cho khuôn? Shop đã tạo trước đó giữ nguyên trang của mình.')) return;
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/gov/api/template/reset', { method: 'POST', credentials: 'same-origin' });
+      setError(response.ok ? 'Khuôn đã dùng cấu hình mặc định mới. Shop tạo từ giờ sẽ theo khuôn này.' : failed(response.status));
+    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  };
+
   const makeTemplateAccount = async () => {
     setBusy(true); setError('');
     try {
@@ -151,6 +160,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
     <section className={styles.panel}>
       <div className={styles.row}><h2>Shop đang có ({shops.filter(row => !row.is_template).length})</h2>
         {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop khuôn</button>}
+        {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa khuôn về mặc định mới</button>}
         {testAccountAllowed && shops.some(row => row.is_template && !row.owner_username) &&
           <button disabled={busy} onClick={makeTemplateAccount}>Tạo tài khoản test cho khuôn</button>}
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>

@@ -480,7 +480,14 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kiểm commit `354ef75` trong worktree tạm: tsc/eslint exit 0; repository **89**; contracts **63**; client **73**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **8 + 2**; owner **3 + 2**; admin **5 + 2**; tất cả exit 0. Không có migration.
 - **Lỗi của agent trong lát:** test "Google trong màn hình" ban đầu dùng 375×667 và 320×568, cỡ đó không bao giờ đỏ (thử phá mã vẫn xanh); đổi sang vùng nhìn thấy của Safari. Pháo giấy gắn vào `body` đè lên popup vì stacking context. Khung thu lại khi bấm "Thử lại lần gửi". Cả ba đã sửa, ghi trong gotchas.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B2)
+## Lát B3: nút máy bay và thẻ góp ý — 2026-09-18
+
+- Tài thử B2 trên iPhone và đổi hướng: trang chính bỏ 5 sao; góp ý riêng chuyển vào nút máy bay nổi, bấm vào thì mở thẻ spotlight có sao hiện thành emoji. Sao chỉ lưu khi bấm Gửi. Chi tiết và toàn bộ lựa chọn của Tài: [redesign-v2.md](redesign-v2.md) mục Lát B3.
+- Agent nêu trước khi làm: không thiết kế để khách chấm thấp rời trang thay vì vào Google. Chú thích cạnh máy bay hiện như nhau cho mọi khách (chạm đáy trang + 2 giây).
+- Thêm `/gov` → "Đưa khuôn về mặc định mới" (ghi sổ `template.reset`), vì khuôn trên preview còn cấu hình v1.
+- **Lỗi và bẫy trong lát:** nút "N" của Next dev tools đè lên nút máy bay nên test không bấm được (đã tắt `devIndicators`); Playwright chờ nút đang nổi đứng yên tới hết giờ; mở lại thẻ làm mất số sao chưa gửi (lỗi của agent, test bắt được); dùng lệnh `timeout` không có trên macOS. Ghi trong gotchas.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát B3)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
@@ -502,17 +509,18 @@ Shop trên preview:
 - `caphe-demo` đã bỏ, hiện "Trang chưa sẵn sàng".
 
 Chưa có:
-- màn "Cảm ơn quý khách" sau khi xong đánh giá nội bộ; âm thanh popup (trang khách v2 đã xong ở lát B; khuôn trên preview vẫn là cấu hình v1 cho tới lát D);
+- số điện thoại gọi lại trong thẻ góp ý (**lát B4, làm ngay**, có migration 011); âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
 - dashboard mới 3 tab; editor; công tắc 4 vị trí;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát C: dashboard mới** (khung, ô chuyển shop, tab Dữ liệu). Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt.
-2. Lát D: tab Thiết kế giao diện và công tắc 4 vị trí.
-3. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
-4. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
+1. **Lát B4: số điện thoại gọi lại** (không bắt buộc, chữ mờ "Chỉ quản lý của quán thấy số này"; chủ shop và quản lý thấy, admin chỉ thấy khi được phép đọc góp ý; có trong export). Tài đã duyệt 18/09. Effort high.
+2. **Lát C: dashboard mới** (khung, ô chuyển shop, tab Dữ liệu). Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt.
+3. Lát D: tab Thiết kế giao diện (gồm chỉnh nút máy bay) và công tắc 4 vị trí.
+4. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
+5. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)
 

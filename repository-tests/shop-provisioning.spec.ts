@@ -169,6 +169,28 @@ test('a new shop starts from the template as it stands now, with its own name an
  expect((await f.db.query('SELECT count(*)::int n FROM tags WHERE shop_id=$1',[template.shopId])).rows[0].n).toBe(0);
 });
 
+test('resetting the template publishes the current defaults as a new release; shops made earlier keep theirs',async({f})=>{
+ const {templateConfig}=await import('../lib/publishing/config');const {PublishingAdmin}=await import('../lib/publishing/repository');
+ const template=await f.shops.ensureTemplate(f.actorId),admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
+ // Stand in for a template published before the new defaults existed.
+ const draft=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
+ const {feedbackButton:_unused,...old}=templateConfig();void _unused;
+ const saved=await admin.saveDraft(template.shopId,draft,{...old,schemaVersion:1,links:[]});await admin.publish(template.shopId,saved);
+ const before=await f.shops.create(f.actorId,{name:'Quán Trước',ownerUsername:'quan-truoc',ownerEmail:'truoc@example.com',googleUrl:''});
+ const oldRelease=(await f.db.query('SELECT active_release_id id FROM shops WHERE id=$1',[template.shopId])).rows[0].id;
+ const reset=await f.shops.resetTemplate(f.actorId);
+ expect(reset).toMatchObject({shopId:template.shopId,slug:template.slug});
+ const live=(await f.db.query('SELECT r.id,r.config_snapshot FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[template.shopId])).rows[0];
+ expect(live.id).toBe(reset.releaseId);expect(live.id).not.toBe(oldRelease);
+ expect(live.config_snapshot).toEqual(templateConfig());
+ expect((await f.db.query('SELECT count(*)::int n FROM page_releases WHERE id=$1',[oldRelease])).rows[0].n).toBe(1);
+ expect((await f.db.query("SELECT shop_id,detail->>'releaseId' release FROM admin_audit WHERE action='template.reset'")).rows).toEqual([{shop_id:template.shopId,release:reset.releaseId}]);
+ const kept=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[before.shopId])).rows[0].c;
+ expect(kept.schemaVersion).toBe(1);expect(kept.links).toEqual([]);
+ const after=await f.shops.create(f.actorId,{name:'Quán Sau',ownerUsername:'quan-sau',ownerEmail:'sau@example.com',googleUrl:''});
+ const fresh=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[after.shopId])).rows[0].c;
+ expect(fresh).toEqual({...templateConfig(),name:'Quán Sau'});
+});
 test('only the exact built-in media paths are accepted, and only as their own kind',async()=>{
  const {validateConfig,templateConfig,STEM_BACKGROUND}=await import('../lib/publishing/config');
  const withBackground=(media:unknown)=>({...templateConfig(),background:{kind:'media',media,loop:true}});

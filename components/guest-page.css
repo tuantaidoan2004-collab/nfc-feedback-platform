@@ -46,69 +46,107 @@
 }
 .guest[data-layout="card"] .guest-body { margin-top: -42px; border-radius: 0; flex: none; }
 .guest h1 { margin: 6px 0 0; font-size: clamp(26px, 7vw, 32px); line-height: 1.1; letter-spacing: -.03em; font-weight: 800; color: var(--forest-deep); }
-.guest .question { margin: 18px 0 0; font-size: 15px; color: var(--muted); }
-.guest .guest-stars { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
-.guest .guest-stars button { width: 48px; height: 48px; padding: 0; border: 0; background: transparent; font-size: 38px; line-height: 1; color: #d3d8cc; transition: color .15s, transform .15s; }
-.guest .guest-stars button[data-filled="true"] { color: var(--gold); }
-.guest .guest-stars button:active { transform: scale(.9); }
-.guest .rating-receipt { min-height: 20px; margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.guest-note { margin: 0 auto; max-width: 300px; font-size: 12px; line-height: 1.45; color: var(--muted); }
 
-/* The one loud element: identical at every rating. */
-.guest .google-invitation { margin-top: 14px; padding: 0; border: 0; }
+/* Apple-like spring, generated for a stiff, lightly damped motion. Browsers without linear() keep the cubic fallback. */
+.guest { --spring: cubic-bezier(.34, 1.56, .64, 1); --press: transform .12s cubic-bezier(.3, 0, .5, 1); }
+@supports (transition-timing-function: linear(0, 1)) {
+  .guest { --spring: linear(0, .009, .035 2.1%, .141, .281 6.7%, .723 12.9%, .938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, .991, .977 51%, .974 53.8%, .975 57.1%, .997 69.8%, 1.003 76.9%, 1.004 83.8%, 1); }
+}
+
+/* Every button and link sinks a little while pressed and springs back on release. */
+.guest button, .guest a { -webkit-tap-highlight-color: transparent; transition: transform .45s var(--spring); }
+.guest button:not(:disabled):active, .guest a:active { transform: scale(.96); transition: var(--press); }
+
+/* The one loud element: identical for every visitor. Layered light and shade for depth. */
+.guest .google-invitation { margin-top: 22px; padding: 0; border: 0; }
 .guest .google-invitation > p:first-child { font-size: 13px; color: var(--ink); }
 .guest .google-button {
-  display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 58px; margin: 10px 0 8px;
-  padding: 12px 18px; border: 0; border-radius: 16px; background: var(--forest); color: #fff;
-  font-size: 17px; font-weight: 750; letter-spacing: -.01em; text-decoration: none;
-  box-shadow: 0 10px 24px -10px #21403499, inset 0 -3px 0 #0000002e;
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 60px; margin: 10px 0 8px;
+  padding: 12px 18px; border: 0; border-radius: 18px; color: #fff; text-decoration: none;
+  font-size: 17px; font-weight: 750; letter-spacing: -.01em; text-shadow: 0 1px 1px #0000004d;
+  background: linear-gradient(180deg, #3a6553 0%, #274a3d 48%, #1b372d 52%, #17302a 100%);
+  box-shadow: inset 0 1px 0 #ffffff47, inset 0 -2px 0 #0000004d, 0 1px 1px #0000002e, 0 6px 12px -4px #17302a73, 0 18px 32px -14px #17302a8c;
 }
-.guest .google-button .google-mark { flex: none; padding: 5px; box-sizing: content-box; border-radius: 50%; background: #fff; }
-.guest .google-button:active { transform: translateY(1px); }
-.guest .guest-note { margin: 0 auto; max-width: 300px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.guest .google-button::after { content: ""; position: absolute; inset: 2px 2px 50% 2px; border-radius: 16px 16px 40% 40% / 16px 16px 12px 12px; background: linear-gradient(180deg, #ffffff2e, #ffffff00); pointer-events: none; }
+.guest .google-button .google-mark { flex: none; padding: 5px; box-sizing: content-box; border-radius: 50%; background: linear-gradient(180deg, #fff, #eef1ee); box-shadow: 0 1px 2px #00000040; }
 
-.guest .feedback-trigger { margin-top: 18px; border-radius: 14px; background: var(--mist); border-color: #b9c4ae; color: var(--forest); }
-.guest .feedback-trigger .pulse-fill { border-radius: 14px; }
-.guest .trigger-label > span { font-size: 18px; font-weight: 400; }
-.guest-panel {
-  margin-top: 10px; padding: 16px; text-align: left; border-radius: 16px; background: var(--mist); border: 1px solid #dfe5d6;
-  transform-origin: top center; animation: guest-unfold .22s ease-out;
+.guest-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+.guest-links a {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 7px 16px 7px 8px; border-radius: 999px;
+  color: var(--forest-deep); font-size: 14px; font-weight: 650; text-decoration: none;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f4ee 100%);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 #0000000f, 0 0 0 1px #21403414, 0 1px 2px #0000001f, 0 6px 14px -8px #17302a59;
 }
-@keyframes guest-unfold { from { opacity: 0; transform: scaleY(.92); } to { opacity: 1; transform: none; } }
-.guest-panel .guest-note { margin: 0; max-width: none; }
-.guest-panel label { display: block; margin: 12px 0 6px; font-size: 12px; font-weight: 700; }
-.guest-panel select, .guest-panel textarea {
-  display: block; width: 100%; padding: 10px 12px; border: 1px solid #cfd7c5; border-radius: 10px; background: var(--paper);
+.guest-links .brand-mark { flex: none; filter: drop-shadow(0 1px 1px #00000026); }
+.guest-connection { margin-top: 18px; }
+.guest-status { margin: 12px 0 0; min-height: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+.guest .guest-send {
+  width: 100%; min-height: 48px; margin-top: 14px; border: 0; border-radius: 14px; color: #fff; font-weight: 700;
+  background: linear-gradient(180deg, #2c4f41, #17302a); box-shadow: inset 0 1px 0 #ffffff33, 0 6px 14px -8px #17302a99;
+}
+.guest .guest-send:disabled { opacity: .5; }
+
+/* Floating private-feedback button: the glyph alone, no disc behind it. Room is left so it never covers the last button. */
+.guest[data-layout="full-bleed"] .guest-body { padding-bottom: 104px; }
+.guest[data-layout="card"] { padding-bottom: 72px; }
+.guest-float {
+  position: fixed; z-index: 30; left: max(14px, env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 6px; pointer-events: none;
+}
+.guest .guest-plane {
+  pointer-events: auto; width: 60px; height: 60px; padding: 0; border: 0; background: none; display: grid; place-items: center;
+  filter: drop-shadow(0 6px 10px #0b1d1666) drop-shadow(0 1px 1px #0b1d1640);
+  animation: guest-float 3.2s ease-in-out infinite; transition: transform .6s var(--spring);
+}
+.guest button.guest-plane:not(:disabled):active { transform: scale(.7); transition: transform .1s cubic-bezier(.3, 0, .5, 1); animation-play-state: paused; }
+@keyframes guest-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+.guest .guest-hint {
+  pointer-events: auto; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 999px; font-size: 13px; font-weight: 650; color: var(--forest-deep);
+  background: #fbfcf7eb; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 0 0 1px #21403414, 0 8px 20px -10px #0b1d1680; transform-origin: left center;
+  animation: guest-hint-in .55s var(--spring) both;
+}
+@keyframes guest-hint-in { from { opacity: 0; transform: translateX(-10px) scale(.85); } to { opacity: 1; transform: none; } }
+
+/* Spotlight card: everything behind is dimmed and blurred. */
+.guest-modal {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px;
+  background: #0b1d1673; -webkit-backdrop-filter: blur(14px) saturate(120%); backdrop-filter: blur(14px) saturate(120%);
+  animation: guest-fade .2s ease-out both;
+}
+@keyframes guest-fade { from { opacity: 0; } to { opacity: 1; } }
+.guest-card {
+  position: relative; z-index: 50; width: 100%; max-width: 400px; max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
+  padding: 22px 20px 18px; border-radius: 28px; background: var(--paper); color: var(--ink); text-align: left; outline: none;
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #21403414, 0 30px 80px -24px #0b1d16b3;
+  animation: guest-card-in .5s var(--spring) both;
+}
+@keyframes guest-card-in { from { opacity: 0; transform: translateY(24px) scale(.92); } to { opacity: 1; transform: none; } }
+.guest-card h2 { margin: 0 40px 4px 0; font-size: 20px; line-height: 1.2; letter-spacing: -.02em; color: var(--forest-deep); }
+.guest-card .guest-note { margin: 0; max-width: none; }
+.guest .guest-close {
+  position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--mist); color: var(--forest); font-size: 22px; line-height: 1;
+}
+.guest-feeling { margin: 16px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.guest-stars { display: flex; justify-content: center; gap: 4px; margin-top: 4px; }
+.guest .guest-stars button { width: 52px; height: 52px; padding: 0; border: 0; background: transparent; line-height: 1; }
+.guest-star { display: inline-block; font-size: 36px; color: #d3d8cc; }
+.guest-face { display: inline-block; font-size: 34px; animation: guest-face-in .5s var(--spring) both; }
+@keyframes guest-face-in { from { opacity: 0; transform: scale(.35) rotate(-18deg); } to { opacity: 1; transform: none; } }
+.guest-card label { display: block; margin: 12px 0 6px; font-size: 12px; font-weight: 700; }
+.guest-card select, .guest-card textarea {
+  display: block; width: 100%; padding: 10px 12px; border: 1px solid #cfd7c5; border-radius: 12px; background: #fff;
   color: var(--ink); font: inherit; font-size: 16px;
 }
-.guest-panel textarea { resize: vertical; }
-.guest .guest-send { width: 100%; min-height: 46px; margin-top: 12px; border: 0; border-radius: 12px; background: var(--forest-deep); color: #fff; font-weight: 700; }
-.guest .guest-send:disabled { opacity: .55; }
-.guest-status { margin: 12px 0 0; min-height: 18px; font-size: 12px; color: var(--muted); }
-
-.guest-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
-.guest-links a {
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 14px; border-radius: 999px;
-  border: 1px solid var(--line); color: var(--forest); font-size: 13px; font-weight: 600; text-decoration: none; background: #fff;
-}
-
-.guest-thanks-layer { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; pointer-events: none; perspective: 900px; }
-.guest-thanks {
-  pointer-events: auto; max-width: 320px; padding: 26px 24px 18px; border-radius: 24px; text-align: center;
-  background: var(--paper); color: var(--ink); box-shadow: 0 30px 70px -20px #0b1d16aa, 0 0 0 1px #21403422;
-  animation: guest-pop .7s cubic-bezier(.2, 1.4, .4, 1) both; transform-style: preserve-3d;
-}
-.guest-thanks p { margin: 0; font-size: 14px; color: var(--muted); }
-.guest-thanks p:first-child { margin-bottom: 6px; font-size: 21px; font-weight: 800; color: var(--forest-deep); letter-spacing: -.02em; }
-.guest-thanks button { margin-top: 14px; min-height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--mist); color: var(--forest); font-weight: 700; }
-@keyframes guest-pop {
-  0% { opacity: 0; transform: translateY(40px) rotateX(-55deg) scale(.6); }
-  60% { opacity: 1; transform: translateY(-6px) rotateX(10deg) scale(1.04); }
-  100% { opacity: 1; transform: none; }
-}
+.guest-card textarea { resize: vertical; }
+.guest-thanks { padding: 18px 4px 4px; text-align: center; }
+.guest-thanks p { margin: 8px 24px 6px; font-size: 20px; line-height: 1.35; font-weight: 750; letter-spacing: -.01em; color: var(--forest-deep); }
 
 @media (prefers-reduced-motion: reduce) {
-  .guest-watermark-track, .guest-panel, .guest-thanks { animation: none; }
-  .guest .guest-stars button { transition: none; }
+  .guest-watermark-track, .guest .guest-plane, .guest .guest-hint, .guest-modal, .guest-card, .guest-face { animation: none; }
+  .guest button, .guest a, .guest .guest-plane { transition: none; }
 }
 @media (min-width: 720px) {
   .guest[data-layout="full-bleed"] .guest-sheet { padding-top: 24px; }

@@ -103,3 +103,23 @@ Tài chốt trước khi làm: **ưu tiên xong nhanh, test nhanh, sửa nhanh**
   - hàng nút mạng xã hội lấy từ cấu hình; link `https` mở tab mới, `tel:` gọi thẳng.
 - **Test** (`integration-tests/publishing.spec.ts`): Google trong màn hình ở cả hai bố cục, với 375×548 và 320×460 (vùng nhìn thấy của Safari trên iPhone SE sau khi trừ thanh công cụ); khung thu/mở giữ nháp; popup và pháo giấy, bản giảm chuyển động; media, watermark, poster, logo, nút; bản v1 vẫn hiển thị.
 - **Chưa làm:** màn "Cảm ơn quý khách" sau khi xong đánh giá nội bộ (mục 7), âm thanh popup, sửa cấu hình trong giao diện (lát D). Danh sách chủ đề góp ý vẫn là của tiệm cắt tóc (`lib/copy.ts`).
+
+## Lát B3 — nút máy bay và thẻ góp ý — 2026-09-18
+
+Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trước: không được thiết kế để khách chấm 1–3 sao rời trang thay vì vào Google (review gating). Bố cục mới **tuân thủ tốt hơn**, vì trang chính không hỏi sao trước nút Google nữa.
+
+**Tài chốt:**
+- **Trang chính bỏ 5 sao.** Còn: poster → logo → tên → nút Google → các nút của shop.
+- **Nút máy bay** kiểu Telegram, **không có nền tròn**: chỉ hình máy bay tô màu, có viền, nổi nhẹ ở góc dưới trái. Nó không gửi qua Telegram, góp ý vẫn vào dashboard. Chủ shop đổi được kiểu icon (máy bay, bong bóng chat, phong bì), màu và màu viền (`feedbackButton` trong schema v2); giao diện chỉnh làm ở lát D. Sau khi gửi, icon không đổi.
+- **Chú thích** "Có điều gì muốn nhắn riêng cho quán?" / "Anything to tell us privately?" hiện **2 giây sau khi khách cuộn chạm đáy trang**, một lần rồi ở lại. Trang ngắn hơn màn hình thì tính là đã ở đáy ngay từ đầu. Chú thích hiện như nhau cho mọi khách; không nhắm vào khách chấm thấp.
+- **Thẻ góp ý** kiểu spotlight: nền phía sau tối và mờ, trang không cuộn, Esc hoặc chạm nền để đóng; chữ và sao chưa gửi vẫn giữ.
+  - Thẻ gồm: "Gửi góp ý riêng cho quản lý", "Bạn cảm thấy thế nào?" kèm 5 sao, chủ đề, ô góp ý, nút Gửi.
+  - Chạm sao thứ *n*: *n* ô đầu cùng thành emoji của mức *n* (😡 😤 😕 😊 🤩), các ô sau là sao trống. Hiệu ứng lò xo dùng `linear()`, ô sau trễ 40ms so với ô trước.
+- **Sao chỉ lưu khi bấm Gửi.** Đã bỏ việc lưu ngay mỗi lần chạm. API chấm sao vẫn giữ, vì nút Gửi dùng nó: gửi sao trước, rồi gửi chữ. Gửi được khi **có ít nhất sao hoặc chữ**.
+- **Gửi xong:** thẻ chuyển sang "Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn" kèm pháo giấy, và **chỉ đóng khi khách bấm Đóng** (bản B2 tự đóng sau khoảng 1 giây trên iPhone, vì chạm để cuộn cũng làm popup đóng).
+- **Nhấn nút:** mọi nút và link lún còn 96%; nút máy bay lún còn 70% rồi nảy lại khi thả. Nút Google, nút gửi và các nút mạng xã hội có lớp sáng và bóng kiểu Apple.
+- **Nút mặc định** của mọi trang mới: Instagram `https://www.instagram.com/quitesensational/`, Zalo `https://zalo.me/0961036265`, TikTok `https://www.tiktok.com/@taidoan450`. Link TikTok bỏ phần theo dõi `?_r=1&_t=…` trong link Tài gửi. Logo vẽ lại đơn giản bằng SVG.
+- **`/gov` có nút "Đưa khuôn về mặc định mới":** phát hành `templateConfig()` hiện tại thành release mới cho khuôn, có ghi sổ `template.reset`. Shop đã tạo trước đó giữ nguyên trang của mình.
+- Số điện thoại gọi lại (C) làm ở **lát B4** vì cần migration.
+
+**Còn lại:** câu hỏi cấu hình `text.question` không còn hiện trên trang; thẻ dùng câu cố định "Bạn cảm thấy thế nào?". Script Safari chạy tay (`integration-tests/safari-local.mjs`) vẫn giả định sao trên trang chính, nên đã lỗi thời.
