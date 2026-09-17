@@ -470,6 +470,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Migration 010: `rating`/`score` được để trống; experience phải có sao hoặc góp ý; receipt chấm sao luôn có sao. `RATING_REQUIRED` bỏ ở mọi tầng. "Trải nghiệm chấm sao" chỉ đếm phiên có sao.
 - **Lỗi của agent:** vòng `for` trong zsh truyền `"--owner owner-dashboard.spec.ts"` thành một tham số; ba lệnh harness thoát 1 với `unknown option`, không phải test đỏ. Chạy lại từng lệnh thì xanh. Ghi trong gotchas.
 - Kiểm commit `c969313` trong worktree tạm: tsc/eslint exit 0; repository **89 passed**; contracts **61 passed**; client **73 passed**; public-v2 + browser-hardening **16 passed, 1 skipped + 2 passed**; publishing **4 + 2**; owner **3 + 2**; admin **5 + 2**; tất cả exit 0. `scripts/migrate.mjs` trên database trống áp 001–010 rồi báo up to date; rollback 010 đặt lại `NOT NULL` khi chưa có góp ý không sao.
+- Tài migrate 010 lên Neon production và preview (mỗi lượt `Migrations applied: 1.`), rồi mới push. Lần chạy đầu hỏng vì lệnh agent đưa thiếu `cd` và để chỗ trống trong lệnh; không chạm database. Ghi trong gotchas.
 - Một test UI cũ (synthetic resume) đỏ vì kiểm "nút Gửi bị khoá" theo luật cũ; bất biến "nháp không tự gửi" vẫn giữ. Sửa câu kiểm, ghi lý do trong test.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B1)
@@ -478,7 +479,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước,
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–009 đã có trên cả branch production và preview của Neon. Migration 010 (lát B1) chưa lên Neon: Tài phải migrate branch production (branch mặc định) và preview trước khi push.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09, mỗi branch báo `Applied 010_feedback_without_rating.`). Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
