@@ -73,6 +73,8 @@ test('production gate keeps administration closed even with the flag true',async
  for(const path of ['/gov','/gov/login'])expect((await request.get(`${built}${path}`)).status()).toBe(404);
  for(const method of ['post','delete'] as const)
   expect((await request[method](`${built}/gov/api/impersonations`,{headers:{origin:built},data:{}})).status()).toBe(404);
+ for(const path of ['/gov/api/template','/gov/api/template/account'])
+  expect((await request.post(`${built}${path}`,{headers:{origin:built}})).status()).toBe(404);
  expect((await request.delete(`${built}/api/owner/v2/one/impersonation`,{headers:{origin:built}})).status()).toBe(404);
  expect((await request.post(`${built}/gov/api/login`,{headers:{origin:built},data:{username:'boss',password:secret}})).status()).toBe(404);
  expect((await request.post(`${built}/gov/api/logout`,{headers:{origin:built},data:{}})).status()).toBe(404);
@@ -129,6 +131,21 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  // Spent once: the same link is dead now that the password is set.
  await page.goto(setupUrl);
  await expect(page.getByRole('heading',{name:'Liên kết không dùng được'})).toBeVisible();
+
+ // The template's test account, issued from /gov outside production, opens the template's own dashboard.
+ await page.goto('/gov');
+ await page.getByRole('button',{name:'Tạo tài khoản test cho khuôn',exact:true}).click();
+ await expect(page.getByRole('main')).toContainText('yourshop / 1');
+ await expect(templateRow).toContainText('yourshop');
+ await expect(templateRow.getByRole('button')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Tạo tài khoản test cho khuôn',exact:true})).toHaveCount(0);
+ // Still signed in as the shop owner above, whose account has no access to the template: start from signed out.
+ await page.context().clearCookies({name:'nfc_owner_v2'});
+ await page.goto(`/ZZZ/${templateSlug}`);
+ await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'YOUR SHOP',exact:true})).toBeVisible();
 });
 
 test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{

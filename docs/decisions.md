@@ -440,6 +440,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Gỡ từng lớp để kiểm test: bỏ thử lại, bỏ chịu nháp trùng, bỏ sao chép từ khuôn, bỏ sửa khuôn dở dang. Lần nào cũng đỏ.
 - Kiểm chứng: tsc/eslint exit 0; repository **84 passed** (spec tạo shop chạy lặp 5 lần đều xanh); harness admin 5+2, owner 3+2, publishing 4+2, public 15+1 skip+2, tất cả exit 0; migrate 001–009 rồi báo up to date; rollback 009 xoá cột khi chưa có khuôn.
 
+## Tài khoản test của khuôn, cảnh báo SSL — 2026-09-17
+
+- Tài chốt: `caphe-demo` bỏ, không làm nút "Phát hành từ khuôn"; mọi chỉnh sửa làm trên khuôn. Tài khoản khuôn là `yourshop` / `1` cho dễ test; mọi mật khẩu sẽ được siết đồng loạt sau. Production không cấp tài khoản này.
+- Cảnh báo SSL của `pg` (bị Vercel ghi nhãn error) được xử lý trong mã, Tài không cần làm gì. Chi tiết trong gotchas.
+- **Lỗi quy trình của agent:** suốt các lát 16–17/09, agent không chạy bộ `contracts` và `client`, dù checkpoint cũ liệt kê 7 bộ. Đã chạy bù trên từng commit của những lát đó (kết quả ở dưới) và đưa hai bộ vào danh sách kiểm.
+- Chạy bù `contracts` / `client` trên `c2c6f70`, `545d975`, `6286f43`, `a725976`, `3413545`: mỗi commit **60 passed / 73 passed**.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -466,11 +473,11 @@ Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepare
 
 Node 24 qua nvm (`~/.zshrc` đã nạp sẵn). PostgreSQL dùng binary Postgres.app, **dựng cluster riêng cổng 55439** — lệnh đầy đủ trong `antigravity-connect.md`. Cluster nằm ở thư mục tạm nên **mất sau khi khởi động lại máy**, dựng lại từ đầu là bình thường.
 
-Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_modules/eslint/bin/eslint.js .` · bốn lệnh harness trong `operations-gotchas.md`. **Không dùng `pnpm <script>`.**
+Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_modules/eslint/bin/eslint.js .` · bộ `contracts` và `client` · bộ repository · bốn lệnh harness. Lệnh đầy đủ trong `operations-gotchas.md`. **Không dùng `pnpm <script>`.**
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md). Lát A đã xong; tiếp theo là bật publishing trên preview rồi làm lát B.
+0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md). Lát A đã xong. Tiếp theo: Tài bật `NFC_PUBLISHING_ENABLED=true` cho Preview, rồi làm lát B.
 1. **Mạo danh + công tắc đã lên preview** (push `a725976`); Tài đã thử 1 và 2: Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
@@ -478,4 +485,4 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Việc còn treo của Tài
 
-Mua tên miền (`quitesensational`, chưa kiểm còn trống). Đăng ký Cloudflare R2. Xoay mật khẩu `neondb_owner` và mật khẩu admin `tai` khi xong giai đoạn thử — cả hai đã xuất hiện trong hội thoại.
+Mua tên miền (`quitesensational`, chưa kiểm còn trống). Đăng ký Cloudflare R2. Xoay mật khẩu `neondb_owner` và mật khẩu admin `tai` khi xong giai đoạn thử — cả hai đã xuất hiện trong hội thoại. Đổi mật khẩu `yourshop` (đang là `1`) khi siết mật khẩu đồng loạt.

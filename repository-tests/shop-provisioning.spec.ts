@@ -180,3 +180,26 @@ test('only the exact built-in media paths are accepted, and only as their own ki
  // A logo is an image and never a built-in video.
  expect(()=>validateConfig({...templateConfig(),logo:{kind:'image',url:STEM_BACKGROUND.video}})).toThrow('INVALID_CONFIG');
 });
+
+test('the template test account signs in to the template only, is refused when not allowed, and is never reset',async({f})=>{
+ await expect(f.shops.ensureTemplateAccount(f.actorId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
+ expect((await f.db.query("SELECT count(*)::int n FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].n).toBe(0);
+
+ const first=await f.shops.ensureTemplateAccount(f.actorId,true);
+ expect(first).toMatchObject({username:'yourshop',created:true});
+ const session=await f.auth.login('yourshop','1');
+ await expect(f.auth.access(session.token,first.slug,'overview')).resolves.toMatchObject({role:'owner'});
+ const stored=(await f.db.query("SELECT password_key FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].password_key;
+
+ // Asked again, and after the membership was switched off: attached again, password untouched, recorded once.
+ await f.db.query("UPDATE owner_memberships_v2 SET active=false WHERE user_id=(SELECT id FROM owner_identities_v2 WHERE username='yourshop')");
+ expect(await f.shops.ensureTemplateAccount(f.actorId,true)).toMatchObject({created:false});
+ expect((await f.db.query("SELECT password_key FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].password_key).toBe(stored);
+ expect((await f.db.query("SELECT count(*)::int n FROM owner_memberships_v2 m JOIN owner_identities_v2 u ON u.id=m.user_id WHERE u.username='yourshop' AND m.active")).rows[0].n).toBe(1);
+ expect((await f.db.query("SELECT detail FROM admin_audit WHERE action='template.account.create'")).rows).toEqual([{detail:{username:'yourshop',weakPassword:true}}]);
+
+ // A shop cloned from the template gets the template's page, not its test account.
+ const made=await f.shops.create(f.actorId,input);
+ await expect(f.auth.access(session.token,made.slug,'overview')).rejects.toThrow('ACCESS_DENIED');
+ expect((await f.shops.list()).find(r=>r.is_template)).toMatchObject({owner_username:'yourshop'});
+});

@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
 import { PublishingError, templateConfig, validateConfig } from '../publishing/config';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
-import { username } from '../owner/auth';
+import { passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 
@@ -12,6 +12,8 @@ import { AdminError } from './auth';
 const code = (length: number) => randomBytes(32).toString('base64url').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, length);
 
 const TEMPLATE_KEY = 'standard';
+// Test sign-in for the template shop. Weak on purpose and refused in production; see ensureTemplateAccount.
+const TEMPLATE_USERNAME = 'yourshop', TEMPLATE_PASSWORD = '1';
 const duplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 
 export type ProvisionedShop = {
@@ -70,6 +72,30 @@ export class ShopProvisioning {
       await new Promise(resolve => setTimeout(resolve, 25 + attempt * 10));
     }
     throw new AdminError(503, 'TEMPLATE_UNAVAILABLE');
+  }
+
+  /**
+   * A sign-in to the template's own dashboard, for testing: username `yourshop`, password `1`, as Tài asked on
+   * 2026-09-17. It deliberately bypasses the 12-character minimum, so the caller must refuse it in production
+   * (`allowed`). An existing account is attached to the template but its password is never reset here. Rotating it
+   * belongs to the planned tightening of every password.
+   */
+  async ensureTemplateAccount(actorId: string, allowed: boolean) {
+    if (!allowed) throw new AdminError(403, 'TEST_ACCOUNT_FORBIDDEN');
+    const template = await this.ensureTemplate(actorId);
+    const salt = randomBytes(16).toString('hex'), key = (await passwordKey(TEMPLATE_PASSWORD, salt)).toString('hex');
+    return transaction(this.pool, async db => {
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-template-account',0))");
+      let user = (await db.query('SELECT id FROM owner_identities_v2 WHERE username=$1', [TEMPLATE_USERNAME])).rows[0];
+      const created = !user;
+      if (!user) user = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id',
+        [TEMPLATE_USERNAME, salt, key])).rows[0];
+      await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')
+        ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
+      if (created) await recordAdminAction(db, actorId, { action: 'template.account.create', shopId: template.shopId, onBehalfOf: user.id,
+        detail: { username: TEMPLATE_USERNAME, weakPassword: true } });
+      return { username: TEMPLATE_USERNAME, created, slug: template.slug };
+    });
   }
 
   private async templateRow() {

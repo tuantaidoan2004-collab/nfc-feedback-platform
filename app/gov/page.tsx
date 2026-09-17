@@ -3,6 +3,7 @@ import { AdminAuth, AdminError, type AdminPrincipal } from '@/lib/admin/auth';
 import { ShopProvisioning } from '@/lib/admin/provisioning';
 import { database } from '@/server/db';
 import { adminEnabled, adminSessionToken } from '@/server/admin';
+import { nfcEnv } from '@/server/env';
 import AdminSignOut from '@/components/admin-sign-out';
 import AdminShops, { type ShopRow } from '@/components/admin-shops';
 import styles from '@/components/admin.module.css';
@@ -28,6 +29,6 @@ export default async function Page() {
       <div><p>QUẢN TRỊ NỀN TẢNG</p><h1>Xin chào, {principal.username}</h1></div>
       <AdminSignOut/>
     </div>
-    <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}/>
+    <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null} testAccountAllowed={nfcEnv() !== 'production'}/>
   </main>;
 }
