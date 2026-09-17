@@ -23,3 +23,6 @@ docs
 
 # Vercel CLI writes .env.local with an OIDC token; env files never belong in an upload.
 .env*
+
+# Agent skills are instructions for coding agents, never part of the deployed app.
+.claude

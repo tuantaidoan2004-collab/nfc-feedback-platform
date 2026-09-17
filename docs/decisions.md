@@ -453,6 +453,12 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kết quả trên preview: trang khuôn và `cà phê Dê` chạy renderer publishing (`data-layout="full-bleed"`), 200; `caphe-demo` hiện "Trang chưa sẵn sàng", đúng như đã chốt. Mở trang khuôn trong trình duyệt: `POST /api/v2/pages/visits` trả 200 (5,6 giây ở lần khởi động nguội), không có lỗi console.
 - Trang khách vẫn là giao diện cũ, chưa có video: renderer chưa vẽ cấu hình, đó là việc của lát B.
 
+## Nạp thêm skill cho agent — 2026-09-17
+
+- Tài yêu cầu bảy nguồn skill. Đã đọc nội dung, giấy phép và script trước khi chép; không chạy `npx skills add` và không chạy script đi kèm. Danh sách chép, phần bỏ qua và quy định riêng nằm trong [agent-skills.md](agent-skills.md).
+- `.claude/skills` là symlink tới `.agents/skills` để hai agent dùng chung. ESLint và `.vercelignore` bỏ qua hai thư mục này (một file mẫu JS trong `algorithmic-art` đã làm ESLint sinh 14 cảnh báo).
+- `remotion-best-practices` không có giấy phép, nên chỉ cài trên máy Tài, không vào repo. `nano-banana-2` cần dịch vụ trả phí và chưa được dùng. `hyperframes-cli` không được gửi telemetry.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.

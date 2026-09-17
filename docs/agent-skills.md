@@ -26,3 +26,29 @@ Agentmemory upstream dùng MCP/server và hooks; dự án hiện chỉ tích h�
 Không áp dụng yêu cầu upstream phải search/save ở mọi lượt: trí nhớ NFC vẫn theo nhu cầu. Không trộn Campus Laundry; không đưa dữ liệu vault, secret hoặc khách hàng vào bộ skill hay GitHub. Cài bộ skill không có nghĩa đảm bảo nhớ hoàn hảo.
 
 Không dùng fallback của `handoff` sang session gần nhất của dự án khác. Nếu không có dữ liệu NFC, nêu đúng khoảng trống. Không chạy script hỗ trợ kèm skill trước khi đọc mã và xác nhận nó nằm trong phạm vi công việc đã được giao.
+
+## Bộ skill thêm ngày 2026-09-17
+
+Tài yêu cầu nạp thêm bảy nguồn. Agent đã **đọc nội dung trước khi chép**, không chạy `npx skills add` (lệnh đó tải và chạy một gói npm bên ngoài; chép tay cho cùng kết quả). Không chạy script nào đi kèm. `.claude/skills` là symlink tới `.agents/skills`, nên Claude Code và Codex dùng chung một bộ. `.vercelignore` và ESLint bỏ qua cả hai thư mục.
+
+| Nguồn | Commit | Giấy phép | Đã chép vào `.agents/skills/` | Bỏ qua, lý do |
+|---|---|---|---|---|
+| `mattpocock/skills` | `959a8e9` | MIT | engineering: `ask-matt`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `implement`, `improve-codebase-architecture`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `tdd`, `to-spec`, `to-tickets`, `triage`, `wayfinder`, `wizard` · productivity: `grill-me`, `grilling`, `teach`, `to-questionnaire`, `wait-what`, `writing-for-agents` | `code-review` (trùng skill có sẵn của Claude Code), `handoff` (trùng skill dự án đã có), `misc/` và `in-progress/` (chưa ổn định hoặc sửa cấu hình repo) |
+| `anthropics/skills` | `34040c9` | Apache 2.0 cho từng skill đã chép | `frontend-design`, `webapp-testing`, `theme-factory`, `canvas-design`, `skill-creator`, `algorithmic-art` | `docx`/`pdf`/`pptx`/`xlsx` giữ bản quyền, không được phân phối lại (đã có sẵn dạng plugin trong phiên); `doc-coauthoring` không có giấy phép; các skill còn lại không liên quan dự án |
+| `vercel-labs/agent-browser` | `aff6125` | Apache 2.0 | `agent-browser` (chỉ là file dẫn đường) | CLI `agent-browser` **chưa cài** (cần `npm i -g` và tải Chromium). Phiên hiện đã có trình duyệt tích hợp |
+| `heygen-com/hyperframes` | `a8a9fdb` | Apache 2.0 | `hyperframes-cli` | các skill video khác |
+| `remotion-dev/skills` | `3b9e656` | **không có file giấy phép** | *không chép vào repo.* Cài riêng trên máy Tài: `~/.agents/skills/remotion-best-practices`, symlink từ `~/.claude/skills/` | — |
+| `prime-skills/runcomfy-agent-skills` | `fca19ae` | MIT | `nano-banana-2` | các model khác |
+| `nextlevelbuilder/ui-ux-pro-max-skill` | `15de38f` | MIT | `ui-ux-pro-max` (kèm script Python và dữ liệu CSV) | `design`, `brand`, `slides`… |
+
+Giấy phép gốc nằm trong `.agents/licenses/`; các skill của Anthropic giữ `LICENSE.txt` trong thư mục riêng.
+
+### Quy định riêng của dự án cho bộ này
+
+- **`hyperframes-cli`:** chỉ render trên máy. **Không gửi telemetry hay feedback** về HeyGen (skill mặc định dặn gửi) nếu Tài chưa đồng ý. Không dùng HeyGen cloud, AWS Lambda hay Cloud Run. Cần FFmpeg, máy hiện chưa có.
+- **`nano-banana-2`:** gọi API **trả phí** của RunComfy. **Không dùng** tới khi Tài chọn dịch vụ và tự đăng nhập; agent không nhập API key. Bỏ qua dòng `npx skills add … -g` trong skill.
+- **`agent-browser`:** chỉ cài CLI khi Tài yêu cầu. Mặc định dùng trình duyệt tích hợp của phiên.
+- **`ui-ux-pro-max`:** script Python chỉ đọc CSV cục bộ, không gọi mạng (đã đọc mã 17/09). Nguyên tắc sản phẩm (Google invariant, tiếng Việt mặc định) vẫn ưu tiên hơn gợi ý của skill.
+- **`setup-matt-pocock-skills`:** chỉ chạy khi Tài yêu cầu, vì skill này ghi vào `AGENTS.md`. Các skill của mattpocock nói tới issue tracker GitHub: dự án chưa dùng, nên checkpoint vẫn là `docs/decisions.md`.
+- **`remotion-best-practices`:** phần mềm Remotion có giấy phép riêng cho công ty. Kiểm lại trước khi dùng cho mục đích thương mại.
+- Skill cài giữa phiên chỉ xuất hiện trong danh sách skill của agent từ **phiên sau**.
