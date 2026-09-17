@@ -203,9 +203,18 @@ Hướng "khách hàng là thượng đế": sau khi bàn giao, admin chỉ hỗ
 
 Tài gửi ba màn mockup: Dữ liệu · Thiết kế giao diện · Sản phẩm & link, cùng ô chuyển shop.
 - **Sản phẩm & link là của chủ shop:** tuỳ chỉnh nút (Instagram, Zalo…) và gắn link vào nút; **tự nhân bản trang review** khi thêm bàn, rồi tự làm thẻ NFC hoặc QR cho bàn đó.
-- **Admin vào chỉnh theo quyền chủ shop cấp, ba mức:** (1) chỉ xem; (2) chỉ sửa giao diện, nút và link, **không xem dữ liệu**; (3) toàn quyền.
-  - **Cần làm rõ khi brainstorm:** mức 3 có bao gồm tải dữ liệu không? Quyết định ngày 16/09 là admin **không bao giờ** có nút tải dữ liệu.
-  - Ba mức này thay cho công tắc "đọc góp ý" hiện tại hay chồng lên nó?
+- **Công tắc hỗ trợ 4 vị trí (Tắt + 3 khấc), chốt 2026-09-17.** Thay cho công tắc bật/tắt "đọc góp ý". Chỉ vai `owner` gạt được; không hạn giờ; mọi lượt admin vào đều để lại dấu vết cho shop thấy; **không khấc nào cho tải dữ liệu**.
+
+| Vị trí | Admin xem số liệu tổng quan | Admin đọc nội dung góp ý | Admin sửa giao diện, nút & link |
+|---|---|---|---|
+| **Tắt** (mặc định) | có | không | không |
+| **Khấc 1 · Xem** | có | **có** | không |
+| **Khấc 2 · Sửa** | **không, ẩn hết dữ liệu** | không | **có** |
+| **Khấc 3 · Toàn quyền** | có | có | có |
+
+  - Hệ quả Tài đã chọn: ở khấc 2, admin thấy **ít dữ liệu hơn** cả khi công tắc Tắt. Luật "admin luôn xem được tổng quan" (16/09) có một ngoại lệ là khấc 2.
+  - Quyền sửa của khấc 2 và 3 chỉ có tác dụng khi đã có editor. Trước đó, khấc 2 nghĩa là admin không xem được gì, còn khấc 3 tương đương khấc 1.
+  - Hiện đang chạy công tắc bật/tắt (migration 008): Bật tương ứng khấc 1. Chuyển sang 4 vị trí cần migration mới, chỉ thêm, giữ nguyên lịch sử.
 
 ### Tài khoản phụ — hướng đã chốt, chưa làm
 
