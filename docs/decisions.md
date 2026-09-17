@@ -462,7 +462,7 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-0. **Brainstorm giao diện dashboard** theo mockup ba tab của Tài (xem `commercial-model.md`, mục "Cần brainstorm").
+0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md) (đã brainstorm 17/09), đi từ lát A. Còn một điểm chờ Tài chốt ở cuối file đó.
 1. **Đưa mạo danh + công tắc lên preview** (đã migrate và push `6286f43`; bản sửa ngày 17/09 cần push thêm): Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
