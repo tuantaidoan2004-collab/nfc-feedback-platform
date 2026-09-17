@@ -447,6 +447,12 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - **Lỗi quy trình của agent:** suốt các lát 16–17/09, agent không chạy bộ `contracts` và `client`, dù checkpoint cũ liệt kê 7 bộ. Đã chạy bù trên từng commit của những lát đó (kết quả ở dưới) và đưa hai bộ vào danh sách kiểm.
 - Chạy bù `contracts` / `client` trên `c2c6f70`, `545d975`, `6286f43`, `a725976`, `3413545`: mỗi commit **60 passed / 73 passed**.
 
+## Bật publishing trên preview — 2026-09-17
+
+- Lần đầu không thành: `vercel env rm` xoá được `NFC_PUBLISHING_ENABLED`, nhưng hai lệnh `vercel env add` không thêm được gì (dừng ở câu hỏi Git branch vì thiếu cờ). Chỉ lộ ra khi đọc lại danh sách biến và thấy trang khách vẫn chạy bản cũ. Lần hai, Tài chạy với `--sensitive --yes` (khoá ký đưa qua stdin từ `openssl rand -hex 32`), rồi push commit rỗng `4b658bf` để deploy lại.
+- Kết quả trên preview: trang khuôn và `cà phê Dê` chạy renderer publishing (`data-layout="full-bleed"`), 200; `caphe-demo` hiện "Trang chưa sẵn sàng", đúng như đã chốt. Mở trang khuôn trong trình duyệt: `POST /api/v2/pages/visits` trả 200 (5,6 giây ở lần khởi động nguội), không có lỗi console.
+- Trang khách vẫn là giao diện cũ, chưa có video: renderer chưa vẽ cấu hình, đó là việc của lát B.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -459,7 +465,7 @@ Chạy được trên preview: trang khách · dashboard chủ shop · quản tr
 
 **Migration 001–008 đã có trên Neon** (production và preview). **Lát A cần migration 009: phải migrate lên cả hai branch TRƯỚC khi push**, vì bảng shop ở `/gov` và nút Tạo shop giờ đọc `shops.is_template`; thiếu cột là trả 503.
 
-Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy.
+Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` đã bật trên preview từ 17/09 (có `NFC_RENDER_SIGNING_KEY`).
 
 ### Thứ tự đọc cho phiên mới
 
@@ -477,11 +483,11 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md). Lát A đã xong. Tiếp theo: Tài bật `NFC_PUBLISHING_ENABLED=true` cho Preview, rồi làm lát B.
+0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md). Lát A đã xong, publishing đã bật trên preview. **Tiếp theo: lát B.**
 1. **Mạo danh + công tắc đã lên preview** (push `a725976`); Tài đã thử 1 và 2: Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
-4. **Bật `NFC_PUBLISHING_ENABLED`** — cần mọi shop có release, kể cả `caphe-demo` vốn seed bằng INSERT thẳng.
+4. ~~Bật `NFC_PUBLISHING_ENABLED`~~ — xong trên preview 17/09; `caphe-demo` bỏ.
 
 ### Việc còn treo của Tài
 
