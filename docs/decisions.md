@@ -491,6 +491,8 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 
 - Migration 011, ô số điện thoại không bắt buộc trong thẻ góp ý, hiện trong dashboard và export của chủ shop. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát B4.
 - **Lỗi của agent:** khi viết lại test cho B3 đã bỏ sót `integration-tests/owner-dashboard.spec.ts` (vẫn bấm sao trên trang chính); kiểm commit bắt được, đã sửa và gộp vào commit B3 trước khi push. Fixture `repository-tests/publishing.spec.ts` thiếu 010–011 nên đỏ khi repository ghi cột mới; đã thêm.
+- Kiểm commit B3 `af3c5b9`: tsc/eslint exit 0; repository **90**; contracts **64**; client **73**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **9 + 2**; owner **3 + 2**; admin **5 + 2**.
+- Kiểm commit B4 `ed342a4`: tsc/eslint exit 0; repository **92**; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **3 + 2**; admin **5 + 2**; tất cả exit 0. `scripts/migrate.mjs` trên database trống áp 001–011 rồi báo up to date.
 - B3 (`af3c5b9`) đã push riêng trước B4 để Tài xem giao diện; B4 chờ Tài migrate Neon.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát B4)
