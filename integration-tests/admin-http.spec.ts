@@ -85,6 +85,17 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
 
+ // The template comes first: one button, then a row marked as the template with its page live and no owner.
+ await page.getByRole('button',{name:'Tạo shop khuôn',exact:true}).click();
+ const templateRow=page.locator('tr[data-template]');
+ await expect(templateRow).toHaveCount(1);
+ await expect(templateRow).toContainText('KHUÔN');
+ await expect(templateRow).toContainText('YOUR SHOP');
+ await expect(page.getByRole('button',{name:'Tạo shop khuôn',exact:true})).toHaveCount(0);
+ await expect(templateRow.getByRole('button')).toHaveCount(0);
+ const templateSlug=(await admin.db.query('SELECT slug FROM shops WHERE is_template')).rows[0].slug;
+ expect((await page.request.get(`/${templateSlug}`)).status()).toBe(200);
+
  await page.getByLabel('Tên shop',{exact:true}).fill('Cà Phê Ban Mai');
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');

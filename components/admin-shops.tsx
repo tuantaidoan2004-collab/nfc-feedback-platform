@@ -3,7 +3,7 @@ import { useState } from 'react';
 import styles from './admin.module.css';
 
 export type ShopRow = {
-  id: string; slug: string; name: string; publishing_state: string;
+  id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
   tags: number; active_tags: number;
   owner_user_id: string | null; owner_username: string | null; owner_email: string | null; last_seen: string | null;
   feedback_support: boolean;
@@ -60,6 +60,15 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
+  const makeTemplate = async () => {
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/gov/api/template', { method: 'POST', credentials: 'same-origin' });
+      if (!response.ok) { setError(failed(response.status)); return; }
+      await refresh();
+    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  };
+
   const endStandIn = async () => {
     setBusy(true); setError('');
     try {
@@ -91,7 +100,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
 
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
-      <p className={styles.muted}>Một lần bấm tạo trang khách, bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
+      <p className={styles.muted}>Một lần bấm tạo trang khách (sao chép giao diện từ shop khuôn), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
       <form className={styles.form} onSubmit={async event => {
         event.preventDefault(); setBusy(true); setError(''); setHandover(null);
         const form = new FormData(event.currentTarget), element = event.currentTarget;
@@ -130,20 +139,21 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
     </section>
 
     <section className={styles.panel}>
-      <div className={styles.row}><h2>Shop đang có ({shops.length})</h2>
+      <div className={styles.row}><h2>Shop đang có ({shops.filter(row => !row.is_template).length})</h2>
+        {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop khuôn</button>}
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
       <div className={styles.wide}>
         <table className={styles.table}>
           <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trạng thái</th><th>Đọc góp ý</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
-            {shops.map(row => <tr key={row.id}>
-              <td>{row.name}<br/><code>{row.slug}</code></td>
+            {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
+              <td>{row.is_template && <><strong>KHUÔN</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
               <td>{origin ? <a href={`${origin}/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
               <td>{origin ? <a href={`${origin}/ZZZ/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
-              <td>{row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
+              <td>{row.is_template ? <em>không có chủ, dùng để nhân bản</em> : row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
               <td>{row.active_tags}/{row.tags} hoạt động</td>
               <td>{row.publishing_state}</td>
-              <td data-feedback-support={row.feedback_support ? 'on' : 'off'}>{row.feedback_support ? 'shop cho phép' : 'chưa cho phép'}</td>
+              <td data-feedback-support={row.feedback_support ? 'on' : 'off'}>{row.is_template ? '—' : row.feedback_support ? 'shop cho phép' : 'chưa cho phép'}</td>
               <td>{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
               <td>{row.owner_user_id && <>
                 <button disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>

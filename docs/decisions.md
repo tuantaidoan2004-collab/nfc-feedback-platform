@@ -432,6 +432,14 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Tài giữ nguyên nguyên tắc không điền sẵn số sao sang Google. Các ý cho buổi brainstorm dashboard đã ghi ở `commercial-model.md`.
 - **Mất một vòng vì test chạy lẻ:** chạy riêng test mạo danh thì đỏ do server dev tải lại mọi trang sau khi biên dịch. Agent đã bỏ nhầm `router.refresh()` trước khi tìm ra nguyên nhân, rồi hoàn lại. Đã ghi vào gotchas.
 
+## Lát A — shop khuôn — 2026-09-17
+
+- Tài chốt thêm: khi khách chấm 1–3 sao, **nút Google vẫn phải nằm trong màn hình**.
+- Migration 009 `shops.is_template`; khuôn "YOUR SHOP" có video nền; nút Tạo shop sao chép bản phát hành đang chạy của khuôn. Chi tiết: [redesign-v2.md](redesign-v2.md), mục "Lát A".
+- **Lỗi thiết kế của agent, đã sửa:** bản đầu giữ advisory lock trên một kết nối pool trong khi việc bên trong cần thêm kết nối, nên 10 lần gọi đồng thời treo cứng. Test 3 lần gọi không lộ lỗi; test 10 lần qua pool cỡ production (3) mới lộ. Đã thay bằng các bước chịu được chạy trùng, cộng thử lại ngắn.
+- Gỡ từng lớp để kiểm test: bỏ thử lại, bỏ chịu nháp trùng, bỏ sao chép từ khuôn, bỏ sửa khuôn dở dang. Lần nào cũng đỏ.
+- Kiểm chứng: tsc/eslint exit 0; repository **84 passed** (spec tạo shop chạy lặp 5 lần đều xanh); harness admin 5+2, owner 3+2, publishing 4+2, public 15+1 skip+2, tất cả exit 0; migrate 001–009 rồi báo up to date; rollback 009 xoá cột khi chưa có khuôn.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-16
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -442,7 +450,7 @@ Branch `feat/local-app-foundation`, đã đồng bộ `main`. Preview Vercel ch�
 
 Chạy được trên preview: trang khách · dashboard chủ shop · quản trị `/gov` (đăng nhập, tạo shop, phát lại liên kết) · trang chủ shop tự đặt mật khẩu.
 
-**Mạo danh + công tắc chủ shop cấp quyền đã xong ở local, CHƯA lên preview.** Migration 007 **và 008** chưa áp lên Neon. **Phải migrate cả hai lên branch mặc định và branch preview TRƯỚC khi push**: dashboard chủ shop và bảng shop ở `/gov` giờ đọc `admin_impersonation_sessions` và `shop_support_grant_events`, nên thiếu bảng là trả 503.
+**Migration 001–008 đã có trên Neon** (production và preview). **Lát A cần migration 009: phải migrate lên cả hai branch TRƯỚC khi push**, vì bảng shop ở `/gov` và nút Tạo shop giờ đọc `shops.is_template`; thiếu cột là trả 503.
 
 Chưa có: sửa cấu hình hộ (chờ editor) · kích hoạt thẻ (`prepared → tested → active`, nên `/t/<mã>` chưa sống) · thanh toán · gửi email tự động · editor cho chủ shop · R2 · tên miền riêng. `NFC_PUBLISHING_ENABLED` vẫn tắt trên preview, nên trang khách còn render đường legacy.
 
@@ -462,8 +470,8 @@ Kiểm tra: `node node_modules/typescript/bin/tsc --noEmit` · `node node_module
 
 ### Lát tiếp theo, theo thứ tự đề xuất
 
-0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md) (đã brainstorm 17/09), đi từ lát A. Còn một điểm chờ Tài chốt ở cuối file đó.
-1. **Đưa mạo danh + công tắc lên preview** (đã migrate và push `6286f43`; bản sửa ngày 17/09 cần push thêm): Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
+0. **Làm lại trang khách và dashboard** theo [redesign-v2.md](redesign-v2.md). Lát A đã xong; tiếp theo là bật publishing trên preview rồi làm lát B.
+1. **Mạo danh + công tắc đã lên preview** (push `a725976`); Tài đã thử 1 và 2: Tài migrate 007 và 008 (bước có credential), push, rồi thử thật: tạo shop với email `bingchillinmaho@gmail.com` làm khách giả. Chưa có dịch vụ mail, nên lấy liên kết đặt mật khẩu từ `/gov`.
 2. **Kích hoạt thẻ** để `/t/<mã>` sống.
 3. **Thanh toán** — `shop_billing` với `paid_until` **chỉ là một ngày**, ghi tay trước, bot sau. Ba cổng đọc khác nhau, xem `commercial-model.md` mục 2.
 4. **Bật `NFC_PUBLISHING_ENABLED`** — cần mọi shop có release, kể cả `caphe-demo` vốn seed bằng INSERT thẳng.

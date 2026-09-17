@@ -21,8 +21,17 @@ function url(value: unknown) {
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password) fail();
 }
 function localized(value: unknown) { keys(value, ['vi', 'en']); text(value.vi, 180); text(value.en, 180); }
+/**
+ * Media shipped inside the app, addressed by a fixed path rather than an https URL. Only these exact paths are
+ * accepted, so a configuration can never point the page at an arbitrary path on the site. Uploaded media stays
+ * https-only until per-shop storage exists.
+ */
+export const STEM_BACKGROUND = { video: '/media/stem-background.mp4', still: '/media/stem-background.jpg' } as const;
+const BUILT_IN_MEDIA: Record<string, 'image' | 'video'> = { [STEM_BACKGROUND.video]: 'video', [STEM_BACKGROUND.still]: 'image' };
 function media(value: unknown, logo = false) {
-  keys(value, ['kind', 'url']); if (!(logo ? value.kind === 'image' : ['image', 'video'].includes(String(value.kind)))) fail(); url(value.url);
+  keys(value, ['kind', 'url']); if (!(logo ? value.kind === 'image' : ['image', 'video'].includes(String(value.kind)))) fail();
+  if (typeof value.url === 'string' && Object.hasOwn(BUILT_IN_MEDIA, value.url)) { if (BUILT_IN_MEDIA[value.url] !== value.kind) fail(); return; }
+  url(value.url);
 }
 const color = (v: unknown) => { if (typeof v !== 'string' || !/^#[a-fA-F0-9]{6}$/.test(v)) fail(); };
 export function validateConfig(value: unknown): PageConfig {
@@ -49,4 +58,8 @@ export function defaultConfig(name = 'YOUR BRAND'): PageConfig {
     watermark: { text: 'YOUR LOGO', enabled: true, motion: 'diagonal-linear' },
     text: { question: { vi: 'Trải nghiệm hôm nay của bạn thế nào?', en: 'How was your experience today?' } },
     googleUrl: 'https://maps.google.com/', links: [] };
+}
+/** What the template shop starts as: the default page with the moving background Tài chose on 2026-09-17. */
+export function templateConfig(): PageConfig {
+  return { ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } };
 }

@@ -1,6 +1,6 @@
 # Làm lại trang khách và dashboard — thiết kế — 2026-09-17
 
-Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (tràn màn hình và dạng thẻ), ba màn dashboard (Dữ liệu · Thiết kế giao diện · Sản phẩm & link) và một video nền. **Chưa có code.** Mục "Còn phải chốt" ở cuối file vẫn đang để mở.
+Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (tràn màn hình và dạng thẻ), ba màn dashboard (Dữ liệu · Thiết kế giao diện · Sản phẩm & link) và một video nền. Tiến độ từng lát ghi ở cuối file.
 
 ## Quyết định
 
@@ -19,7 +19,7 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 
 1. **Thứ tự:** poster (nhãn "POSTER SỰ KIỆN") → logo tròn đè lên mép poster → tên thương hiệu → câu hỏi → 5 sao → **nút Google** → nút phản hồi riêng → hàng nút mạng xã hội (Instagram, Facebook, Zalo, Liên hệ, link).
 2. **Chấm 4–5 sao:** không có gì thay đổi. Nút Google vẫn là trọng tâm.
-3. **Chấm 1–3 sao:** trang tự cuộn tới nút phản hồi riêng và **mở rộng** nó thành một khung riêng gồm hai ô: "Điều bạn muốn chia sẻ" (chủ đề) và "Góp ý của bạn".
+3. **Chấm 1–3 sao:** nút phản hồi riêng **mở rộng** thành một khung riêng gồm hai ô: "Điều bạn muốn chia sẻ" (chủ đề) và "Góp ý của bạn". Trang chỉ cuộn vừa đủ để thấy khung, và **nút Google vẫn phải nằm trong màn hình** (Tài chốt 17/09).
 4. **Chạm ra ngoài khung:** khung thu gọn lại thành nút "Gửi góp ý riêng cho quản lý". Bấm nút lại thì khung mở ra.
 5. **Gửi xong:** hiện popup cảm ơn kiểu 3D nảy (giống hiệu ứng trên Canva) kèm pháo giấy. Dự kiến dùng `canvas-confetti` (MIT, nhỏ); popup chỉ cần CSS. Người đã bật "giảm chuyển động" thì bỏ hiệu ứng, chỉ hiện chữ cảm ơn.
 6. **Bấm Google:** khách rời sang Google như hiện tại.
@@ -29,7 +29,7 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 ### Hai giới hạn đã nêu với Tài
 
 - **Không thể biết khách đã đăng review Google hay chưa.** Google không gửi tín hiệu nào về. "Đánh giá xong" chỉ có thể là đánh giá **nội bộ** (sao và góp ý). `AGENTS.md` cấm suy ra việc khách đã review Google.
-- **Nguyên tắc gốc:** điểm thấp được mở phản hồi riêng **nhưng không được giấu Google**. Nếu tự cuộn làm nút Google trôi khỏi màn hình ngay lúc khách chấm 1–3 sao, thì đó chính là dẫn khách chê ra khỏi Google, tức "review gating" mà Google cấm (hình phạt là xoá review của quán). Xem mục "Còn phải chốt".
+- **Nguyên tắc gốc:** điểm thấp được mở phản hồi riêng **nhưng không được giấu Google**. Nếu tự cuộn làm nút Google trôi khỏi màn hình ngay lúc khách chấm 1–3 sao, thì đó chính là dẫn khách chê ra khỏi Google, tức "review gating" mà Google cấm (hình phạt là xoá review của quán). Tài chốt giữ nút Google trong màn hình (mục 3 ở trên).
 
 ## Dashboard mới
 
@@ -45,7 +45,7 @@ Theo ảnh mockup. Khung chung gồm logo NFC Feedback, ô "Shop đang xem" (m�
 - `layout`: thêm `card`.
 - Icon: thêm `facebook`, `phone`. Link `tel:` cho nút Liên hệ; hiện `url()` chỉ nhận `https:`.
 - Phản hồi riêng không cần sao trước: đổi API và cách đếm số liệu (một phiên có góp ý nhưng không có sao).
-- Shop khuôn: đánh dấu một shop là khuôn; Tạo shop sao chép bản phát hành đang chạy của khuôn.
+- ~~Shop khuôn~~: xong ở lát A (migration 009).
 - Công tắc 4 vị trí: migration mới, chỉ thêm, giữ nguyên lịch sử của migration 008.
 
 ## Thứ tự lát
@@ -60,6 +60,13 @@ Theo ảnh mockup. Khung chung gồm logo NFC Feedback, ô "Shop đang xem" (m�
 
 Tải ảnh và video riêng cho từng shop cần **Cloudflare R2**; đó là việc Tài còn treo.
 
-## Còn phải chốt
+## Lát A — shop khuôn — xong 2026-09-17
 
-- Khi khách chấm 1–3 sao, cuộn tới mức nào: vẫn **giữ nút Google trong màn hình** (đề xuất), hay cuộn hẳn tới khung góp ý?
+- **Migration 009:** cột `shops.is_template` và unique index cho tối đa một khuôn. Rollback từ chối khi khuôn đang tồn tại.
+- `ShopProvisioning.ensureTemplate()` tạo khuôn "YOUR SHOP" với `templateConfig()`: cấu hình mặc định cộng nền là video Tài gửi. Nút Tạo shop sao chép **bản phát hành đang chạy** của khuôn, rồi thay tên và link Google của shop mới. Khuôn được đọc **trước** khi ghi bất cứ thứ gì cho shop mới.
+- Sửa khuôn thì các shop tạo **sau đó** theo cấu hình mới; shop tạo trước giữ nguyên. Không sao chép lượt ghé, thẻ hay chủ shop.
+- Video nằm ở `public/media/stem-background.mp4` (3 MB), kèm ảnh tĩnh `stem-background.jpg`. Validator nhận đúng **hai đường dẫn nội bộ này**, và mỗi đường dẫn chỉ với loại media của nó; mọi media khác vẫn phải là `https`.
+- `/gov`: nút **Tạo shop khuôn** (hiện khi chưa có khuôn); dòng khuôn ghi **KHUÔN**, không có chủ, không có nút; số "Shop đang có" không đếm khuôn.
+- **Chưa thấy video trên trang khách.** Renderer hiện tại chưa vẽ nền, watermark, logo hay nút từ cấu hình; lát B làm việc này. Ngoài ra preview đang tắt `NFC_PUBLISHING_ENABLED`, nên trang khách vẫn chạy đường cũ, không đọc cấu hình.
+- Chưa có: sửa khuôn trong giao diện (lát D). Hiện khuôn chỉ sửa được qua thư viện.
+- **Việc phải làm trước lát B:** bật `NFC_PUBLISHING_ENABLED` trên preview. Việc này cần mọi shop có bản phát hành, mà `caphe-demo` (4Rau) được tạo bằng INSERT thẳng nên chưa có.

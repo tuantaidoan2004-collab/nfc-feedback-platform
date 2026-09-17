@@ -12,7 +12,7 @@ if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture requi
 const test=base.extend<{f:{db:Pool;shops:ShopProvisioning;links:OwnerSetupLinks;auth:OwnerAuth;actorId:string}}>({f:async({},provide)=>{
  const schema=`nfc_prov_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),links:new OwnerSetupLinks(db),auth:new OwnerAuth(db),actorId});
@@ -34,8 +34,10 @@ test('one call builds a live page, a card that is not live yet, and an owner who
  expect((await f.db.query("SELECT role,active FROM owner_memberships_v2 WHERE user_id=$1 AND shop_id=$2",[made.ownerUserId,made.shopId])).rows).toEqual([{role:'owner',active:true}]);
  await expect(f.auth.login('quan-caphe','any-password-at-all')).rejects.toThrow('LOGIN_FAILED');
 
+ const template=(await f.db.query('SELECT id,slug FROM shops WHERE is_template')).rows[0];
  const audit=(await f.db.query('SELECT action,shop_id,detail FROM admin_audit ORDER BY id')).rows;
- expect(audit).toEqual([{action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe'}}]);
+ expect(audit).toEqual([{action:'template.create',shop_id:template.id,detail:{slug:template.slug}},
+  {action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe'}}]);
 });
 
 test('the link the operator hands over is what opens the account',async({f})=>{
@@ -72,10 +74,13 @@ test('shops share one renderer and never share a slug, a card code or an owner',
  await expect(f.shops.create(f.actorId,input)).rejects.toThrow('OWNER_ALREADY_EXISTS');
  // A refusal must leave nothing behind. Creating the shop before discovering the owner was taken left a live
  // page with no owner: public, and with nobody able to sign in and change it.
- expect((await f.db.query('SELECT count(*)::int n FROM shops')).rows[0].n).toBe(2);
+ expect((await f.db.query('SELECT count(*)::int n FROM shops WHERE NOT is_template')).rows[0].n).toBe(2);
  expect((await f.db.query('SELECT count(*)::int n FROM tags')).rows[0].n).toBe(2);
 
- const rows=await f.shops.list();
+ const all=await f.shops.list();
+ // The template is listed first and apart; it has no owner, no card and no switch.
+ expect(all[0]).toMatchObject({is_template:true,name:'YOUR SHOP',owner_user_id:null,tags:0,feedback_support:false});
+ const rows=all.filter(r=>!r.is_template);
  expect(rows).toHaveLength(2);
  expect(rows.map(r=>r.owner_username).sort()).toEqual(['quan-caphe','quan-tra']);
  expect(rows.every(r=>r.publishing_state==='active'&&r.tags===1&&r.active_tags===0&&r.last_seen===null)).toBe(true);
@@ -113,4 +118,65 @@ test('a reissued link is audited against the owner\'s own shop, or not issued at
  await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1',[one.ownerUserId]);
  await expect(f.links.reissue(one.ownerUserId,one.shopId,audit(one.shopId,one.ownerUserId))).rejects.toThrow('OWNER_NOT_FOUND');
  expect(await count(trail)).toBe(2);
+});
+
+test('the template shop is created once, even when asked at the same time, and repaired if left unpublished',async({f})=>{
+ const {templateConfig}=await import('../lib/publishing/config');
+ // Ten callers through a pool as small as production's: holding a connection while waiting would starve it.
+ const schema=(await f.db.query('SELECT current_schema() s')).rows[0].s;
+ const small=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:3,connectionTimeoutMillis:5000});
+ let made:{shopId:string}[];
+ try{made=await Promise.all(Array.from({length:10},()=>new ShopProvisioning(small).ensureTemplate(f.actorId)));}finally{await small.end();}
+ expect(new Set(made.map(t=>t.shopId)).size).toBe(1);
+ const row=(await f.db.query(`SELECT s.name,s.publishing_state,r.config_snapshot FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.is_template`)).rows;
+ expect(row).toEqual([{name:'YOUR SHOP',publishing_state:'active',config_snapshot:templateConfig()}]);
+ expect(row[0].config_snapshot.background).toEqual({kind:'media',media:{kind:'video',url:'/media/stem-background.mp4'},loop:true});
+ expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.create'")).rows[0].n).toBe(1);
+ expect((await f.db.query('SELECT count(*)::int n FROM owner_memberships_v2')).rows[0].n).toBe(0);
+ // The database refuses a second template even if the code were bypassed.
+ await expect(f.db.query("INSERT INTO shops(slug,name,is_template)VALUES('second-template','Two',true)")).rejects.toThrow('shops_one_template');
+
+ // A run that died between the insert and the publish leaves a dark template; the next call finishes it.
+ await f.db.query('UPDATE shops SET is_template=false WHERE is_template');
+ await f.db.query("INSERT INTO shops(slug,name,is_template)VALUES('half-made','YOUR SHOP',true)");
+ const repaired=await f.shops.ensureTemplate(f.actorId);
+ expect(repaired.slug).toBe('half-made');
+ expect((await f.db.query('SELECT publishing_state,active_release_id IS NOT NULL released FROM shops WHERE is_template')).rows).toEqual([{publishing_state:'active',released:true}]);
+ // Repair is not creation: the audit trail records only the template that was actually made.
+ expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.create'")).rows[0].n).toBe(1);
+
+ const sql=await readFile('db/rollback/009_template_shop.sql','utf8'),db=await f.db.connect();
+ try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('TEMPLATE_SHOP_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
+});
+
+test('a new shop starts from the template as it stands now, with its own name and Google link, and keeps it',async({f})=>{
+ const {PublishingAdmin}=await import('../lib/publishing/repository');
+ const {templateConfig}=await import('../lib/publishing/config');
+ const first=await f.shops.create(f.actorId,input);
+ const release=async(shopId:string)=>(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[shopId])).rows[0].c;
+ expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/?cid=1'});
+
+ // The operator changes the template: later shops follow, earlier ones do not.
+ const template=await f.shops.ensureTemplate(f.actorId),admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
+ const changed={...templateConfig(),text:{question:{vi:'Hôm nay thế nào?',en:'How was today?'}},
+  links:[{label:{vi:'Đặt lịch',en:'Book'},url:'https://example.com/book',icon:'booking' as const}]};
+ const revision=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
+ await admin.publish(template.shopId,await admin.saveDraft(template.shopId,revision,changed));
+ const second=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-tra',ownerEmail:'tra@example.com',googleUrl:undefined});
+ expect(await release(second.shopId)).toEqual({...changed,name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/'});
+ expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/?cid=1'});
+ // Configuration only: the template's visits, cards and owners never travel.
+ expect((await f.db.query('SELECT count(*)::int n FROM tags WHERE shop_id=$1',[template.shopId])).rows[0].n).toBe(0);
+});
+
+test('only the exact built-in media paths are accepted, and only as their own kind',async()=>{
+ const {validateConfig,templateConfig,STEM_BACKGROUND}=await import('../lib/publishing/config');
+ const withBackground=(media:unknown)=>({...templateConfig(),background:{kind:'media',media,loop:true}});
+ expect(validateConfig(withBackground({kind:'video',url:STEM_BACKGROUND.video})).background).toMatchObject({kind:'media'});
+ expect(validateConfig(withBackground({kind:'image',url:STEM_BACKGROUND.still})).background).toMatchObject({kind:'media'});
+ for(const media of [{kind:'image',url:STEM_BACKGROUND.video},{kind:'video',url:STEM_BACKGROUND.still},{kind:'video',url:'/media/other.mp4'},
+   {kind:'video',url:'/media/stem-background.mp4?x=1'},{kind:'video',url:'constructor'},{kind:'video',url:'http://example.com/a.mp4'}])
+  expect(()=>validateConfig(withBackground(media))).toThrow('INVALID_CONFIG');
+ // A logo is an image and never a built-in video.
+ expect(()=>validateConfig({...templateConfig(),logo:{kind:'image',url:STEM_BACKGROUND.video}})).toThrow('INVALID_CONFIG');
 });
