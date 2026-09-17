@@ -28,6 +28,7 @@ const test = base.extend<{ db: Fixture }>({
       const old = await pool.query("INSERT INTO experiences(shop_id,token_hash,rating,revision,message) VALUES($1,'legacy',3,7,'preserve me') RETURNING id", [shopId]);
       await pool.query(await readFile('db/migrations/002_visit_ratings.sql','utf8'));
       await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql','utf8'));
+      await pool.query(await readFile('db/migrations/011_feedback_phone.sql','utf8'));
       let time = initial;
       await provideFixture({ pool, repo: new VisitRatingRepository(pool, () => new Date(time)),
         context: { shopId, scope:'live', entryKey:'direct:shop' }, otherShopId, hash: randomBytes(32).toString('hex'),
@@ -341,4 +342,29 @@ test('private Unicode validation/codepoint storage and guarded rollback preserve
   try { await client.query('BEGIN'); await expect(client.query(await readFile('db/rollback/002_visit_ratings.sql', 'utf8'))).rejects.toThrow('V2_DATA_PRESENT'); }
   finally { await client.query('ROLLBACK'); client.release(); }
   expect((await db.pool.query('SELECT message,revision::int FROM experiences WHERE id=$1', [db.legacyId])).rows[0]).toEqual({ message: 'preserve me', revision: 7 });
+});
+
+test('a call-back number is stored with its feedback, checked by the database, and guards rollback 011', async ({ db }) => {
+  const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
+  expect(await db.repo.recordPrivateFeedback(first.visit, { ...privateCommand(0, 'gọi tôi'), phone: '0961 036 265' }, db.hash))
+    .toMatchObject({ kind: 'applied', experience: { rating: null, feedback: { message: 'gọi tôi', phone: '0961036265' } } });
+  expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: '0961036265' }]);
+  expect((await db.pool.query('SELECT feedback_phone FROM rating_intent_receipts')).rows).toEqual([{ feedback_phone: '0961036265' }]);
+  // A star later keeps the number with the feedback; a feedback edit without a number clears it.
+  await db.repo.recordRating(first.visit, command(2, 1), db.hash);
+  expect((await db.pool.query('SELECT rating,feedback_phone FROM rating_experiences')).rows).toEqual([{ rating: 2, feedback_phone: '0961036265' }]);
+  await db.repo.recordPrivateFeedback(first.visit, privateCommand(2, 'thôi khỏi gọi'), db.hash);
+  expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: null }]);
+  expect(await db.repo.recordPrivateFeedback(first.visit, { ...privateCommand(3), phone: 'abc' }, db.hash)).toEqual({ kind: 'rejected', code: 'INVALID_INPUT' });
+  await expect(db.pool.query("UPDATE rating_experiences SET feedback_phone='12'")).rejects.toMatchObject({ code: '23514' });
+  const down = await readFile('db/rollback/011_feedback_phone.sql', 'utf8'), client = await db.pool.connect();
+  try {
+    await client.query('BEGIN'); await expect(client.query(down)).rejects.toThrow('FEEDBACK_PHONE_PRESENT'); await client.query('ROLLBACK');
+  } finally { client.release(); }
+  const empty = await db.pool.connect();
+  try {
+    await empty.query('BEGIN'); await empty.query('DELETE FROM rating_intent_receipts'); await empty.query('DELETE FROM rating_experiences');
+    await empty.query(down);
+    expect((await empty.query("SELECT count(*)::int n FROM information_schema.columns WHERE column_name='feedback_phone' AND table_schema=current_schema()")).rows[0].n).toBe(0);
+  } finally { await empty.query('ROLLBACK'); empty.release(); }
 });

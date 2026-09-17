@@ -20,7 +20,7 @@ export type DocumentFeedbackService = Readonly<{
   start: () => void;
   stop: () => void;
   rate: (score: number) => Promise<CoordinatorResult>;
-  feedback: (topic: string, message: string) => Promise<CoordinatorResult>;
+  feedback: (topic: string, message: string, phone?: string) => Promise<CoordinatorResult>;
   retry: () => Promise<CoordinatorResult>;
   retryOpen: (loadKey: string) => Promise<CoordinatorResult>;
 }>;
@@ -77,7 +77,7 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       start() { if (!disposed) queue.start(); },
       stop() { if (!disposed) queue.stop(); },
       rate: score => action(() => queue.rate(score)),
-      feedback: (topic, message) => action(() => queue.feedback(topic, message)),
+      feedback: (topic, message, phone) => action(() => queue.feedback(topic, message, phone)),
       retry: () => action(() => queue.retry()),
       retryOpen: key => action(() => queue.retryOpen(key)),
     });

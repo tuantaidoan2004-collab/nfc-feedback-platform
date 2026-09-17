@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openVisit, rateSession, IDLE_WINDOW_MS, type RatingIntent } from '../../lib/domain/visit-rating';
-import { normalizeFeedback, rateFeedbackExperience, submitPrivateFeedback, type FeedbackSessionState, type FeedbackIntent } from '../../lib/domain/private-feedback';
+import { normalizeFeedback, normalizePhone, rateFeedbackExperience, submitPrivateFeedback, type FeedbackSessionState, type FeedbackIntent } from '../../lib/domain/private-feedback';
 const at = (ms: number) => new Date(Date.parse('2026-09-12T00:00:00Z') + ms).toISOString();
 const opened = openVisit(null, { shopId: 'shop', scope: 'live', entryKey: 'direct:shop', browserHash: 'browser' },
   { visitId: 'visit', newSessionId: 'session' }, 'load', at(0));
@@ -114,4 +114,18 @@ test('first feedback cannot precede rating timestamp when server clock moves bac
   const result = submitPrivateFeedback(rated(), opened.visit, feedback(), at(0));
   expect(result.state.experience!.feedback!.submittedAt).toBe(at(1));
   expect(result.state.experience!.feedback!.updatedAt).toBe(at(1));
+});
+
+test('call-back numbers drop typed separators, stay optional and are part of the replay payload', () => {
+  expect(normalizePhone(undefined)).toBeNull(); expect(normalizePhone('')).toBeNull(); expect(normalizePhone('  ')).toBeNull();
+  expect(normalizePhone('0961 036 265')).toBe('0961036265'); expect(normalizePhone('+84 (96) 103-6265')).toBe('+84961036265');
+  for (const bad of ['0961', '09610362650000000', 'abc12345678', '+ 84', '84+961036265', 12345678]) expect(normalizePhone(bad)).toBeUndefined();
+  expect(normalizeFeedback('service', 'x', '0961.036.265')).toEqual({ topic: 'service', message: 'x', phone: '0961036265' });
+  expect(normalizeFeedback('service', 'x', 'call me')).toBeNull();
+  const intent = { ...feedback(1), phone: '0961 036 265' };
+  const saved = submitPrivateFeedback(rated(), opened.visit, intent, at(2));
+  expect(saved.state.experience?.feedback).toMatchObject({ phone: '0961036265' });
+  expect(submitPrivateFeedback(saved.state, opened.visit, { ...intent, phone: '0961036265' }, at(3)).kind).toBe('replayed');
+  expect(submitPrivateFeedback(saved.state, opened.visit, { ...intent, phone: null }, at(3))).toMatchObject({ kind: 'rejected', code: 'INTENT_CONFLICT' });
+  expect(submitPrivateFeedback(rated(), opened.visit, { ...feedback(1), phone: '12' }, at(2))).toMatchObject({ kind: 'rejected', code: 'INVALID_INPUT' });
 });

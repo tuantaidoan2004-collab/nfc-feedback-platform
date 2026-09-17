@@ -126,3 +126,14 @@ test('definitive feedback error discards buffered intent visibly, no subsequent 
   expect(h.coordinator.state().mutation.buffered).toEqual([]);
   expect(JSON.stringify(h.coordinator.state())).not.toContain('PRIVATE_'); expect(h.calls).toHaveLength(2);
 });
+
+test('a call-back number travels with its feedback command and never shows in coordinator state', async () => {
+  const h = fixture(); await h.coordinator.open(event('a'));
+  const saved = h.controls.feedback; h.controls.feedback = async () => unknown;
+  await h.coordinator.feedback('general', 'PRIVATE_CALL', '0961036265');
+  expect(JSON.stringify(h.coordinator.state())).not.toMatch(/0961036265|PRIVATE_CALL/);
+  h.controls.feedback = saved; expect(await h.coordinator.retry()).toMatchObject({ kind: 'saved', mutation: 'feedback' });
+  expect(h.calls.map(c => (c.command as FeedbackCommand).phone)).toEqual(['0961036265', '0961036265']);
+  await h.coordinator.feedback('general', 'no number');
+  expect(Object.hasOwn(h.calls[2].command, 'phone')).toBe(false);
+});

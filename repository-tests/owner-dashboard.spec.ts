@@ -11,7 +11,7 @@ const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provideFixture)=>{
  const schema=`nfc_owner_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  await provideFixture(await ownerFixture(db));}finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const filters=()=>parseFilters(new URLSearchParams());
@@ -51,20 +51,20 @@ test('live cohort metrics/date boundaries, filters and source attribution exclud
 });
 test('feedback without a star counts as feedback, not as a rating, and exports its rating as null',async({f})=>{
  const at=new Date('2026-09-13T03:00:00Z');
- await addExperience(f.db,'one',4,null,at);const unrated=await addExperience(f.db,'one',null,'Không chấm sao',at);
+ await addExperience(f.db,'one',4,null,at);const unrated=await addExperience(f.db,'one',null,'Không chấm sao',at,'0961036265');
  const dashboard=new OwnerDashboard(f.db),range='from=2026-09-13&to=2026-09-13';
  const all=await dashboard.read(f.users[0].token,'one',parseFilters(new URLSearchParams(range)));
  expect(all.metrics).toMatchObject({opens:'2',sessions:'2',rated:'1',average:'4.00',feedback:'1',unresolved:'1'});
  const row=all.records.find(r=>r.session_id===unrated.session.sessionId)!;
- expect(row).toMatchObject({rating:null,message:'Không chấm sao',status:'new',experience_revision:'1'});
+ expect(row).toMatchObject({rating:null,message:'Không chấm sao',phone:'0961036265',status:'new',experience_revision:'1'});
  expect(row.origin_release_id).toBe(row.release_id);expect(row.origin_release_id).not.toBeNull();
  expect((await dashboard.read(f.users[0].token,'one',parseFilters(new URLSearchParams(`${range}&rating=4`)))).records).toHaveLength(1);
  expect((await dashboard.read(f.users[0].token,'one',parseFilters(new URLSearchParams(`${range}&status=new`)))).records.map(r=>r.session_id)).toEqual([unrated.session.sessionId]);
  await expect(dashboard.update(f.users[0].token,'one',{sessionId:unrated.session.sessionId,expectedCaseRevision:0,expectedExperienceRevision:'1',status:'resolved',note:''})).resolves.toMatchObject({saved:true});
  const read=async(dataset:'experiences'|'receipts')=>{const reader=(await exportStream(f.db,f.users[0].token,'one',parseFilters(new URLSearchParams(range)),dataset,'jsonl',new AbortController().signal)).getReader();let text='';
   while(true){const part=await reader.read();if(part.done)break;text+=new TextDecoder().decode(part.value);}return text.trim().split('\n').map(line=>JSON.parse(line));};
- expect((await read('experiences')).find(r=>r.session_id===unrated.session.sessionId)).toMatchObject({rating:null,message:'Không chấm sao'});
- expect((await read('receipts')).filter(r=>r.session_id===unrated.session.sessionId)).toEqual([expect.objectContaining({operation:'feedback',rating:null})]);
+ expect((await read('experiences')).find(r=>r.session_id===unrated.session.sessionId)).toMatchObject({rating:null,message:'Không chấm sao',phone:'0961036265'});
+ expect((await read('receipts')).filter(r=>r.session_id===unrated.session.sessionId)).toEqual([expect.objectContaining({operation:'feedback',rating:null,phone:'0961036265'})]);
  const {dictionary}=await import('../lib/owner/export');
  expect(dictionary('experiences').fields.find(x=>x.name==='rating')).toMatchObject({nullable:true});
 });

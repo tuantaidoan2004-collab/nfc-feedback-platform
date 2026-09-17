@@ -1,7 +1,7 @@
 import type { CoordinatorPorts, OpenSnapshot, RatingReply, TransportReply } from './visit-coordinator';
 
 export type RenderBinding = Readonly<{ proof: string; preview: boolean }>;
-export type FeedbackCommand = Readonly<{ intentId: string; expectedRevision: number; topic: string; message: string }>;
+export type FeedbackCommand = Readonly<{ intentId: string; expectedRevision: number; topic: string; message: string; phone?: string }>;
 export type FeedbackReply = Readonly<{ outcome: 'applied' | 'replayed';
   experience: { rating: number | null; revision: number; firstInteractionAt: string; updatedAt: string };
   receipt: { intentId: string; revision: number; updatedAt: string } }>;
@@ -83,7 +83,8 @@ export function createVisitFetchTransport(shop: string, ports: Ports, render?: R
     feedback: (secret, visitId, command) => {
       if (!uuid(visitId)) return Promise.resolve({ kind: 'rejected', code: 'INVALID_INPUT' });
       return post(`${base}/${visitId}/feedback`, secret,
-        { intentId: command.intentId, expectedRevision: command.expectedRevision, topic: command.topic, message: command.message },
+        { intentId: command.intentId, expectedRevision: command.expectedRevision, topic: command.topic, message: command.message,
+          ...(command.phone ? { phone: command.phone } : {}) },
         (v): v is FeedbackReply => feedbackReply(v, command));
     },
     register: (secret, event) => post(base, secret, { loadKey: event.loadKey, navigationKind: event.navigationKind },

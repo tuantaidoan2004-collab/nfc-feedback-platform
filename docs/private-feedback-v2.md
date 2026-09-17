@@ -4,6 +4,8 @@ Chưa DB/API/client/UI. `lib/domain/private-feedback.ts` là aggregate contract 
 
 ## Bất biến và snapshot
 
+> **Lát B4 (2026-09-18, migration 011):** góp ý có thể kèm `phone` (không bắt buộc, 8–15 chữ số, có thể có `+`); số là một phần nội dung khi so lần gửi lại.
+>
 > **Đã thay 2026-09-17 (lát B1, migration 010):** góp ý riêng **không cần sao**. Góp ý đầu tiên với `expectedRevision: 0` tạo experience có `rating: null`, revision 1; chấm sao sau đó dùng tiếp chuỗi revision đó. `RATING_REQUIRED` không còn tồn tại. Xem [redesign-v2.md](redesign-v2.md) mục Lát B1.
 
 Không rating thì không experience: feedback đầu tiên trả RATING_REQUIRED, không tạo session/experience hay tự chấm sao. Sau bất kỳ1–5 sao, feedback được phép; low score mở form chỉ là UI, không phải quyền ghi. Google invitation giống nhau mọi sao; nội dung riêng không gửi Google. Contract không có chức năng mạng hay Google.

@@ -188,6 +188,25 @@ test('v2: the plane opens a spotlight card; faces follow the chosen score; thank
   await expect(page.locator('canvas[data-confetti]')).toHaveCount(0);
   await expect(page.locator('.guest-card')).toHaveCSS('animation-name', 'none');
 });
+test('v2: the card takes an optional call-back number that needs a few words with it', async ({ page, fixture: f }) => {
+  await release(f, b2(), 2);
+  await page.goto('/one'); await loaded(page); await openCard(page);
+  const phone = page.getByLabel('Số điện thoại, nếu muốn quản lý gọi lại');
+  await expect(phone).toHaveAttribute('placeholder', 'Chỉ quản lý của quán thấy số này');
+  await expect(phone).toHaveAttribute('type', 'tel');
+  await phone.fill('0961 036 265'); await sendButton(page).click();
+  await expect(page.getByRole('status')).toContainText('Hãy viết vài dòng để quản lý biết cần gọi lại');
+  await page.locator('#message').fill('Gọi giúp tôi'); await phone.fill('0961'); await sendButton(page).click();
+  await expect(page.getByRole('status')).toContainText('Số điện thoại cần 8 đến 15 chữ số');
+  expect((await f.db.query('SELECT count(*)::int n FROM rating_experiences')).rows[0].n).toBe(0);
+  await phone.fill('0961 036 265'); await star(page, 1).click();
+  const response = page.waitForResponse('**/feedback'); await sendButton(page).click();
+  expect(await (await response).text()).not.toContain('0961');
+  await thanked(page);
+  expect((await f.db.query('SELECT rating,feedback_message,feedback_phone FROM rating_experiences')).rows)
+    .toEqual([{ rating: 1, feedback_message: 'Gọi giúp tôi', feedback_phone: '0961036265' }]);
+  await openCard(page); await expect(page.getByLabel('Số điện thoại, nếu muốn quản lý gọi lại')).toHaveValue('');
+});
 test('v2: the hint appears only two seconds after the visitor reaches the bottom', async ({ page, fixture: f }) => {
   await release(f, b2(), 2);
   await page.setViewportSize({ width: 390, height: 600 });

@@ -32,7 +32,7 @@ export type CoordinatorResult =
   | { kind: 'busy' };
 type Entry = { event: OpenEvent; snapshot?: OpenSnapshot; result?: CoordinatorResult; flight?: Promise<CoordinatorResult> };
 type Target = { loadKey: string; sessionId: string };
-type Desired = Target & ({ kind: 'rating'; score: number } | { kind: 'feedback'; topic: string; message: string });
+type Desired = Target & ({ kind: 'rating'; score: number } | { kind: 'feedback'; topic: string; message: string; phone?: string });
 type MutationWork = { secret: string; entry: Entry; snapshot: OpenSnapshot; phase: 'rating' | 'feedback' | 'refresh' } &
   ({ kind: 'rating'; command: RatingCommand } | { kind: 'feedback'; command: FeedbackCommand });
 const validScore = (score: unknown) => Number.isInteger(score) && Number(score) >= 1 && Number(score) <= 5;
@@ -110,7 +110,8 @@ export function createVisitCoordinator(ports: CoordinatorPorts) {
     const intent = { intentId: ports.uuid(), expectedRevision: snapshot.experience?.revision ?? 0 };
     pending = target.kind === 'rating'
       ? { ...base, kind: 'rating', phase: 'rating', command: Object.freeze({ ...intent, score: target.score }) }
-      : { ...base, kind: 'feedback', phase: 'feedback', command: Object.freeze({ ...intent, topic: target.topic, message: target.message }) };
+      : { ...base, kind: 'feedback', phase: 'feedback', command: Object.freeze({ ...intent, topic: target.topic, message: target.message,
+        ...(target.phone ? { phone: target.phone } : {}) }) };
   }
   function reconcile(request: MutationWork) {
     if (buffered.length) notice = 'BUFFERED_MUTATIONS_DISCARDED';
@@ -190,12 +191,12 @@ export function createVisitCoordinator(ports: CoordinatorPorts) {
     buffered.push(action);
     return wait();
   }
-  function feedback(topic: string, message: string): Promise<CoordinatorResult> {
-    if (typeof topic !== 'string' || typeof message !== 'string') return Promise.resolve(error('INVALID_INPUT'));
+  function feedback(topic: string, message: string, phone?: string): Promise<CoordinatorResult> {
+    if (typeof topic !== 'string' || typeof message !== 'string' || (phone !== undefined && typeof phone !== 'string')) return Promise.resolve(error('INVALID_INPUT'));
     if (!ports.feedback) return Promise.resolve(error('FEEDBACK_UNAVAILABLE'));
     const snapshot = current();
     if (preparing || !snapshot || !head) return Promise.resolve(error(head ? 'OPEN_PENDING' : 'OPEN_REQUIRED'));
-    const action: Desired = { kind: 'feedback', topic, message, loadKey: head.event.loadKey, sessionId: snapshot.session.id };
+    const action: Desired = { kind: 'feedback', topic, message, ...(phone ? { phone } : {}), loadKey: head.event.loadKey, sessionId: snapshot.session.id };
     if (pending || mutationFlight) return Promise.resolve(buffer(action));
     if (!snapshot.session.active) return Promise.resolve(error('SESSION_EXPIRED'));
     notice = null;

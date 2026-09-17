@@ -31,6 +31,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query(await readFile('db/migrations/001_core.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/002_visit_ratings.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql', 'utf8'));
+      await pool.query(await readFile('db/migrations/011_feedback_phone.sql', 'utf8'));
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
       await pool.query(`INSERT INTO experiences(shop_id,token_hash,note,message)
@@ -278,4 +279,15 @@ test('feedback capability/context, malformed/body/origin validation and disabled
   await expectError(await unavailable(request(token, body), context, 'feedback'), 503, 'SERVICE_UNAVAILABLE');
   const disabled = createVisitV2Api({ enabled: false, origin, pool: () => { throw Error('must not open DB'); } });
   await expectError(await disabled(request(token, body), context, 'feedback'), 404, 'NOT_FOUND');
+});
+
+test('feedback takes an optional call-back number, rejects a malformed one and never echoes it', async ({ db }) => {
+  const token = secret(), visit = await register(db, token), context = { shop: 'one', visitId: visit.id };
+  for (const phone of ['12', 42, 'call me']) {
+    await expectError(await db.api(request(token, { ...feedbackBody(), expectedRevision: 0, phone }), context, 'feedback'), 400, 'INVALID_INPUT');
+  }
+  const saved = await db.api(request(token, { ...feedbackBody(), expectedRevision: 0, phone: '+84 961 036 265' }), context, 'feedback');
+  expect(saved.status).toBe(200);
+  const text = await saved.text(); expect(text).not.toContain('961'); expect(text).not.toContain('phone');
+  expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: '+84961036265' }]);
 });

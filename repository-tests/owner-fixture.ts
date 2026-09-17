@@ -16,11 +16,11 @@ export async function ownerFixture(db:Pool){
  return {db,admin,auth,shops,users};
 }
 /** score null: the customer sent private feedback without choosing a star. */
-export async function addExperience(db:Pool,slug='one',score:number|null=2,message:string|null='Private fixture',at?:Date){
+export async function addExperience(db:Pool,slug='one',score:number|null=2,message:string|null='Private fixture',at?:Date,phone?:string){
  const c=(await new PublishingResolver(db).live({slug})).context;
  const hash=createHash('sha256').update(randomUUID()).digest('hex'),repo=new VisitRatingRepository(db,at?()=>at:undefined,publishingVisitPolicy(c));
  const v=await repo.registerVisit(c,randomUUID(),'load',hash);
  if(score!==null)await repo.recordRating({...c,visitId:v.visit.visitId},{intentId:randomUUID(),expectedRevision:0,score},hash);
- if(message)await repo.recordPrivateFeedback({...c,visitId:v.visit.visitId},{intentId:randomUUID(),expectedRevision:score===null?0:1,topic:'other',message},hash);
+ if(message)await repo.recordPrivateFeedback({...c,visitId:v.visit.visitId},{intentId:randomUUID(),expectedRevision:score===null?0:1,topic:'other',message,...(phone?{phone}:{})},hash);
  return {...v,context:c,hash,repo};
 }

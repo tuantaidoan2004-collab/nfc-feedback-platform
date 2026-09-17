@@ -14,7 +14,7 @@ type Fixture=Awaited<ReturnType<typeof ownerFixture>>&{adminId:string;adminToken
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_imp_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const base=await ownerFixture(db),admins=new AdminAuth(db);
   const adminId=await admins.bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
@@ -34,7 +34,7 @@ const allow=(f:Fixture,enabled:boolean,shop=0)=>new OwnerDashboard(f.db).setSupp
 const exports=['experiences','page_visits','receipts'] as const;
 
 test('overview: needs no permission, feedback text is removed on the server, every export and every write is refused',async({f})=>{
- const x=await addExperience(f.db,'one',2,'Bí mật của khách');
+ const x=await addExperience(f.db,'one',2,'Bí mật của khách',undefined,'0961036265');
  const dashboard=new OwnerDashboard(f.db);
  await dashboard.update(f.users[0].token,'one',{sessionId:x.session.sessionId,expectedCaseRevision:0,expectedExperienceRevision:'2',status:'progress',note:'Ghi chú của chủ'});
  // The switch is off: overview still opens.
@@ -44,8 +44,8 @@ test('overview: needs no permission, feedback text is removed on the server, eve
  expect(read.viewer).toMatchObject({kind:'admin',admin:'operator',scope:'overview',reason});
  expect(read.support).toEqual({feedback:false,history:[]});
  expect(read.records).toHaveLength(1);
- expect(read.records[0]).toMatchObject({topic:null,message:null,note:'',status:'progress',rating:2});
- expect(JSON.stringify(read)).not.toMatch(/Bí mật|Ghi chú của chủ/);
+ expect(read.records[0]).toMatchObject({topic:null,message:null,phone:null,note:'',status:'progress',rating:2});
+ expect(JSON.stringify(read)).not.toMatch(/Bí mật|Ghi chú của chủ|0961036265/);
  expect(read.metrics.feedback).toBe('1');
 
  for(const dataset of exports)

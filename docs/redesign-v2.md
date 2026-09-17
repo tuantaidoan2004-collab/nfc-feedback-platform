@@ -123,3 +123,11 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 - Số điện thoại gọi lại (C) làm ở **lát B4** vì cần migration.
 
 **Còn lại:** câu hỏi cấu hình `text.question` không còn hiện trên trang; thẻ dùng câu cố định "Bạn cảm thấy thế nào?". Script Safari chạy tay (`integration-tests/safari-local.mjs`) vẫn giả định sao trên trang chính, nên đã lỗi thời.
+
+## Lát B4 — số điện thoại gọi lại — 2026-09-18
+
+- **Migration 011** (`011_feedback_phone.sql`): cột `feedback_phone` ở `rating_experiences` và `rating_intent_receipts`. Số phải là 8–15 chữ số, có thể có `+` ở đầu, và chỉ có khi có góp ý. Rollback từ chối (`FEEDBACK_PHONE_PRESENT`) khi đã lưu số nào.
+- **Thẻ góp ý:** ô "Số điện thoại, nếu muốn quản lý gọi lại", **không bắt buộc**, chữ mờ trong ô "Chỉ quản lý của quán thấy số này". Dấu cách, chấm, gạch và ngoặc khách gõ được bỏ đi. Có số mà chưa viết chữ thì thẻ nhắc viết vài dòng, vì góp ý (chữ) là bắt buộc khi để lại số.
+- **Lưu:** số đi cùng góp ý. Chấm sao sau đó giữ nguyên số; sửa góp ý mà không nhập số thì số bị xoá khỏi trạng thái hiện tại, còn biên nhận cũ vẫn giữ. Số là một phần nội dung khi so lần gửi lại (idempotency). API không bao giờ trả số về.
+- **Ai thấy:** chủ shop và quản lý (dashboard hiện "Số gọi lại", bấm để gọi); admin chỉ thấy khi chủ shop cho phép đọc góp ý, vì ở phạm vi tổng quan server xoá số cùng nội dung góp ý. File export của chủ shop có cột `phone` (có thể trống); admin vẫn không bao giờ export được.
+- **Triển khai:** Tài phải migrate Neon (production và preview) **trước khi push** B4.

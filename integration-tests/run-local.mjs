@@ -51,7 +51,7 @@ async function startApp(name, port, flag, builtApp) {
 }
 try {
   await admin.query(`CREATE SCHEMA ${schema}`);
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', ...(publishing ? ['003_publishing.sql'] : []), ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '009_template_shop.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', ...(publishing ? ['003_publishing.sql'] : []), ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '009_template_shop.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');

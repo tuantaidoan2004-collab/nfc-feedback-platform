@@ -9,7 +9,7 @@ import './guest-page.css';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
-import { normalizeFeedback } from '@/lib/domain/private-feedback';
+import { normalizeFeedback, normalizePhone } from '@/lib/domain/private-feedback';
 import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
 
 /**
@@ -30,6 +30,7 @@ const messages = {
     recovery: 'Hãy thử lại thao tác đang chờ trước khi tiếp tục.',
     changed: 'Trang vừa được mở lại. Thao tác chờ chưa được chuyển sang lần mở mới; hãy kiểm tra trước khi gửi tiếp.',
     empty: 'Hãy chọn sao hoặc viết vài dòng trước khi gửi.',
+    phoneNeedsText: 'Hãy viết vài dòng để quản lý biết cần gọi lại về việc gì.', phoneInvalid: 'Số điện thoại cần 8 đến 15 chữ số.',
     invalid: 'Góp ý cần từ 1 đến 2.000 ký tự văn bản hợp lệ.', retry: 'Thử lại lần gửi', retryOpen: 'Thử kết nối lại',
   },
   en: {
@@ -43,6 +44,7 @@ const messages = {
     recovery: 'Retry the pending action before continuing.',
     changed: 'The page reopened. Queued actions were not moved to this opening; review before submitting again.',
     empty: 'Choose stars or write a few words before sending.',
+    phoneNeedsText: 'Write a few words so the manager knows what to call about.', phoneInvalid: 'A phone number needs 8 to 15 digits.',
     invalid: 'Feedback needs 1 to 2,000 valid text characters.', retry: 'Retry submission', retryOpen: 'Retry connection',
   },
 } as const;
@@ -50,9 +52,11 @@ type MessageKey = keyof typeof messages.vi;
 const pageCopy = {
   vi: { google: 'Đánh giá trên Google', poster: 'POSTER SỰ KIỆN', links: 'Kết nối với shop', close: 'Đóng',
     hint: 'Có điều gì muốn nhắn riêng cho quán?', title: 'Gửi góp ý riêng cho quản lý', feeling: 'Bạn cảm thấy thế nào?',
+    phone: 'Số điện thoại, nếu muốn quản lý gọi lại', phoneHint: 'Chỉ quản lý của quán thấy số này',
     thanks: 'Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn' },
   en: { google: 'Review us on Google', poster: 'EVENT POSTER', links: 'Connect with the shop', close: 'Close',
     hint: 'Anything to tell us privately?', title: 'Send private feedback to the manager', feeling: 'How do you feel?',
+    phone: 'Phone, if you would like the manager to call back', phoneHint: 'Only the shop’s managers see this number',
     thanks: 'Thank you — we are grateful for your feedback' },
 } as const;
 /** The chosen score turns every filled star into that score's face. */
@@ -203,14 +207,14 @@ export default function ShopFeedbackV2(shop: Props) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<'form' | 'thanks'>('form');
   const [choice, setChoice] = useState(0);
-  const [message, setMessage] = useState(''); const [topic, setTopic] = useState<Topic>('other');
+  const [message, setMessage] = useState(''); const [topic, setTopic] = useState<Topic>('other'); const [phone, setPhone] = useState('');
   const [validationState, setValidationState] = useState<{ key: MessageKey; loadKey?: string } | null>(null);
   const validation = validationState?.loadKey === current?.event.loadKey ? validationState?.key : null;
   function setValidation(key: MessageKey | null) { setValidationState(key ? { key, loadKey: current?.event.loadKey } : null); }
   const [sending, setSending] = useState(false);
   const submitted = useRef(false);
   // Text waiting for its star to be confirmed: Send saves the star first, then the text.
-  const queued = useRef<{ topic: string; message: string } | null>(null);
+  const queued = useRef<{ topic: string; message: string; phone?: string } | null>(null);
   const planeRef = useRef<HTMLButtonElement>(null), modalRef = useRef<HTMLDivElement>(null), cardRef = useRef<HTMLDivElement>(null);
 
   const busy = !!mutation?.running || !!mutation?.pending || !!client.state?.actionsRunning;
@@ -242,11 +246,11 @@ export default function ShopFeedbackV2(shop: Props) {
       const next = queued.current;
       if (result.mutation !== 'feedback' && next) {
         queued.current = null;
-        void client.feedback(next.topic, next.message).then(finish);
+        void client.feedback(next.topic, next.message, next.phone).then(finish);
         return;
       }
       submitted.current = false; setSending(false);
-      setMessage(''); setTopic('other'); setChoice(0); setPhase('thanks');
+      setMessage(''); setTopic('other'); setPhone(''); setChoice(0); setPhase('thanks');
       return;
     }
     if (result.kind === 'pending') return;
@@ -257,13 +261,17 @@ export default function ShopFeedbackV2(shop: Props) {
   function send() {
     if (!canSend || submitted.current) return;
     const text = message.trim();
+    const number = normalizePhone(phone);
+    if (number === undefined) { setValidation('phoneInvalid'); return; }
+    if (number && !text) { setValidation('phoneNeedsText'); return; }
     if (!choice && !text) { setValidation('empty'); return; }
     if (text && !normalizeFeedback(topic, message)) { setValidation('invalid'); return; }
     submitted.current = true; setSending(true); setValidation(null);
+    const note = text ? { topic, message, ...(number ? { phone: number } : {}) } : null;
     if (choice) {
-      queued.current = text ? { topic, message } : null;
+      queued.current = note;
       void client.rate(choice).then(finish);
-    } else void client.feedback(topic, message).then(finish);
+    } else void client.feedback(topic, message, note?.phone).then(finish);
   }
 
   // Spotlight: the page behind stops scrolling, Escape closes, focus moves into the card.
@@ -336,6 +344,9 @@ export default function ShopFeedbackV2(shop: Props) {
               <select id="topic" disabled={locked} value={topic} onChange={e => setTopic(e.target.value as Topic)}>{topics.map(key => <option key={key} value={key}>{t[key]}</option>)}</select>
               <label htmlFor="message">{t.message}</label>
               <textarea id="message" rows={4} disabled={locked} value={message} placeholder={t.placeholder} onChange={e => { setMessage(e.target.value); setValidation(null); }} />
+              <label htmlFor="phone">{p.phone}</label>
+              <input id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={24} disabled={locked} value={phone} placeholder={p.phoneHint}
+                onChange={e => { setPhone(e.target.value); setValidation(null); }} />
               <button className="guest-send" disabled={!canSend}>{t.send}</button>
               {statusLine}{retryButtons}
             </form>}

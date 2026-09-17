@@ -4,7 +4,7 @@ import { recordAdminAction } from '../admin/audit';
 import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './filters';
 export const utc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_at')} first_rated_at,${utc('e.updated_at')} updated_at,
- e.rating,e.revision::text experience_revision,e.feedback_topic topic,e.feedback_message message,
+ e.rating,e.revision::text experience_revision,e.feedback_topic topic,e.feedback_message message,e.feedback_phone phone,
  ${effectiveStatus} status,COALESCE(c.note,'') note,COALESCE(c.revision,0) case_revision,
  ${utc('c.updated_at')} case_updated_at,s.tag_id,COALESCE(NULLIF(t.location_label,''),CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) source_label,
  s.release_id,origin.release_id origin_release_id
@@ -13,7 +13,7 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  LEFT JOIN tags t ON t.id=s.tag_id
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
-export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
+export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
 export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
 export type SupportChange = {enabled:boolean;by:string;at:string};
 /**
@@ -55,7 +55,7 @@ export class OwnerDashboard {
       const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];delete result.records;delete result.tags;delete result.releases;
       const actor=access.actor, hidden=actor.kind==='admin'&&actor.scope==='overview';
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
-      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,note:''}:row);
+      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:''}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
         detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
       return {shop:{slug:access.slug,name:access.name},viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),support:await support(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};

@@ -23,11 +23,11 @@ export interface VisitPolicy {
 export class VisitAccessDenied extends Error { constructor(public readonly code: string) { super(code); } }
 export class VisitCapabilityConflict extends Error { constructor() { super('VISIT_CONFLICT'); } }
 
-export type FeedbackCommand = Pick<FeedbackIntent, 'intentId' | 'expectedRevision' | 'topic' | 'message'>;
+export type FeedbackCommand = Pick<FeedbackIntent, 'intentId' | 'expectedRevision' | 'topic' | 'message' | 'phone'>;
 export type StoredFeedbackResult =
  | { kind: 'applied' | 'replayed'; experience: FeedbackExperience; receipt: FeedbackReceipt }
  | { kind: 'rejected'; code: Rejection };
-type FeedbackRow = { feedback_topic: string | null; feedback_message: string | null;
+type FeedbackRow = { feedback_topic: string | null; feedback_message: string | null; feedback_phone: string | null;
   feedback_submitted_at: Date | null; feedback_updated_at: Date | null };
 type SessionRow = { id: string; shop_id: string; scope: DataScope; entry_key: string; browser_hash: string;
   started_at: Date; last_activity: Date; closed_at: Date | null };
@@ -46,12 +46,12 @@ const expFrom = (c: SessionContext, r: Pick<ExperienceRow, 'rating' | 'revision'
   entryKey: c.entryKey, sessionId: c.sessionId, rating: r.rating, revision: Number(r.revision),
   firstInteractionAt: r.first_interaction_at.toISOString(), updatedAt: r.updated_at.toISOString() });
 const feedbackFrom = (r: FeedbackRow): PrivateFeedback | null => r.feedback_topic === null ? null : ({
-  topic: r.feedback_topic, message: r.feedback_message!, submittedAt: r.feedback_submitted_at!.toISOString(), updatedAt: r.feedback_updated_at!.toISOString(),
+  topic: r.feedback_topic, message: r.feedback_message!, phone: r.feedback_phone ?? null, submittedAt: r.feedback_submitted_at!.toISOString(), updatedAt: r.feedback_updated_at!.toISOString(),
 });
 const publicExperience = (e: FeedbackExperience): RatingExperience => ({ shopId: e.shopId, scope: e.scope, entryKey: e.entryKey,
   sessionId: e.sessionId, rating: e.rating, revision: e.revision, firstInteractionAt: e.firstInteractionAt, updatedAt: e.updatedAt });
 const feedbackValues = (e: FeedbackExperience) => [e.feedback?.topic ?? null, e.feedback?.message ?? null,
-  e.feedback?.submittedAt ?? null, e.feedback?.updatedAt ?? null];
+  e.feedback?.submittedAt ?? null, e.feedback?.updatedAt ?? null, e.feedback?.phone ?? null];
 const visitFrom = (r: OpenRow): PageVisit => ({ shopId: r.shop_id, scope: r.scope, entryKey: r.entry_key,
   sessionId: r.id, visitId: r.visit_id, openedAt: r.opened_at.toISOString(), navigationKind: r.navigation_kind });
 const openSelect = `SELECT s.*,v.id AS visit_id,v.opened_at,v.navigation_kind FROM page_visits v
@@ -157,27 +157,27 @@ export class VisitRatingRepository {
         const experience: FeedbackExperience = { ...expFrom(session, { rating: prior.score, revision: prior.applied_revision,
           first_interaction_at: prior.first_interaction_at, updated_at: prior.applied_at }), feedback: feedbackFrom(prior) };
         if (prior.operation === 'rating') receipts.push({ intent: { ...base, score: prior.score! }, experience });
-        else feedbackReceipts.push({ intent: { ...base, topic: prior.feedback_topic!, message: prior.feedback_message! }, experience });
+        else feedbackReceipts.push({ intent: { ...base, topic: prior.feedback_topic!, message: prior.feedback_message!, phone: prior.feedback_phone }, experience });
       }
       const state = { session, experience: current, receipts, feedbackReceipts };
       const outcome = action.kind === 'rating'
         ? rateFeedbackExperience(state, visit, { ...visit, intentId: action.command.intentId, expectedRevision: action.command.expectedRevision, score: action.command.score }, at)
-        : submitPrivateFeedback(state, visit, { ...visit, intentId: action.command.intentId, expectedRevision: action.command.expectedRevision, topic: action.command.topic, message: action.command.message }, at);
+        : submitPrivateFeedback(state, visit, { ...visit, intentId: action.command.intentId, expectedRevision: action.command.expectedRevision, topic: action.command.topic, message: action.command.message, phone: action.command.phone ?? null }, at);
       if (outcome.kind === 'rejected') return { kind: 'rejected' as const, code: outcome.code };
       const exp = outcome.state.experience!;
       if (outcome.kind === 'applied') {
         await client.query(`INSERT INTO rating_experiences
           (shop_id,scope,entry_key,session_id,rating,revision,first_interaction_at,updated_at,
-           feedback_topic,feedback_message,feedback_submitted_at,feedback_updated_at)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(session_id) DO UPDATE SET
+           feedback_topic,feedback_message,feedback_submitted_at,feedback_updated_at,feedback_phone)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(session_id) DO UPDATE SET
           rating=EXCLUDED.rating,revision=EXCLUDED.revision,updated_at=EXCLUDED.updated_at,
           feedback_topic=EXCLUDED.feedback_topic,feedback_message=EXCLUDED.feedback_message,
-          feedback_submitted_at=EXCLUDED.feedback_submitted_at,feedback_updated_at=EXCLUDED.feedback_updated_at`,
+          feedback_submitted_at=EXCLUDED.feedback_submitted_at,feedback_updated_at=EXCLUDED.feedback_updated_at,feedback_phone=EXCLUDED.feedback_phone`,
           [...key, exp.rating, exp.revision, exp.firstInteractionAt, exp.updatedAt, ...feedbackValues(exp)]);
         await client.query(`INSERT INTO rating_intent_receipts
           (shop_id,scope,entry_key,session_id,visit_id,intent_id,expected_revision,score,applied_revision,first_interaction_at,applied_at,
-           operation,feedback_topic,feedback_message,feedback_submitted_at,feedback_updated_at)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+           operation,feedback_topic,feedback_message,feedback_submitted_at,feedback_updated_at,feedback_phone)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
           [...key, visit.visitId, action.command.intentId, action.command.expectedRevision, exp.rating, exp.revision,
             exp.firstInteractionAt, exp.updatedAt, action.kind, ...feedbackValues(exp)]);
         await this.policy?.applied(client, visit, !currentRow);

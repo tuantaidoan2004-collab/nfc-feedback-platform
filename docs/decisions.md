@@ -487,13 +487,19 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Thêm `/gov` → "Đưa khuôn về mặc định mới" (ghi sổ `template.reset`), vì khuôn trên preview còn cấu hình v1.
 - **Lỗi và bẫy trong lát:** nút "N" của Next dev tools đè lên nút máy bay nên test không bấm được (đã tắt `devIndicators`); Playwright chờ nút đang nổi đứng yên tới hết giờ; mở lại thẻ làm mất số sao chưa gửi (lỗi của agent, test bắt được); dùng lệnh `timeout` không có trên macOS. Ghi trong gotchas.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát B3)
+## Lát B4: số điện thoại gọi lại — 2026-09-18
+
+- Migration 011, ô số điện thoại không bắt buộc trong thẻ góp ý, hiện trong dashboard và export của chủ shop. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát B4.
+- **Lỗi của agent:** khi viết lại test cho B3 đã bỏ sót `integration-tests/owner-dashboard.spec.ts` (vẫn bấm sao trên trang chính); kiểm commit bắt được, đã sửa và gộp vào commit B3 trước khi push. Fixture `repository-tests/publishing.spec.ts` thiếu 010–011 nên đỏ khi repository ghi cột mới; đã thêm.
+- B3 (`af3c5b9`) đã push riêng trước B4 để Tài xem giao diện; B4 chờ Tài migrate Neon.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát B4)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09, mỗi branch báo `Applied 010_feedback_without_rating.`). Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). **Migration 011 (lát B4) phải được Tài chạy trên cả hai branch trước khi push B4.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
@@ -509,18 +515,17 @@ Shop trên preview:
 - `caphe-demo` đã bỏ, hiện "Trang chưa sẵn sàng".
 
 Chưa có:
-- số điện thoại gọi lại trong thẻ góp ý (**lát B4, làm ngay**, có migration 011); âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
+- âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
 - dashboard mới 3 tab; editor; công tắc 4 vị trí;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát B4: số điện thoại gọi lại** (không bắt buộc, chữ mờ "Chỉ quản lý của quán thấy số này"; chủ shop và quản lý thấy, admin chỉ thấy khi được phép đọc góp ý; có trong export). Tài đã duyệt 18/09. Effort high.
-2. **Lát C: dashboard mới** (khung, ô chuyển shop, tab Dữ liệu). Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt.
-3. Lát D: tab Thiết kế giao diện (gồm chỉnh nút máy bay) và công tắc 4 vị trí.
-4. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
-5. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
+1. **Lát C: dashboard mới** (khung, ô chuyển shop, tab Dữ liệu). Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt.
+2. Lát D: tab Thiết kế giao diện (gồm chỉnh nút máy bay) và công tắc 4 vị trí.
+3. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
+4. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)
 

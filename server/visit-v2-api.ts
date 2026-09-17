@@ -55,7 +55,9 @@ export function createVisitV2Api(dependencies: Dependencies) {
       const bearer = /^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('authorization') ?? '');
       if (!bearer) throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');
       const input = await readInput(request, operation === 'feedback' ? 16 * 1024 : 4096);
-      const keys = operation === 'register' ? ['loadKey', 'navigationKind'] : operation === 'rating' ? ['intentId', 'expectedRevision', 'score'] : ['intentId', 'expectedRevision', 'topic', 'message'];
+      // The call-back number is the one optional field; every other field is required.
+      const keys = operation === 'register' ? ['loadKey', 'navigationKind'] : operation === 'rating' ? ['intentId', 'expectedRevision', 'score']
+        : ['intentId', 'expectedRevision', 'topic', 'message', ...(Object.hasOwn(input, 'phone') ? ['phone'] : [])];
       if (Object.keys(input).length !== keys.length || Object.keys(input).some(k => !keys.includes(k))) {
         throw new ApiError(400, 'INVALID_INPUT');
       }
@@ -66,7 +68,7 @@ export function createVisitV2Api(dependencies: Dependencies) {
           !uuid4.test(input.intentId) || !Number.isSafeInteger(input.expectedRevision) ||
           Number(input.expectedRevision) < 0 || Number(input.expectedRevision) >= Number.MAX_SAFE_INTEGER ||
           (operation === 'rating' ? !Number.isInteger(input.score) || Number(input.score) < 1 || Number(input.score) > 5
-            : typeof input.topic !== 'string' || typeof input.message !== 'string')) {
+            : typeof input.topic !== 'string' || typeof input.message !== 'string' || (input.phone !== undefined && typeof input.phone !== 'string'))) {
         throw new ApiError(400, 'INVALID_INPUT');
       }
       if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(context.shop) ||
@@ -93,7 +95,7 @@ export function createVisitV2Api(dependencies: Dependencies) {
       if (operation === 'feedback') {
         const result = await repository.recordPrivateFeedback({ ...resolved, visitId: context.visitId! }, {
           intentId: input.intentId as string, expectedRevision: input.expectedRevision as number,
-          topic: input.topic as string, message: input.message as string,
+          topic: input.topic as string, message: input.message as string, phone: (input.phone as string | undefined) ?? null,
         }, hash);
         if (result.kind === 'rejected') {
           if (result.code === 'CONTEXT_MISMATCH') throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');

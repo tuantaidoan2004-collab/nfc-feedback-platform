@@ -38,8 +38,8 @@ export function createLifecycleQueue(coordinator: Coordinator) {
     rate(score: number): Promise<CoordinatorResult> {
       return started ? track(coordinator.rate(score)) : Promise.resolve({ kind: 'error', code: 'QUEUE_STOPPED' });
     },
-    feedback(topic: string, message: string): Promise<CoordinatorResult> {
-      return started ? track(coordinator.feedback(topic, message)) : Promise.resolve({ kind: 'error', code: 'QUEUE_STOPPED' });
+    feedback(topic: string, message: string, phone?: string): Promise<CoordinatorResult> {
+      return started ? track(coordinator.feedback(topic, message, phone)) : Promise.resolve({ kind: 'error', code: 'QUEUE_STOPPED' });
     },
     retry(): Promise<CoordinatorResult> {
       return started ? track(coordinator.retry()) : Promise.resolve({ kind: 'error', code: 'QUEUE_STOPPED' });

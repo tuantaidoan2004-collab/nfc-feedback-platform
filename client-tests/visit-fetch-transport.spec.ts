@@ -184,3 +184,11 @@ test('render proof is header-only; only preview carries cookies; revoked context
     expect(JSON.parse(String(calls[0].init.body))).toEqual(event);
   }
 });
+
+test('feedback sends the call-back number only when there is one', async () => {
+  const h = harness(async () => Response.json(feedbackReply));
+  await h.transport.feedback(secret, id, { ...feedbackCommand, phone: '0961036265' });
+  await h.transport.feedback(secret, id, feedbackCommand);
+  expect(JSON.parse(String(h.requests[0].init.body))).toEqual({ ...feedbackCommand, phone: '0961036265' });
+  expect(JSON.parse(String(h.requests[1].init.body))).toEqual(feedbackCommand);
+});

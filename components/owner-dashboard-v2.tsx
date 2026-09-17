@@ -109,7 +109,7 @@ export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{sl
  <section aria-label="Danh sách trải nghiệm"><h2>Trải nghiệm & góp ý</h2>{data.records.length===0?<p>Chưa có trải nghiệm phù hợp bộ lọc.</p>:data.records.map(row=><article className={styles.card} key={`${row.session_id}:${row.case_revision}:${row.experience_revision}`}>
  <div className={styles.row}><strong>{row.rating===null?'Chưa chấm sao':`${row.rating}/5 sao nội bộ`}</strong><time>{time(row.first_rated_at)}</time><span>{row.status?labels[row.status]:'Chưa gửi góp ý'}</span></div>
  <p className={styles.muted}>{row.source_label} · Bản {row.release_id?.slice(0,8)??'chưa rõ'} · Phiên {row.session_id.slice(0,8)}</p>
- {row.message&&<><p className={styles.message}>{row.message}</p><p className={styles.muted}>Chủ đề: {row.topic}</p>{impersonation?(row.note&&<p className={styles.muted}>Ghi chú nội bộ: {row.note}</p>):<CaseForm row={row} save={save}/>}</>}
+ {row.message&&<><p className={styles.message}>{row.message}</p><p className={styles.muted}>Chủ đề: {row.topic}</p>{row.phone&&<p className={styles.muted} data-phone>Số gọi lại: <a href={`tel:${row.phone}`}>{row.phone}</a></p>}{impersonation?(row.note&&<p className={styles.muted}>Ghi chú nội bộ: {row.note}</p>):<CaseForm row={row} save={save}/>}</>}
  {!row.message&&impersonation?.scope==='overview'&&row.status&&<p className={styles.muted}>Nội dung góp ý ẩn trong phạm vi tổng quan.</p>}
  </article>)}</section>
  <CustomerLink url={customerUrl}/>

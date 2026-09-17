@@ -1,10 +1,11 @@
 import { canReuseSession, rateSession, type PageVisit, type RatingExperience, type RatingIntent,
   type RatingReceipt, type Rejection, type SessionState, type VisitContext } from './visit-rating';
 
-export type PrivateFeedback = Readonly<{ topic: string; message: string; submittedAt: string; updatedAt: string }>;
+/** phone: optional call-back number, digits with an optional leading +, kept with the feedback it came with. */
+export type PrivateFeedback = Readonly<{ topic: string; message: string; phone: string | null; submittedAt: string; updatedAt: string }>;
 /** One shared revision for both writes. feedback has no independent concurrency token. */
 export type FeedbackExperience = RatingExperience & Readonly<{ feedback: PrivateFeedback | null }>;
-export type FeedbackIntent = VisitContext & Readonly<{ intentId: string; expectedRevision: number; topic: string; message: string }>;
+export type FeedbackIntent = VisitContext & Readonly<{ intentId: string; expectedRevision: number; topic: string; message: string; phone?: string | null }>;
 export type FeedbackReceipt = Readonly<{ intent: FeedbackIntent; experience: FeedbackExperience }>;
 export type SharedRatingReceipt = Omit<RatingReceipt, 'experience'> & Readonly<{ experience: FeedbackExperience }>;
 export type FeedbackSessionState = Omit<SessionState, 'experience' | 'receipts'> & Readonly<{
@@ -18,15 +19,26 @@ const sameContext = (a: VisitContext | RatingExperience, b: RatingExperience | V
   a.shopId === b.shopId && a.scope === b.scope && a.entryKey === b.entryKey && a.sessionId === b.sessionId;
 const latest = (a: string, b: string) => new Date(Math.max(Date.parse(a), Date.parse(b))).toISOString();
 
-/** Plain text only. NFC and line-ending canonicalization define idempotent payload equality. */
-export function normalizeFeedback(topic: string, message: string): { topic: string; message: string } | null {
+/** Separators people type in a phone number are dropped; what remains must be 8–15 digits, optionally after +. */
+export function normalizePhone(phone: unknown): string | null | undefined {
+  if (phone === undefined || phone === null) return null;
+  if (typeof phone !== 'string') return undefined;
+  const compact = phone.replace(/[\s.()-]/g, '');
+  if (!compact) return null;
+  return /^\+?[0-9]{8,15}$/.test(compact) ? compact : undefined;
+}
+
+/** Plain text only. NFC and line-ending canonicalization define idempotent payload equality. Undefined phone is none. */
+export function normalizeFeedback(topic: string, message: string, phone?: unknown): { topic: string; message: string; phone: string | null } | null {
+  const number = normalizePhone(phone);
+  if (number === undefined) return null;
   if (typeof topic !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(topic) || typeof message !== 'string') return null;
   // Reject malformed UTF-16 instead of silently storing replacement characters.
   if (/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(message)) return null;
   const normalized = message.replace(/\r\n?/g, '\n').normalize('NFC').trim();
   const length = Array.from(normalized).length;
   if (length < 1 || length > 2000 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/.test(normalized)) return null;
-  return { topic, message: normalized };
+  return { topic, message: normalized, phone: number };
 }
 
 /** Aggregate boundary for rating once private feedback exists; legacy rateSession is unchanged. */
@@ -48,7 +60,7 @@ export function submitPrivateFeedback(state: FeedbackSessionState, visit: PageVi
   const reject = (code: Rejection): Result<FeedbackReceipt> => ({ kind: 'rejected', state, code });
   if (!sameContext(visit, state.session) || !sameContext(intent, state.session) || visit.visitId !== intent.visitId ||
       (state.experience && !sameContext(state.experience, state.session))) return reject('CONTEXT_MISMATCH');
-  const content = normalizeFeedback(intent.topic, intent.message);
+  const content = normalizeFeedback(intent.topic, intent.message, intent.phone);
   if (!content || typeof intent.intentId !== 'string' || !intent.intentId.trim() ||
       !Number.isSafeInteger(intent.expectedRevision) || intent.expectedRevision < 0 || intent.expectedRevision >= Number.MAX_SAFE_INTEGER ||
       !Number.isFinite(Date.parse(receivedAt))) return reject('INVALID_INPUT');
@@ -57,7 +69,7 @@ export function submitPrivateFeedback(state: FeedbackSessionState, visit: PageVi
   const prior = state.feedbackReceipts.find(r => r.intent.intentId === intent.intentId);
   if (prior) {
     if (prior.intent.visitId !== intent.visitId || prior.intent.expectedRevision !== intent.expectedRevision ||
-        prior.intent.topic !== content.topic || prior.intent.message !== content.message) return reject('INTENT_CONFLICT');
+        prior.intent.topic !== content.topic || prior.intent.message !== content.message || (prior.intent.phone ?? null) !== content.phone) return reject('INTENT_CONFLICT');
     return { kind: 'replayed', state, receipt: prior };
   }
   if (!canReuseSession(state.session, state.session, receivedAt)) return reject('SESSION_EXPIRED');
