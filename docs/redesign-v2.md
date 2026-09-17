@@ -53,7 +53,7 @@ Theo ảnh mockup. Khung chung gồm logo NFC Feedback, ô "Shop đang xem" (m�
 | Lát | Nội dung |
 |---|---|
 | A | Shop khuôn "YOUR SHOP", Tạo shop sao chép từ khuôn, video nền mặc định |
-| B | Trang khách v2: hai bố cục, nút mới, phản hồi riêng không cần sao, khung mở/thu gọn, popup cảm ơn |
+| B | Trang khách v2: hai bố cục, nút mới, phản hồi riêng không cần sao, khung mở/thu gọn, popup cảm ơn — **xong 17/09** (B1 + B2) |
 | C | Dashboard mới: khung, ô chuyển shop, tab Dữ liệu |
 | D | Tab Thiết kế giao diện và công tắc 4 vị trí |
 | E | Tab Sản phẩm & link: nút, thẻ theo bàn, kích hoạt thẻ |
@@ -85,3 +85,21 @@ Tài duyệt phạm vi 17/09, chia lát B làm hai: B1 (máy chủ) và B2 (giao
 - **Số liệu:** "Trải nghiệm chấm sao" chỉ đếm phiên có sao; điểm trung bình bỏ qua phiên không sao. Phiên chỉ có góp ý vẫn tính vào "Có góp ý riêng" và "chưa xử lý", xử lý được như thường. Dashboard hiện "Chưa chấm sao". Export: `rating` là `null` và được khai `nullable`.
 - **Giao diện hiện tại** chỉ sửa đủ để gửi góp ý khi chưa chấm sao; B2 vẽ lại toàn bộ.
 - **Triển khai:** Tài phải **migrate Neon (production và preview) trước khi push**. Mã cũ đọc được schema mới vì chưa có dòng nào không sao; mã mới ghi dòng không sao nên cần schema mới trước.
+
+## Lát B2 — giao diện trang khách v2 — xong 2026-09-17
+
+Tài chốt trước khi làm: **ưu tiên xong nhanh, test nhanh, sửa nhanh**; lỗ hổng bảo mật và back-end sẽ do Astra rà và vá sau. Nguyên tắc sản phẩm vẫn giữ.
+
+- **Schema cấu hình v2** (`lib/publishing/config.ts`): thêm bố cục `card`, nút `facebook` và `phone`. Chỉ nút `phone` nhận link `tel:` (chữ số, có thể có `+`, 3–15 số); mọi nút khác vẫn phải `https`. `defaultConfig()` giờ tạo v2. Bản phát hành v1 vẫn hợp lệ và hiển thị như thường, nhưng không dùng được các phần mới. `template_versions.schema_version` vẫn là 1: đó là phiên bản khuôn trong database, không phải phiên bản cấu hình, và đổi nó thì cần migration.
+- **Khuôn trên preview vẫn là v1** (tạo ở lát A). Shop nhân bản từ khuôn cũng mang cấu hình v1 cho tới khi khuôn được lưu lại bằng editor (lát D).
+- **Trang khách** (`components/shop-feedback-v2.tsx`, `guest-page.css`, `confetti.ts`):
+  - nền màu, gradient hoặc video (chạy lặp, không tiếng, `playsinline`, có ảnh tĩnh). Máy bật giảm chuyển động thì không render video, chỉ hiện ảnh tĩnh. Chỉ video có sẵn trong app mới có ảnh tĩnh; video tải lên khác rơi về nền màu;
+  - watermark "YOUR LOGO" trôi chéo, đứng yên khi giảm chuyển động;
+  - khung "POSTER SỰ KIỆN" khi chưa có poster; logo tròn đè mép poster, chưa có logo thì hiện chữ cái đầu của tên shop;
+  - nút Google là điểm nhấn duy nhất, **giống hệt nhau ở mọi mức sao**, link đúng như cấu hình (không kèm số sao);
+  - chấm 1–3 sao: khung góp ý mở ra, trang cuộn vừa đủ để thấy khung nhưng **không bao giờ để nút Google ra khỏi màn hình**; nếu nút Google đang ở dưới mép thì cuộn cho thấy nó;
+  - chạm ra ngoài thì khung thu lại, chữ đang gõ vẫn giữ. Chạm vào sao, nút mở khung, hoặc vùng trạng thái / nút thử lại **không** tính là ra ngoài;
+  - gửi góp ý xong: popup cảm ơn nảy kiểu 3D kèm pháo giấy tự viết (không thêm thư viện); tự đóng sau 2,8 giây hoặc khi chạm bất kỳ đâu; giảm chuyển động thì chỉ hiện chữ;
+  - hàng nút mạng xã hội lấy từ cấu hình; link `https` mở tab mới, `tel:` gọi thẳng.
+- **Test** (`integration-tests/publishing.spec.ts`): Google trong màn hình ở cả hai bố cục, với 375×548 và 320×460 (vùng nhìn thấy của Safari trên iPhone SE sau khi trừ thanh công cụ); khung thu/mở giữ nháp; popup và pháo giấy, bản giảm chuyển động; media, watermark, poster, logo, nút; bản v1 vẫn hiển thị.
+- **Chưa làm:** màn "Cảm ơn quý khách" sau khi xong đánh giá nội bộ (mục 7), âm thanh popup, sửa cấu hình trong giao diện (lát D). Danh sách chủ đề góp ý vẫn là của tiệm cắt tóc (`lib/copy.ts`).

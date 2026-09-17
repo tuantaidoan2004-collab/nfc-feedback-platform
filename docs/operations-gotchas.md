@@ -80,6 +80,12 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Chạy riêng một test UI của harness thì đỏ, chạy cả file thì xanh.** Harness chạy test chính trên `next dev`. Server dev biên dịch một trang ở lần tải đầu tiên, rồi **ra lệnh tải lại cho mọi trang đang mở**. Test nào mở trang lần đầu trong khi đang có trang khác mở thì một trang bị tải lại giữa chừng: ô vừa gõ mất trắng, người dùng rơi về form đăng nhập dù `POST /login` trả 200. Các test chạy trước biên dịch sẵn trang nên cả file ổn định; chạy lẻ bằng `--grep`, hoặc khi một test phía trước đỏ sớm, thì test sau đỏ theo. Làm nóng bằng request chỉ biên dịch phía server, **không đủ**. Kết luận phải dựa trên **cả file**; đừng sửa sản phẩm vì lỗi này. Đã mất một vòng bỏ nhầm `router.refresh()` trước khi tìm ra nguyên nhân.
 
+**Test "nút nằm trong màn hình" phải dùng vùng nhìn thấy thật của Safari.** Ở 320×568, từ nút Google tới đáy khung góp ý chỉ ~507px, nên một bản cố tình cuộn hết khung vẫn qua test. Safari trên iPhone SE chỉ còn khoảng 375×548 và 320×460 sau thanh công cụ; với các cỡ đó bản lỗi bị bắt. Khi test mới xanh ngay lần đầu, **cố tình phá mã** một lần để chắc test bắt được lỗi.
+
+**Canvas gắn vào `body` vẫn đè lên popup dù `z-index` thấp hơn.** `.guest` có `isolation: isolate`, tức một stacking context riêng; mọi thứ bên trong nó so thứ tự với nhau, còn cả khối so với canvas ở cấp `body`. Pháo giấy phải gắn **vào trong** `.guest`.
+
+**"Chạm ra ngoài thì thu gọn" phải trừ mọi nút thuộc cùng luồng.** Bản đầu thu khung khi bấm "Thử lại lần gửi" (nút nằm ngoài khung), test public-v2 bắt được vì ô nhập biến mất. Vùng trạng thái, nút thử lại, sao và nút mở khung đều tính là bên trong.
+
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.
 
 **`getByRole('alert')` vi phạm strict mode.** Next render `__next-route-announcer__` cũng mang `role="alert"` trên mọi trang. Thu hẹp bằng `getByRole('main')`.

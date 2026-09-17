@@ -2,7 +2,7 @@ import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { PublishingAdmin } from '../lib/publishing/repository';
-import { defaultConfig } from '../lib/publishing/config';
+import { defaultConfig, STEM_BACKGROUND, type PageConfig } from '../lib/publishing/config';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
 type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; release: string };
@@ -102,4 +102,100 @@ test('publishing gate off and demo retain legacy behavior', async ({ page, reque
   await page.goto('/t/demo'); await expect(star(page, 5)).toBeEnabled();
   await star(page, 5).click();
   expect((await f.db.query('SELECT count(*)::int n FROM page_visits')).rows[0].n).toBe(0);
+});
+
+// Lát B2: guest page v2. The fixture publishes draft revision 1, so the next save expects revision 2.
+const b2 = (patch: Partial<PageConfig> = {}): PageConfig => ({ ...defaultConfig('Quán Thử'), googleUrl: 'https://maps.google.com/?cid=42',
+  background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true },
+  links: [{ label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
+    { label: { vi: 'Gọi quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }], ...patch });
+async function release(f: Fixture, config: unknown, expected: number) {
+  const saved = await f.admin.saveDraft(f.shop, expected, config); await f.admin.publish(f.shop, saved); return saved + 1;
+}
+const settle = (page: Page) => page.evaluate(() => new Promise(resolve => setTimeout(resolve, 700)));
+test('v2: Google stays identical and fully on screen after every low score, both layouts, small phones', async ({ page, fixture: f }) => {
+  let revision = 2;
+  for (const layout of ['full-bleed', 'card'] as const) {
+    revision = await release(f, b2({ layout }), revision);
+    // Safari's visible area on iPhone SE (2nd and 1st gen) once its toolbars take their share of 667 and 568 px.
+    for (const size of [{ width: 375, height: 548 }, { width: 320, height: 460 }]) {
+      await page.setViewportSize(size);
+      for (const score of [1, 2, 3, 5]) {
+        await page.goto('/one'); await expect(star(page, score)).toBeEnabled();
+        await expect(page.locator('main')).toHaveAttribute('data-layout', layout);
+        const google = page.locator('[data-google]');
+        const before = await google.evaluate(element => element.outerHTML);
+        await star(page, score).click(); await expect(page.locator('.rating-receipt')).toContainText(`${score}/5`);
+        await settle(page);
+        expect(await google.evaluate(element => element.outerHTML)).toBe(before);
+        await expect(google).toHaveAttribute('href', 'https://maps.google.com/?cid=42');
+        if (score <= 3) {
+          await expect(page.locator('#private-form')).toBeInViewport();
+          await expect(google, `${layout} ${size.width}x${size.height} score ${score}`).toBeInViewport({ ratio: 1 });
+        } else await expect(page.locator('#private-form')).toHaveCount(0);
+      }
+    }
+  }
+});
+test('v2: tapping outside folds the panel and keeps the draft; the button opens it again', async ({ page, fixture: f }) => {
+  await release(f, b2(), 2);
+  await page.goto('/one'); await expect(star(page, 5)).toBeEnabled();
+  await page.locator('#private-feedback').click(); await page.locator('#message').fill('Nháp còn đó');
+  await star(page, 4).click(); await expect(page.locator('#private-form')).toBeVisible();
+  await page.locator('h1').click();
+  await expect(page.locator('#private-form')).toHaveCount(0);
+  await expect(page.locator('#private-feedback')).toHaveAttribute('aria-expanded', 'false');
+  await page.locator('#private-feedback').click();
+  await expect(page.locator('#message')).toHaveValue('Nháp còn đó');
+});
+test('v2: feedback before any star pops a thank-you with confetti; reduced motion shows the text only', async ({ page, fixture: f }) => {
+  await release(f, b2(), 2);
+  await page.goto('/one'); await expect(star(page, 5)).toBeEnabled();
+  await page.locator('#private-feedback').click(); await page.locator('#message').fill('Chưa chấm sao');
+  await page.getByRole('button', { name: 'Gửi góp ý', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Cảm ơn bạn đã góp ý!');
+  await expect(page.locator('canvas[data-confetti]')).toHaveCount(1);
+  await expect(page.locator('[data-thanks]')).toHaveCSS('animation-name', 'guest-pop');
+  expect((await f.db.query('SELECT rating,feedback_message FROM rating_experiences')).rows).toEqual([{ rating: null, feedback_message: 'Chưa chấm sao' }]);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('canvas[data-confetti]')).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('#message').fill('Lần hai');
+  await page.getByRole('button', { name: 'Gửi góp ý', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.locator('[data-thanks]')).toHaveCSS('animation-name', 'none');
+  await expect(page.locator('canvas[data-confetti]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Đóng', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+test('v2: background video, still, watermark, poster frame, logo and buttons come from the configuration; v1 still renders', async ({ page, fixture: f }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const revision = await release(f, b2(), 2);
+  await page.goto('/one'); await expect(star(page, 5)).toBeEnabled();
+  const video = page.locator('video.guest-bg-media');
+  await expect(video).toHaveAttribute('src', STEM_BACKGROUND.video);
+  await expect(video).toHaveAttribute('poster', STEM_BACKGROUND.still);
+  for (const attribute of ['autoplay', 'loop', 'playsinline']) await expect(video).toHaveAttribute(attribute, '');
+  expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(true);
+  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
+  await expect(page.locator('.guest-watermark-track span').first()).toHaveText('YOUR LOGO');
+  await expect(page.locator('.guest-poster-empty')).toHaveText('POSTER SỰ KIỆN');
+  await expect(page.locator('.guest-logo')).toHaveText('QT');
+  const facebook = page.getByRole('link', { name: 'Facebook' }), phone = page.getByRole('link', { name: 'Gọi quán' });
+  await expect(facebook).toHaveAttribute('href', 'https://facebook.com/quanthu'); await expect(facebook).toHaveAttribute('target', '_blank');
+  await expect(phone).toHaveAttribute('href', 'tel:+84901234567'); expect(await phone.getAttribute('target')).toBeNull();
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await expect(star(page, 5)).toBeEnabled();
+  await expect(video).toHaveCount(0);
+  await expect(page.locator('img.guest-bg-media')).toBeVisible();
+  await expect(page.locator('.guest-watermark-track')).toHaveCSS('animation-name', 'none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await release(f, { ...defaultConfig('Bản cũ'), schemaVersion: 1 }, revision);
+  await page.reload(); await expect(star(page, 5)).toBeEnabled();
+  await expect(page.locator('main')).toHaveAttribute('data-schema', '1');
+  await expect(page.getByRole('heading', { name: 'Bản cũ' })).toBeVisible();
+  expect(errors).toEqual([]);
 });

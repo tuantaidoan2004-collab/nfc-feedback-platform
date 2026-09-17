@@ -273,9 +273,9 @@ Chỉ có `username`, `password_salt`, `password_key`, `active`. **Không có c�
 | Mockup | Schema |
 |---|---|
 | Âm thanh popup | không có field |
-| Nút Facebook | icon chỉ `zalo\|instagram\|booking\|link` |
-| Nút Liên hệ (gọi điện) | **chặn cứng**: `url()` chỉ cho `https:`, `tel:` bị từ chối |
-| Bố cục card | `layout` chỉ nhận `'full-bleed'` |
+| Nút Facebook | ~~icon chỉ `zalo\|instagram\|booking\|link`~~ — xong ở lát B2 (schema v2) |
+| Nút Liên hệ (gọi điện) | ~~`tel:` bị từ chối~~ — xong ở lát B2: nút `phone` nhận `tel:` |
+| Bố cục card | ~~chỉ `'full-bleed'`~~ — xong ở lát B2 |
 | Gradient chuyển động | gradient hiện tĩnh (2 màu + góc) |
 | Nút "Gửi phản hồi riêng tư" hiện sẵn | ~~API trả `RATING_REQUIRED`~~ — xong ở lát B1 (migration 010) |
 

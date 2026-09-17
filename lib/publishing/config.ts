@@ -1,12 +1,17 @@
 export type Localized = { vi: string; en: string };
 export type MediaRef = { kind: 'image' | 'video'; url: string };
+export type LinkIcon = 'zalo' | 'instagram' | 'booking' | 'link' | 'facebook' | 'phone';
+/**
+ * schemaVersion 2 (lát B2) adds the card layout and the Facebook and phone buttons. Version 1 releases stay valid and
+ * render unchanged; they simply cannot use the additions. The phone button is the only one that takes a tel: link.
+ */
 export type PageConfig = {
-  schemaVersion: 1; layout: 'full-bleed'; name: string;
+  schemaVersion: 1 | 2; layout: 'full-bleed' | 'card'; name: string;
   poster: MediaRef | null; logo: { kind: 'image'; url: string } | null;
   background: { kind: 'solid'; color: string } | { kind: 'gradient'; colors: [string, string]; angle: number } | { kind: 'media'; media: MediaRef; loop: boolean };
   watermark: { text: 'YOUR LOGO'; enabled: boolean; motion: 'diagonal-linear' };
   text: { question: Localized }; googleUrl: string;
-  links: { label: Localized; url: string; icon: 'zalo' | 'instagram' | 'booking' | 'link' }[];
+  links: { label: Localized; url: string; icon: LinkIcon }[];
 };
 export class PublishingError extends Error { constructor(public readonly code: string) { super(code); } }
 function fail(): never { throw new PublishingError('INVALID_CONFIG'); }
@@ -36,7 +41,9 @@ function media(value: unknown, logo = false) {
 const color = (v: unknown) => { if (typeof v !== 'string' || !/^#[a-fA-F0-9]{6}$/.test(v)) fail(); };
 export function validateConfig(value: unknown): PageConfig {
   keys(value, ['schemaVersion', 'layout', 'name', 'poster', 'logo', 'background', 'watermark', 'text', 'googleUrl', 'links']);
-  if (value.schemaVersion !== 1 || value.layout !== 'full-bleed') fail(); text(value.name, 100);
+  const v2 = value.schemaVersion === 2;
+  if (!(v2 || value.schemaVersion === 1) || !(value.layout === 'full-bleed' || (v2 && value.layout === 'card'))) fail();
+  text(value.name, 100);
   if (value.poster !== null) media(value.poster); if (value.logo !== null) media(value.logo, true);
   const raw = value.background; if (!raw || typeof raw !== 'object' || !('kind' in raw)) fail();
   const b = raw as Record<string, unknown>;
@@ -48,12 +55,17 @@ export function validateConfig(value: unknown): PageConfig {
   if (value.watermark.text !== 'YOUR LOGO' || typeof value.watermark.enabled !== 'boolean' || value.watermark.motion !== 'diagonal-linear') fail();
   keys(value.text, ['question']); localized(value.text.question); url(value.googleUrl);
   if (!Array.isArray(value.links) || value.links.length > 6) fail();
-  value.links.forEach(link => { keys(link, ['label', 'url', 'icon']); localized(link.label); url(link.url); if (!['zalo', 'instagram', 'booking', 'link'].includes(String(link.icon))) fail(); });
+  const icons = v2 ? ['zalo', 'instagram', 'booking', 'link', 'facebook', 'phone'] : ['zalo', 'instagram', 'booking', 'link'];
+  value.links.forEach(link => {
+    keys(link, ['label', 'url', 'icon']); localized(link.label); if (!icons.includes(String(link.icon))) fail();
+    if (link.icon === 'phone') { if (typeof link.url !== 'string' || !/^tel:\+?[0-9]{3,15}$/.test(link.url)) fail(); }
+    else url(link.url);
+  });
   return structuredClone(value) as PageConfig;
 }
 export const TEMPLATE_V1 = { schemaVersion: 1, rendererVersion: '1', capabilities: ['branding', 'background', 'links', 'google-invariant', 'vi-en'] } as const;
 export function defaultConfig(name = 'YOUR BRAND'): PageConfig {
-  return { schemaVersion: 1, layout: 'full-bleed', name, poster: null, logo: null,
+  return { schemaVersion: 2, layout: 'full-bleed', name, poster: null, logo: null,
     background: { kind: 'gradient', colors: ['#214034', '#EFF2E8'], angle: 135 },
     watermark: { text: 'YOUR LOGO', enabled: true, motion: 'diagonal-linear' },
     text: { question: { vi: 'Trải nghiệm hôm nay của bạn thế nào?', en: 'How was your experience today?' } },

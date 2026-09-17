@@ -473,7 +473,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Tài migrate 010 lên Neon production và preview (mỗi lượt `Migrations applied: 1.`), rồi mới push. Lần chạy đầu hỏng vì lệnh agent đưa thiếu `cd` và để chỗ trống trong lệnh; không chạm database. Ghi trong gotchas.
 - Một test UI cũ (synthetic resume) đỏ vì kiểm "nút Gửi bị khoá" theo luật cũ; bất biến "nháp không tự gửi" vẫn giữ. Sửa câu kiểm, ghi lý do trong test.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B1)
+## Lát B2: giao diện trang khách v2 — 2026-09-17
+
+- Tài chốt cách làm từ đây: **xong nhanh, test nhanh, sửa nhanh**. Astra sẽ rà và vá bảo mật, back-end sau; agent lo mã chính xác. Khi đang làm chỉ chạy bộ test liên quan; cuối lát chạy đủ 7 bộ trên commit.
+- Làm theo phạm vi Tài duyệt: schema v2, hai bố cục, nền video/ảnh tĩnh, watermark, khung poster, logo, nút Facebook và Liên hệ, khung góp ý mở/thu, popup cảm ơn và pháo giấy tự viết. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát B2.
+- **Lỗi của agent trong lát:** test "Google trong màn hình" ban đầu dùng 375×667 và 320×568, cỡ đó không bao giờ đỏ (thử phá mã vẫn xanh); đổi sang vùng nhìn thấy của Safari. Pháo giấy gắn vào `body` đè lên popup vì stacking context. Khung thu lại khi bấm "Thử lại lần gửi". Cả ba đã sửa, ghi trong gotchas.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B2)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
@@ -495,20 +501,23 @@ Shop trên preview:
 - `caphe-demo` đã bỏ, hiện "Trang chưa sẵn sàng".
 
 Chưa có:
-- trang khách v2 (**chưa vẽ nền, video, logo hay nút từ cấu hình**); phần máy chủ đã xong ở B1: góp ý gửi được khi chưa chấm sao;
+- màn "Cảm ơn quý khách" sau khi xong đánh giá nội bộ; âm thanh popup (trang khách v2 đã xong ở lát B; khuôn trên preview vẫn là cấu hình v1 cho tới lát D);
 - dashboard mới 3 tab; editor; công tắc 4 vị trí;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát B2: giao diện trang khách v2**, theo [redesign-v2.md](redesign-v2.md): schema v2 (`card`, `facebook`, `phone`, `tel:`; đọc được v1), hai bố cục, video nền kèm ảnh tĩnh thay thế, watermark, khung poster, logo, nút Facebook và Liên hệ, khung góp ý mở/thu gọn (**nút Google luôn trong màn hình kể cả khi chấm 1–3 sao**; không điền sẵn sao), popup cảm ơn kèm pháo giấy tự viết. Phạm vi file và 8 tiêu chí nghiệm thu Tài đã duyệt 17/09 (xem mục Lát B1 trong redesign-v2.md). **Effort high** (đổi schema cấu hình).
-2. Lát C: dashboard mới (khung, ô chuyển shop, tab Dữ liệu).
-3. Lát D: tab Thiết kế giao diện và công tắc 4 vị trí.
-4. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
-5. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
+1. **Lát C: dashboard mới** (khung, ô chuyển shop, tab Dữ liệu). Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt.
+2. Lát D: tab Thiết kế giao diện và công tắc 4 vị trí.
+3. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
+4. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
-### Skill cho lát B
+### Cách làm (Tài chốt 17/09)
+
+Ưu tiên xong nhanh: chỉ chạy bộ test liên quan khi đang làm, cuối lát chạy đủ 7 bộ trên commit. Không review bảo mật sâu; Astra lo sau. Nguyên tắc sản phẩm vẫn bắt buộc.
+
+### Skill cho lát B (đã xong, giữ để tham khảo)
 
 Theo bảng ở đầu `docs/agent-skills.md`: `ui-ux-pro-max` và `frontend-design` (giao diện) · `frontend-ui-engineering` (code, a11y) · `tdd` (logic và API góp ý) · `security-and-hardening` (đổi API công khai) · `diagnosing-bugs` khi có lỗi · `code-review-and-quality` trước khi commit. Chỉ nạp skill cần tới.
 
