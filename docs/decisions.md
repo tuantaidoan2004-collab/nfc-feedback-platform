@@ -499,6 +499,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 
 - Khung ba tab, ô chuyển shop, biểu đồ bảy ngày vẽ bằng CSS và mục Nguồn thẻ. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát C.
 - Tài yêu cầu làm nhanh, không chờ duyệt phạm vi. Tài khoản khuôn để test vẫn là `yourshop` / `1` tại `/ZZZ/pripi01r8e9u`.
+- Kiểm commit `6edc4b3`: tsc/eslint exit 0; repository **93**; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **4 + 2**; admin **5 + 2**; tất cả exit 0. Không có migration.
 - **Bẫy mới:** `day` là từ khoá PostgreSQL, không dùng làm bí danh cột trần được (`... AS day`). Ghi trong gotchas.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát C)
