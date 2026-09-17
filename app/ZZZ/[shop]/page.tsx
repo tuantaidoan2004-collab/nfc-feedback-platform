@@ -19,7 +19,9 @@ export default async function Page({params}:{params:Promise<{shop:string}>}) {
    // A finished impersonation must not fall through to the owner's sign-in form: the administrator is not the owner.
    if(error instanceof OwnerError && error.code==='IMPERSONATION_ENDED')return <main className="dashboard-wrap"><h1>Phiên xem thay mặt đã kết thúc</h1><p>Mở phiên mới từ trang quản trị nếu vẫn cần hỗ trợ shop này.</p><Link href="/gov">Về trang quản trị</Link></main>;
    if(error instanceof OwnerError && error.status===401)redirect(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
-   return <main className="dashboard-wrap"><h1>Không thể mở dashboard</h1><p>Bạn chưa có quyền với shop này hoặc dịch vụ đang gián đoạn.</p></main>;}
+   // Signed in as someone without this shop: offer the other door instead of a dead end.
+   return <main className="dashboard-wrap"><h1>Không thể mở dashboard</h1><p>Tài khoản đang đăng nhập chưa có quyền với shop này, hoặc dịch vụ đang gián đoạn.</p>
+    <p><a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập bằng tài khoản khác</a></p></main>;}
   const actor=access.actor;
   return <OwnerDashboard slug={access.slug} name={access.name} customerUrl={`${process.env.APP_ORIGIN ?? ''}/${access.slug}`} impersonation={actor.kind==='admin'?{admin:actor.adminUsername,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
  }

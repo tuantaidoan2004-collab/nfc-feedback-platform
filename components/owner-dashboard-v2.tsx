@@ -50,12 +50,33 @@ function Support({support,canChange,change}:{support:Data['support'];canChange:b
  {support.history.length>0&&<p data-support-history>{support.history.map(h=>`${h.enabled?'Bật':'Tắt'} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
  </section>;
 }
+const TABS=[['data','Dữ liệu'],['design','Thiết kế giao diện'],['products','Sản phẩm & link']] as const;
+type Tab=typeof TABS[number][0];
+/** Seven days of openings, drawn with CSS bars: no chart library, and it reads the same on a phone. */
+function Week({daily}:{daily:Data['daily']}){
+ const peak=Math.max(1,...daily.map(d=>d.opens));
+ const day=(value:string)=>new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',weekday:'short'}).format(new Date(`${value}T12:00:00Z`));
+ return <section className={styles.week} aria-label="Bảy ngày gần nhất" data-week><h2>Bảy ngày gần nhất</h2>
+ <ol>{daily.map(point=><li key={point.day} data-day={point.day}>
+  <span className={styles.bar} style={{height:`${Math.round(point.opens/peak*100)}%`}} data-opens={point.opens}
+   title={`${point.day}: ${point.opens} lượt mở, ${point.sessions} phiên, ${point.rated} chấm sao`}/>
+  <strong>{point.opens}</strong><span>{day(point.day)}</span></li>)}</ol>
+ <p className={styles.explain}>Cột là lượt mở trang theo giờ Việt Nam, không phụ thuộc bộ lọc bên dưới. Di chuột hoặc chạm vào cột để xem số phiên và số lượt chấm sao.</p>
+ </section>;
+}
+function Sources({sources}:{sources:Data['sources']}){
+ const total=sources.reduce((sum,row)=>sum+row.sessions,0);
+ return <section className={styles.exports} aria-label="Nguồn thẻ" data-sources><h2>Nguồn thẻ</h2>
+ {sources.length===0?<p>Chưa có phiên nào trong bộ lọc này.</p>:<ul className={styles.sources}>{sources.map(row=><li key={row.label} data-source={row.label}>
+  <span>{row.label}</span><strong>{row.sessions}</strong><span className={styles.muted}>{Math.round(row.sessions/Math.max(1,total)*100)}%</span></li>)}</ul>}
+ </section>;
+}
 export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{slug:string;name:string;customerUrl:string;impersonation:Impersonation|null}){
  const router=useRouter(),latest=useRef(0);
  const [data,setData]=useState<Data|null>(null),[busy,setBusy]=useState(true),[notice,setNotice]=useState(''),[expired,setExpired]=useState(false);
  const [filters,setFilters]=useState({from:localDate(29),to:localDate(),source:'',release:'',rating:'',status:''});
  const [query,setQuery]=useState(()=>new URLSearchParams({from:localDate(29),to:localDate()}).toString());
- const [cursor,setCursor]=useState(''),[dataset,setDataset]=useState('experiences');
+ const [cursor,setCursor]=useState(''),[dataset,setDataset]=useState('experiences'),[tab,setTab]=useState<Tab>('data');
  const endpoint=`/api/owner/v2/${encodeURIComponent(slug)}`;
  const refresh=useCallback((signal?:AbortSignal)=>{
  const sequence=++latest.current;
@@ -87,8 +108,17 @@ export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{sl
  <p>Lý do: {impersonation.reason}</p>
  <button onClick={async()=>{try{const r=await fetch(`${endpoint}/impersonation`,{method:'DELETE'});if(r.ok){latest.current++;setData(null);router.replace('/gov');}else setNotice('Chưa kết thúc được phiên. Thử lại.');}catch{setNotice('Chưa kết thúc được phiên. Kiểm tra kết nối.');}}}>Kết thúc phiên</button>
  </aside>}
- <header className={styles.header}><div><p>GÓC NHÌN KHÁCH HÀNG</p><h1>{name}</h1><span>Dữ liệu live · giờ Việt Nam</span></div>
+ <header className={styles.header}><div><p className={styles.brand}>NFC Feedback</p><h1>{name}</h1><span>Dữ liệu live · giờ Việt Nam</span>
+ {data&&data.shops.length>1&&<label className={styles.shopPicker}>Shop đang xem<select value={slug} onChange={e=>{if(e.target.value!==slug)router.push(`/ZZZ/${e.target.value}`);}}>
+  {data.shops.map(shop=><option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}</div>
  {!impersonation&&<button onClick={async()=>{try{const r=await fetch('/api/owner/v2/logout',{method:'POST'});if(r.ok){latest.current++;setData(null);router.replace(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);router.refresh();}else setNotice('Chưa đăng xuất được. Thử lại.');}catch{setNotice('Chưa đăng xuất được. Kiểm tra kết nối.');}}}>Đăng xuất</button>}</header>
+ <nav className={styles.tabs} role="tablist" aria-label="Phần của dashboard">{TABS.map(([id,label])=>
+  <button key={id} role="tab" type="button" aria-selected={tab===id} data-tab={id} onClick={()=>setTab(id)}>{label}</button>)}</nav>
+ {tab!=='data'&&<section role="tabpanel" aria-label={TABS.find(([id])=>id===tab)![1]} className={styles.exports} data-soon={tab}>
+  <h2>{TABS.find(([id])=>id===tab)![1]}</h2>
+  <p>{tab==='design'?'Chỉnh poster, logo, nền, watermark và nút trên trang khách. Phần này đang được làm; hiện cấu hình chỉ đổi được qua quản trị.'
+   :'Sửa nút và đường dẫn, tạo thẻ cho từng bàn và kích hoạt thẻ. Phần này đang được làm.'}</p></section>}
+ <div role="tabpanel" aria-label="Dữ liệu" hidden={tab!=='data'}>
  <form className={styles.filters} onSubmit={e=>{e.preventDefault();const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v);});setNotice('');setBusy(true);if(!cursor&&query===p.toString())void refresh();else{setCursor('');setQuery(p.toString());}}}>
  <label>Từ ngày<input type="date" value={filters.from} onChange={e=>setFilters({...filters,from:e.target.value})} required/></label>
  <label>Đến ngày<input type="date" value={filters.to} onChange={e=>setFilters({...filters,to:e.target.value})} required/></label>
@@ -103,6 +133,8 @@ export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{sl
  {!busy&&!data&&!expired&&<button onClick={()=>void refresh()}>Thử lại</button>}
  {data&&<>
  <section className={styles.metrics} aria-label="Tổng quan">{Object.entries({opens:'Lượt mở trang',sessions:'Phiên 15 phút',rated:'Trải nghiệm chấm sao',average:'Điểm nội bộ trung bình',feedback:'Có góp ý riêng',unresolved:'Góp ý chưa xử lý'}).map(([key,label])=><article key={key}><span>{label}</span><strong data-metric={key}>{data.metrics[key]??'—'}</strong></article>)}</section>
+ <Week daily={data.daily}/>
+ <Sources sources={data.sources}/>
  {!impersonation&&<section className={styles.exports}><h2>Tải dữ liệu</h2><label>Loại dữ liệu<select value={dataset} onChange={e=>setDataset(e.target.value)}><option value="experiences">Trải nghiệm hiện tại</option><option value="page_visits">Lượt mở trang</option><option value="receipts">Lịch sử đánh giá / góp ý</option></select></label>
  {['csv','jsonl','dictionary'].map(format=><a key={format} href={`${endpoint}/export?${query}&dataset=${dataset}&format=${format}`}>{format==='dictionary'?'Từ điển dữ liệu':format.toUpperCase()}</a>)}
  <p>CSV cho Excel. JSONL đọc theo từng dòng cho dữ liệu lớn. File giữ cùng bộ lọc đang áp dụng; lịch sử gồm toàn bộ sự kiện của nhóm phiên đã chọn.</p></section>}
@@ -117,5 +149,6 @@ export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{sl
  <AdminVisits visits={data.adminVisits}/>
  <nav className={styles.row} aria-label="Phân trang">{cursor&&<button onClick={()=>setCursor('')}>Về trang đầu</button>}{data.nextCursor&&<button onClick={()=>setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>
  </>}
+ </div>
  </main>;
 }

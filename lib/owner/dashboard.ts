@@ -2,6 +2,19 @@ import type { Pool, PoolClient } from 'pg';
 import { authorize, supportGranted, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './filters';
+/**
+ * The last seven Ho Chi Minh days, including days with nothing, so the chart keeps its shape. Live scope only, and
+ * independent of the filters above it: it answers "how has this week gone", not "what did I filter".
+ */
+// `day` is a keyword, so the alias needs AS.
+const daySeries = `SELECT to_char(d.day,'YYYY-MM-DD') AS day,
+    count(v.id)::int opens, count(DISTINCT v.session_id)::int sessions, count(DISTINCT e.session_id)::int rated
+  FROM generate_series((timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date-6,(timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date,interval '1 day') d(day)
+  LEFT JOIN page_visits v ON v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date=d.day
+  LEFT JOIN rating_experiences e ON e.session_id=v.session_id AND e.rating IS NOT NULL
+  GROUP BY d.day`;
+export type DayPoint = { day: string; opens: number; sessions: number; rated: number };
+export type SourceCount = { label: string; sessions: number };
 export const utc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_at')} first_rated_at,${utc('e.updated_at')} updated_at,
  e.rating,e.revision::text experience_revision,e.feedback_topic topic,e.feedback_message message,e.feedback_phone phone,
@@ -33,6 +46,15 @@ async function support(db: PoolClient, shopId: string) {
     JOIN owner_identities_v2 u ON u.id=g.actor_id WHERE g.shop_id=$1 AND g.permission='feedback' ORDER BY g.id DESC LIMIT 20`, [shopId])).rows as SupportChange[];
   return { feedback: await supportGranted(db, shopId, 'feedback'), history };
 }
+/**
+ * The shops this account may switch between. An administrator standing in for the owner sees only the shop the
+ * impersonation names: the owner's other shops are not part of that permission.
+ */
+async function accessibleShops(db: PoolClient, access: OwnerAccess) {
+  if (access.actor.kind === 'admin') return [{ slug: access.slug, name: access.name }];
+  return (await db.query(`SELECT s.slug,s.name FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
+    WHERE m.user_id=$1 AND m.active ORDER BY s.name,s.slug LIMIT 50`, [access.userId])).rows as { slug: string; name: string }[];
+}
 const viewer = (access: OwnerAccess) => access.actor.kind === 'owner' ? { kind: 'owner' as const, role: access.role }
   : { kind: 'admin' as const, admin: access.actor.adminUsername, scope: access.actor.scope, reason: access.actor.reason, expiresAt: access.actor.expiresAt };
 export class OwnerDashboard {
@@ -51,14 +73,20 @@ export class OwnerDashboard {
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id WHERE ${effectiveStatus}<>'resolved') unresolved,
         COALESCE((SELECT jsonb_agg(tags) FROM (SELECT id,COALESCE(NULLIF(location_label,''),public_code) label FROM tags WHERE shop_id=$1 ORDER BY public_code LIMIT 100) tags),'[]') tags,
         COALESCE((SELECT jsonb_agg(releases) FROM (SELECT id,created_at FROM page_releases WHERE shop_id=$1 ORDER BY created_at DESC,id LIMIT 100) releases),'[]') releases,
+        COALESCE((SELECT jsonb_agg(sources ORDER BY sessions DESC,label) FROM (SELECT COALESCE(NULLIF(t.location_label,''),
+          CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) label,
+          count(*)::int sessions FROM selected s LEFT JOIN tags t ON t.id=s.tag_id GROUP BY 1 LIMIT 50) sources),'[]') sources,
+        COALESCE((SELECT jsonb_agg(days ORDER BY day) FROM (${daySeries}) days),'[]') daily,
         COALESCE((SELECT jsonb_agg(page ORDER BY first_rated_at DESC,session_id DESC) FROM page),'[]') records`,values)).rows[0];
-      const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];delete result.records;delete result.tags;delete result.releases;
+      const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];
+      const daily=result.daily as DayPoint[], sources=result.sources as SourceCount[];
+      delete result.records;delete result.tags;delete result.releases;delete result.daily;delete result.sources;
       const actor=access.actor, hidden=actor.kind==='admin'&&actor.scope==='overview';
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
       const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:''}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
         detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
-      return {shop:{slug:access.slug,name:access.name},viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),support:await support(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
+      return {shop:{slug:access.slug,name:access.name},shops:await accessibleShops(db,access),daily,sources,viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),support:await support(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
     });
   }
   /**

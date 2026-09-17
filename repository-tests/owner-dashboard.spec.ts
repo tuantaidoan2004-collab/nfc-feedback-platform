@@ -68,6 +68,27 @@ test('feedback without a star counts as feedback, not as a rating, and exports i
  const {dictionary}=await import('../lib/owner/export');
  expect(dictionary('experiences').fields.find(x=>x.name==='rating')).toMatchObject({nullable:true});
 });
+test('the dashboard carries the account\'s shops, seven days of openings and the sources behind the filter',async({f})=>{
+ const today=new Date(),yesterday=new Date(Date.now()-86400000),longAgo=new Date(Date.now()-20*86400000);
+ await addExperience(f.db,'one',5,null,today);await addExperience(f.db,'one',4,null,today);await addExperience(f.db,'one',null,'Góp ý',yesterday);
+ await addExperience(f.db,'one',3,null,longAgo);await addExperience(f.db,'two',5,null,today);
+ const dashboard=new OwnerDashboard(f.db),a=f.users[0];
+ const read=await dashboard.read(a.token,'one',filters());
+ // Seven days, oldest first, every day present even when nothing happened, and only this shop's live opens.
+ expect(read.daily).toHaveLength(7);
+ expect(read.daily.map(d=>d.day)).toEqual([...read.daily].sort((x,y)=>x.day.localeCompare(y.day)).map(d=>d.day));
+ expect(read.daily.at(-1)).toMatchObject({opens:2,sessions:2,rated:2});
+ expect(read.daily.at(-2)).toMatchObject({opens:1,sessions:1,rated:0});
+ expect(read.daily.filter(d=>d.opens===0)).toHaveLength(5);
+ expect(read.sources).toEqual([{label:'Trực tiếp',sessions:4}]);
+ // The account sees the shops it may switch between; a stand-in administrator sees only the shop it was let into.
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[a.id,f.shops[1]]);
+ expect((await dashboard.read(a.token,'one',filters())).shops.map(s=>s.slug).sort()).toEqual(['one','two']);
+ await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1 AND shop_id=$2',[a.id,f.shops[1]]);
+ expect((await dashboard.read(a.token,'one',filters())).shops.map(s=>s.slug)).toEqual(['one']);
+ const filtered=await dashboard.read(a.token,'one',parseFilters(new URLSearchParams('from=2020-01-01&to=2020-01-02')));
+ expect(filtered.sources).toEqual([]);expect(filtered.daily).toHaveLength(7);
+});
 test('case CAS concurrent actors, audit immutability, feedback revision conflict and automatic reopening',async({f})=>{
  const x=await addExperience(f.db),dashboard=new OwnerDashboard(f.db),a=f.users[0],b=f.users[1];
  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[b.id,f.shops[0]]);

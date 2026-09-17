@@ -131,3 +131,13 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 - **Lưu:** số đi cùng góp ý. Chấm sao sau đó giữ nguyên số; sửa góp ý mà không nhập số thì số bị xoá khỏi trạng thái hiện tại, còn biên nhận cũ vẫn giữ. Số là một phần nội dung khi so lần gửi lại (idempotency). API không bao giờ trả số về.
 - **Ai thấy:** chủ shop và quản lý (dashboard hiện "Số gọi lại", bấm để gọi); admin chỉ thấy khi chủ shop cho phép đọc góp ý, vì ở phạm vi tổng quan server xoá số cùng nội dung góp ý. File export của chủ shop có cột `phone` (có thể trống); admin vẫn không bao giờ export được.
 - **Triển khai:** Tài phải migrate Neon (production và preview) **trước khi push** B4.
+
+## Lát C — khung dashboard mới — 2026-09-18
+
+- **Khung:** tên NFC Feedback, **ô "Shop đang xem"** (chỉ hiện khi tài khoản có từ hai shop; đổi shop là chuyển sang `/ZZZ/<slug>` của shop đó) và **ba tab**: Dữ liệu · Thiết kế giao diện · Sản phẩm & link. Hai tab sau nói rõ đang được làm (lát D và E) và ẩn hẳn phần dữ liệu khi đang mở.
+- **Tab Dữ liệu** giữ nguyên bộ lọc, thẻ số, danh sách góp ý, xử lý và tải dữ liệu, thêm:
+  - **Bảy ngày gần nhất:** cột vẽ bằng CSS, mỗi cột là số lượt mở theo ngày giờ Việt Nam; ngày không có gì vẫn hiện. Phần này **không theo bộ lọc**, vì nó trả lời "tuần này thế nào". Chạm vào cột để xem số phiên và số lượt chấm sao.
+  - **Nguồn thẻ:** số phiên theo nhãn thẻ trong đúng bộ lọc đang áp, kèm phần trăm.
+- **Ai thấy gì:** danh sách shop để chuyển chỉ gồm shop tài khoản còn quyền (`active`). Quản trị viên đang xem thay mặt **chỉ thấy đúng shop được phép**, không thấy các shop khác của chủ shop đó.
+- Trang "Không thể mở dashboard" giờ có lối **đăng nhập bằng tài khoản khác** (chỗ thiếu đã ghi ở lát A).
+- Chưa làm: nội dung thật của hai tab kia; biểu đồ chưa có lựa chọn khoảng thời gian khác.

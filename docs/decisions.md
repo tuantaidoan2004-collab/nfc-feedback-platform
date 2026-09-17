@@ -495,7 +495,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kiểm commit B4 `ed342a4`: tsc/eslint exit 0; repository **92**; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **3 + 2**; admin **5 + 2**; tất cả exit 0. `scripts/migrate.mjs` trên database trống áp 001–011 rồi báo up to date.
 - B3 (`af3c5b9`) đã push riêng trước B4 để Tài xem giao diện; B4 chờ Tài migrate Neon.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát B4)
+## Lát C: khung dashboard mới — 2026-09-18
+
+- Khung ba tab, ô chuyển shop, biểu đồ bảy ngày vẽ bằng CSS và mục Nguồn thẻ. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát C.
+- Tài yêu cầu làm nhanh, không chờ duyệt phạm vi. Tài khoản khuôn để test vẫn là `yourshop` / `1` tại `/ZZZ/pripi01r8e9u`.
+- **Bẫy mới:** `day` là từ khoá PostgreSQL, không dùng làm bí danh cột trần được (`... AS day`). Ghi trong gotchas.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát C)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
@@ -518,16 +524,15 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- dashboard mới 3 tab; editor; công tắc 4 vị trí;
+- nội dung tab Thiết kế giao diện và Sản phẩm & link; editor; công tắc 4 vị trí;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát C: dashboard mới** (khung, ô chuyển shop, tab Dữ liệu). Nêu phạm vi file và tiêu chí nghiệm thu, chờ Tài duyệt.
-2. Lát D: tab Thiết kế giao diện (gồm chỉnh nút máy bay) và công tắc 4 vị trí.
-3. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
-4. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
+1. **Lát D: tab Thiết kế giao diện** (gồm chỉnh nút máy bay, poster, logo, nền) và công tắc 4 vị trí.
+2. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
+3. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)
 

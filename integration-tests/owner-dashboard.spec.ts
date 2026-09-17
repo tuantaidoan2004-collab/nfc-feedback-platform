@@ -42,6 +42,34 @@ test('Publishing v2 customer→owner login→real metrics/filter/handling/export
  expect((await context.request.get('/api/owner/v2/one')).status()).toBe(401);expect((await f.db.query('SELECT revoked_at FROM owner_auth_sessions_v2 WHERE token_hash=$1',[sessionHash(cookie.value)])).rows[0].revoked_at).not.toBeNull();
  expect(errors).toEqual([]);
 });
+test('the new shell: three tabs, the week chart, the sources list and switching shop',async({page,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await addExperience(f.db,'one',5,'Góp ý hôm nay');await addExperience(f.db,'two',4,null);
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[0].id,f.shops[1]]);
+ await login(page,f.users[0]);
+ await expect(page.getByText('NFC Feedback',{exact:true})).toBeVisible();
+ // Data first; the other two tabs say what is coming and hide the data panel.
+ await expect(page.locator('[data-tab="data"]')).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('[data-week]')).toBeVisible();
+ await expect(page.locator('[data-week] li')).toHaveCount(7);
+ await expect(page.locator('[data-week] [data-opens]').last()).toHaveAttribute('data-opens','1');
+ await expect(page.locator('[data-sources] [data-source="Trực tiếp"]')).toContainText('1');
+ await page.locator('[data-tab="design"]').click();
+ await expect(page.locator('[data-soon="design"]')).toBeVisible();
+ await expect(page.locator('[data-week]')).toBeHidden();
+ await expect(page.getByText('Góp ý hôm nay',{exact:true})).toBeHidden();
+ await page.locator('[data-tab="products"]').click();await expect(page.locator('[data-soon="products"]')).toBeVisible();
+ await page.locator('[data-tab="data"]').click();await expect(page.locator('[data-week]')).toBeVisible();
+ // One account, two shops: switching goes to the other dashboard and shows its own data.
+ const picker=page.getByRole('combobox',{name:'Shop đang xem',exact:true});
+ await expect(picker).toHaveValue('one');
+ await picker.selectOption('two');
+ await expect(page).toHaveURL(/\/ZZZ\/two$/);
+ await expect(page.locator('[data-metric="opens"]')).toHaveText('1');
+ await expect(page.getByRole('heading',{name:'Shop two',exact:true})).toBeVisible();
+ for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`shell-${width}.png`),fullPage:true});}
+ expect(errors).toEqual([]);
+});
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{
  await addExperience(f.db);const b=await addExperience(f.db,'two');
  expect((await request.get('/api/owner/v2/one')).status()).toBe(401);
