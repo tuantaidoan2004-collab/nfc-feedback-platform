@@ -477,6 +477,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 
 - Tài chốt cách làm từ đây: **xong nhanh, test nhanh, sửa nhanh**. Astra sẽ rà và vá bảo mật, back-end sau; agent lo mã chính xác. Khi đang làm chỉ chạy bộ test liên quan; cuối lát chạy đủ 7 bộ trên commit.
 - Làm theo phạm vi Tài duyệt: schema v2, hai bố cục, nền video/ảnh tĩnh, watermark, khung poster, logo, nút Facebook và Liên hệ, khung góp ý mở/thu, popup cảm ơn và pháo giấy tự viết. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát B2.
+- Kiểm commit `354ef75` trong worktree tạm: tsc/eslint exit 0; repository **89**; contracts **63**; client **73**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **8 + 2**; owner **3 + 2**; admin **5 + 2**; tất cả exit 0. Không có migration.
 - **Lỗi của agent trong lát:** test "Google trong màn hình" ban đầu dùng 375×667 và 320×568, cỡ đó không bao giờ đỏ (thử phá mã vẫn xanh); đổi sang vùng nhìn thấy của Safari. Pháo giấy gắn vào `body` đè lên popup vì stacking context. Khung thu lại khi bấm "Thử lại lần gửi". Cả ba đã sửa, ghi trong gotchas.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-17 (sau lát B2)
