@@ -17,7 +17,7 @@ const shopFor=async(db:Pool,userId:string)=>{
 const test=base.extend<{f:{db:Pool;links:OwnerSetupLinks;auth:OwnerAuth}}>({f:async({},provide)=>{
  const schema=`nfc_setup_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   await provide({db,links:new OwnerSetupLinks(db),auth:new OwnerAuth(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}

@@ -108,6 +108,12 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Test mở `/preview` hoặc trang khách lần đầu trong lúc một trang khác đang giữ trạng thái thì trang đó bị tải lại** (bẫy `next dev` ở trên). Mở trước các route đó trong một tab riêng ở đầu test.
 
+**Vào thẳng `/gov` hay `/ZZZ/…` mà không phải đăng nhập là do phiên còn hạn, không phải lỗ hổng.** Kiểm bằng request không cookie (`vercel curl`) hoặc cửa sổ ẩn danh: phải thấy 307 về trang đăng nhập và 401 ở API.
+
+**Công cụ ghi file của agent biến `\u0000` trong chuỗi thành ký tự NUL thật.** Git coi file đó là nhị phân (`Bin` trong `git diff --stat`), và `grep -P` trên macOS không bắt được. Đọc `git diff --cached --stat` trước khi commit; quét ký tự điều khiển bằng Python. Lát E1 dính ở `lib/owner/cards.ts`.
+
+**Mã thẻ ghi vào chip gồm cả tên miền.** Đổi tên miền sau khi đã ghi thẻ thì thẻ cũ trỏ về tên miền cũ.
+
 **Đừng kiểm database ngay sau khi bấm một nút.** Nút gửi request rồi mới hiện thông báo; đọc bảng một lần ngay sau đó thấy 0 dòng và trông như nút hỏng. Dùng `expect.poll`.
 
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.

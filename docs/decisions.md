@@ -525,7 +525,15 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Tài migrate 012 lên Neon production và preview ngày 18/09 (mỗi branch báo `Applied 012_support_levels.`), rồi mới push; **001–012 đã có trên cả hai branch**.
 - **Lỗi và bẫy trong lát:** nút chọn mức hỗ trợ chỉ đổi sau khi server trả lời nên trông như bấm không ăn (đã sửa: hiện lựa chọn ngay); `toBeDisabled` không đọc `<option disabled>`; `next dev` tải lại dashboard khi `/preview` được biên dịch lần đầu (test phải mở trước `/one` và `/preview`). Ghi trong gotchas.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát D)
+## Lát E1: Thẻ NFC và mã ngắn — 2026-09-18
+
+- Tài chốt: đổi "thẻ theo bàn" thành **"Nhân bản thẻ"**; mã thẻ **5 ký tự**, lên 6 khi cần. Làm cho cả mã shop mới. Migration 013. Chi tiết, cách đọc đường dẫn và cảnh báo tên miền: [redesign-v2.md](redesign-v2.md) mục Lát E1.
+- Agent quyết (Tài bảo làm nhanh): thẻ đi thẳng từ chưa kích hoạt sang hoạt động, bật lại được sau khi tắt; chỉ chủ shop kích hoạt; báo phí theo bảng giá đã chốt trước khi kích hoạt.
+- Tài báo `/gov` vào được không cần mật khẩu: đã kiểm, là phiên đăng nhập còn hạn, không phải lỗ hổng.
+- Google Business Profile để lát E2, chờ Google cấp quyền API.
+- **Lỗi của agent:** regex `\u0000` trong `lib/owner/cards.ts` bị ghi thành ký tự NUL thật; `git diff --stat` báo `Bin` nên bắt được trước commit. Ghi trong gotchas.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
@@ -548,13 +556,13 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- thẻ theo bàn, kích hoạt thẻ; tải ảnh và video lên (cần R2); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ;
+- tải ảnh và video lên (cần R2); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ; tên miền thật (phải có trước khi ghi thẻ cho khách);
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát E:** thẻ theo bàn (nhãn, link `/t/<mã>`), kích hoạt thẻ (`prepared → tested → active`, báo trước chi phí); kết nối Google Business Profile để đếm đánh giá Google.
+1. **Lát E2: Google Business Profile** sau khi Google duyệt quyền API cho project của Tài; đếm review mới theo ngày và ước đoán khớp với lượt bấm nút Google (ghi rõ là ước đoán).
 2. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)

@@ -6,10 +6,10 @@ import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
+import { shortCode, withShortCode } from '../short-code';
 
-// Opaque and short. A slug is a name only in the sense that it appears in a URL: a shop can be given a real
-// one later without breaking anything, because cards carry the tag code and every history row keys off the id.
-const code = (length: number) => randomBytes(32).toString('base64url').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, length);
+// Opaque and short (lib/short-code.ts). A slug is a name only in the sense that it appears in a URL: a shop can be
+// given a real one later without breaking anything, because cards carry the tag code and history keys off the id.
 
 const TEMPLATE_KEY = 'standard';
 // Test sign-in for the template shop. Weak on purpose and refused in production; see ensureTemplateAccount.
@@ -54,7 +54,8 @@ export class ShopProvisioning {
       }
       if (!row) {
         try {
-          await this.pool.query("INSERT INTO shops(slug,name,google_url,is_template)VALUES($1,'YOUR SHOP','https://maps.google.com/',true)", [code(12)]);
+          // A taken slug lands in the same catch as a racing twin: the loop simply tries again with a new code.
+          await this.pool.query("INSERT INTO shops(slug,name,google_url,is_template)VALUES($1,'YOUR SHOP','https://maps.google.com/',true)", [shortCode(6)]);
           created = true;
         } catch (error) { if (!duplicate(error)) throw error; }
         row = (await this.templateRow())!;
@@ -170,16 +171,14 @@ export class ShopProvisioning {
     const config = await this.fromTemplate(actorId, name, google);
 
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
-    const slug = code(12);
-    const shopId = (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id',
-      [slug, name, google])).rows[0].id as string;
+    const { slug, shopId } = await withShortCode(async slug => ({ slug,
+      shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id', [slug, name, google])).rows[0].id as string }));
 
     const template = await this.template(admin);
     await admin.createDraft(shopId, template, config);
 
     // Prepared, not active: the card still has to be written and tested before anyone can scan it.
-    const tagCode = code(12);
-    await admin.createTag(shopId, tagCode);
+    const tagCode = await withShortCode(async code => { await admin.createTag(shopId, code); return code; });
 
     const links = new OwnerSetupLinks(this.pool);
     const provisioned = await links.provision(owner, email, async () => {});

@@ -7,6 +7,7 @@ import { copy } from '@/lib/copy';
 import { faceFor } from '@/lib/faces';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
+import CardsPanel from './cards-panel';
 
 /**
  * Owner dashboard, lát C2 (2026-09-18). A left menu with four views. Overview loads only totals, so the dashboard
@@ -322,7 +323,8 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {view === 'design' && (impersonation && !designOnly
         ? <section className={styles.panel} aria-label="Thiết kế & Link" data-panel="design"><h2>Thiết kế & Link</h2>
             <p className={styles.hint}>Phiên này chỉ để xem. Để chỉnh giao diện, mở phiên “Sửa giao diện”; chủ shop cần đặt mức hỗ trợ Khấc 2 hoặc Khấc 3.</p></section>
-        : <div data-panel="design"><DesignEditor endpoint={endpoint} customerUrl={customerUrl} /></div>)}
+        : <div data-panel="design"><DesignEditor endpoint={endpoint} customerUrl={customerUrl} />
+            <CardsPanel endpoint={endpoint} origin={customerUrl.replace(/\/[^/]*$/, '')} /></div>)}
 
       {view === 'settings' && <section aria-label="Cài đặt" data-panel="settings">
         {summary && <section className={styles.panel} aria-label="Tài khoản"><h2>Tài khoản</h2>

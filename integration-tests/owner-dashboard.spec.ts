@@ -134,6 +134,37 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`design-${width}.png`),fullPage:true});}
  expect(errors).toEqual([]);
 });
+test('cards: nhân bản thẻ, see the fee before switching on, the card opens the page, off closes it',async({page,context,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const warm=await context.newPage();await warm.goto('/t/demo');await warm.goto('/t/zzzzz');await warm.close();
+ await login(page,f.users[0]);
+ await page.locator('[data-view="design"]').click();
+ const panel=page.locator('[data-cards]');
+ await expect(panel.locator('[data-card-fee]')).toContainText('Đang hoạt động: 0 thẻ');
+ await panel.getByLabel('Tên thẻ mới',{exact:true}).fill('Bàn 3');
+ await panel.getByRole('button',{name:'Nhân bản thẻ',exact:true}).click();
+ await expect(panel.locator('[data-cards-notice]')).toContainText('Đã nhân bản thẻ "Bàn 3"');
+ const row=panel.locator('tr[data-card]');await expect(row).toHaveCount(1);
+ const code=(await row.getAttribute('data-card'))!;expect(code).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
+ await expect(row).toContainText(`/t/${code}`);await expect(row.locator('[data-card-state]')).toHaveText('Chưa kích hoạt');
+ const customer=await context.newPage();await customer.goto(`/t/${code}`);
+ await expect(customer.getByRole('heading',{name:'Trang chưa sẵn sàng'})).toBeVisible();
+ let asked='';page.once('dialog',dialog=>{asked=dialog.message();void dialog.accept();});
+ await row.getByRole('button',{name:'Kích hoạt',exact:true}).click();
+ await expect(row.locator('[data-card-state]')).toHaveText('Đang hoạt động');
+ expect(asked).toContain('nằm trong 5 thẻ đã gồm trong gói');
+ await expect(panel.locator('[data-card-fee]')).toContainText('Đang hoạt động: 1 thẻ');
+ await customer.reload();await expect(customer.locator('main[data-ready]')).toBeVisible();
+ await expect(customer.getByRole('heading',{name:'Shop one',exact:true})).toBeVisible();
+ page.once('dialog',dialog=>void dialog.accept());
+ await row.getByRole('button',{name:'Tạm tắt',exact:true}).click();
+ await expect(row.locator('[data-card-state]')).toHaveText('Đã tắt');
+ await customer.reload();await expect(customer.getByRole('heading',{name:'Trang chưa sẵn sàng'})).toBeVisible();
+ await expect(row.getByRole('button',{name:'Bật lại',exact:true})).toBeVisible();
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await panel.screenshot({path:info.outputPath('cards-390.png')});
+ expect(errors).toEqual([]);
+});
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{
  await addExperience(f.db);const b=await addExperience(f.db,'two');
  expect((await request.get('/api/owner/v2/one')).status()).toBe(401);

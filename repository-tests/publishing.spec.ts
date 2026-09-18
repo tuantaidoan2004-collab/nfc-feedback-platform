@@ -13,7 +13,7 @@ type Fixture={db:Pool;admin:PublishingAdmin;resolver:PublishingResolver;shop:str
 const test=base.extend<{fixture:Fixture}>({fixture:async({},provideFixture)=>{
  const schema=`nfc_publish_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri});
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:8});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','010_feedback_without_rating.sql','011_feedback_phone.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','010_feedback_without_rating.sql','011_feedback_phone.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  const shop=randomUUID(),other=randomUUID();await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'one','One'),($2,'two','Two')",[shop,other]);
  await provideFixture({db,shop,other,admin:new PublishingAdmin(db,async()=>({actorId:'fixture-admin'})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -56,7 +56,7 @@ test('publish race retains rendered R1; next open R2 shares session, origin and 
 });
 test('prepared→tested via isolated preview→active→disabled; preview never increases live totals',async({fixture:f})=>{
  await seed(f);const tag=await f.admin.createTag(f.shop,'fixture-tag');await expect(f.resolver.live({code:'fixture-tag'})).rejects.toThrow('PAGE_UNAVAILABLE');
- await expect(f.admin.setTagState(f.shop,tag,'active')).rejects.toThrow('INVALID_TAG_TRANSITION');
+ // Migration 013 also lets a shop go straight from prepared to active (tests in impersonation.spec.ts); this is the tested path.
  await expect(f.admin.setTagState(f.shop,tag,'tested')).rejects.toThrow('TAG_TEST_REQUIRED');
  const preview=await f.admin.preview(f.shop,{kind:'draft',revision:2},900,tag),c=(await f.resolver.preview(preview.token)).context;
  const v=await open(f,c,preview.token);await repo(f,c,preview.token).recordRating({...c,visitId:v.visit.visitId},{intentId:randomUUID(),expectedRevision:0,score:5},hash(c));
@@ -65,8 +65,9 @@ test('prepared→tested via isolated preview→active→disabled; preview never 
  const live=(await f.resolver.live({code:'fixture-tag'})).context,opened=await open(f,live);
  await f.admin.setTagState(f.shop,tag,'disabled');await expect(f.resolver.live({code:'fixture-tag'})).rejects.toThrow('PAGE_UNAVAILABLE');
  await expect(repo(f,live).recordRating({...live,visitId:opened.visit.visitId},{intentId:randomUUID(),expectedRevision:0,score:5},hash(live))).rejects.toThrow('TAG_UNAVAILABLE');
- await expect(f.admin.setTagState(f.shop,tag,'active')).rejects.toThrow('INVALID_TAG_TRANSITION');
  await expect(f.resolver.preview(preview.token)).rejects.toThrow('PREVIEW_UNAVAILABLE');
+ // Since 013 a stored card can be switched back on.
+ await f.admin.setTagState(f.shop,tag,'active');await expect(f.resolver.live({code:'fixture-tag'})).resolves.toBeTruthy();
 });
 test('preview capability, expiry and suspended shop block old visits without live writes',async({fixture:f})=>{
  await seed(f);const preview=await f.admin.preview(f.shop,{kind:'draft',revision:2},900),c=(await f.resolver.preview(preview.token)).context;

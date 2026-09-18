@@ -14,7 +14,7 @@ type Fixture=Awaited<ReturnType<typeof ownerFixture>>&{adminId:string;adminToken
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_imp_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const base=await ownerFixture(db),admins=new AdminAuth(db);
   const adminId=await admins.bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
@@ -316,4 +316,39 @@ test('the page editor: owners and managers edit and publish; support edits only 
  expect((await audit(f,'impersonation.design.save')).map(r=>[r.actor_id,r.on_behalf_of])).toEqual([[f.adminId,f.users[0].id]]);
  expect(await audit(f,'impersonation.design.publish')).toHaveLength(1);
  expect((await f.db.query("SELECT created_by FROM page_releases ORDER BY created_at DESC LIMIT 1")).rows[0].created_by).toBe(`admin:${f.adminId}`);
+});
+
+test('cards: anyone running the shop adds and renames; only the owner switches on; support never changes them',async({f})=>{
+ const {OwnerCards}=await import('../lib/owner/cards');const cards=new OwnerCards(f.db);
+ const {PublishingResolver}=await import('../lib/publishing/repository');
+ const made=await cards.create(f.users[0].token,'one',{label:'Bàn 3'});
+ expect(made).toMatchObject({label:'Bàn 3',state:'prepared'});expect(made.code).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
+ for(const bad of [{label:''},{label:'x'.repeat(61)},{label:'<b>'},{label:'ok',extra:1},null])await expect(cards.create(f.users[0].token,'one',bad)).rejects.toThrow('INVALID_CARD');
+ await expect(new PublishingResolver(f.db).live({code:made.code})).rejects.toThrow('PAGE_UNAVAILABLE');
+ // A manager may add and rename, and switch a card off, but not on: active cards are what the shop pays for.
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
+ await cards.update(f.users[1].token,'one',{id:made.id,label:'Bàn 4'});
+ await expect(cards.update(f.users[1].token,'one',{id:made.id,state:'active'})).rejects.toThrow('OWNER_ROLE_REQUIRED');
+ const before=await cards.list(f.users[0].token,'one');
+ expect(before).toMatchObject({canActivate:true,included:5});
+ await cards.update(f.users[0].token,'one',{id:made.id,state:'active'});
+ expect((await new PublishingResolver(f.db).live({code:made.code})).context.tagId).toBe(made.id);
+ const after=await cards.list(f.users[0].token,'one');
+ expect(after.active).toBe(before.active+1);expect(after.cards.find(c=>c.id===made.id)).toMatchObject({label:'Bàn 4',state:'active'});
+ expect((await cards.list(f.users[1].token,'one')).canActivate).toBe(false);
+ // Off stops the page at once and stops billing; on again brings it back.
+ await cards.update(f.users[1].token,'one',{id:made.id,state:'disabled'});
+ await expect(new PublishingResolver(f.db).live({code:made.code})).rejects.toThrow('PAGE_UNAVAILABLE');
+ await cards.update(f.users[0].token,'one',{id:made.id,state:'active'});
+ await expect(new PublishingResolver(f.db).live({code:made.code})).resolves.toBeTruthy();
+ // Another shop's card is out of reach, and support changes nothing at any position.
+ await expect(cards.update(f.users[0].token,'one',{id:randomUUID(),state:'active'})).rejects.toThrow('CARD_NOT_FOUND');
+ await position(f,'full');const d=await open(f,'design');
+ await expect(cards.list(d.credential,'one')).resolves.toMatchObject({canActivate:false});
+ await expect(cards.create(d.credential,'one',{label:'Hộ'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
+ await expect(cards.update(d.credential,'one',{id:made.id,state:'disabled'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
+ // The database still refuses codes under five characters, and rollback 013 refuses once short codes exist.
+ await expect(f.db.query("INSERT INTO tags(shop_id,public_code) VALUES($1,'abcd')",[f.shops[0]])).rejects.toThrow('check constraint');
+ const sql=await readFile('db/rollback/013_short_card_codes.sql','utf8'),db=await f.db.connect();
+ try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SHORT_CARD_CODES_EXIST');await db.query('ROLLBACK');}finally{db.release();}
 });

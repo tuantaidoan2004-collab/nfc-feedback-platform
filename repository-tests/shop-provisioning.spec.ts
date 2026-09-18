@@ -12,7 +12,7 @@ if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture requi
 const test=base.extend<{f:{db:Pool;shops:ShopProvisioning;links:OwnerSetupLinks;auth:OwnerAuth;actorId:string}}>({f:async({},provide)=>{
  const schema=`nfc_prov_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),links:new OwnerSetupLinks(db),auth:new OwnerAuth(db),actorId});
@@ -22,8 +22,9 @@ const input={name:'Cà Phê Bàn Số 3',ownerUsername:'quan-caphe',ownerEmail:'
 
 test('one call builds a live page, a card that is not live yet, and an owner who has no password',async({f})=>{
  const made=await f.shops.create(f.actorId,input);
- expect(made.slug).toMatch(/^[a-z0-9]{12}$/);
- expect(made.tagCode).toMatch(/^[a-z0-9]{12}$/);
+ // Five characters from an alphabet without 0/o, 1/l/i (lib/short-code.ts).
+ expect(made.slug).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
+ expect(made.tagCode).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
  expect(made.ownerEmail).toBe('chu@example.com');
 
  const shop=(await f.db.query('SELECT slug,name,google_url,publishing_state,active_release_id FROM shops WHERE id=$1',[made.shopId])).rows[0];

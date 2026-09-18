@@ -186,3 +186,21 @@ Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, �
 - Phiên "Sửa giao diện" chỉ thấy mục Thiết kế & Link. Mỗi lần lưu, xem trước, phát hành đều ghi sổ `impersonation.design.*` **thay mặt** chủ shop, và chủ shop thấy lượt đó cùng lý do trong Cài đặt.
 - Lịch sử bật/tắt cũ (migration 008) giữ nguyên và đọc đúng: bật = Khấc 1, tắt = Tắt. Rollback 012 từ chối khi đã có dữ liệu 4 vị trí hoặc phiên sửa giao diện.
 - `/gov` hiện mức của từng shop ở cột "Hỗ trợ" và chỉ cho chọn phạm vi mà mức đó cho phép.
+
+## Lát E1 — Thẻ NFC và mã ngắn — 2026-09-18
+
+**Đường dẫn, để khỏi nhầm (Tài hỏi 18/09):**
+- `/<mã shop>` là trang khách mở thẳng bằng mã shop, ví dụ `/pripi01r8e9u` (khuôn tạo ở lát A, mã 12 ký tự).
+- `/ZZZ/<mã shop>` là dashboard. `ZZZ` là **tiền tố cố định** của mọi dashboard, không phải mã shop, và không tăng theo số shop.
+- `/t/<mã thẻ>` là link **ghi vào chip NFC**. Mỗi thẻ có mã riêng, khác mã shop.
+- Tên miền phía trước là `APP_ORIGIN` (preview: alias của branch). Link ghi vào chip gồm **cả tên miền**, nên **phải chốt tên miền thật trước khi ghi thẻ cho khách**; đổi tên miền sau đó thì thẻ đã ghi phải ghi lại (hoặc giữ tên miền cũ chạy song song).
+
+**Mã ngắn** (`lib/short-code.ts`, migration 013): thẻ mới và shop mới có mã **5 ký tự**, bảng chữ không có 0/o và 1/l/i (31 ký tự, khoảng 28,6 triệu mã). Trùng 3 lần liên tiếp thì tự lên 6, rồi 7, 8. Mã cũ vẫn chạy. Mã ngắn đoán được dễ hơn: người lạ có thể mở trang của một thẻ bằng cách thử mã, nhưng trang khách vốn công khai, không lộ dữ liệu.
+
+**"Nhân bản thẻ"** (Thiết kế & Link → Thẻ NFC, `lib/owner/cards.ts`, `/api/owner/v2/<shop>/cards`): tạo thêm thẻ mở cùng trang, đặt tên (ví dụ "Bàn 3"), sao chép link để ghi chip. Thẻ đi thẳng **Chưa kích hoạt → Đang hoạt động** (chủ shop chạm thử sau khi kích hoạt); **Tạm tắt** làm trang của thẻ ngừng mở ngay; **Bật lại** được. Đường cũ qua bước "đã thử" vẫn hợp lệ.
+- Trước khi kích hoạt, hộp xác nhận báo **phí thêm của đúng thẻ đó** theo bảng giá mục 3 của `commercial-model.md` (5 thẻ đầu đã gồm trong gói; thẻ 6–20: 8k; từ thẻ 21: 5k mỗi tháng). Chưa thu tiền thật; đây là con số để shop biết trước.
+- Chủ shop và quản lý thêm, đổi tên, tắt thẻ. **Chỉ chủ shop kích hoạt và bật lại**, vì đó là việc tốn tiền. Quản trị không đổi thẻ ở bất kỳ khấc nào.
+
+**Google Business Profile (lát E2, chưa làm):** Không có cách hợp lệ để biết đúng khách nào đã đăng review. Các công cụ "theo dõi khách submit" trên mạng thực chất đọc review mới của shop qua API rồi **đoán** khớp theo thời gian (khách bấm nút Google lúc 14:02, có review mới lúc 14:05). Làm được theo cách đó và ghi rõ là ước đoán, không phải bằng chứng. Tài đã có project Google Cloud; còn phải: (1) xin quyền **Business Profile API** qua form của Google (duyệt vài ngày), (2) bật các API My Business, (3) cấu hình màn hình đồng ý OAuth với quyền `business.manage` (dùng thật cho khách cần Google xác minh).
+
+**Tài báo lỗ hổng `/gov` (18/09):** đã kiểm, không phải lỗ hổng. Không có phiên thì `/gov` chuyển về `/gov/login`, dashboard về trang đăng nhập, mọi API trả 401. Tài vào thẳng được vì trình duyệt còn phiên đăng nhập (phiên quản trị sống 4 giờ).
