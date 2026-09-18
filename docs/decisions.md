@@ -583,6 +583,7 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 
 - **Nhỏ, effort medium:** ảnh tĩnh cho video nền tải lên (khi iPhone tiết kiệm pin); âm thanh popup cảm ơn; dọn tệp R2 không còn dùng.
 - **Effort high:** tài khoản phụ (quản lý, nhân viên; nhân viên chỉ thấy góp ý khi chủ shop cho phép — `commercial-model.md` mục 8). **Tài chốt 18/09:** mỗi người **ID riêng** (không phải một két nhiều chìa), **lịch sử hoạt động** không sửa được, tìm/lọc theo người, ô tìm kiểu Spotlight; ghi chú lưu ID + tên tác giả.
+- **Tài chốt 18/09 (lượt sau): làm hệ thống tài khoản trước** — hồ sơ kiểu mạng xã hội, tab Hồ sơ, vương miện cho quản lý; thứ tự lát và các đề xuất chờ duyệt ở `commercial-model.md` mục 8, "Hệ thống tài khoản". Danh sách Review Landing Page (nhỏ) ở `redesign-v2.md`.
 - **Effort high, đi sau hoặc cùng tài khoản phụ:** Dữ liệu thành **luồng bình luận kiểu YouTube** (emoji làm ảnh đại diện, Loại thay tên, `⭐⭐⭐⭐ GG Review`, thời gian tương đối, ⓘ chứa chi tiết, bỏ trạng thái xử lý, nhiều ghi chú mỗi phản hồi). Thiết kế và 4 câu còn phải hỏi: `redesign-v2.md` mục "Dữ liệu dạng luồng bình luận".
 - **Nhớ cho Tài — cải cách big data (về sau, chưa lên lịch):** lưu dữ liệu hiện tại là đủ. Khi làm, mô phỏng cách các doanh nghiệp lớn lưu dữ liệu của họ (sổ sự kiện chỉ ghi thêm, tách kho phân tích khỏi database phục vụ). Chỉ ghi nhớ, chưa thiết kế.
 - **Bị chặn:** Google Business Profile (lát E2) — Google chỉ duyệt quyền API khi hồ sơ doanh nghiệp đã xác minh và hoạt động đủ 60 ngày; hồ sơ của Tài đang chờ xác minh. Không bật billing.

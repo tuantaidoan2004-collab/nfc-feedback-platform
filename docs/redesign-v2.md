@@ -223,8 +223,16 @@ Tài gửi ảnh phần bình luận YouTube và muốn bảng "Phản hồi c�
 - Mỗi ghi chú lưu **ID và tên tài khoản** người viết (đi cùng lát tài khoản phụ, `commercial-model.md` mục 8) và hiện thời gian tương đối.
 - Chỉ người trong shop thấy; khách không bao giờ thấy.
 
-**Chưa chốt, hỏi Tài trước khi làm:**
-- Bỏ trạng thái thì ô "Góp ý chưa xử lý" ở Tổng quan và bộ lọc "Xử lý" ở Dữ liệu không còn nghĩa. Đề xuất: đổi thành "Góp ý chưa ai phản hồi" (chưa có ghi chú nào).
-- Khách chỉ viết chữ, không chọn sao: ảnh đại diện dùng gì (đề xuất 💬).
-- Có cần sửa/xoá ghi chú, like, ghim như YouTube không (đề xuất: chưa; sửa thì giữ bản cũ trong lịch sử hoạt động).
-- Ghi chú cũ (mỗi phản hồi một ô) chuyển thành phản hồi đầu tiên; chưa có tác giả nên ghi là "Chủ shop (trước khi có tài khoản phụ)".
+**Tài trả lời 18/09:**
+- **Bỏ hẳn trạng thái xử lý**: xoá ô "Góp ý chưa xử lý" ở Tổng quan, bộ lọc "Xử lý" ở Dữ liệu, và cột `status` khỏi luồng ghi. Giao diện **giữ đúng tỷ lệ, vị trí, đường nhánh** của phần bình luận YouTube (ảnh đại diện tròn bên trái, đường cong nối xuống phản hồi, "N phản hồi ∨"), nhưng màu, chữ và biểu tượng là của NFC.
+- Khách chỉ viết chữ, không chọn sao: ảnh đại diện là **💬**.
+- **Có sửa, xoá, like, ghim** ghi chú. Sửa thì hiện "(đã chỉnh sửa)" như YouTube, bản cũ giữ trong lịch sử hoạt động.
+- **Ghi chú cũ thuộc về đúng người đã viết.** Kiểm mã 18/09: mọi ghi chú hiện có đã lưu `actor_id` (`owner_feedback_cases`), kèm từng bản sửa (`owner_feedback_audit`). Phiên mạo danh của admin **chỉ đọc** (`IMPERSONATION_READ_ONLY`), nên admin chưa từng ghi được ghi chú; ghi chú Tài viết khi vào bằng nút ở `/gov` là của tài khoản test `yourshop`. Chuyển đổi: mỗi ghi chú cũ thành phản hồi đầu tiên, tác giả là `actor_id` của nó.
+- Tài khoản phải **đàng hoàng như mạng xã hội**: xem mục "Hệ thống tài khoản" ở `commercial-model.md` mục 8.
+
+## Danh sách Review Landing Page — Tài yêu cầu 18/09, chưa làm
+
+Hiện dashboard chỉ có một khung "Trang khách" với một link. Tài muốn **danh sách mọi link**:
+- Một mục gọn, bấm vào mở xuống (dropdown) thành **bảng**: tên (trang chính, "Bàn 3", "Quầy"…), link, trạng thái thẻ, nút **Sao chép** và **Truy cập** (mở trang trong tab mới). **Bỏ nút Chia sẻ.**
+- Tên mục: **"Review Landing Page"** hoặc **"Trang bio"**, Tài chưa chọn.
+- Giao diện chỗ này làm lại cho gọn, tinh tế.

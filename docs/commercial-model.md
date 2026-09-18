@@ -229,6 +229,27 @@ Bảng `owner_memberships_v2` đã có `role` (`owner`/`manager`); vai nhân vi�
 - **Tìm và lọc:** lọc theo người, loại thao tác, khoảng ngày; ô tìm kiểu Spotlight (⌘K, gõ tới đâu ra tới đó, tìm được cả chữ không dấu). **Không cần skill hay dịch vụ riêng**: phía server là PostgreSQL (`unaccent` + `pg_trgm`), phía giao diện là một bảng lệnh có phím tắt.
 - **Ghi chú mang tác giả:** mỗi ghi chú lưu **ID và tên tài khoản** của người viết (xem `redesign-v2.md`, mục "Dữ liệu dạng luồng bình luận").
 
+### Hệ thống tài khoản — brainstorm 2026-09-18, chưa làm
+
+Tài chốt: làm xong **hệ thống tài khoản** trước, tài khoản phụ chỉ là một phần của nó. Tài khoản phải **đàng hoàng như mạng xã hội** (kiểu kênh YouTube), có **tab Hồ sơ** (quan trọng), quản lý có **vương miện** hiện cạnh tên, chỉnh được trong hồ sơ.
+
+Đã chốt:
+- Mỗi người **một danh tính** (`owner_identities_v2`), dùng cho mọi shop người đó thuộc về; vai nằm ở membership từng shop.
+- Hành động nào cũng ghi đúng tài khoản đã làm. Admin vào qua mạo danh thì là **admin**, không phải chủ shop.
+
+Đề xuất của agent, chờ Tài duyệt:
+- **Hồ sơ:** tên hiển thị, `@handle` duy nhất, ảnh đại diện (tải lên R2, chưa có thì chữ cái đầu trên nền màu), giới thiệu ngắn, ngày tham gia. Đăng nhập vẫn bằng tên đăng nhập + mật khẩu; `@handle` là tên công khai trong shop, đổi được.
+- **Tab Hồ sơ:** sửa hồ sơ, đổi mật khẩu (chuyển từ Cài đặt sang), xem hoạt động của chính mình. Bấm tên ai trong bình luận thì mở thẻ hồ sơ của người đó và hoạt động của họ trong shop.
+- **Huy hiệu theo vai:** chủ shop có tên nằm trong viên nhạt như chủ kênh trên YouTube; quản lý có 👑; nhân viên không có huy hiệu; admin NFC có dấu ✓ và nhãn "Hỗ trợ NFC".
+- **Tạo tài khoản phụ** bằng link thiết lập dùng một lần, như khách tự đặt mật khẩu (mục "Mật khẩu đầu tiên"): chủ shop cũng không bao giờ biết mật khẩu nhân viên.
+- Người rời shop thì tắt membership; bình luận cũ giữ tên họ.
+
+Chia lát dự kiến:
+1. **Danh sách Review Landing Page** — nhỏ, effort medium, không migration, làm được ngay.
+2. **Hồ sơ tài khoản + tab Hồ sơ** — effort high, có migration.
+3. **Tài khoản phụ + lịch sử hoạt động + tìm kiếm** — effort high, có migration.
+4. **Luồng bình luận** (like, ghim, sửa, xoá, bỏ trạng thái) — effort high, có migration.
+
 ### Mật khẩu đầu tiên — Tài không bao giờ biết
 
 Không sinh mật khẩu rồi đưa khách: như vậy Tài **từng biết** mật khẩu của khách, và ngày shop khiếu nại sẽ không chứng minh được. Thay bằng **link thiết lập dùng một lần, hết hạn 24–48 giờ**, gửi qua Zalo, khách tự đặt mật khẩu. Cần vào hộ thì dùng đường mạo danh — có sổ, có hạn giờ, minh bạch.
