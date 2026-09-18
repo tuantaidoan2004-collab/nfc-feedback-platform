@@ -224,6 +224,11 @@ Một shop có thể có nhiều tài khoản vào cùng dashboard. Chủ shop c
 
 Bảng `owner_memberships_v2` đã có `role` (`owner`/`manager`); vai nhân viên và quyền xem góp ý theo từng người là thay đổi schema của lát đó.
 
+**Mỗi người một tài khoản, không phải một két nhiều chìa (Tài hỏi 2026-09-18).** Tài hỏi dashboard có nên như két sắt với nhiều cách mở khoá không. Không: nhiều chìa mở cùng một két thì không biết ai đã làm gì. Hướng chọn là **mỗi quản lý, nhân viên có ID và mật khẩu riêng**, cùng vào dashboard của shop, quyền theo vai. Hệ quả:
+- **Lịch sử hoạt động:** mọi thao tác của người trong shop (ghi chú, đổi giao diện, phát hành, thêm/tắt thẻ, gạt công tắc, tạo tài khoản phụ) ghi một dòng **không sửa được**: ai (ID + tên tài khoản lúc đó), làm gì, trên cái gì, lúc nào. Cùng kiểu với `admin_audit` và lượt truy cập của quản trị đã có.
+- **Tìm và lọc:** lọc theo người, loại thao tác, khoảng ngày; ô tìm kiểu Spotlight (⌘K, gõ tới đâu ra tới đó, tìm được cả chữ không dấu). **Không cần skill hay dịch vụ riêng**: phía server là PostgreSQL (`unaccent` + `pg_trgm`), phía giao diện là một bảng lệnh có phím tắt.
+- **Ghi chú mang tác giả:** mỗi ghi chú lưu **ID và tên tài khoản** của người viết (xem `redesign-v2.md`, mục "Dữ liệu dạng luồng bình luận").
+
 ### Mật khẩu đầu tiên — Tài không bao giờ biết
 
 Không sinh mật khẩu rồi đưa khách: như vậy Tài **từng biết** mật khẩu của khách, và ngày shop khiếu nại sẽ không chứng minh được. Thay bằng **link thiết lập dùng một lần, hết hạn 24–48 giờ**, gửi qua Zalo, khách tự đặt mật khẩu. Cần vào hộ thì dùng đường mạo danh — có sổ, có hạn giờ, minh bạch.

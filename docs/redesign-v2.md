@@ -204,3 +204,27 @@ Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, �
 **Google Business Profile (lát E2, chưa làm):** Không có cách hợp lệ để biết đúng khách nào đã đăng review. Các công cụ "theo dõi khách submit" trên mạng thực chất đọc review mới của shop qua API rồi **đoán** khớp theo thời gian (khách bấm nút Google lúc 14:02, có review mới lúc 14:05). Làm được theo cách đó và ghi rõ là ước đoán, không phải bằng chứng. Tài đã có project Google Cloud; còn phải: (1) xin quyền **Business Profile API** qua form của Google (duyệt vài ngày), (2) bật các API My Business, (3) cấu hình màn hình đồng ý OAuth với quyền `business.manage` (dùng thật cho khách cần Google xác minh).
 
 **Tài báo lỗ hổng `/gov` (18/09):** đã kiểm, không phải lỗ hổng. Không có phiên thì `/gov` chuyển về `/gov/login`, dashboard về trang đăng nhập, mọi API trả 401. Tài vào thẳng được vì trình duyệt còn phiên đăng nhập (phiên quản trị sống 4 giờ).
+
+## Dữ liệu dạng luồng bình luận — thiết kế, chưa làm — Tài chốt 2026-09-18
+
+Tài gửi ảnh phần bình luận YouTube và muốn bảng "Phản hồi của khách" đổi thành **luồng bình luận**: mỗi phản hồi của khách là một bình luận gốc, ghi chú nội bộ thành các **phản hồi** bên dưới.
+
+**Bình luận gốc (lời khách):**
+- **Ảnh đại diện là emoji khách chọn** (😡 😤 😕 😊 🤩, `lib/faces.ts`).
+- Chỗ tên người là **Loại**: "Riêng tư". Khi có kết nối Google (lát E2), loại "GG Review" hiện **số sao bằng ⭐**, ví dụ 4 sao là `⭐⭐⭐⭐ GG Review`.
+- Kế bên Loại là **thời gian tương đối**: "vài giây trước", "3 giờ trước", "7 ngày trước". Không hiện ngày giờ cụ thể ở đây.
+- Thân là lời khách viết.
+- Nút **ⓘ** mở phần chi tiết: ngày giờ đầy đủ, **số gọi lại** (nếu khách để lại), chủ đề, nguồn, bản phát hành.
+- **Bỏ trạng thái xử lý** (Mới / Đang xử lý / Đã xử lý).
+- "Nguồn" là **khách đến từ thẻ nào** ("Bàn 3", "Quầy") hay mở link trực tiếp. Tài chưa rõ cột này nên chuyển vào ⓘ, không hiện ngoài.
+
+**Phản hồi (ghi chú nội bộ):**
+- Một phản hồi của khách có **nhiều ghi chú**, không còn một ô duy nhất bị ghi đè. Dòng "N phản hồi ∨" mở ra xem.
+- Mỗi ghi chú lưu **ID và tên tài khoản** người viết (đi cùng lát tài khoản phụ, `commercial-model.md` mục 8) và hiện thời gian tương đối.
+- Chỉ người trong shop thấy; khách không bao giờ thấy.
+
+**Chưa chốt, hỏi Tài trước khi làm:**
+- Bỏ trạng thái thì ô "Góp ý chưa xử lý" ở Tổng quan và bộ lọc "Xử lý" ở Dữ liệu không còn nghĩa. Đề xuất: đổi thành "Góp ý chưa ai phản hồi" (chưa có ghi chú nào).
+- Khách chỉ viết chữ, không chọn sao: ảnh đại diện dùng gì (đề xuất 💬).
+- Có cần sửa/xoá ghi chú, like, ghim như YouTube không (đề xuất: chưa; sửa thì giữ bản cũ trong lịch sử hoạt động).
+- Ghi chú cũ (mỗi phản hồi một ô) chuyển thành phản hồi đầu tiên; chưa có tác giả nên ghi là "Chủ shop (trước khi có tài khoản phụ)".
