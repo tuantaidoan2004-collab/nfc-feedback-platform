@@ -288,6 +288,7 @@ test('feedback takes an optional call-back number, rejects a malformed one and n
   }
   const saved = await db.api(request(token, { ...feedbackBody(), expectedRevision: 0, phone: '+84 961 036 265' }), context, 'feedback');
   expect(saved.status).toBe(200);
-  const text = await saved.text(); expect(text).not.toContain('961'); expect(text).not.toContain('phone');
+  // Look for the whole number: a random intent id or timestamp can contain any short run of digits.
+  const text = await saved.text(); expect(text).not.toContain('961036265'); expect(text).not.toContain('phone');
   expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: '+84961036265' }]);
 });

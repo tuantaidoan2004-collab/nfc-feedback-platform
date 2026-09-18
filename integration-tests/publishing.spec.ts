@@ -201,7 +201,7 @@ test('v2: the card takes an optional call-back number that needs a few words wit
   expect((await f.db.query('SELECT count(*)::int n FROM rating_experiences')).rows[0].n).toBe(0);
   await phone.fill('0961 036 265'); await star(page, 1).click();
   const response = page.waitForResponse('**/feedback'); await sendButton(page).click();
-  expect(await (await response).text()).not.toContain('0961');
+  expect(await (await response).text()).not.toContain('0961036265');
   await thanked(page);
   expect((await f.db.query('SELECT rating,feedback_message,feedback_phone FROM rating_experiences')).rows)
     .toEqual([{ rating: 1, feedback_message: 'Gọi giúp tôi', feedback_phone: '0961036265' }]);
