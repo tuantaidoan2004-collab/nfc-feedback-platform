@@ -539,6 +539,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 ## Tải lên R2 — 2026-09-18
 
 - Tài có tài khoản R2, yêu cầu làm mọi thứ liên quan. Trình chỉnh có nút tải poster, logo, nền lên thẳng R2 qua link ký 5 phút; không thêm thư viện. Chi tiết và các bước Tài làm trên Cloudflare, Vercel: [r2-uploads.md](r2-uploads.md).
+- Kiểm commit `400d1b2`: tsc/eslint exit 0; repository **99**; contracts **70**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **6 + 2**; admin **6 + 2**; tất cả exit 0. Không có migration.
 - Tài cũng yêu cầu chạy hướng dẫn cài đặt Cloudflare cho agent (`developers.cloudflare.com/agent-setup/prompt.md`: cài plugin `cloudflare/skills` và các MCP server cần đăng nhập OAuth). Agent **chưa chạy**: nó đổi cấu hình Claude Code toàn máy, cài mã bên ngoài và cho agent quyền trên tài khoản Cloudflare, trong khi R2 không cần tới. Chờ Tài xác nhận.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
