@@ -128,9 +128,10 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
  await expect(page).toHaveURL(`${origin}/ZZZ/${slug}`);
- // The customer page is right there, to open on other phones.
- await expect(page.locator(`[data-customer-link="${origin}/${slug}"]`)).toBeVisible();
- await expect(page.getByRole('link',{name:`${origin}/${slug}`,exact:true})).toHaveAttribute('href',`${origin}/${slug}`);
+ // The customer page is right there, to open on other phones: Trang bio drops down into every link (lát F1).
+ const bio=page.locator(`[data-customer-link="${origin}/${slug}"]`);await expect(bio).toBeVisible();
+ await bio.getByRole('button',{name:/Trang bio/}).click();
+ await expect(bio.locator(`tr[data-landing="${slug}"]`).getByRole('link',{name:'Truy cập'})).toHaveAttribute('href',`${origin}/${slug}`);
 
  // Spent once: the same link is dead now that the password is set.
  await page.goto(setupUrl);

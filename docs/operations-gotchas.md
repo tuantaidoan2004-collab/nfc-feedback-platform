@@ -48,6 +48,10 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Đăng nhập báo `LOGIN_FAILED` như thể sai mật khẩu.** `login()` giữ `pg_try_advisory_xact_lock` **phạm vi toàn database**, còn test cô lập bằng **schema**. Hai case đăng nhập cùng lúc — trong một file hay hai file — thì một cái mất lock. **`playwright.repository.config.ts` phải `workers: 1`.** Muốn song song lại thì phải cấp **database riêng cho mỗi file**, không phải schema riêng.
 
+**Mười mấy test repository và admin đỏ với lỗi CHECK trên chữ tiếng Việt** (`reason_check`, `feedback_message_check`). Cluster test tạo bằng `initdb` trong shell không có locale thì ra **`SQL_ASCII`**: `char_length` đếm byte và `[[:cntrl:]]` khớp byte của chữ có dấu. Luôn `initdb … -E UTF8 --locale=en_US.UTF-8`, rồi kiểm `SHOW server_encoding` ra `UTF8`. Lỗi của agent ở lát F1.
+
+**Bộ repository thoát 1 mà không chạy test nào** ("No tests found", "Set NFC_TEST_DATABASE_URL"). Bộ này cần `NFC_TEST_DATABASE_URL=postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test`; harness tự đặt biến, còn lệnh repository thì không. Lỗi của agent ở lát F1.
+
 **Có 7 bộ test, không phải 5.** Ngoài repository và bốn lệnh harness còn hai bộ không cần database, rất dễ quên:
 
 ```
@@ -74,7 +78,7 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Đổi một luật sản phẩm thì test cũ đỏ theo; đọc xem test đó thật sự bảo vệ điều gì.** Khi bỏ `RATING_REQUIRED`, test "synthetic resume" đỏ ở câu "nút Gửi bị khoá". Câu đó chỉ đúng dưới luật cũ; bất biến thật của test là **nháp không tự gửi** (`feedback_message` vẫn null), và phần đó giữ nguyên. Sửa câu kiểm phụ, ghi lý do ngay trong test; đừng xoá phần kiểm bất biến.
 
-**Khi bỏ một hành vi giao diện, tìm mọi test dùng nó bằng `grep` trên cả thư mục, đừng dựa vào danh sách nhớ.** Lát B3 sửa test của public-v2, browser-hardening và publishing nhưng quên `owner-dashboard.spec.ts` (nó cũng bấm sao trên trang khách). Và một fixture chỉ áp 001–003 vẫn đỏ khi repository bắt đầu ghi cột của 011: fixture nào gọi `VisitRatingRepository` đều cần mọi migration đụng tới bảng của 002.
+**Khi bỏ một hành vi giao diện, tìm mọi test dùng nó bằng `grep` trên cả thư mục, đừng dựa vào danh sách nhớ.** Lát F1 có `grep` và thấy `admin-http.spec.ts` dùng `data-customer-link`, nhưng chỉ đọc đúng dòng khớp, bỏ sót **dòng ngay sau** kiểm link luôn hiện; bộ admin đỏ. Đọc cả đoạn quanh chỗ khớp. Lát B3 sửa test của public-v2, browser-hardening và publishing nhưng quên `owner-dashboard.spec.ts` (nó cũng bấm sao trên trang khách). Và một fixture chỉ áp 001–003 vẫn đỏ khi repository bắt đầu ghi cột của 011: fixture nào gọi `VisitRatingRepository` đều cần mọi migration đụng tới bảng của 002.
 
 **`day` là từ khoá của PostgreSQL.** `SELECT to_char(d.day,'…') day` báo `syntax error at or near "day"`; phải viết `AS day`. Lỗi hiện ra ở dòng gọi `db.query`, không phải ở chuỗi SQL, nên dễ tìm nhầm chỗ.
 

@@ -240,4 +240,5 @@ Tài yêu cầu 18/09: dashboard chỉ có một khung "Trang khách" với mộ
 - Trên điện thoại mỗi link thành một khối xếp dọc, nút cao 40px; không cuộn ngang.
 - Không có migration, không đổi API.
 - **Test:** thêm vào test "cards" của `owner-dashboard.spec.ts`: danh sách đóng lúc đầu, mở ra đủ 2 link, nút Truy cập trỏ đúng `/t/<mã>`, không có nút Chia sẻ, 390px không cuộn ngang. Test xanh ngay lần đầu nên agent **cố tình phá mã** (chỉ hiện Trang chính): test đỏ đúng chỗ `Expected: 2`, rồi khôi phục.
+- **Lỗi của agent khi chạy 7 bộ:** cluster Postgres dựng ra `SQL_ASCII` (12 test repository và 2 test admin đỏ vì CHECK trên chữ tiếng Việt); lệnh repository thiếu `NFC_TEST_DATABASE_URL`; bỏ sót một câu kiểm link trong `admin-http.spec.ts` (đã sửa test cho khớp Trang bio). Ghi ở `operations-gotchas.md`.
 - **Lỗi của agent trong lượt này:** khi sửa tài liệu, agent ghi nhầm chữ `PLACEHOLDER` vào `redesign-v2.md` rồi gỡ ngay, trước commit. Khi phá thử mã, agent chép bản lưu ra `/tmp` thay vì scratchpad của phiên; đã xoá.
