@@ -274,7 +274,21 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   await expect(page.locator('.guest-watermark-track')).toHaveCSS('animation-name', 'none');
   await expect(page.locator('#private-feedback')).toHaveCSS('animation-name', 'none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await release(f, v1('Bản cũ'), revision);
+  // A phone that refuses to play (iPhone Low Power Mode, Android Battery or Data Saver): the video goes, the still stays,
+  // and an uploaded video shows the first frame the editor captured (lát F5).
+  await page.addInitScript(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Low Power Mode', 'NotAllowedError')); });
+  await page.reload(); await loaded(page);
+  await expect(page.locator('video.guest-bg-media')).toHaveCount(0);
+  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
+  await expect(page.locator('[data-video-blocked]')).toHaveCount(1);
+  const uploaded = { kind: 'video' as const, url: 'https://media.example/bg.mp4', still: 'https://media.example/bg.jpg' };
+  const next = await release(f, b2({ background: { kind: 'media', media: uploaded, loop: true },
+    poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), revision);
+  await page.reload(); await loaded(page);
+  await expect(page.locator('video')).toHaveCount(0);
+  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', 'https://media.example/bg.jpg');
+  await expect(page.locator('img[data-poster-still]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
+  await release(f, v1('Bản cũ'), next);
   await page.reload(); await loaded(page);
   await expect(page.locator('main')).toHaveAttribute('data-schema', '1');
   await expect(page.getByRole('heading', { name: 'Bản cũ' })).toBeVisible();

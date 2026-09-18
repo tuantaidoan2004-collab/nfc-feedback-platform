@@ -4,6 +4,8 @@ import {readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {ownerFixture,addExperience} from '../repository-tests/owner-fixture';
 import {sessionHash} from '../lib/owner/auth';
+import {OwnerTeam} from '../lib/owner/team';
+import {OwnerSetupLinks} from '../lib/owner/setup-link';
 const uri=process.env.NFC_TEST_DATABASE_URL,schema=process.env.NFC_TEST_SCHEMA;
 if(uri!=='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test'||!/^nfc_ui_test_[a-f0-9]{32}$/.test(schema??''))throw Error('Isolated harness required');
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provideFixture)=>{
@@ -21,7 +23,7 @@ async function data(page:Page,period='7 ngày'){await page.locator('[data-view="
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
 // next dev compiles an API on its first call and reloads every open page (operations-gotchas.md): compile the ones the
 // dashboard calls after it has opened before any page exists. The answers (401 without a session) do not matter.
-test.beforeEach(async({request})=>{for(const api of ['team','activity','comments?session=x','cards'])await request.get(`/api/owner/v2/warm/${api}`);await request.get('/api/owner/v2/profile');});
+test.beforeEach(async({request})=>{for(const api of ['team','activity','comments?session=x','cards'])await request.get(`/api/owner/v2/warm/${api}`);for(const api of ['profile','notifications'])await request.get(`/api/owner/v2/${api}`);});
 test('Publishing v2 customer→owner login→real metrics/filter/handling/export, responsive and logout',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // Guest page v2: the stars are in the private card, and Send saves the star and then the text.
@@ -50,13 +52,13 @@ test('Publishing v2 customer→owner login→real metrics/filter/handling/export
  await row.locator('[data-info-button]').click();await expect(row.locator('[data-info]')).toContainText('Lúc');await expect(row.locator('[data-info]')).toContainText('Trực tiếp');
  // A reply: written, liked, edited (marked as such, the old text kept), pinned.
  await row.locator('[data-reply]').click();
- await row.getByRole('textbox',{name:'Phản hồi nội bộ'}).fill('Đã gọi lại');await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await row.getByLabel('Phản hồi nội bộ').fill('Đã gọi lại');await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
  const reply=row.locator('[data-comment]');await expect(reply).toHaveCount(1);
  await expect(row.locator('[data-replies-toggle]')).toHaveText(/1 phản hồi/);
  await expect(reply.locator('[data-comment-author]')).toHaveText(`@${f.users[0].username}`);await expect(reply.locator('[data-comment-body]')).toHaveText('Đã gọi lại');
  await reply.locator('[data-like]').click();await expect(row.locator('[data-comment] [data-like]')).toHaveAttribute('aria-pressed','true');await expect(row.locator('[data-comment] [data-like]')).toHaveText('1');
  await row.locator('[data-comment]').getByRole('button',{name:'Thêm thao tác'}).click();await row.getByRole('menuitem',{name:'Sửa'}).click();
- await row.getByRole('textbox',{name:'Sửa phản hồi'}).fill('Đã gọi lại, khách đồng ý quay lại');await row.locator('[data-comment] [data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await row.getByLabel('Sửa phản hồi').fill('Đã gọi lại, khách đồng ý quay lại');await row.locator('[data-comment] [data-composer]').getByRole('button',{name:'Phản hồi'}).click();
  await expect(row.locator('[data-comment]')).toContainText('(đã chỉnh sửa)');await expect(row.locator('[data-comment-body]')).toHaveText('Đã gọi lại, khách đồng ý quay lại');
  await row.locator('[data-comment]').getByRole('button',{name:'Thêm thao tác'}).click();await row.getByRole('menuitem',{name:'Ghim'}).click();
  await expect(row.locator('[data-comment]')).toContainText('📌 Đã ghim');
@@ -265,6 +267,9 @@ test('profile: a channel-like page, edit name, @handle and bio, then sign in wit
  await page.screenshot({path:info.outputPath('profile-1280.png'),fullPage:true});
  // Sign in again with the new @handle, then with the email, typed in capitals.
  await page.getByRole('button',{name:'Đăng xuất'}).click();
+ // A Vietnamese phone keyboard puts marks into the handle (Telex: "yourshop" becomes "yoủshop"); the page says so.
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill('@hoa.cafè');await expect(page.locator('[data-accent-hint]')).toBeVisible();
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill('@hoa.cafe');await expect(page.locator('[data-accent-hint]')).toHaveCount(0);
  await login(page,{username:'@hoa.cafe',password:a.password});
  await page.getByRole('button',{name:'Đăng xuất'}).click();
  await f.db.query("UPDATE owner_identities_v2 SET email='hoa@example.com' WHERE id=$1",[a.id]);
@@ -339,6 +344,44 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
  await page.screenshot({path:info.outputPath('team-390.png'),fullPage:true});
  expect(errors).toEqual([]);
 });
+test('mentions: @ in a reply suggests who can read feedback; the one mentioned sees the bell and opens the thread',async({page,browser,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const x=await addExperience(f.db,'one',2,'Khách chê món bún');
+ const team=new OwnerTeam(f.db),roles=(await team.list(f.users[0].token,'one')).roles;
+ for(const [handle,role] of [['mai.ql','Quản lý'],['an.nv','Nhân viên']]){
+  const invited=await team.invite(f.users[0].token,'one',{handle,roleId:roles.find(r=>r.name===role)!.id});await new OwnerSetupLinks(f.db).consume(invited.token,`password-of-${handle}`);}
+ await login(page,f.users[0]);await data(page);
+ const row=page.locator(`[data-row="${x.session.sessionId}"]`);
+ await row.locator('[data-reply]').click();
+ const box=row.getByLabel('Phản hồi nội bộ');await box.pressSequentially('Nhờ @');
+ // an.nv cannot read feedback, so only the owner and mai.ql are offered; typing narrows, Enter picks.
+ await expect(row.locator('[data-composer-mentions] [data-mention]')).toHaveCount(2);
+ await box.pressSequentially('MA');await expect(row.locator('[data-composer-mentions] [data-mention]')).toHaveCount(1);
+ await box.press('Enter');await expect(box).toHaveValue('Nhờ @mai.ql ');
+ await box.pressSequentially('gọi lại khách');await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await expect(row.locator('[data-comment-body]')).toHaveText('Nhờ @mai.ql gọi lại khách');
+ await expect(row.locator('[data-comment-body] span')).toHaveText('@mai.ql');
+ // mai.ql, on their own phone: the bell shows one, and opening it shows the thread with the reply.
+ const other=await browser.newContext({baseURL:origin,viewport:{width:390,height:844}});
+ try{
+  const mai=await other.newPage();await login(mai,{username:'mai.ql',password:'password-of-mai.ql'});
+  await expect(mai.locator('[data-bell-count]')).toHaveText('1');
+  await mai.locator('[data-bell]').click();
+  await expect(mai.locator('[data-notification]')).toContainText(`@${f.users[0].username} đã nhắc bạn`);
+  await mai.screenshot({path:info.outputPath('bell-390.png')});
+  await mai.locator('[data-notification] button').click();
+  const dialog=mai.locator('[data-thread-dialog]');
+  await expect(dialog).toContainText('Khách chê món bún');await expect(dialog.locator('[data-comment-body]')).toHaveText('Nhờ @mai.ql gọi lại khách');
+  await expect(mai.locator('[data-bell-count]')).toHaveCount(0);
+  expect(await mai.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await mai.screenshot({path:info.outputPath('thread-dialog-390.png')});
+  await dialog.getByRole('button',{name:'Đóng'}).click();await expect(dialog).toHaveCount(0);
+  // The bell's link into another shop's dashboard opens the thread there too.
+  await mai.goto(`/ZZZ/one?thread=${x.session.sessionId}`);
+  await expect(mai.locator('[data-thread-dialog]')).toContainText('Khách chê món bún');expect(new URL(mai.url()).search).toBe('');
+ }finally{await other.close();}
+ expect(errors).toEqual([]);
+});
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{
  await addExperience(f.db);const b=await addExperience(f.db,'two');
  expect((await request.get('/api/owner/v2/one')).status()).toBe(401);
@@ -360,7 +403,7 @@ test('two people reply at once: both replies stay, the thread reloads; the custo
  await data(page);
  const records=(await (await context.request.get('/api/owner/v2/one')).json()).records;
  const row=page.locator(`[data-row="${records[0].session_id}"]`);
- await row.locator('[data-reply]').click();await row.getByRole('textbox',{name:'Phản hồi nội bộ'}).fill('Của tôi');
+ await row.locator('[data-reply]').click();await row.getByLabel('Phản hồi nội bộ').fill('Của tôi');
  // Someone else replies while this one is still typing.
  expect((await context.request.post('/api/owner/v2/one/comments',{headers:{Origin:origin},data:{sessionId:records[0].session_id,body:'Người khác viết trước'}})).status()).toBe(200);
  await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();

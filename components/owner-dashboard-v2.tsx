@@ -8,7 +8,8 @@ import { faceFor } from '@/lib/faces';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
-import FeedbackThreads, { type Me } from './feedback-threads';
+import FeedbackThreads, { ThreadDialog, type Me } from './feedback-threads';
+import NotificationBell from './notification-bell';
 import AdminBadge from './admin-badge';
 import ProfilePanel, { Avatar, useProfile } from './profile-panel';
 import TeamPanel from './team-panel';
@@ -272,6 +273,16 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   const canComment = owner ? may('feedback') : impersonation?.scope === 'feedback' && summary?.support.level === 'full';
   const me: Me | null = owner ? (profile ? { kind: 'member', handle: profile.handle, displayName: profile.displayName, avatarUrl: profile.avatarUrl } : null)
     : impersonation ? { kind: 'admin', handle: impersonation.admin, title: impersonation.adminTitle } : null;
+  // A thread opened on its own: from the bell, or from /ZZZ/<shop>?thread=<id> when the bell was in another shop.
+  const [focus, setFocus] = useState<string | null>(null);
+  useEffect(() => {
+    const thread = new URLSearchParams(window.location.search).get('thread');
+    if (thread && /^[0-9a-f-]{36}$/i.test(thread)) { void Promise.resolve().then(() => setFocus(thread)); window.history.replaceState(null, '', window.location.pathname); }
+  }, [slug]);
+  const openThread = (shop: string, sessionId: string) => {
+    if (shop.toLowerCase() === slug.toLowerCase()) setFocus(sessionId);
+    else router.push(`/ZZZ/${encodeURIComponent(shop)}?thread=${sessionId}`);
+  };
   const shown = (id: View) => id === 'activity' ? owner && !!perms?.includes('activity')
     : id === 'design' ? may('design') || may('cards') : id === 'profile' ? owner : true;
   const title = VIEWS.find(([id]) => id === view)![1];
@@ -279,8 +290,8 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
     <aside className={styles.side}>
       <div className={styles.avatar} aria-hidden="true">{initials(name)}</div>
       <p className={styles.shopName}>{name}</p>
-      {owner ? <button type="button" className={styles.me} data-me onClick={() => setView('profile')} aria-label="Mở hồ sơ của bạn">
-          {profile ? <><Avatar profile={profile} size={28} /><span>@{profile.handle}{(() => { const here = profile.shops.find(x => x.slug.toLowerCase() === slug.toLowerCase()); return here?.roleIcon && here.showBadge ? ` ${here.roleIcon}` : ''; })()}</span></> : <span>{summary ? summary.account : ' '}</span>}</button>
+      {owner ? <div className={styles.meRow}><button type="button" className={styles.me} data-me onClick={() => setView('profile')} aria-label="Mở hồ sơ của bạn">
+          {profile ? <><Avatar profile={profile} size={28} /><span>@{profile.handle}{(() => { const here = profile.shops.find(x => x.slug.toLowerCase() === slug.toLowerCase()); return here?.roleIcon && here.showBadge ? ` ${here.roleIcon}` : ''; })()}</span></> : <span>{summary ? summary.account : ' '}</span>}</button><NotificationBell onOpen={openThread} /></div>
         : <p className={styles.account}>{summary ? summary.account : ' '}</p>}
       {summary && summary.shops.length > 1 && <label className={styles.picker}>Shop đang xem
         <select value={slug} onChange={e => { if (e.target.value !== slug) router.push(`/ZZZ/${e.target.value}`); }}>
@@ -371,6 +382,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       </section>}
 
       {view === 'profile' && owner && <ProfilePanel slug={slug} profile={profile} setProfile={setProfile} password={<PasswordForm />} />}
+      {focus && <ThreadDialog endpoint={endpoint} sessionId={focus} canWrite={!!canComment} me={me} topic={key => TOPICS[key] ?? key} onClose={() => setFocus(null)} />}
     </main>
   </div>;
 }

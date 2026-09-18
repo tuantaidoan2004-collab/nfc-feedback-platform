@@ -34,6 +34,8 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Log Vercel đầy dòng `error` mà không có lỗi nào.** Mỗi lần khởi động, `pg` in một cảnh báo SSL (`prefer`, `require`, `verify-ca` sẽ đổi nghĩa ở bản sau), và Vercel ghi nó với nhãn error. Đã xử lý trong mã: `lib/db-url.ts` đổi các chế độ đó thành `verify-full`, đúng hành vi hiện tại, cho cả hai pool và cho `scripts/migrate.mjs`. Không cần sửa chuỗi kết nối, vốn do tích hợp Neon quản lý.
 
+**Đăng nhập trên điện thoại báo sai dù gõ đúng.** Bộ gõ tiếng Việt (Telex/VNI) đổi chữ trước khi tới trang: `r` là dấu hỏi, `s` là dấu sắc, nên "yourshop" thành "yoủshop". Trang đăng nhập giờ cảnh báo ngay khi ô @handle có chữ có dấu (lát F5). Cũng kiểm xem có đang mở **tên miền production** (đóng) thay vì alias preview không.
+
 **Mật khẩu gõ tay vào prompt bị sai dù gõ đúng.** Nghi bộ gõ tiếng Việt biến đổi ký tự ngay tại Terminal (số ký tự khớp, nội dung không). Chưa chứng minh được, nhưng **đưa mật khẩu qua đường ống** thì hết: `printf '%s' 'mat-khau' | node scripts/... --reset`.
 
 **Script `.mjs` không import được module TypeScript của dự án.** Mã dùng constructor parameter property, thứ type stripping của Node từ chối. Nên `scripts/bootstrap-admin.mjs` **nhân bản tham số scrypt**. Chống trôi lệch bằng test chạy chính script đó rồi đăng nhập qua thư viện — đừng bỏ test ấy.

@@ -34,6 +34,15 @@ test('v2 ships Instagram, Zalo and TikTok buttons and a configurable feedback bu
     expect(() => validateConfig(bad)).toThrow('INVALID_CONFIG');
   }
 });
+test('a video may carry its first frame as a still; nothing else may', () => {
+  const base = defaultConfig('Quán Thử'), video = { kind: 'video' as const, url: 'https://media.example/v.mp4', still: 'https://media.example/v.jpg' };
+  expect(validateConfig({ ...base, poster: video, background: { kind: 'media', media: video, loop: true } }).poster).toEqual(video);
+  expect(validateConfig({ ...base, background: { kind: 'media', media: { kind: 'video', url: '/media/stem-background.mp4', still: '/media/stem-background.jpg' }, loop: true } })).toBeTruthy();
+  for (const bad of [{ kind: 'image', url: 'https://media.example/a.jpg', still: 'https://media.example/b.jpg' }, { ...video, still: 'http://media.example/v.jpg' },
+    { ...video, still: 'javascript:alert(1)' }, { ...video, still: '/etc/passwd' }, { ...video, extra: 1 }])
+    expect(() => validateConfig({ ...base, poster: bad })).toThrow('INVALID_CONFIG');
+  expect(() => validateConfig({ ...base, logo: { kind: 'image', url: 'https://media.example/l.png', still: 'https://media.example/l.png' } })).toThrow('INVALID_CONFIG');
+});
 test('allowlist accepts branding and rejects injection, rating gating and unsupported layouts', () => {
   const config = defaultConfig(); expect(validateConfig(config)).toEqual(config);
   for (const patch of [{ html: '<script>x</script>' }, { layout: 'grid' }, { schemaVersion: 0 }, { googleUrl: 'javascript:alert(1)' },

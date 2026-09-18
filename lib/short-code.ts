@@ -14,7 +14,7 @@ export function shortCode(length: number, random: (size: number) => Buffer = ran
   return code;
 }
 /** Names the account API owns under /api/owner/v2 (migration 014 refuses them as shop slugs); `setup` is reachable. */
-export const RESERVED_CODES = new Set(['profile', 'password', 'login', 'logout', 'setup']);
+export const RESERVED_CODES = new Set(['profile', 'password', 'login', 'logout', 'setup', 'notifications']);
 const duplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 /**
  * Tries a fresh code until one is free: three tries per length from five up to eight. `insert` must fail with a

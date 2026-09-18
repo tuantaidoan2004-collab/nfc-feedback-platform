@@ -566,7 +566,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–016 đã có trên Neon production và preview.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–016 đã có trên Neon production và preview; 017 (lát F5) chờ Tài chạy.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`, và 5 biến R2 cho branch (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET=nfc-media`, `MEDIA_PUBLIC_ORIGIN=https://pub-fc28….r2.dev`).
 
@@ -583,7 +583,7 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 
 - **Nhỏ, effort medium:** ảnh tĩnh cho video nền tải lên (khi iPhone tiết kiệm pin); âm thanh popup cảm ơn; dọn tệp R2 không còn dùng.
 - **Effort high:** tài khoản phụ (quản lý, nhân viên; nhân viên chỉ thấy góp ý khi chủ shop cho phép — `commercial-model.md` mục 8). **Tài chốt 18/09:** mỗi người **ID riêng** (không phải một két nhiều chìa), **lịch sử hoạt động** không sửa được, tìm/lọc theo người, ô tìm kiểu Spotlight; ghi chú lưu ID + tên tác giả.
-- **Lát F1 Trang bio xong 18/09**. **Lát F2 hồ sơ tài khoản xong 18/09, migration 014**: chỉ push sau khi Tài migrate Neon production rồi preview; Tài đặt `NFC_SUPPORT_CONTACT` trên Vercel. **Lát F3 đội ngũ + vai kiểu Discord + lịch sử hoạt động xong 18/09, migration 015**: chỉ push sau khi Tài migrate. **Lát F4 luồng bình luận kiểu YouTube xong 19/09, migration 016** (chỉ push sau khi Tài migrate); gợi ý `@` trong ô tìm ⌘K cũng xong. **Tiếp theo: Tài chọn** (gợi ý: thông báo khi được `@` nhắc trong phản hồi; ảnh tĩnh cho video nền; tên miền thật).
+- **Lát F1 Trang bio xong 18/09**. **Lát F2 hồ sơ tài khoản xong 18/09, migration 014**: chỉ push sau khi Tài migrate Neon production rồi preview; Tài đặt `NFC_SUPPORT_CONTACT` trên Vercel. **Lát F3 đội ngũ + vai kiểu Discord + lịch sử hoạt động xong 18/09, migration 015**: chỉ push sau khi Tài migrate. **Lát F4 luồng bình luận kiểu YouTube xong 19/09, migration 016** (chỉ push sau khi Tài migrate); gợi ý `@` trong ô tìm ⌘K cũng xong. **Lát F5 xong 19/09, migration 017:** thông báo `@` có chuông, ảnh tĩnh cho video (iPhone và Android), cảnh báo bộ gõ tiếng Việt khi đăng nhập. **Tiếp theo: Tài chọn.**
 - **Tài chốt 18/09 (lượt sau): làm hệ thống tài khoản trước** — hồ sơ kiểu mạng xã hội, tab Hồ sơ, vương miện cho quản lý; thứ tự lát và các đề xuất chờ duyệt ở `commercial-model.md` mục 8, "Hệ thống tài khoản". Danh sách Review Landing Page (nhỏ) ở `redesign-v2.md`.
 - **Effort high, đi sau hoặc cùng tài khoản phụ:** Dữ liệu thành **luồng bình luận kiểu YouTube** (emoji làm ảnh đại diện, Loại thay tên, `⭐⭐⭐⭐ GG Review`, thời gian tương đối, ⓘ chứa chi tiết, bỏ trạng thái xử lý, nhiều ghi chú mỗi phản hồi). Thiết kế và 4 câu còn phải hỏi: `redesign-v2.md` mục "Dữ liệu dạng luồng bình luận".
 - **Nhớ cho Tài — cải cách big data (về sau, chưa lên lịch):** lưu dữ liệu hiện tại là đủ. Khi làm, mô phỏng cách các doanh nghiệp lớn lưu dữ liệu của họ (sổ sự kiện chỉ ghi thêm, tách kho phân tích khỏi database phục vụ). Chỉ ghi nhớ, chưa thiết kế.
@@ -592,7 +592,7 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 
 ### Việc còn treo của Tài
 
-- **Tên miền thật** (`quitesensational`?) — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
+- **Tên miền thật: `quitesentational-review-bio`** (Tài chốt 19/09; chưa chọn đuôi, chưa mua; xác nhận chính tả "sentational") — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
 - Xác minh hồ sơ Google Business Profile, chờ 60 ngày, rồi xin quyền API.
 - Trả lời agent có cài plugin Cloudflare cho Claude Code không (hướng dẫn `developers.cloudflare.com/agent-setup/prompt.md`; agent chưa chạy vì đổi cấu hình toàn máy và cho agent quyền trên tài khoản Cloudflare).
 - Khi siết mật khẩu đồng loạt: xoay mật khẩu `neondb_owner` và admin `tai` (đã xuất hiện trong hội thoại), đổi `yourshop`.

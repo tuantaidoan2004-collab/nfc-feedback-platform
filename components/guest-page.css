@@ -153,3 +153,6 @@
   .guest[data-layout="full-bleed"] .guest-sheet { padding-top: 24px; }
   .guest[data-layout="full-bleed"] .guest-body { border-radius: 28px; margin-bottom: 24px; flex: none; }
 }
+/* A refused autoplay must not show iOS's ▶ button over the still (lát F5). */
+.guest-bg-media::-webkit-media-controls-start-playback-button, .guest-poster::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }
+.guest-bg-media::-webkit-media-controls, .guest-poster::-webkit-media-controls { display: none !important; }

@@ -301,3 +301,20 @@ Thiết kế và các câu Tài trả lời: mục "Dữ liệu dạng luồng b
 - **Đã push** sau khi Tài migrate 016 trên Neon production và preview (19/09).
 - **Lỗi và bẫy trong lát:** (1) công cụ lại đổi `\\u0000` thành NUL, lần này ngay trong lệnh shell, và lệnh bị chặn trước khi chạy; dùng `String.fromCharCode(0)` để tránh hẳn escape. (2) Test migration gọi `read()` trước khi có bảng 016, trong khi câu đọc phản hồi giờ đếm bình luận: test sai, không phải mã sai. (3) Thiếu tải "Phản hồi nội bộ": test CSV cũ đỏ vì phản hồi không còn trong tệp; nhờ đó mới thấy chỗ mất dữ liệu. (4) `.app button` đè font làm nút ⓘ thành hình bầu dục; phát hiện nhờ ảnh chụp.
 
+## Lát F5 — thông báo khi được @ nhắc, ảnh tĩnh cho video, đăng nhập trên điện thoại — 2026-09-19
+
+Tài: "làm hết, kể cả Android", và báo trước đây mở dashboard trên điện thoại không được.
+
+**Thông báo @ (migration 017, `017_mention_notifications.sql`):**
+- Viết `@handle` trong phản hồi (khi tạo, hoặc khi sửa mà thêm người mới) thì người đó nhận một thông báo, **chỉ khi** họ đang ở shop và đọc được góp ý (chủ shop, vai có công tắc `feedback`, hoặc chủ shop mở riêng cho họ). Người viết không tự nhắc mình. Mỗi người một thông báo cho mỗi phản hồi (`UNIQUE(user_id, comment_id)`). Nhận diện `@` (`mentions()`): không khớp phần sau `@` trong email, bỏ dấu chấm cuối câu.
+- **Chuông** 🔔 cạnh nút @handle ở menu trái, số đỏ là số chưa đọc; kiểm mỗi phút khi tab đang hiện, và khi quay lại tab. Danh sách 30 thông báo mới nhất trên mọi shop: ai nhắc, trích 140 ký tự của phản hồi, shop, thời gian tương đối. "Đánh dấu đã đọc hết". Bấm một dòng: đánh dấu đã đọc, mở **đúng luồng** trong hộp nổi (`ThreadDialog`); nếu ở shop khác thì sang `/ZZZ/<shop>?thread=<mã>` và mở ở đó (tham số bị xoá khỏi URL ngay sau khi mở).
+- Mất quyền đọc góp ý thì thông báo và đoạn trích **ẩn đi** (lọc lại mỗi lần đọc). Admin không có hộp thư; admin ở Khấc 3 nhắc được người khác, thông báo ghi tick tím.
+- Trong ô viết phản hồi, gõ `@` thì hiện gợi ý người đọc được góp ý (↑/↓, Enter/Tab, Esc); chữ `@handle` trong phản hồi được tô màu.
+- API: `GET/PATCH /api/owner/v2/notifications`. `GET …/comments?session=` trả thêm phản hồi gốc của khách để hộp nổi tự vẽ được. Slug `notifications` bị cấm cho shop.
+
+**Ảnh tĩnh cho video (iPhone và Android):**
+- Cấu hình trang: media dạng video được mang thêm `still` (ảnh https hoặc ảnh có sẵn). Trình chỉnh giao diện **chụp khung đầu** của video ngay trên máy lúc shop tải lên (JPEG, rộng tối đa 1280px), tải ảnh đó lên R2 và gắn vào nền hoặc poster. Đổi link hay loại media bằng tay thì bỏ ảnh cũ. Video tải lên trước lát này chưa có ảnh: vẫn về màu nền; tải lại video là có.
+- Trang khách: khi điện thoại **từ chối phát** (iPhone tiết kiệm pin, Android tiết kiệm pin hoặc dữ liệu), `play()` bị từ chối; trang bỏ video, giữ ảnh tĩnh, poster video đổi thành ảnh tĩnh. CSS ẩn nút ▶ của iOS. Người bật "giảm chuyển động" vẫn như cũ.
+
+**Dashboard trên điện thoại:** agent kiểm 19/09: preview **không** bật Deployment Protection (trang khách 200, `/ZZZ/…` 307 về trang đăng nhập, trang đăng nhập 200 khi không đăng nhập Vercel), và trang đăng nhập hiển thị đúng ở 375px. Agent không tự đăng nhập bằng mật khẩu (quy tắc an toàn), nên chưa tái hiện được lỗi cũ. Hai nguyên nhân khả dĩ nhất: (1) mở **tên miền production** (đang đóng, không đặt `NFC_ENV`) thay vì alias preview; (2) **bộ gõ tiếng Việt** trên điện thoại đổi @handle (Telex: `r` là dấu hỏi, nên "yourshop" thành "yoủshop"), nên đăng nhập báo sai như sai mật khẩu. Đã thêm: ô @handle tắt tự sửa/viết hoa, và **cảnh báo ngay khi có chữ có dấu** ("chuyển sang bàn phím tiếng Anh 🌐"); lỗi đăng nhập cũng nhắc điều này. Tài cần thử lại trên điện thoại và báo màn hình thấy gì nếu vẫn lỗi.
+

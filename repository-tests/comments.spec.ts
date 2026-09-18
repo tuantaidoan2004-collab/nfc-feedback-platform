@@ -16,7 +16,7 @@ const BEFORE=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_s
 type Fixture=Awaited<ReturnType<typeof ownerFixture>>;
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_comment_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of [...BEFORE,'016_feedback_comments.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));await provide(await ownerFixture(db));}
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of [...BEFORE,'016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));await provide(await ownerFixture(db));}
  finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const rows=(f:Fixture,token=f.users[0].token)=>new OwnerDashboard(f.db).read(token,'one',parseFilters(new URLSearchParams())).then(r=>r.records);

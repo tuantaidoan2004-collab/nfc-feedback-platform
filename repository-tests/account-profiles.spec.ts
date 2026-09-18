@@ -16,7 +16,7 @@ const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({}
   // Tài's administrator exists before 014 runs, as on Neon: the migration gives it the handle and label he chose.
   for(const file of MIGRATIONS)await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   await new AdminAuth(db).bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
-  for(const file of ['014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of ['014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   await provide(await ownerFixture(db));
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});

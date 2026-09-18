@@ -28,7 +28,7 @@ Do đó: khi generate, slug là **mã ngẫu nhiên**; sau này shop muốn tên
 
 ### Tên miền
 
-Tài chọn **`quitesensational`** (trùng tên Instagram cá nhân). Đuôi chưa chốt; `.app` là lựa chọn tốt vì nằm trong danh sách HSTS preload nên trình duyệt bắt buộc HTTPS ở tầng dưới.
+Tài chọn **`quitesensational`** (trùng tên Instagram cá nhân). **Cập nhật 2026-09-19:** Tài chốt tên miền **`quitesentational-review-bio`** (Tài viết "sentational"; bản cũ ghi "sensational", agent đã hỏi lại cho chắc). Chưa có đuôi (.com, .app, .vn…) và chưa mua. Link ghi vào chip dài khoảng `quitesentational-review-bio.app/t/abcde` ≈ 40 ký tự, vừa NTAG213 (144 byte). Đuôi chưa chốt; `.app` là lựa chọn tốt vì nằm trong danh sách HSTS preload nên trình duyệt bắt buộc HTTPS ở tầng dưới.
 
 Độ dài không phải vấn đề: `quitesensational.app/t/a1b2c3d4` ≈40 byte kể cả phần thừa NDEF, trên thẻ NTAG213 144 byte. URL này không ai gõ tay — khách chạm thẻ hoặc quét QR; chỗ duy nhất gõ là bookmark admin và bio shop (copy-paste).
 

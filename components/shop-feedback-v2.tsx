@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- media URLs are shop-configured https or built-in paths; next/image would need every host listed in advance. */
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
 import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
@@ -73,18 +73,37 @@ function useReducedMotion() {
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches, () => false);
 }
 
-/** Built-in videos have a matching still for Low Power Mode and reduced motion; uploaded videos fall back to colour. */
-const stillFor = (media: MediaRef) => media.kind === 'image' ? media.url : media.url === STEM_BACKGROUND.video ? STEM_BACKGROUND.still : null;
+/**
+ * The image shown under (or instead of) a video: the built-in video's still, or the first frame the editor captured
+ * when the shop uploaded its video (lát F5). Older uploads without one fall back to colour.
+ */
+const stillFor = (media: MediaRef) => media.kind === 'image' ? media.url : media.still ?? (media.url === STEM_BACKGROUND.video ? STEM_BACKGROUND.still : null);
+/**
+ * Phones may refuse to play: iPhone in Low Power Mode, Android with Battery or Data Saver. play() then rejects, and
+ * iOS would draw its ▶ button over a frozen frame. When that happens the video is removed and the still stays.
+ */
+function useVideoPlays() {
+  const [blocked, setBlocked] = useState(false);
+  const ref = useCallback((video: HTMLVideoElement | null) => {
+    if (!video) return;
+    video.muted = true;
+    const attempt = video.play();
+    if (attempt) attempt.catch((error: DOMException) => { if (error?.name !== 'AbortError') setBlocked(true); });
+    video.addEventListener('error', () => setBlocked(true), { once: true });
+  }, []);
+  return [blocked, ref] as const;
+}
 
 function Background({ config, reduced }: { config: ReturnType<typeof defaultConfig>; reduced: boolean }) {
   const b = config.background;
   const style = b.kind === 'solid' ? { background: b.color }
     : b.kind === 'gradient' ? { background: `linear-gradient(${b.angle}deg, ${b.colors[0]}, ${b.colors[1]})` } : undefined;
   const still = b.kind === 'media' ? stillFor(b.media) : null;
-  return <div className="guest-bg" style={style} aria-hidden="true">
+  const [blocked, plays] = useVideoPlays();
+  return <div className="guest-bg" style={style} aria-hidden="true" data-video-blocked={blocked || undefined}>
     {still && <img className="guest-bg-media" src={still} alt="" />}
-    {b.kind === 'media' && b.media.kind === 'video' && !reduced &&
-      <video className="guest-bg-media" src={b.media.url} poster={still ?? undefined} autoPlay muted loop={b.loop} playsInline preload="auto" />}
+    {b.kind === 'media' && b.media.kind === 'video' && !reduced && !blocked &&
+      <video ref={plays} className="guest-bg-media" src={b.media.url} poster={still ?? undefined} autoPlay muted loop={b.loop} playsInline preload="auto" />}
     {config.watermark.enabled && <div className="guest-watermark">
       <div className="guest-watermark-track">{Array.from({ length: 48 }, (_, i) => <span key={i}>{config.watermark.text}</span>)}</div>
     </div>}
@@ -92,9 +111,11 @@ function Background({ config, reduced }: { config: ReturnType<typeof defaultConf
 }
 
 function Poster({ poster, label }: { poster: MediaRef | null; label: string }) {
+  const [blocked, plays] = useVideoPlays();
   if (!poster) return <div className="guest-poster guest-poster-empty"><span>{label}</span></div>;
+  if (poster.kind === 'video' && blocked && poster.still) return <img className="guest-poster" src={poster.still} alt="" data-poster-still />;
   return poster.kind === 'video'
-    ? <video className="guest-poster" src={poster.url} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
+    ? <video ref={plays} className="guest-poster" src={poster.url} poster={poster.still} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
     : <img className="guest-poster" src={poster.url} alt="" />;
 }
 

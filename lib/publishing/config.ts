@@ -1,5 +1,6 @@
 export type Localized = { vi: string; en: string };
-export type MediaRef = { kind: 'image' | 'video'; url: string };
+/** A video may carry `still`: its first frame as an image, shown when the phone will not play video (lát F5). */
+export type MediaRef = { kind: 'image' | 'video'; url: string; still?: string };
 export type LinkIcon = 'zalo' | 'instagram' | 'booking' | 'link' | 'facebook' | 'phone' | 'tiktok';
 /** The floating private-feedback button. Only built-in icons until per-shop uploads exist. */
 export type FeedbackButton = { icon: 'plane' | 'chat' | 'mail'; color: string; outline: string };
@@ -38,7 +39,10 @@ function localized(value: unknown) { keys(value, ['vi', 'en']); text(value.vi, 1
 export const STEM_BACKGROUND = { video: '/media/stem-background.mp4', still: '/media/stem-background.jpg' } as const;
 const BUILT_IN_MEDIA: Record<string, 'image' | 'video'> = { [STEM_BACKGROUND.video]: 'video', [STEM_BACKGROUND.still]: 'image' };
 function media(value: unknown, logo = false) {
-  keys(value, ['kind', 'url']); if (!(logo ? value.kind === 'image' : ['image', 'video'].includes(String(value.kind)))) fail();
+  const withStill = !logo && !!value && typeof value === 'object' && 'still' in value;
+  keys(value, withStill ? ['kind', 'url', 'still'] : ['kind', 'url']); if (!(logo ? value.kind === 'image' : ['image', 'video'].includes(String(value.kind)))) fail();
+  // Only a video has a still, and the still is an https image or the built-in one.
+  if (withStill) { if (value.kind !== 'video') fail(); if (value.still !== STEM_BACKGROUND.still) url(value.still); }
   if (typeof value.url === 'string' && Object.hasOwn(BUILT_IN_MEDIA, value.url)) { if (BUILT_IN_MEDIA[value.url] !== value.kind) fail(); return; }
   url(value.url);
 }

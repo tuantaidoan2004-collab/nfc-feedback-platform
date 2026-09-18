@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import { authorize, supportLevel, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordActivity } from './activity';
 import { recordAdminAction } from '../admin/audit';
+import { notifyMentions } from './notifications';
 
 /**
  * Replies under a customer's feedback (lát F4, Tài 2026-09-18/19), like YouTube comments. Reading them needs the
@@ -12,6 +13,8 @@ import { recordAdminAction } from '../admin/audit';
  */
 export type CommentAuthor = { kind: 'member' | 'admin'; id: string; handle: string; displayName: string | null; avatarUrl: string | null;
   owner: boolean; role: { name: string; icon: string | null; color: string } | null; title: string | null };
+export type ThreadExperience = { session_id: string; first_rated_at: string; rating: number | null; topic: string | null; message: string | null;
+  phone: string | null; source_label: string };
 export type FeedbackComment = { id: string; body: string; createdAt: string; editedAt: string | null; pinned: boolean; likes: number; liked: boolean;
   mine: boolean; canDelete: boolean; author: CommentAuthor };
 
@@ -76,8 +79,16 @@ export class OwnerComments {
         WHERE c.shop_id=$1 AND c.session_id=$2 AND c.deleted_at IS NULL
         ORDER BY c.pinned_at IS NULL,c.created_at,c.id`, [access.shopId, id(sessionId), me.kind, me.id])).rows;
       await this.audit(db, access, 'comments.read', String(sessionId));
+      // The customer's own feedback, so a thread can open on its own — from a notification, outside the Data list.
+      const experience = (await db.query(`SELECT e.session_id,to_char(e.first_interaction_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') first_rated_at,
+          e.rating,e.feedback_topic topic,e.feedback_message message,e.feedback_phone phone,
+          COALESCE((SELECT COALESCE(NULLIF(t.location_label,''),CASE WHEN v.entry_key='direct:shop' THEN 'Trực tiếp' WHEN p.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END)
+            FROM page_visits v LEFT JOIN published_visit_contexts p ON p.visit_id=v.id LEFT JOIN tags t ON t.id=p.tag_id
+            WHERE v.session_id=e.session_id ORDER BY v.opened_at DESC LIMIT 1),'Chưa rõ nguồn') source_label
+        FROM rating_experiences e WHERE e.shop_id=$1 AND e.session_id=$2 AND e.scope='live'`, [access.shopId, sessionId])).rows[0];
+      if (!experience) throw new OwnerError(404, 'NOT_FOUND');
       const owner = access.actor.kind === 'owner' && access.role === 'owner';
-      return { comments: rows.map(r => ({ id: r.id, body: r.body, createdAt: r.createdAt, editedAt: r.editedAt, pinned: r.pinned, likes: r.likes, liked: r.liked,
+      return { experience: experience as ThreadExperience, comments: rows.map(r => ({ id: r.id, body: r.body, createdAt: r.createdAt, editedAt: r.editedAt, pinned: r.pinned, likes: r.likes, liked: r.liked,
         mine: r.mine, canDelete: r.mine || owner,
         author: { kind: r.kind, id: r.author_id, handle: r.handle, displayName: r.display_name, avatarUrl: r.avatar_url, owner: r.owner, role: r.role, title: r.title } })) as FeedbackComment[] };
     });
@@ -94,7 +105,8 @@ export class OwnerComments {
         [access.shopId, sessionId, me.kind, me.id, me.handle, content])).rows[0];
       await recordActivity(db, access, 'comment.create', reference(sessionId));
       await this.audit(db, access, 'comment.create', sessionId);
-      return { id: row.id as string };
+      const notified = await notifyMentions(db, { shopId: access.shopId, commentId: row.id, sessionId, body: content, author: me });
+      return { id: row.id as string, notified: notified.length };
     });
   }
 
@@ -110,6 +122,8 @@ export class OwnerComments {
         if (content === current.body) return { ok: true };
         await db.query('INSERT INTO feedback_comment_revisions(comment_id,body)VALUES($1,$2)', [current.id, current.body]);
         await db.query('UPDATE feedback_comments SET body=$2,edited_at=clock_timestamp() WHERE id=$1', [current.id, content]);
+        // Only people the new text mentions for the first time hear about it.
+        await notifyMentions(db, { shopId: access.shopId, commentId: current.id, sessionId: current.session_id, body: content, author: { ...me, handle: current.author_handle } });
         await recordActivity(db, access, 'comment.edit', reference(current.session_id));
       } else if (data.op === 'pin') {
         if (typeof data.value !== 'boolean') throw new OwnerError(400, 'INVALID_COMMENT');

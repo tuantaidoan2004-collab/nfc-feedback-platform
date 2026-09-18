@@ -28,7 +28,35 @@ const UPLOAD_ERRORS: Record<string, string> = {
  * Picks a file, asks the app for a signed upload, and sends the file straight to R2. The page keeps only the
  * public link that comes back; nothing is published until Publish.
  */
-function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string; accept: string; label: string; enabled: boolean; onDone: (url: string, kind: MediaRef['kind']) => void }) {
+/**
+ * The first frame of a video the shop is uploading, as a JPEG no wider than 1280px (lát F5). Taken from the local file,
+ * before upload, so no cross-origin rule gets in the way. The guest page shows it when a phone refuses to play video.
+ */
+async function firstFrame(file: File): Promise<Blob | null> {
+  const source = URL.createObjectURL(file), video = document.createElement('video');
+  try {
+    video.muted = true; video.playsInline = true; video.preload = 'auto'; video.src = source;
+    await new Promise<void>((resolve, reject) => { video.onloadeddata = () => resolve(); video.onerror = () => reject(); setTimeout(reject, 10000); });
+    video.currentTime = Math.min(0.1, (video.duration || 1) / 2);
+    await new Promise<void>(resolve => { video.onseeked = () => resolve(); setTimeout(resolve, 3000); });
+    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight, 1));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale)); canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  } catch { return null; }
+  finally { video.removeAttribute('src'); URL.revokeObjectURL(source); }
+}
+/** Asks for a signed upload and sends the file straight to R2; returns the public link. */
+async function put(endpoint: string, file: Blob, type: string) {
+  const signed = await fetch(`${endpoint}/media`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, size: file.size }) });
+  const body = await signed.json().catch(() => ({}));
+  if (!signed.ok) return { error: UPLOAD_ERRORS[body.error] ?? 'Chưa tải lên được.' };
+  const sent = await fetch(body.upload, { method: 'PUT', headers: body.headers, body: file });
+  return sent.ok ? { url: body.url as string, kind: body.kind as MediaRef['kind'] } : { error: 'Kho lưu trữ từ chối tệp. Thử lại.' };
+}
+
+function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string; accept: string; label: string; enabled: boolean; onDone: (media: MediaRef) => void }) {
   const [state, setState] = useState('');
   if (!enabled) return <span className="upload-off" data-upload-off>Tải lên cần bật kho lưu trữ R2.</span>;
   return <label className={styles.upload} data-upload={label}>
@@ -37,12 +65,18 @@ function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string
       if (!file) return;
       setState('Đang tải lên…');
       try {
-        const signed = await fetch(`${endpoint}/media`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: file.type, size: file.size }) });
-        const body = await signed.json().catch(() => ({}));
-        if (!signed.ok) { setState(UPLOAD_ERRORS[body.error] ?? 'Chưa tải lên được.'); return; }
-        const sent = await fetch(body.upload, { method: 'PUT', headers: body.headers, body: file });
-        if (!sent.ok) { setState('Kho lưu trữ từ chối tệp. Thử lại.'); return; }
-        onDone(body.url, body.kind); setState('Đã tải lên. Bấm Phát hành để khách thấy; Xem trước để xem thử.');
+        const uploaded = await put(endpoint, file, file.type);
+        if ('error' in uploaded) { setState(uploaded.error ?? 'Chưa tải lên được.'); return; }
+        // A video also gets its first frame as a still, for phones that will not play it.
+        let still: string | undefined;
+        if (uploaded.kind === 'video') {
+          setState('Đang tạo ảnh tĩnh từ video…');
+          const frame = await firstFrame(file), frameUpload = frame ? await put(endpoint, frame, 'image/jpeg') : null;
+          if (frameUpload && 'url' in frameUpload) still = frameUpload.url;
+        }
+        onDone(still ? { kind: 'video', url: uploaded.url, still } : { kind: uploaded.kind, url: uploaded.url });
+        setState(uploaded.kind === 'video' && !still ? 'Đã tải video lên, nhưng chưa tạo được ảnh tĩnh: điện thoại tiết kiệm pin sẽ thấy màu nền. Bấm Phát hành để khách thấy.'
+          : 'Đã tải lên. Bấm Phát hành để khách thấy; Xem trước để xem thử.');
       } catch { setState('Không thể kết nối tới kho lưu trữ.'); }
     }} />
     <span>{label}</span>{state && <small data-upload-state>{state}</small>}
@@ -137,13 +171,13 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
     </fieldset>
 
     <fieldset className={styles.panel}><legend>Poster và logo</legend><div className={styles.grid2}>
-      <label>Loại poster<select value={config.poster?.kind ?? 'image'} onChange={e => change({ poster: config.poster ? { ...config.poster, kind: e.target.value as MediaRef['kind'] } : null })} disabled={!config.poster}>
+      <label>Loại poster<select value={config.poster?.kind ?? 'image'} onChange={e => change({ poster: config.poster ? { kind: e.target.value as MediaRef['kind'], url: config.poster.url } : null })} disabled={!config.poster}>
         <option value="image">Ảnh</option><option value="video">Video</option></select></label>
       <label>Link poster (bỏ trống để hiện khung “POSTER SỰ KIỆN”)<input type="url" value={config.poster?.url ?? ''} onChange={e => change({ poster: mediaOf(e.target.value, config.poster?.kind ?? 'image') })} placeholder="https://…" /></label>
       <label>Link logo (bỏ trống để hiện chữ cái đầu)<input type="url" value={config.logo?.url ?? ''} onChange={e => change({ logo: e.target.value.trim() ? { kind: 'image', url: e.target.value.trim() } : null })} placeholder="https://…" /></label>
       <div className={styles.uploads}>
-        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải poster lên" enabled={state.uploads} onDone={(url, kind) => change({ poster: { kind, url } })} />
-        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp" label="Tải logo lên" enabled={state.uploads} onDone={url => change({ logo: { kind: 'image', url } })} />
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải poster lên" enabled={state.uploads} onDone={media => change({ poster: media })} />
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp" label="Tải logo lên" enabled={state.uploads} onDone={media => change({ logo: { kind: 'image', url: media.url } })} />
       </div>
     </div><p className={styles.hint}>Tải lên: ảnh JPG, PNG, WebP tối đa 5 MB; video MP4 tối đa 30 MB. Cũng có thể dán link https.</p></fieldset>
 
@@ -155,9 +189,9 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
           : { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } });
       }}><option value="video">Video mặc định</option><option value="upload">Ảnh hoặc video của shop</option><option value="gradient">Chuyển màu</option><option value="solid">Một màu</option></select></label>
       {b.kind === 'media' && b.media.url !== STEM_BACKGROUND.video && <>
-        <label>Link ảnh hoặc video nền<input type="url" value={b.media.url} onChange={e => change({ background: { ...b, media: { ...b.media, url: e.target.value.trim() } } })} /></label>
-        <label>Loại<select value={b.media.kind} onChange={e => change({ background: { ...b, media: { ...b.media, kind: e.target.value as MediaRef['kind'] } } })}><option value="image">Ảnh</option><option value="video">Video (chạy lặp, không tiếng)</option></select></label>
-        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải nền lên" enabled={state.uploads} onDone={(url, kind) => change({ background: { kind: 'media', media: { kind, url }, loop: true } })} />
+        <label>Link ảnh hoặc video nền<input type="url" value={b.media.url} onChange={e => change({ background: { ...b, media: { kind: b.media.kind, url: e.target.value.trim() } } })} /></label>
+        <label>Loại<select value={b.media.kind} onChange={e => change({ background: { ...b, media: { kind: e.target.value as MediaRef['kind'], url: b.media.url } } })}><option value="image">Ảnh</option><option value="video">Video (chạy lặp, không tiếng)</option></select></label>
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải nền lên" enabled={state.uploads} onDone={media => change({ background: { kind: 'media', media, loop: true } })} />
       </>}
       {b.kind === 'solid' && <label>Màu nền<input type="color" value={b.color} onChange={e => change({ background: { kind: 'solid', color: e.target.value.toUpperCase() } })} /></label>}
       {b.kind === 'gradient' && <>

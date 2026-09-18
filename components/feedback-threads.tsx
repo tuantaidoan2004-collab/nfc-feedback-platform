@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ExperienceRow } from '@/lib/owner/dashboard';
-import type { FeedbackComment } from '@/lib/owner/comments';
+import type { FeedbackComment, ThreadExperience } from '@/lib/owner/comments';
 import { faceFor } from '@/lib/faces';
 import { relativeTime } from '@/lib/relative-time';
 import AdminBadge, { VerifiedTick } from './admin-badge';
@@ -16,6 +16,16 @@ import styles from './owner-app.module.css';
  * "⭐⭐⭐⭐ GG Review"), then relative time; the exact time, call-back number, topic and source sit behind ⓘ.
  * There is no processing status. Replies are the shop's internal notes: liked, pinned, edited, deleted.
  */
+/** What a thread needs of the customer's feedback: a Data row, or the thread API's own copy when opened from the bell. */
+type ThreadRow = Pick<ExperienceRow, 'session_id' | 'first_rated_at' | 'rating' | 'topic' | 'message' | 'phone' | 'source_label' | 'comment_count'>;
+/** Someone who can be @mentioned in a reply: a member of this shop who may read its feedback (lát F5). */
+export type Person = { handle: string; displayName: string | null; avatarUrl: string | null };
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
+/** A reply's text with each @handle picked out, as the person who was mentioned will see it. */
+function Mentioned({ text }: { text: string }) {
+  const parts = text.split(/((?:^|(?<=[^a-z0-9_.-]))@[a-z0-9][a-z0-9_.-]{2,63})/gi);
+  return <>{parts.map((part, i) => part.startsWith('@') && i % 2 === 1 ? <span key={i} className={styles.mention}>{part}</span> : part)}</>;
+}
 export type Me = { kind: 'member'; handle: string; displayName: string | null; avatarUrl: string | null } | { kind: 'admin'; handle: string; title: string | null };
 const exact = (iso: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'full', timeStyle: 'short' }).format(new Date(iso));
 const ERRORS: Record<string, string> = {
@@ -32,8 +42,18 @@ function PersonPicture({ author, size }: { author: Pick<FeedbackComment['author'
   return <Avatar profile={author} size={size} />;
 }
 
-function Composer({ me, initial, label, onSend, onCancel }: { me: Me; initial: string; label: string; onSend: (text: string) => Promise<boolean>; onCancel: () => void }) {
+function Composer({ me, initial, label, people = [], onSend, onCancel }: { me: Me; initial: string; label: string; people?: Person[];
+  onSend: (text: string) => Promise<boolean>; onCancel: () => void }) {
   const [value, setValue] = useState(initial), [busy, setBusy] = useState(false), box = useRef<HTMLTextAreaElement>(null);
+  const [caret, setCaret] = useState(initial.length), [pick, setPick] = useState(0), [closed, setClosed] = useState(false), listId = useId();
+  // Typing @ offers the people who can read this thread; the word after it narrows the list.
+  const typed = /(^|\s)@([a-z0-9_.-]*)$/i.exec(value.slice(0, caret));
+  const matches = typed && !closed ? people.filter(p => fold(`${p.handle} ${p.displayName ?? ''}`).includes(fold(typed[2]))).slice(0, 6) : [];
+  const choose = (person: Person) => {
+    const start = typed!.index + typed![1].length, next = `${value.slice(0, start)}@${person.handle} ${value.slice(caret)}`;
+    setValue(next); setPick(0); const at = start + person.handle.length + 2; setCaret(at);
+    requestAnimationFrame(() => { box.current?.focus(); box.current?.setSelectionRange(at, at); });
+  };
   useEffect(() => { const el = box.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, []);
   const send = async () => { if (!value.trim() || busy) return; setBusy(true); if (await onSend(value)) setValue(''); setBusy(false); };
   return <div className={styles.composer} data-composer>
@@ -41,8 +61,22 @@ function Composer({ me, initial, label, onSend, onCancel }: { me: Me; initial: s
       : <Avatar profile={me} size={28} />}
     <div className={styles.composerBox}>
       <textarea ref={box} value={value} rows={1} maxLength={2000} aria-label={label} placeholder="Viết phản hồi nội bộ… (khách không thấy)"
-        onChange={e => { setValue(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
-        onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); } if (e.key === 'Escape') onCancel(); }} />
+        role="combobox" aria-expanded={matches.length > 0} aria-controls={listId} aria-autocomplete="list"
+        onChange={e => { setValue(e.target.value); setCaret(e.target.selectionStart); setClosed(false); setPick(0); e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
+        onSelect={e => setCaret(e.currentTarget.selectionStart)}
+        onKeyDown={e => {
+          if (matches.length) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setPick((pick + 1) % matches.length); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setPick((pick - 1 + matches.length) % matches.length); return; }
+            if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); choose(matches[Math.min(pick, matches.length - 1)]); return; }
+            if (e.key === 'Escape') { e.preventDefault(); setClosed(true); return; }
+          }
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); } if (e.key === 'Escape') onCancel();
+        }} />
+      {matches.length > 0 && <ul id={listId} className={styles.mentions} role="listbox" aria-label="Nhắc tới" data-composer-mentions>
+        {matches.map((p, i) => <li key={p.handle} role="option" aria-selected={i === Math.min(pick, matches.length - 1)} data-mention={p.handle}
+          onMouseDown={e => { e.preventDefault(); choose(p); }} onMouseEnter={() => setPick(i)}>
+          <Avatar profile={p} size={24} /><span><strong>{p.displayName ?? `@${p.handle}`}</strong>{p.displayName && <small>@{p.handle}</small>}</span></li>)}</ul>}
       <div className={styles.composerActions}>
         <button type="button" className={styles.ghostButton} onClick={onCancel}>Huỷ</button>
         <button type="button" className={styles.sendButton} disabled={!value.trim() || busy} onClick={() => void send()}>{busy ? 'Đang gửi…' : 'Phản hồi'}</button>
@@ -51,7 +85,7 @@ function Composer({ me, initial, label, onSend, onCancel }: { me: Me; initial: s
   </div>;
 }
 
-function Reply({ comment, canWrite, act, onReply }: { comment: FeedbackComment; canWrite: boolean;
+function Reply({ comment, canWrite, act, onReply, people }: { comment: FeedbackComment; canWrite: boolean; people: Person[];
   act: (method: string, body: unknown, done?: string) => Promise<boolean>; onReply: (handle: string) => void }) {
   const [menu, setMenu] = useState(false), [editing, setEditing] = useState(false);
   const a = comment.author;
@@ -66,9 +100,9 @@ function Reply({ comment, canWrite, act, onReply }: { comment: FeedbackComment; 
         <time dateTime={comment.createdAt} title={exact(comment.createdAt)}>{relativeTime(comment.createdAt)}</time>
         {comment.editedAt && <span className={styles.edited}>(đã chỉnh sửa)</span>}
       </p>
-      {editing ? <Composer me={{ kind: 'member', handle: a.handle, displayName: a.displayName, avatarUrl: a.avatarUrl }} initial={comment.body} label="Sửa phản hồi"
+      {editing ? <Composer me={{ kind: 'member', handle: a.handle, displayName: a.displayName, avatarUrl: a.avatarUrl }} initial={comment.body} label="Sửa phản hồi" people={people}
           onCancel={() => setEditing(false)} onSend={async text => { const ok = await act('PATCH', { id: comment.id, op: 'edit', value: text }); if (ok) setEditing(false); return ok; }} />
-        : <p className={styles.replyBody} data-comment-body>{comment.body}</p>}
+        : <p className={styles.replyBody} data-comment-body><Mentioned text={comment.body} /></p>}
       <div className={styles.replyActions}>
         <button type="button" className={styles.likeButton} aria-pressed={comment.liked} disabled={!canWrite} aria-label={comment.liked ? 'Bỏ thích' : 'Thích'} data-like
           onClick={() => void act('PATCH', { id: comment.id, op: 'like', value: !comment.liked })}><Thumb filled={comment.liked} />{comment.likes > 0 && <span>{comment.likes}</span>}</button>
@@ -86,9 +120,9 @@ function Reply({ comment, canWrite, act, onReply }: { comment: FeedbackComment; 
   </li>;
 }
 
-function Thread({ row, endpoint, hidden, canWrite, me, topic, say }: { row: ExperienceRow; endpoint: string; hidden: boolean; canWrite: boolean; me: Me | null;
-  topic: (key: string) => string; say: (text: string) => void }) {
-  const [open, setOpen] = useState(false), [info, setInfo] = useState(false), [comments, setComments] = useState<FeedbackComment[] | null>(null);
+function Thread({ row, endpoint, hidden, canWrite, me, topic, say, people, initiallyOpen = false }: { row: ThreadRow; endpoint: string; hidden: boolean; canWrite: boolean;
+  me: Me | null; topic: (key: string) => string; say: (text: string) => void; people: Person[]; initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen), [info, setInfo] = useState(false), [comments, setComments] = useState<FeedbackComment[] | null>(null);
   const [count, setCount] = useState(row.comment_count), [composer, setComposer] = useState<string | null>(null);
   const face = faceFor(row.rating);
   const load = useCallback(async () => {
@@ -108,6 +142,7 @@ function Thread({ row, endpoint, hidden, canWrite, me, topic, say }: { row: Expe
       await load(); return true;
     } catch { say('Không thể kết nối. Vui lòng thử lại.'); return false; }
   };
+  useEffect(() => { if (initiallyOpen) void Promise.resolve().then(load); }, [initiallyOpen, load]);
   const reply = (handle?: string) => { setOpen(true); if (!comments) void load(); setComposer(handle ? `@${handle} ` : ''); };
   const words = hidden ? 'Nội dung góp ý đang ẩn với bạn.' : row.message;
 
@@ -131,24 +166,62 @@ function Thread({ row, endpoint, hidden, canWrite, me, topic, say }: { row: Expe
       </dl>}
       <p className={words ? styles.threadBody : `${styles.threadBody} ${styles.muted}`} data-message-for={row.session_id}>{words ?? 'Chỉ chấm sao, không viết gì.'}</p>
       {canWrite && !hidden && <div className={styles.replyActions}><button type="button" className={styles.ghostButton} data-reply onClick={() => reply()}>Phản hồi</button></div>}
-      {composer !== null && me && <Composer key={composer} me={me} initial={composer} label="Phản hồi nội bộ" onCancel={() => setComposer(null)}
+      {composer !== null && me && <Composer key={composer} me={me} initial={composer} label="Phản hồi nội bộ" people={people} onCancel={() => setComposer(null)}
         onSend={async text => { const ok = await act('POST', { sessionId: row.session_id, body: text }); if (ok) setComposer(null); return ok; }} />}
       {count > 0 && <button type="button" className={styles.repliesToggle} aria-expanded={open} data-replies-toggle
         onClick={() => { const next = !open; setOpen(next); if (next && !comments) void load(); }}>
         {count} phản hồi <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>}
     </div>
     {open && comments && comments.length > 0 && <ul className={styles.replies} data-replies>
-      {comments.map(c => <Reply key={`${c.id}:${c.editedAt}:${c.likes}:${c.pinned}:${c.liked}`} comment={c} canWrite={canWrite} act={act} onReply={handle => reply(handle)} />)}
+      {comments.map(c => <Reply key={`${c.id}:${c.editedAt}:${c.likes}:${c.pinned}:${c.liked}`} comment={c} canWrite={canWrite} act={act} people={people} onReply={handle => reply(handle)} />)}
     </ul>}
   </article>;
+}
+
+/** The shop's members who may read feedback, for @ suggestions. Support gets none: the team is the shop's own. */
+export function usePeople(endpoint: string, enabled: boolean) {
+  const [people, setPeople] = useState<Person[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    void fetch(`${endpoint}/team`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(body => {
+      if (body) setPeople((body.members as { handle: string; displayName: string | null; avatarUrl: string | null; owner: boolean; feedbackOverride: boolean | null; permissions: string[] }[])
+        .filter(m => m.owner || (m.feedbackOverride ?? m.permissions.includes('feedback'))).map(m => ({ handle: m.handle, displayName: m.displayName, avatarUrl: m.avatarUrl })));
+    }).catch(() => {});
+  }, [endpoint, enabled]);
+  return people;
+}
+
+/** One thread on its own, over the page: where a notification leads (lát F5). */
+export function ThreadDialog({ endpoint, sessionId, canWrite, me, topic, onClose }: { endpoint: string; sessionId: string; canWrite: boolean; me: Me | null;
+  topic: (key: string) => string; onClose: () => void }) {
+  const [row, setRow] = useState<ThreadRow | null>(null), [notice, setNotice] = useState('');
+  const people = usePeople(endpoint, canWrite && me?.kind === 'member');
+  useEffect(() => {
+    void fetch(`${endpoint}/comments?session=${encodeURIComponent(sessionId)}`, { cache: 'no-store' }).then(async r => {
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) { setNotice(ERRORS[body.error] ?? 'Không mở được phản hồi này.'); return; }
+      setRow({ ...(body.experience as ThreadExperience), comment_count: body.comments.length });
+    }).catch(() => setNotice('Không thể kết nối. Vui lòng thử lại.'));
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
+  }, [endpoint, sessionId, onClose]);
+  return <div className={styles.dialogBackdrop} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <section className={styles.dialog} role="dialog" aria-modal="true" aria-label="Phản hồi được nhắc" data-thread-dialog>
+      <header><h2>Phản hồi của khách</h2><button type="button" className={styles.dots} aria-label="Đóng" onClick={onClose}>✕</button></header>
+      <p role="status" className={styles.notice}>{notice}</p>
+      {row ? <Thread row={row} endpoint={endpoint} hidden={false} canWrite={canWrite} me={me} topic={topic} say={setNotice} people={people} initiallyOpen />
+        : !notice && <p className={styles.hint}>Đang mở…</p>}
+    </section>
+  </div>;
 }
 
 export default function FeedbackThreads({ rows, endpoint, hidden, canWrite, me, topic }: { rows: ExperienceRow[]; endpoint: string; hidden: boolean; canWrite: boolean;
   me: Me | null; topic: (key: string) => string }) {
   const [notice, setNotice] = useState('');
+  const people = usePeople(endpoint, canWrite && me?.kind === 'member');
   if (rows.length === 0) return <p className={styles.hint}>Chưa có phản hồi trong khoảng này.</p>;
   return <div data-feedback-threads>
     <p role="status" className={styles.notice} data-thread-notice>{notice}</p>
-    {rows.map(row => <Thread key={row.session_id} row={row} endpoint={endpoint} hidden={hidden} canWrite={canWrite} me={me} topic={topic} say={setNotice} />)}
+    {rows.map(row => <Thread key={row.session_id} row={row} endpoint={endpoint} hidden={hidden} canWrite={canWrite} me={me} topic={topic} say={setNotice} people={people} />)}
   </div>;
 }
