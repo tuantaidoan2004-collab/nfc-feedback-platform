@@ -13,7 +13,7 @@ const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({}
 const origin='http://127.0.0.1:3317';
 async function login(page:Page,user:{username:string;password:string},shop='one'){
  await page.goto(`/ZZZ/${shop}`);await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
- await page.getByLabel('Tài khoản',{exact:true}).fill(user.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(user.password);
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill(user.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(user.password);
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 }
 // The Data view loads nothing until a period is picked.
@@ -183,13 +183,13 @@ test('cards: nhân bản thẻ, see the fee before switching on, the card opens 
  await bio.screenshot({path:info.outputPath('bio-390.png')});
  expect(errors).toEqual([]);
 });
-test('password: change it in Settings, the old one stops working, the new one signs in; other origins refused',async({page,context,f})=>{
+test('password: change it in Hồ sơ, the old one stops working, the new one signs in; other origins refused',async({page,context,f})=>{
  const a=f.users[0],next='the-new-shop-password';
  const other=await context.browser()!.newContext({baseURL:origin});
  try{
   const second=await other.newPage();await login(second,a);
   await login(page,a);
-  await page.locator('[data-view="settings"]').click();
+  await page.locator('[data-view="profile"]').click();
   const form=page.locator('[data-password-form]');
   await form.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('not-the-password');
   await form.getByLabel('Mật khẩu mới (ít nhất 12 ký tự)',{exact:true}).fill(next);
@@ -204,10 +204,50 @@ test('password: change it in Settings, the old one stops working, the new one si
   expect((await page.request.get('/api/owner/v2/one/summary')).status()).toBe(200);
   expect((await page.request.put('/api/owner/v2/password',{headers:{Origin:'https://invalid.example'},data:{current:next,next:'another-long-password'}})).status()).toBe(403);
   await page.getByRole('button',{name:'Đăng xuất'}).click();await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
-  await page.getByLabel('Tài khoản',{exact:true}).fill(a.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(a.password);
+  await page.getByLabel('@handle hoặc email',{exact:true}).fill(a.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(a.password);
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
   await login(page,{username:a.username,password:next});
  }finally{await other.close();}
+});
+test('profile: a channel-like page, edit name, @handle and bio, then sign in with the new @handle or the email',async({page,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const a=f.users[0];
+ await login(page,a);
+ // The person button in the sidebar opens Hồ sơ.
+ await page.locator('[data-me]').click();
+ const profile=page.locator('[data-profile]');
+ await expect(profile.locator('[data-profile-handle]')).toHaveText(`@${a.username}`);
+ await expect(profile).toContainText('Chủ shop');await expect(profile).toContainText('Tham gia');
+ await expect(page.locator('[data-password-form]')).toBeVisible();
+ // A handle someone else has is refused and nothing changes.
+ await profile.getByRole('button',{name:'Chỉnh sửa hồ sơ'}).click();
+ const form=profile.locator('[data-profile-form]');
+ await form.getByLabel('@handle (dùng để đăng nhập)').fill(f.users[1].username);
+ await form.getByRole('button',{name:'Lưu hồ sơ'}).click();
+ await expect(profile.locator('[data-profile-notice]')).toContainText('đã có người dùng');
+ await form.getByLabel('Tên hiển thị').fill('Chị Hoa');
+ await form.getByLabel('@handle (dùng để đăng nhập)').fill('@Hoa.Cafe');
+ await form.getByLabel('Giới thiệu').fill('Chủ quán cà phê góc phố');
+ await form.getByRole('button',{name:'Lưu hồ sơ'}).click();
+ await expect(profile.locator('[data-profile-notice]')).toContainText('Từ giờ đăng nhập bằng @hoa.cafe');
+ await expect(profile.locator('[data-profile-name]')).toHaveText('Chị Hoa');
+ await expect(profile.locator('[data-profile-bio]')).toHaveText('Chủ quán cà phê góc phố');
+ await expect(page.locator('[data-me]')).toContainText('@hoa.cafe');
+ expect((await f.db.query('SELECT username,display_name FROM owner_identities_v2 WHERE id=$1',[a.id])).rows).toEqual([{username:'hoa.cafe',display_name:'Chị Hoa'}]);
+ // Pictures come only from the account's own folder; other origins are refused.
+ expect((await page.request.patch('/api/owner/v2/profile',{headers:{Origin:origin},data:{handle:'hoa.cafe',displayName:null,bio:null,avatarUrl:'https://evil.example/x.jpg',coverUrl:null}})).status()).toBe(400);
+ expect((await page.request.patch('/api/owner/v2/profile',{headers:{Origin:'https://invalid.example'},data:{handle:'x-y-z',displayName:null,bio:null,avatarUrl:null,coverUrl:null}})).status()).toBe(403);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath('profile-390.png'),fullPage:true});
+ await page.setViewportSize({width:1280,height:900});
+ await page.screenshot({path:info.outputPath('profile-1280.png'),fullPage:true});
+ // Sign in again with the new @handle, then with the email, typed in capitals.
+ await page.getByRole('button',{name:'Đăng xuất'}).click();
+ await login(page,{username:'@hoa.cafe',password:a.password});
+ await page.getByRole('button',{name:'Đăng xuất'}).click();
+ await f.db.query("UPDATE owner_identities_v2 SET email='hoa@example.com' WHERE id=$1",[a.id]);
+ await login(page,{username:'Hoa@Example.com',password:a.password});
+ expect(errors).toEqual([]);
 });
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{
  await addExperience(f.db);const b=await addExperience(f.db,'two');

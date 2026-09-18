@@ -123,7 +123,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
  // Straight on to this shop's own sign-in, the way the shop experiences it: no address to find by hand.
  await expect(page).toHaveURL(`${origin}/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
- await page.getByLabel('Tài khoản',{exact:true}).fill('caphe-banmai');
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
@@ -147,7 +147,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  // Still signed in as the shop owner above, whose account has no access to the template: start from signed out.
  await page.context().clearCookies({name:'nfc_owner_v2'});
  await page.goto(`/ZZZ/${templateSlug}`);
- await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');
  await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
@@ -157,7 +157,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.context().clearCookies({name:'nfc_owner_v2'});
  for(let i=0;i<9;i++){
   await page.goto(`/ZZZ/${templateSlug}`);
-  await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
+  await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
  }
@@ -167,7 +167,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  // The button's request lands after the notice appears, so wait for the record rather than reading once.
  await expect.poll(async()=>(await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.reset'")).rows[0].n).toBe(1);
  await page.goto(`/ZZZ/${templateSlug}`);
- await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 });
@@ -210,7 +210,7 @@ async function standIn(page:Page,shop:string,scope:'overview'|'feedback',reason:
  await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 }
 
-test('impersonation: cookie stays on one shop, support never exports, feedback only while the owner allows it',async({page,context,browser,admin})=>{
+test('impersonation: cookie stays on one shop, support never exports, feedback only while the owner allows it',async({page,context,browser,admin},info)=>{
  const shopName='Quán Hỗ Trợ',ownerPassword='chosen-by-the-shop';
  const made=await new ShopProvisioning(admin.db).create((await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,
   {name:shopName,ownerUsername:'quan-hotro',ownerEmail:'hotro@example.com',googleUrl:'https://maps.google.com/?cid=9'});
@@ -225,9 +225,14 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   expect(await response.json()).toEqual({error:'IMPERSONATION_NO_EXPORT'});
  }};
  const overviewReason='Kiểm tra <b>số liệu</b> giúp shop, theo yêu cầu qua Zalo';
+ // How support appears to shops (migration 014): the handle beside the neon tick, and a label.
+ await admin.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
  await signIn(page,admin.username);
  await standIn(page,shopName,'overview',overviewReason);
  await expect(page).toHaveURL(`${origin}/ZZZ/${made.slug}`);
+ await expect(page.locator('[data-impersonation] [data-admin-badge="Quitesensational"]')).toContainText('@QuitesensationalAdmin Tài');
+ await page.locator('[data-impersonation]').screenshot({path:info.outputPath('admin-badge.png')});
+ await expect(page.locator('[data-view="profile"]')).toHaveCount(0);
  await expect(page.locator('[data-kpi="private"] [data-kpi-value]')).toHaveText('1');
  await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
  await expect(page.locator('[data-metric="feedback"]')).toHaveText('1');
@@ -272,7 +277,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   const ownerPage=await owner.newPage();
   await ownerPage.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
   await ownerPage.goto(`/ZZZ/${made.slug}`);
-  await ownerPage.getByLabel('Tài khoản',{exact:true}).fill('quan-hotro');
+  await ownerPage.getByLabel('@handle hoặc email',{exact:true}).fill('quan-hotro');
   await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   await ownerPage.locator('[data-view="settings"]').click();
@@ -311,6 +316,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await ownerPage.reload();
   await ownerPage.locator('[data-view="settings"]').click();
   await expect(ownerPage.locator('[data-admin-visits] [data-admin-visit]')).toHaveCount(2);
+  await expect(ownerPage.locator('[data-admin-visit] [data-admin-badge="Quitesensational"]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-reason]').filter({hasText:overviewReason})).toHaveText(overviewReason);
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Tắt bởi quan-hotro');
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Khấc 1 · Xem bởi quan-hotro');
@@ -333,7 +339,7 @@ test('position 2: support edits and publishes the page in a design session, sees
   const ownerPage=await owner.newPage();
   await ownerPage.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
   await ownerPage.goto(`/ZZZ/${made.slug}`);
-  await ownerPage.getByLabel('Tài khoản',{exact:true}).fill('quan-suaho');await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
+  await ownerPage.getByLabel('@handle hoặc email',{exact:true}).fill('quan-suaho');await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   await ownerPage.locator('[data-view="settings"]').click();
   await ownerPage.getByRole('radio',{name:/^Khấc 2 · Sửa/}).check();

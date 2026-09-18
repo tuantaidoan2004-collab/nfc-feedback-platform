@@ -256,7 +256,7 @@ Tài chốt: làm xong **hệ thống tài khoản** trước, tài khoản ph�
 
 Chia lát dự kiến:
 1. **Danh sách Review Landing Page** — **xong 18/09**, xem `redesign-v2.md`.
-2. **Hồ sơ tài khoản + tab Hồ sơ** — effort high, có migration.
+2. **Hồ sơ tài khoản + tab Hồ sơ** — **xong 18/09 (migration 014)**, xem `redesign-v2.md` mục Lát F2.
 3. **Tài khoản phụ + lịch sử hoạt động + tìm kiếm** — effort high, có migration.
 4. **Luồng bình luận** (like, ghim, sửa, xoá, bỏ trạng thái) — effort high, có migration.
 

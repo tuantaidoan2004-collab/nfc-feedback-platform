@@ -24,7 +24,7 @@ export default async function Page({params}:{params:Promise<{shop:string}>}) {
    return <main className="dashboard-wrap"><h1>Không thể mở dashboard</h1><p>Tài khoản đang đăng nhập chưa có quyền với shop này, hoặc dịch vụ đang gián đoạn.</p>
     <p><a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập bằng tài khoản khác</a></p></main>;}
   const actor=access.actor;
-  return <OwnerDashboard slug={access.slug} name={access.name} customerUrl={`${process.env.APP_ORIGIN ?? ''}/${access.slug}`} impersonation={actor.kind==='admin'?{admin:actor.adminUsername,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
+  return <OwnerDashboard slug={access.slug} name={access.name} customerUrl={`${process.env.APP_ORIGIN ?? ''}/${access.slug}`} impersonation={actor.kind==='admin'?{admin:actor.adminHandle??actor.adminUsername,adminTitle:actor.adminTitle,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
  }
  let shop;
  try{shop=await shopBySlug((await params).shop);await requireOwner(shop.id);}

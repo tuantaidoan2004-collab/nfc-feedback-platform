@@ -5,6 +5,17 @@ export const sessionHash = (token: string) => createHash('sha256').update(`nfc-o
 /** The sign-in throttle bucket for a username; resetting the template test account clears its row. */
 export const loginBucket = (name: string) => createHash('sha256').update(`nfc-owner-login-v2\0${name}`).digest('hex');
 export const username = (value: unknown) => typeof value === 'string' && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(value.trim().toLowerCase()) ? value.trim().toLowerCase() : null;
+/**
+ * What the sign-in box accepts (lát F2): the @handle with or without its @, or the account's email. The handle is
+ * the username; an email is anything with an @ after its first character.
+ */
+export function loginIdentifier(value: unknown): { kind: 'username' | 'email'; value: string } | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim().toLowerCase();
+  if (text.indexOf('@') > 0) return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) && text.length <= 254 ? { kind: 'email', value: text } : null;
+  const name = username(text.replace(/^@/, ''));
+  return name ? { kind: 'username', value: name } : null;
+}
 export const validPassword = (value: unknown): value is string => typeof value === 'string' && value.length >= 12 && Buffer.byteLength(value) <= 256;
 // Fixed, versioned parameters; never accept KDF work factors from public input.
 export function passwordKey(password: string, salt: string): Promise<Buffer> {
@@ -30,7 +41,7 @@ export type OwnerCredential = string | undefined | { impersonation: string | und
 export type OwnerNeed = 'shell' | 'overview' | 'feedback' | 'design' | 'export' | 'write';
 export type ImpersonationScope = 'overview' | 'feedback' | 'design';
 export type OwnerActor = { kind: 'owner' }
-  | { kind: 'admin'; adminId: string; adminUsername: string; sessionId: string; scope: ImpersonationScope; reason: string; expiresAt: string };
+  | { kind: 'admin'; adminId: string; adminUsername: string; adminHandle: string | null; adminTitle: string | null; sessionId: string; scope: ImpersonationScope; reason: string; expiresAt: string };
 export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager'; actor: OwnerActor };
 
 /**
@@ -78,7 +89,7 @@ export async function authorize(db: PoolClient, credential: OwnerCredential, slu
 async function authorizeImpersonation(db: PoolClient, token: string | undefined, slug: string, need: OwnerNeed): Promise<OwnerAccess> {
   if (!opaque(token)) throw new OwnerError(401, 'IMPERSONATION_ENDED');
   // Alive only while the administrator is: the session that opened it still valid, the account still active.
-  const row = (await db.query(`SELECT i.id,i.admin_id,a.username,i.owner_user_id,i.shop_id,i.scope,i.reason,
+  const row = (await db.query(`SELECT i.id,i.admin_id,a.username,a.handle,a.title,i.owner_user_id,i.shop_id,i.scope,i.reason,
       LEAST(i.expires_at,s.expires_at) expires_at
     FROM admin_impersonation_sessions i JOIN admin_auth_sessions s ON s.token_hash=i.admin_session_hash JOIN platform_admins a ON a.id=i.admin_id
     WHERE i.token_hash=$1 AND i.ended_at IS NULL AND i.expires_at>clock_timestamp()
@@ -101,7 +112,7 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   if ((need === 'overview' || need === 'feedback') && level === 'edit') throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
   if (await now(db) >= row.expires_at) throw new OwnerError(401, 'IMPERSONATION_ENDED');
   return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role,
-    actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, sessionId: row.id, scope: row.scope, reason: row.reason,
+    actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, adminHandle: row.handle ?? null, adminTitle: row.title ?? null, sessionId: row.id, scope: row.scope, reason: row.reason,
       expiresAt: (row.expires_at as Date).toISOString() } };
 }
 export class OwnerAuth {
@@ -114,19 +125,20 @@ export class OwnerAuth {
     return (await this.pool.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id', [normalized, salt, key.toString('hex')])).rows[0].id as string;
   }
   async login(name: unknown, password: unknown, previous?: string) {
-    const normalized = username(name);
-    if (!normalized || typeof password !== 'string' || Buffer.byteLength(password) > 256) throw new OwnerError(401, 'LOGIN_FAILED');
+    const identifier = loginIdentifier(name);
+    if (!identifier || typeof password !== 'string' || Buffer.byteLength(password) > 256) throw new OwnerError(401, 'LOGIN_FAILED');
     // One KDF in flight per database, across app instances; fail fast instead of queueing expensive hashes.
     const result = await transaction(this.pool, async db => {
       if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked) return null;
       await db.query("DELETE FROM owner_login_limits WHERE window_start<clock_timestamp()-interval '1 hour'");
-      for (const [bucket, limit, seconds] of [['global', 60, 60], [loginBucket(normalized), 8, 900]] as const) {
+      const user = (await db.query(`SELECT * FROM owner_identities_v2 WHERE ${identifier.kind === 'email' ? 'email' : 'username'}=$1 FOR SHARE`, [identifier.value])).rows[0];
+      // One limit per account whichever name is typed; an unknown name counts against itself.
+      for (const [bucket, limit, seconds] of [['global', 60, 60], [loginBucket(user?.username ?? identifier.value), 8, 900]] as const) {
         const r = (await db.query(`INSERT INTO owner_login_limits(bucket,window_start,attempts)VALUES($1,clock_timestamp(),1)
           ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-$2*interval '1 second' THEN 1 ELSE owner_login_limits.attempts+1 END,
           window_start=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-$2*interval '1 second' THEN clock_timestamp() ELSE owner_login_limits.window_start END RETURNING attempts`, [bucket, seconds])).rows[0];
         if (r.attempts > limit) return null;
       }
-      const user = (await db.query('SELECT * FROM owner_identities_v2 WHERE username=$1 FOR SHARE', [normalized])).rows[0];
       const derived = await passwordKey(password, user?.password_salt ?? '0'.repeat(32));
       const matches = timingSafeEqual(derived, Buffer.from(user?.password_key ?? '0'.repeat(64), 'hex'));
       if (!user?.active || !matches) return null;

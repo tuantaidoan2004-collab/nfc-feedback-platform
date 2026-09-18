@@ -13,6 +13,8 @@ export function shortCode(length: number, random: (size: number) => Buffer = ran
   }
   return code;
 }
+/** Names the account API owns under /api/owner/v2 (migration 014 refuses them as shop slugs); `setup` is reachable. */
+export const RESERVED_CODES = new Set(['profile', 'password', 'login', 'logout', 'setup']);
 const duplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 /**
  * Tries a fresh code until one is free: three tries per length from five up to eight. `insert` must fail with a
@@ -20,7 +22,9 @@ const duplicate = (error: unknown) => typeof error === 'object' && error !== nul
  */
 export async function withShortCode<T>(insert: (code: string) => Promise<T>, generate: (length: number) => string = length => shortCode(length)) {
   for (let length = 5; length <= 8; length++) for (let attempt = 0; attempt < 3; attempt++) {
-    try { return await insert(generate(length)); } catch (error) { if (!duplicate(error)) throw error; }
+    const code = generate(length);
+    if (RESERVED_CODES.has(code)) continue;
+    try { return await insert(code); } catch (error) { if (!duplicate(error)) throw error; }
   }
   throw new Error('SHORT_CODE_EXHAUSTED');
 }

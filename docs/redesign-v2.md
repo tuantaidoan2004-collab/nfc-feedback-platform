@@ -244,3 +244,19 @@ Tài yêu cầu 18/09: dashboard chỉ có một khung "Trang khách" với mộ
 - **Lỗi của agent khi chạy 7 bộ:** script chạy test ghi đè log của các bộ vào cùng một file (biến đếm trong hàm bash không tăng), phải chạy lại lần ba để có kết quả nguyên văn.
 - **Lỗi của agent khi chạy 7 bộ:** cluster Postgres dựng ra `SQL_ASCII` (12 test repository và 2 test admin đỏ vì CHECK trên chữ tiếng Việt); lệnh repository thiếu `NFC_TEST_DATABASE_URL`; bỏ sót một câu kiểm link trong `admin-http.spec.ts` (đã sửa test cho khớp Trang bio). Ghi ở `operations-gotchas.md`.
 - **Lỗi của agent trong lượt này:** khi sửa tài liệu, agent ghi nhầm chữ `PLACEHOLDER` vào `redesign-v2.md` rồi gỡ ngay, trước commit. Khi phá thử mã, agent chép bản lưu ra `/tmp` thay vì scratchpad của phiên; đã xoá.
+
+## Lát F2 — hồ sơ tài khoản và tab Hồ sơ — 2026-09-18
+
+Tài chốt thiết kế trong `commercial-model.md` mục 8, "Hệ thống tài khoản". Lát này làm phần hồ sơ; tài khoản phụ, vai kiểu Discord và lịch sử hoạt động là lát 3.
+
+- **Migration 014** (`014_account_profiles.sql`): `owner_identities_v2` thêm `display_name` (≤60), `bio` (≤160), `avatar_url`, `cover_url`. `platform_admins` thêm `handle`, `title`; migration đặt admin `tai` thành **@Quitesensational · Admin Tài**. `shops` cấm slug `profile`, `password`, `login`, `logout`, `setup` (các đường `/api/owner/v2/<tên>` của tài khoản sẽ che API của shop đó); bộ sinh mã ngắn bỏ qua các chữ này (`setup` sinh ra được). Rollback từ chối khi đã có người điền hồ sơ (`PROFILES_PRESENT`).
+- **@handle là tên đăng nhập hiện có**, không thêm cột. Đổi @handle trong hồ sơ là đổi luôn tên đăng nhập; báo ngay "Từ giờ đăng nhập bằng @…". Trùng thì `HANDLE_TAKEN`.
+- **Đăng nhập** nhận `@handle`, `handle` hoặc email, không phân biệt hoa thường (`loginIdentifier`). Giới hạn đoán sai tính **theo tài khoản**, gõ email hay handle đều chung một hạn mức.
+- **Tab Hồ sơ** (`components/profile-panel.tsx`), bố cục kiểu kênh YouTube: ảnh bìa, ảnh đại diện tròn đè mép bìa, tên, @handle, viên "Chủ shop" (quản lý có viên vàng), "Tham gia tháng…", giới thiệu, nút "Chỉnh sửa hồ sơ". Ảnh đại diện và ảnh bìa tải thẳng lên R2 (`users/<id>/…`, chỉ ảnh, ≤5 MB) và **lưu ngay khi tải xong**; server chỉ nhận link nằm trong thư mục của chính người đó. Đổi mật khẩu **chuyển từ Cài đặt sang Hồ sơ**. Có mục "Shop của bạn".
+- **Nút người dùng** ở menu trái (ảnh + @handle) mở Hồ sơ. Admin đang mạo danh không có tab Hồ sơ và không đọc hay sửa được hồ sơ của ai (`IMPERSONATION_READ_ONLY`).
+- **Huy hiệu admin** (`components/admin-badge.tsx`): @handle, tick răng cưa tím neon, nhãn. Hiện ở banner mạo danh và ở "Lượt truy cập của quản trị". Admin chưa đặt handle thì hiện @username, không nhãn.
+- **Quên mật khẩu:** trang đăng nhập hiện "Quên mật khẩu? Liên hệ … để được đặt lại." khi có biến môi trường `NFC_SUPPORT_CONTACT` (chữ tự do, ví dụ Zalo, hotline và email của Tài). Giá trị **không nằm trong repo**; Tài tự đặt trên Vercel.
+- **API mới:** `GET/PATCH /api/owner/v2/profile`, `POST /api/owner/v2/profile/media`.
+- **Test:** `repository-tests/account-profiles.spec.ts` (4 test: đăng nhập ba kiểu và hạn mức chung; sửa hồ sơ, handle trùng/sai, ảnh ngoài thư mục bị từ chối; ký tải lên, không video, không quá cỡ, không cho người mạo danh; migration và rollback), test "profile" trong `owner-dashboard.spec.ts`, huy hiệu trong `admin-http.spec.ts`. Contract: mã ngắn không bao giờ là `setup`. Test repository xanh ngay lần đầu nên agent **cố tình phá** (bỏ bước bỏ `@`, bỏ kiểm thư mục ảnh): 2 test đỏ đúng chỗ, rồi khôi phục.
+- **Lỗi của agent:** lại dính bẫy NUL: công cụ ghi file biến `\u0000` và `\u007f` trong `lib/owner/profile.ts` thành byte thật. Bắt được nhờ quét ký tự điều khiển **ngay sau khi ghi**, trước commit; sửa bằng Python.
+

@@ -40,14 +40,14 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
 export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
-export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
+export type AdminVisit = {id:string;admin:string;admin_title:string|null;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
 export type SupportChange = {level:SupportLevel;by:string;at:string};
 /**
  * Every administrator session on this shop, shown to whoever runs the shop. It protects both sides: a shop that
  * suspects its feedback was read has a record to check, and the operator has one to point to.
  */
 async function adminVisits(db: PoolClient, shopId: string) {
-  return (await db.query(`SELECT i.id,a.username admin,i.scope,i.reason,${utc('i.created_at')} started_at,${utc('i.expires_at')} expires_at,
+  return (await db.query(`SELECT i.id,COALESCE(a.handle,a.username) admin,a.title admin_title,i.scope,i.reason,${utc('i.created_at')} started_at,${utc('i.expires_at')} expires_at,
     ${utc('i.ended_at')} ended_at,i.end_reason,
     (SELECT count(*)::int FROM admin_audit x WHERE x.shop_id=i.shop_id AND x.action='impersonation.read' AND x.detail->>'session'=i.id::text) reads
     FROM admin_impersonation_sessions i JOIN platform_admins a ON a.id=i.admin_id

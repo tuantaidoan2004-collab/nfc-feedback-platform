@@ -184,3 +184,41 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
   .landingActions { grid-column: 1 / -1; text-align: left; }
   .landingActions button, .landingActions a { margin: 4px 6px 0 0; min-height: 40px; }
 }
+
+/* Account profiles (lát F2): a YouTube-like channel header, the person button in the sidebar, the admin badge. */
+.me { display: flex; align-items: center; gap: 8px; max-width: 100%; margin: 0 0 10px; padding: 4px 10px 4px 4px; border: 1px solid #ffffff2e;
+  border-radius: 999px; background: #ffffff12; color: inherit; font-size: 13px; }
+.me span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me:hover { background: #ffffff21; }
+.personAvatar { display: inline-grid; place-items: center; flex: none; border-radius: 50%; object-fit: cover; background: #d9e6dc; color: var(--forest); font-weight: 800; }
+.channel { padding: 0; overflow: hidden; }
+.cover { aspect-ratio: 6 / 1; min-height: 96px; background: linear-gradient(120deg, #214034, #3f7a5f 55%, #eff2e8) center / cover no-repeat; }
+.channelHead { display: flex; align-items: flex-end; gap: 18px; padding: 0 20px; margin-top: -42px; flex-wrap: wrap; }
+.channelAvatar { flex: none; border-radius: 50%; box-shadow: 0 0 0 5px var(--paper); background: var(--paper); line-height: 0; }
+.channelAvatar .personAvatar { width: 112px; height: 112px; }
+.channelText { flex: 1 1 240px; min-width: 0; padding-top: 48px; }
+.channelText h2 { margin: 0; font-size: 26px; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.channelMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+.channelBio { margin: 8px 0 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.ownerPill, .rolePill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.ownerPill { background: #17382c14; color: var(--ink); }
+.rolePill { background: #d69a2d24; color: #7a5410; }
+.editProfile { align-self: center; min-height: 40px; padding: 0 16px; margin-top: 48px; border: 0; border-radius: 999px; background: var(--mist); color: var(--ink); font-weight: 700; }
+.channel .uploads { padding: 14px 20px 0; }
+.profileForm { display: grid; gap: 12px; max-width: 520px; padding: 16px 20px 0; }
+.profileForm label { display: grid; gap: 6px; font-size: 13px; font-weight: 650; }
+.profileForm input, .profileForm textarea { font: inherit; font-size: 15px; font-weight: 400; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.channel [data-profile-notice] { padding: 0 20px 16px; }
+.textButton { padding: 0; border: 0; background: none; color: var(--forest-2); font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
+.adminBadge { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.adminBadge strong { font-weight: 700; }
+.tick { flex: none; filter: drop-shadow(0 0 3px #c084fcb3) drop-shadow(0 0 6px #a855f766); }
+.adminTitle { margin-left: 2px; padding: 1px 8px; border-radius: 999px; background: #a855f71f; color: #7e22ce; font-size: 12px; font-weight: 700; }
+@media (max-width: 640px) {
+  .cover { aspect-ratio: 3 / 1; }
+  .channelHead { gap: 10px; padding: 0 16px; margin-top: -36px; }
+  .channelAvatar .personAvatar { width: 88px; height: 88px; }
+  .channelText { flex-basis: 100%; padding-top: 0; }
+  .editProfile { margin-top: 4px; }
+}
+@media (max-width: 900px) { .me { margin: 0 0 0 auto; } }

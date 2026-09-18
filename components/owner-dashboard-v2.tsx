@@ -8,6 +8,8 @@ import { faceFor } from '@/lib/faces';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
+import AdminBadge from './admin-badge';
+import ProfilePanel, { Avatar, useProfile } from './profile-panel';
 
 /**
  * Owner dashboard, lát C2 (2026-09-18). A left menu with four views. Overview loads only totals, so the dashboard
@@ -16,14 +18,15 @@ import CardsPanel from './cards-panel';
  */
 type Summary = Awaited<ReturnType<Repository['summary']>>;
 type Data = Awaited<ReturnType<Repository['read']>>;
-type View = 'home' | 'data' | 'design' | 'settings';
-export type Impersonation = { admin: string; scope: 'overview' | 'feedback' | 'design'; reason: string; expiresAt: string };
+type View = 'home' | 'data' | 'design' | 'settings' | 'profile';
+export type Impersonation = { admin: string; adminTitle: string | null; scope: 'overview' | 'feedback' | 'design'; reason: string; expiresAt: string };
 
 const VIEWS: [View, string, string][] = [
   ['home', 'Tổng quan', 'M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z'],
   ['data', 'Dữ liệu', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
   ['design', 'Thiết kế & Link', 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Zm9-13 4 4'],
   ['settings', 'Cài đặt', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.5a7.5 7.5 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.2 1.3l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.3Z'],
+  ['profile', 'Hồ sơ', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 9a8 8 0 0 1 16 0'],
 ];
 const PERIODS: Record<Period, string> = { today: 'Hôm nay', week: '7 ngày', month: '30 ngày' };
 const STATUS: Record<string, string> = { new: 'Chưa xử lý', progress: 'Đang xử lý', resolved: 'Đã xử lý' };
@@ -174,7 +177,7 @@ function AdminVisits({ visits }: { visits: Summary['adminVisits'] }) {
   return <section className={styles.panel} aria-label="Lượt truy cập của quản trị" data-admin-visits><h2>Lượt truy cập của quản trị</h2>
     <p className={styles.hint}>Mỗi lần quản trị viên nền tảng xem dashboard thay mặt shop đều được ghi lại ở đây, kèm lý do. Quản trị viên chỉ được xem, không sửa và không tải được dữ liệu.</p>
     {visits.length === 0 ? <p>Chưa có lượt nào.</p> : <ul className={styles.list}>{visits.map(v => <li key={v.id} data-admin-visit={v.id}>
-      <strong>{v.admin}</strong> · {time(v.started_at)} · {SCOPES[v.scope]}
+      <AdminBadge handle={v.admin} title={v.admin_title} /> · {time(v.started_at)} · {SCOPES[v.scope]}
       <p data-reason>{v.reason}</p>
       <p className={styles.hint}>{v.ended_at ? `${ENDINGS[v.end_reason ?? 'ended']} lúc ${time(v.ended_at)}` : `hết hạn lúc ${time(v.expires_at)}`} · {v.reads} lần xem</p>
     </li>)}</ul>}
@@ -310,22 +313,25 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
 
   const totals = summary?.totals;
   const owner = !impersonation;
+  const { profile, setProfile } = useProfile(owner);
   const title = VIEWS.find(([id]) => id === view)![1];
   return <div className={styles.app}>
     <aside className={styles.side}>
       <div className={styles.avatar} aria-hidden="true">{initials(name)}</div>
       <p className={styles.shopName}>{name}</p>
-      <p className={styles.account}>{summary ? summary.account : ' '}</p>
+      {owner ? <button type="button" className={styles.me} data-me onClick={() => setView('profile')} aria-label="Mở hồ sơ của bạn">
+          {profile ? <><Avatar profile={profile} size={28} /><span>@{profile.handle}</span></> : <span>{summary ? summary.account : ' '}</span>}</button>
+        : <p className={styles.account}>{summary ? summary.account : ' '}</p>}
       {summary && summary.shops.length > 1 && <label className={styles.picker}>Shop đang xem
         <select value={slug} onChange={e => { if (e.target.value !== slug) router.push(`/ZZZ/${e.target.value}`); }}>
           {summary.shops.map(shop => <option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}
-      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.filter(([id]) => !designOnly || id === 'design').map(([id, label, icon]) =>
+      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.filter(([id]) => (!designOnly || id === 'design') && (owner || id !== 'profile')).map(([id, label, icon]) =>
         <button key={id} type="button" data-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}><Icon path={icon} /><span>{label}</span></button>)}</nav>
       {owner && <button type="button" className={styles.logout} onClick={logout}>Đăng xuất</button>}
     </aside>
     <main className={styles.content}>
       {impersonation && <aside className={styles.impersonation} data-impersonation={impersonation.scope} role="note">
-        <strong>Đang xem thay mặt chủ shop</strong> · {impersonation.admin} · {SCOPES[impersonation.scope]} · chỉ xem · hết hạn lúc {time(impersonation.expiresAt)}
+        <strong>Đang xem thay mặt chủ shop</strong> · <AdminBadge handle={impersonation.admin} title={impersonation.adminTitle} /> · {SCOPES[impersonation.scope]} · chỉ xem · hết hạn lúc {time(impersonation.expiresAt)}
         <p>Lý do: {impersonation.reason}</p>
         <button type="button" onClick={endStandIn}>Kết thúc phiên</button>
       </aside>}
@@ -395,11 +401,14 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {view === 'settings' && <section aria-label="Cài đặt" data-panel="settings">
         {summary && <section className={styles.panel} aria-label="Tài khoản"><h2>Tài khoản</h2>
           <p><strong>{summary.account}</strong> · {summary.viewer.kind === 'admin' ? 'quản trị viên đang xem thay mặt' : summary.viewer.role === 'owner' ? 'chủ shop' : 'quản lý'}</p>
-          {owner ? <PasswordForm /> : <p className={styles.hint}>Quản trị không đổi được mật khẩu của chủ shop.</p>}
+          {owner ? <p className={styles.hint}>Tên, @handle, ảnh và mật khẩu nằm ở <button type="button" className={styles.textButton} onClick={() => setView('profile')}>Hồ sơ</button>.</p>
+            : <p className={styles.hint}>Quản trị không đổi được hồ sơ hay mật khẩu của chủ shop.</p>}
           <p className={styles.hint}>Tài khoản phụ (quản lý, nhân viên) sẽ có ở đây.</p></section>}
         {summary && <Support support={summary.support} canChange={owner && summary.viewer.kind === 'owner' && summary.viewer.role === 'owner'} change={changeSupport} />}
         {summary && <AdminVisits visits={summary.adminVisits} />}
       </section>}
+
+      {view === 'profile' && owner && <ProfilePanel slug={slug} profile={profile} setProfile={setProfile} password={<PasswordForm />} />}
     </main>
   </div>;
 }

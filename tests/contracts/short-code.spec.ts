@@ -17,6 +17,11 @@ test('a taken code is tried again, three times per length, growing from five to 
   await expect(withShortCode(async () => { throw new Error('other'); })).rejects.toThrow('other');
   await expect(withShortCode(async () => { throw taken; })).rejects.toThrow('SHORT_CODE_EXHAUSTED');
 });
+test('a code that spells an account route is never handed out (migration 014)', async () => {
+  const tried: string[] = [];
+  const code = await withShortCode(async candidate => { tried.push(candidate); return candidate; }, (() => { const queue = ['setup', 'abcde']; return () => queue.shift()!; })());
+  expect(code).toBe('abcde'); expect(tried).toEqual(['abcde']);
+});
 test('card fee follows the price list: five included, 8k to twenty, 5k after', () => {
   expect([0, 5, 6, 20, 21, 25].map(cardMonthlyFee)).toEqual([0, 0, 8000, 120000, 125000, 145000]);
 });
