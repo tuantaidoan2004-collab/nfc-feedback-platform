@@ -235,7 +235,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  for(const name of ['Lưu xử lý','Đăng xuất',/^Ghi chú/])await expect(page.getByRole('button',{name})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
  await page.locator('[data-view="settings"]').click();
- await expect(page.getByRole('switch')).toBeDisabled();
+ for(const name of ['Tắt','Khấc 1 · Xem','Khấc 2 · Sửa','Khấc 3 · Toàn quyền'])await expect(page.getByRole('radio',{name:new RegExp(`^${name}`)})).toBeDisabled();
 
  const cookies=(await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1');
  expect(cookies.map(c=>c.path).sort()).toEqual([`/ZZZ/${made.slug}`,`/api/owner/v2/${made.slug}`].sort());
@@ -253,8 +253,9 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  const write=await context.request.patch(api,{headers:{Origin:origin},data:patch});
  expect(write.status()).toBe(403);
  expect(await write.json()).toEqual({error:'IMPERSONATION_READ_ONLY'});
- const flip=await context.request.put(`${api}/support`,{headers:{Origin:origin},data:{permission:'feedback',enabled:true}});
+ const flip=await context.request.put(`${api}/support`,{headers:{Origin:origin},data:{level:'full'}});
  expect(flip.status()).toBe(403);
+ expect(await flip.json()).toEqual({error:'IMPERSONATION_READ_ONLY'});
  await refusedExports();
  // The owner API of any other shop is out of reach: the cookie is not even sent there.
  expect((await context.request.get('/api/owner/v2/one')).status()).toBe(401);
@@ -274,13 +275,13 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   await ownerPage.locator('[data-view="settings"]').click();
-  const toggle=ownerPage.getByRole('switch',{name:'Cho phép quản trị đọc góp ý riêng tư'});
-  await expect(toggle).not.toBeChecked();
-  await toggle.click();
-  await expect(ownerPage.locator('[data-support="on"]')).toBeVisible();
+  const level=(name:string)=>ownerPage.getByRole('radio',{name:new RegExp(`^${name}`)});
+  await expect(level('Tắt')).toBeChecked();
+  await level('Khấc 1 · Xem').check();
+  await expect(ownerPage.locator('[data-support="view"]')).toBeVisible();
 
   await page.goto('/gov');
-  await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-feedback-support="on"]')).toBeVisible();
+  await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-support-level="view"]')).toBeVisible();
   await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
   await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
   await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
@@ -293,7 +294,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.export'")).rows[0].n).toBe(0);
 
   // Switched off: support's next request is refused at once.
-  await toggle.click();
+  await level('Tắt').check();
   await expect(ownerPage.locator('[data-support="off"]')).toBeVisible();
   const after=await context.request.get(api);
   expect(after.status()).toBe(403);
@@ -311,11 +312,56 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await expect(ownerPage.locator('[data-admin-visits] [data-admin-visit]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-reason]').filter({hasText:overviewReason})).toHaveText(overviewReason);
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Tắt bởi quan-hotro');
-  await expect(ownerPage.locator('[data-support-history]')).toContainText('Bật bởi quan-hotro');
+  await expect(ownerPage.locator('[data-support-history]')).toContainText('Khấc 1 · Xem bởi quan-hotro');
   await expect(ownerPage.locator('[data-impersonation]')).toHaveCount(0);
   await ownerPage.locator('[data-view="data"]').click();await ownerPage.getByRole('button',{name:'7 ngày',exact:true}).click();
   await ownerPage.getByRole('button',{name:/^Ghi chú/}).click();
   await expect(ownerPage.getByRole('button',{name:'Lưu xử lý'})).toBeVisible();
   await expect(ownerPage.getByRole('link',{name:'CSV',exact:true})).toBeVisible();
+ }finally{await owner.close();}
+});
+
+test('position 2: support edits and publishes the page in a design session, sees no figures, and the owner sees the visit',async({page,browser,admin})=>{
+ const shopName='Quán Sửa Hộ',ownerPassword='chosen-by-the-shop';
+ const made=await new ShopProvisioning(admin.db).create((await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,
+  {name:shopName,ownerUsername:'quan-suaho',ownerEmail:'suaho@example.com',googleUrl:'https://maps.google.com/?cid=11'});
+ await new OwnerSetupLinks(admin.db).consume(made.setupToken,ownerPassword);
+ await addExperience(admin.db,made.slug,2,'Không cho quản trị thấy');
+ const owner=await browser.newContext({baseURL:origin});
+ try{
+  const ownerPage=await owner.newPage();
+  await ownerPage.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+  await ownerPage.goto(`/ZZZ/${made.slug}`);
+  await ownerPage.getByLabel('Tài khoản',{exact:true}).fill('quan-suaho');await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
+  await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+  await ownerPage.locator('[data-view="settings"]').click();
+  await ownerPage.getByRole('radio',{name:/^Khấc 2 · Sửa/}).check();
+  await expect(ownerPage.locator('[data-support="edit"]')).toBeVisible();
+
+  await signIn(page,admin.username);
+  await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-support-level="edit"]')).toBeVisible();
+  await page.getByRole('row').filter({hasText:shopName}).getByRole('button',{name:'Mạo danh',exact:true}).click();
+  // toBeDisabled does not read <option disabled>; the attribute is what the browser honours.
+  await expect(page.getByRole('option',{name:/^Chỉ số liệu tổng quan/})).toHaveAttribute('disabled','');
+  await page.getByRole('combobox',{name:'Phạm vi',exact:true}).selectOption('design');
+  await page.getByLabel('Lý do (chủ shop sẽ đọc)',{exact:true}).fill('Shop nhờ đổi tên hiển thị và thêm nút gọi');
+  await page.getByRole('button',{name:'Mở dashboard',exact:true}).click();
+  await expect(page.locator('[data-impersonation="design"]')).toBeVisible();
+  // Only the editor: no totals, no rows, no other menu entries.
+  await expect(page.locator('[data-design-editor] input').first()).toBeVisible();
+  await expect(page.locator('[data-view]')).toHaveCount(1);
+  await expect(page.locator('[data-kpi]')).toHaveCount(0);
+  await expect(page.getByText('Không cho quản trị thấy')).toHaveCount(0);
+  expect((await page.request.get(`/api/owner/v2/${made.slug}/summary`)).status()).toBe(403);
+  await page.getByLabel('Tên hiển thị',{exact:true}).fill('Quán Đã Sửa Hộ');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Phát hành',exact:true}).click();
+  await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+  expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.design.publish'")).rows[0].n).toBe(1);
+  await ownerPage.goto(`/${made.slug}`);await expect(ownerPage.getByRole('heading',{name:'Quán Đã Sửa Hộ',exact:true})).toBeVisible();
+  // The owner sees the visit and its reason.
+  await ownerPage.goto(`/ZZZ/${made.slug}`);await ownerPage.locator('[data-view="settings"]').click();
+  await expect(ownerPage.locator('[data-admin-visit]')).toContainText('Sửa giao diện');
+  await expect(ownerPage.locator('[data-reason]')).toHaveText('Shop nhờ đổi tên hiển thị và thêm nút gọi');
  }finally{await owner.close();}
 });

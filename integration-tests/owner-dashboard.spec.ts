@@ -70,7 +70,7 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  await expect(page.locator('[data-week] li')).toHaveCount(7);
  await expect(page.locator('[data-week] [data-opens]').last()).toHaveAttribute('data-opens','1');
  await page.locator('[data-view="design"]').click();
- await expect(page.locator('[data-soon="design"]')).toBeVisible();await expect(page.locator('[data-week]')).toHaveCount(0);
+ await expect(page.locator('[data-design-editor]')).toBeVisible();await expect(page.locator('[data-week]')).toHaveCount(0);
  await page.locator('[data-view="settings"]').click();
  await expect(page.getByRole('region',{name:'Tài khoản'})).toContainText(f.users[0].username);
  await expect(page.locator('[data-support]')).toBeVisible();
@@ -92,6 +92,46 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toHaveText('1');
  await expect(page.getByText('Shop two',{exact:true}).first()).toBeVisible();
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});}
+ expect(errors).toEqual([]);
+});
+test('the page editor: save, preview in a new tab, publish, and the customer page changes only after publishing',async({page,context,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ // next dev reloads every open page the first time it compiles a route; compile /one and /preview before the editor holds state.
+ const warm=await context.newPage();await warm.goto('/one');await warm.goto('/preview');await warm.close();
+ await login(page,f.users[0]);
+ await page.locator('[data-view="design"]').click();
+ await expect(page.getByLabel('Tên hiển thị',{exact:true})).toHaveValue('Shop one');
+ await page.getByLabel('Tên hiển thị',{exact:true}).fill('Quán Mới Sửa');
+ await page.getByRole('radio',{name:'Dạng thẻ',exact:true}).check();
+ const before=await page.locator('[data-link-row]').count();
+ await page.getByRole('button',{name:'Thêm nút',exact:true}).click();
+ const row=page.locator('[data-link-row]').last();
+ await row.getByRole('combobox',{name:'Loại',exact:true}).selectOption('phone');
+ await row.getByRole('textbox',{name:'Chữ trên nút',exact:true}).fill('Gọi quán');
+ await row.getByRole('textbox',{name:/Số điện thoại/}).fill('tel:0901234567');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toHaveText('Đã lưu bản nháp.');
+ await expect(page.locator('[data-link-row]')).toHaveCount(before+1);
+ // A bad link is refused by the server and nothing is saved.
+ await row.getByRole('textbox',{name:/Số điện thoại/}).fill('0901234567');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('Có ô chưa hợp lệ');
+ await row.getByRole('textbox',{name:/Số điện thoại/}).fill('tel:0901234567');
+ const popup=page.waitForEvent('popup');
+ await page.getByRole('button',{name:'Xem trước',exact:true}).click();
+ const preview=await popup;await preview.waitForURL('**/preview');
+ await expect(preview.getByRole('heading',{name:'Quán Mới Sửa',exact:true})).toBeVisible();
+ await expect(preview.locator('main')).toHaveAttribute('data-layout','card');
+ await preview.close();
+ const customer=await context.newPage();await customer.goto('/one');
+ await expect(customer.getByRole('heading',{name:'Shop one',exact:true})).toBeVisible();
+ page.once('dialog',dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+ await customer.reload();
+ await expect(customer.getByRole('heading',{name:'Quán Mới Sửa',exact:true})).toBeVisible();
+ await expect(customer.getByRole('link',{name:'Gọi quán'})).toHaveAttribute('href','tel:0901234567');
+ for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`design-${width}.png`),fullPage:true});}
  expect(errors).toEqual([]);
 });
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{

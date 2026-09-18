@@ -214,7 +214,7 @@ Tài gửi ba màn mockup: Dữ liệu · Thiết kế giao diện · Sản ph�
 
   - Hệ quả Tài đã chọn: ở khấc 2, admin thấy **ít dữ liệu hơn** cả khi công tắc Tắt. Luật "admin luôn xem được tổng quan" (16/09) có một ngoại lệ là khấc 2.
   - Quyền sửa của khấc 2 và 3 chỉ có tác dụng khi đã có editor. Trước đó, khấc 2 nghĩa là admin không xem được gì, còn khấc 3 tương đương khấc 1.
-  - Hiện đang chạy công tắc bật/tắt (migration 008): Bật tương ứng khấc 1. Chuyển sang 4 vị trí cần migration mới, chỉ thêm, giữ nguyên lịch sử.
+  - **Đã làm ở lát D (migration 012, 18/09):** 4 vị trí chạy thật, lịch sử bật/tắt cũ giữ nguyên (bật = khấc 1). Quyền sửa hộ đi qua phiên "Sửa giao diện"; xem [redesign-v2.md](redesign-v2.md) mục Lát D.
 
 ### Tài khoản phụ — hướng đã chốt, chưa làm
 

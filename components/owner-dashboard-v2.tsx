@@ -6,6 +6,7 @@ import type { OwnerDashboard as Repository, ExperienceRow, Period } from '@/lib/
 import { copy } from '@/lib/copy';
 import { faceFor } from '@/lib/faces';
 import styles from './owner-app.module.css';
+import DesignEditor from './design-editor';
 
 /**
  * Owner dashboard, lát C2 (2026-09-18). A left menu with four views. Overview loads only totals, so the dashboard
@@ -15,7 +16,7 @@ import styles from './owner-app.module.css';
 type Summary = Awaited<ReturnType<Repository['summary']>>;
 type Data = Awaited<ReturnType<Repository['read']>>;
 type View = 'home' | 'data' | 'design' | 'settings';
-export type Impersonation = { admin: string; scope: 'overview' | 'feedback'; reason: string; expiresAt: string };
+export type Impersonation = { admin: string; scope: 'overview' | 'feedback' | 'design'; reason: string; expiresAt: string };
 
 const VIEWS: [View, string, string][] = [
   ['home', 'Tổng quan', 'M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z'],
@@ -25,7 +26,15 @@ const VIEWS: [View, string, string][] = [
 ];
 const PERIODS: Record<Period, string> = { today: 'Hôm nay', week: '7 ngày', month: '30 ngày' };
 const STATUS: Record<string, string> = { new: 'Chưa xử lý', progress: 'Đang xử lý', resolved: 'Đã xử lý' };
-const SCOPES: Record<string, string> = { overview: 'Chỉ số liệu tổng quan', feedback: 'Kèm góp ý riêng tư' };
+const SCOPES: Record<string, string> = { overview: 'Chỉ số liệu tổng quan', feedback: 'Kèm góp ý riêng tư', design: 'Sửa giao diện' };
+/** The owner's four positions (Tài, 2026-09-17). Nothing, at any position, lets support export the shop's data. */
+const LEVELS: [string, string, string][] = [
+  ['off', 'Tắt', 'Quản trị chỉ xem số liệu tổng quan.'],
+  ['view', 'Khấc 1 · Xem', 'Xem số liệu và đọc nội dung góp ý.'],
+  ['edit', 'Khấc 2 · Sửa', 'Sửa giao diện, nút và link. Không thấy dữ liệu nào, kể cả tổng quan.'],
+  ['full', 'Khấc 3 · Toàn quyền', 'Xem số liệu, đọc góp ý và sửa giao diện.'],
+];
+const LEVEL_NAMES: Record<string, string> = Object.fromEntries(LEVELS.map(([value, label]) => [value, label]));
 const ENDINGS: Record<string, string> = { ended: 'đã kết thúc', superseded: 'bị thay bằng phiên mới', expired: 'hết hạn' };
 const TOPICS = copy.vi as Record<string, string>;
 const hcmDate = (daysBack = 0) => new Date(Date.now() + 7 * 3600000 - daysBack * 86400000).toISOString().slice(0, 10);
@@ -78,14 +87,19 @@ function CustomerLink({ url }: { url: string }) {
   </section>;
 }
 
-function Support({ support, canChange, change }: { support: Summary['support']; canChange: boolean; change: (enabled: boolean) => Promise<void> }) {
-  const [busy, setBusy] = useState(false);
-  return <section className={styles.panel} aria-label="Hỗ trợ từ quản trị" data-support={support.feedback ? 'on' : 'off'}><h2>Hỗ trợ từ quản trị</h2>
-    <p className={styles.hint}>Quản trị viên nền tảng luôn xem được số liệu tổng quan để hỗ trợ, và mỗi lượt đều hiện ở mục bên dưới. Nội dung góp ý của khách chỉ đọc được khi công tắc này đang bật. Xong việc thì tắt lại.</p>
-    <label className={styles.switch}><input type="checkbox" role="switch" checked={support.feedback} disabled={!canChange || busy}
-      onChange={async e => { setBusy(true); await change(e.target.checked); setBusy(false); }} />Cho phép quản trị đọc góp ý riêng tư</label>
-    {!canChange && <p className={styles.hint}>Chỉ tài khoản chủ shop đổi được công tắc này.</p>}
-    {support.history.length > 0 && <p className={styles.hint} data-support-history>{support.history.map(h => `${h.enabled ? 'Bật' : 'Tắt'} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
+function Support({ support, canChange, change }: { support: Summary['support']; canChange: boolean; change: (level: string) => Promise<void> }) {
+  // The chosen position shows at once; the saved one takes over when the server answers.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const busy = chosen !== null;
+  return <section className={styles.panel} aria-label="Hỗ trợ từ quản trị" data-support={support.level}><h2>Hỗ trợ từ quản trị</h2>
+    <p className={styles.hint}>Chọn mức quản trị viên nền tảng được làm trên shop này. Mỗi lượt quản trị vào đều hiện ở mục bên dưới. Không mức nào cho quản trị tải dữ liệu về. Xong việc thì đưa về Tắt.</p>
+    <div className={styles.levels} role="radiogroup" aria-label="Mức hỗ trợ">{LEVELS.map(([value, label, meaning]) =>
+      <label key={value} className={styles.level} data-level={value}>
+        <input type="radio" name="support-level" checked={(chosen ?? support.level) === value} disabled={!canChange || busy}
+          onChange={async () => { setChosen(value); await change(value); setChosen(null); }} />
+        <span><strong>{label}</strong><small>{meaning}</small></span></label>)}</div>
+    {!canChange && <p className={styles.hint}>Chỉ tài khoản chủ shop đổi được mức này.</p>}
+    {support.history.length > 0 && <p className={styles.hint} data-support-history>{support.history.map(h => `${LEVEL_NAMES[h.level]} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
   </section>;
 }
 
@@ -148,7 +162,9 @@ const rangeFor = (key: Period): Range => ({ key, from: hcmDate(key === 'today' ?
 export default function OwnerDashboard({ slug, name, customerUrl, impersonation }: { slug: string; name: string; customerUrl: string; impersonation: Impersonation | null }) {
   const router = useRouter();
   const endpoint = `/api/owner/v2/${encodeURIComponent(slug)}`;
-  const [view, setView] = useState<View>('home');
+  // A design session sees only the editor: at position 2 the owner has hidden every figure from support.
+  const designOnly = impersonation?.scope === 'design';
+  const [view, setView] = useState<View>(designOnly ? 'design' : 'home');
   const [summary, setSummary] = useState<Summary | null>(null);
   const [data, setData] = useState<Data | null>(null);
   const [notice, setNotice] = useState(''), [expired, setExpired] = useState(false), [loading, setLoading] = useState(false);
@@ -166,12 +182,13 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
     setNotice(response.status === 403 ? 'Bạn không còn quyền truy cập shop này.' : 'Không thể tải dữ liệu. Vui lòng thử lại.');
   }, [impersonation]);
   const loadSummary = useCallback(async () => {
+    if (designOnly) return;
     try {
       const response = await fetch(`${endpoint}/summary`, { cache: 'no-store' });
       if (!response.ok) return fail(response);
       setSummary(await response.json()); setExpired(false);
     } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
-  }, [endpoint, fail]);
+  }, [endpoint, fail, designOnly]);
   const loadData = useCallback(async (quiet = false) => {
     if (!query) return;
     const sequence = ++latest.current;
@@ -198,12 +215,12 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   }, [loadSummary, loadData]);
 
   const pick = (key: Period) => { setNotice(''); setCursor(''); setRange(rangeFor(key)); };
-  const changeSupport = async (enabled: boolean) => {
+  const changeSupport = async (level: string) => {
     try {
-      const response = await fetch(`${endpoint}/support`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ permission: 'feedback', enabled }) });
-      if (!response.ok) { setNotice(response.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : 'Chưa đổi được công tắc. Thử lại.'); return; }
-      setNotice(enabled ? 'Đã cho phép quản trị đọc góp ý.' : 'Đã tắt quyền đọc góp ý của quản trị.'); await loadSummary();
-    } catch { setNotice('Chưa xác nhận được công tắc. Tải lại để kiểm tra.'); }
+      const response = await fetch(`${endpoint}/support`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level }) });
+      if (!response.ok) { setNotice(response.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : 'Chưa đổi được mức hỗ trợ. Thử lại.'); return; }
+      setNotice(`Đã đặt mức hỗ trợ: ${LEVEL_NAMES[level]}.`); await loadSummary();
+    } catch { setNotice('Chưa xác nhận được mức hỗ trợ. Tải lại để kiểm tra.'); }
   };
   const save = async (row: ExperienceRow, status: string, note: string) => {
     try {
@@ -235,7 +252,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {summary && summary.shops.length > 1 && <label className={styles.picker}>Shop đang xem
         <select value={slug} onChange={e => { if (e.target.value !== slug) router.push(`/ZZZ/${e.target.value}`); }}>
           {summary.shops.map(shop => <option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}
-      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.map(([id, label, icon]) =>
+      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.filter(([id]) => !designOnly || id === 'design').map(([id, label, icon]) =>
         <button key={id} type="button" data-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}><Icon path={icon} /><span>{label}</span></button>)}</nav>
       {owner && <button type="button" className={styles.logout} onClick={logout}>Đăng xuất</button>}
     </aside>
@@ -302,10 +319,10 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
         </>}
       </section>}
 
-      {view === 'design' && <section className={styles.panel} aria-label="Thiết kế & Link" data-panel="design" data-soon="design">
-        <h2>Thiết kế & Link</h2>
-        <p className={styles.hint}>Chỉnh poster, logo, nền, watermark, nút máy bay và các nút link trên trang khách; tạo thẻ cho từng bàn và kích hoạt thẻ. Phần này đang được làm.</p>
-      </section>}
+      {view === 'design' && (impersonation && !designOnly
+        ? <section className={styles.panel} aria-label="Thiết kế & Link" data-panel="design"><h2>Thiết kế & Link</h2>
+            <p className={styles.hint}>Phiên này chỉ để xem. Để chỉnh giao diện, mở phiên “Sửa giao diện”; chủ shop cần đặt mức hỗ trợ Khấc 2 hoặc Khấc 3.</p></section>
+        : <div data-panel="design"><DesignEditor endpoint={endpoint} customerUrl={customerUrl} /></div>)}
 
       {view === 'settings' && <section aria-label="Cài đặt" data-panel="settings">
         {summary && <section className={styles.panel} aria-label="Tài khoản"><h2>Tài khoản</h2>

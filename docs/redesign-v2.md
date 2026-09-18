@@ -164,3 +164,25 @@ Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, �
 - **Cài đặt:** tài khoản và vai trò, công tắc hỗ trợ, lượt truy cập của quản trị. Đổi mật khẩu và tài khoản phụ để sau.
 - **Rời tab không còn xoá dữ liệu.** Trước đây (quyết định cũ trong `owner-dashboard-v2.md`) dashboard bỏ dữ liệu khỏi bộ nhớ khi tab bị ẩn và tải lại khi quay về, gây chờ 1–2 giây. Tài chọn tốc độ; giờ dữ liệu ở lại, quay về thì âm thầm cập nhật. Khôi phục từ BFCache vẫn tải lại.
 - **Sao trên trang khách:** đã bỏ lưu khi chạm từ lát B3; chỉ nút Gửi mới lưu.
+
+## Lát D — Thiết kế & Link và công tắc 4 vị trí — 2026-09-18
+
+**Trình chỉnh** (dashboard → Thiết kế & Link, `components/design-editor.tsx`, `lib/owner/design.ts`, `GET/PUT/POST /api/owner/v2/<shop>/design`):
+- Chỉnh tên hiển thị, link Google, bố cục (tràn màn hình / dạng thẻ), poster và logo (dán link https; tải lên chờ R2), nền (video mặc định / chuyển màu / một màu), watermark, nút góp ý riêng (hình, màu, viền) và tối đa 6 nút link (loại, chữ tiếng Việt và tiếng Anh, link; đổi thứ tự, xoá). Trang v1 mở ra được tự nâng lên v2.
+- **Lưu nháp · Xem trước · Phát hành.** Xem trước và Phát hành tự lưu trước nếu còn thay đổi. Xem trước mở tab mới đúng bản nháp như khi phát hành; token xem trước chỉ nằm trong cookie HttpOnly do server đặt, không bao giờ nằm trong JSON. Phát hành hỏi xác nhận. Máy chủ vẫn kiểm từng ô như trước (link https, `tel:` chỉ cho nút gọi, màu `#RRGGBB`).
+- Chủ shop và quản lý đều chỉnh được. Release ghi người tạo là `owner:<id>` hoặc `admin:<id>`.
+- Thẻ theo bàn và kích hoạt thẻ để lát E.
+
+**Công tắc hỗ trợ 4 vị trí** (migration 012, Cài đặt → Hỗ trợ từ quản trị), chỉ vai `owner` đổi được:
+
+| Vị trí | Quản trị mở được phiên | Thấy số liệu | Đọc góp ý | Sửa giao diện |
+|---|---|---|---|---|
+| Tắt | Tổng quan | có | không | không |
+| Khấc 1 · Xem | Tổng quan, Kèm góp ý | có | có | không |
+| Khấc 2 · Sửa | **chỉ** Sửa giao diện | **không, kể cả tổng quan** | không | có |
+| Khấc 3 · Toàn quyền | cả ba | có | có | có |
+
+- Kiểm lại ở **mỗi request**: đổi vị trí là có hiệu lực ngay với phiên đang mở. Không vị trí nào cho quản trị tải dữ liệu, sửa ghi chú xử lý hay đổi công tắc.
+- Phiên "Sửa giao diện" chỉ thấy mục Thiết kế & Link. Mỗi lần lưu, xem trước, phát hành đều ghi sổ `impersonation.design.*` **thay mặt** chủ shop, và chủ shop thấy lượt đó cùng lý do trong Cài đặt.
+- Lịch sử bật/tắt cũ (migration 008) giữ nguyên và đọc đúng: bật = Khấc 1, tắt = Tắt. Rollback 012 từ chối khi đã có dữ liệu 4 vị trí hoặc phiên sửa giao diện.
+- `/gov` hiện mức của từng shop ở cột "Hỗ trợ" và chỉ cho chọn phạm vi mà mức đó cho phép.

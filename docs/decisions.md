@@ -517,7 +517,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - **Lỗi của agent (từ lát B4):** test "không trả số điện thoại" kiểm chuỗi con `961`; `intentId` ngẫu nhiên có lúc chứa đúng đoạn đó nên đỏ khi kiểm commit C2. Sửa thành kiểm cả số (`961036265`), cả ở test publishing.
 - **Bẫy trong lát:** test bấm menu khi trang chưa hydrate (banner mạo danh render phía server nên xuất hiện trước khi nút có trình xử lý) → chờ số liệu phía client trước khi bấm. Test xung đột ghi chú phải tải dữ liệu *trước* khi người khác sửa, vì Dữ liệu giờ chỉ tải khi chọn khoảng.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát C2)
+## Lát D: Thiết kế & Link và công tắc 4 vị trí — 2026-09-18
+
+- Trình chỉnh trang khách (lưu nháp, xem trước, phát hành) và công tắc hỗ trợ 4 vị trí với migration 012. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát D. Thẻ theo bàn và kích hoạt thẻ để lát E.
+- Trang `/ZZZ/<shop>` giờ chỉ cần quyền `shell` (khung, không dữ liệu); từng mục tự xin quyền dữ liệu của nó. Nhờ vậy phiên sửa giao diện ở khấc 2 mở được trang mà không thấy số nào.
+- **Lỗi và bẫy trong lát:** nút chọn mức hỗ trợ chỉ đổi sau khi server trả lời nên trông như bấm không ăn (đã sửa: hiện lựa chọn ngay); `toBeDisabled` không đọc `<option disabled>`; `next dev` tải lại dashboard khi `/preview` được biên dịch lần đầu (test phải mở trước `/one` và `/preview`). Ghi trong gotchas.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát D)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
@@ -540,15 +546,14 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- nội dung mục Thiết kế & Link; editor; công tắc 4 vị trí; kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ;
+- thẻ theo bàn, kích hoạt thẻ; tải ảnh và video lên (cần R2); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát D: mục Thiết kế & Link** (poster, logo, nền, nút máy bay, các nút link, thẻ theo bàn) và công tắc 4 vị trí.
-2. Lát E: kích hoạt thẻ; kết nối Google Business Profile để đếm đánh giá Google.
-3. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
+1. **Lát E:** thẻ theo bàn (nhãn, link `/t/<mã>`), kích hoạt thẻ (`prepared → tested → active`, báo trước chi phí); kết nối Google Business Profile để đếm đánh giá Google.
+2. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)
 

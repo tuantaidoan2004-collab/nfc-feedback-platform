@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
-import { authorize, supportGranted, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
+import { authorize, supportLevel, SUPPORT_LEVELS, transaction, OwnerError, type OwnerAccess, type OwnerCredential, type SupportLevel } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './filters';
 /**
@@ -41,7 +41,7 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
 export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
 export type AdminVisit = {id:string;admin:string;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
-export type SupportChange = {enabled:boolean;by:string;at:string};
+export type SupportChange = {level:SupportLevel;by:string;at:string};
 /**
  * Every administrator session on this shop, shown to whoever runs the shop. It protects both sides: a shop that
  * suspects its feedback was read has a record to check, and the operator has one to point to.
@@ -55,9 +55,12 @@ async function adminVisits(db: PoolClient, shopId: string) {
 }
 /** The switch as it stands and who moved it, newest first. The shop sees its own decisions next to support's visits. */
 async function support(db: PoolClient, shopId: string) {
-  const history = (await db.query(`SELECT g.enabled,u.username "by",${utc('g.recorded_at')} "at" FROM shop_support_grant_events g
-    JOIN owner_identities_v2 u ON u.id=g.actor_id WHERE g.shop_id=$1 AND g.permission='feedback' ORDER BY g.id DESC LIMIT 20`, [shopId])).rows as SupportChange[];
-  return { feedback: await supportGranted(db, shopId, 'feedback'), history };
+  // Older on/off rows read as the positions they meant: on = 1 (view), off = off.
+  const history = (await db.query(`SELECT CASE WHEN g.permission='level' THEN g.level WHEN g.enabled THEN 'view' ELSE 'off' END "level",
+    u.username "by",${utc('g.recorded_at')} "at" FROM shop_support_grant_events g
+    JOIN owner_identities_v2 u ON u.id=g.actor_id WHERE g.shop_id=$1 AND g.permission IN ('feedback','level') ORDER BY g.id DESC LIMIT 20`, [shopId])).rows as SupportChange[];
+  const level = await supportLevel(db, shopId);
+  return { level, feedback: level === 'view' || level === 'full', history };
 }
 /**
  * The shops this account may switch between. An administrator standing in for the owner sees only the shop the
@@ -128,17 +131,18 @@ export class OwnerDashboard {
    */
   async setSupport(credential: OwnerCredential, slug: string, input: unknown) {
     const data = input as Record<string, unknown>;
-    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(data).sort().join() !== 'enabled,permission'
-      || data.permission !== 'feedback' || typeof data.enabled !== 'boolean') throw new OwnerError(400, 'INVALID_SUPPORT');
-    const enabled = data.enabled;
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(data).join() !== 'level'
+      || !SUPPORT_LEVELS.includes(data.level as SupportLevel)) throw new OwnerError(400, 'INVALID_SUPPORT');
+    const level = data.level as SupportLevel;
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'write');
       if (access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
       // Two switches at once are applied one after the other, so the newest row is always the last decision.
       await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-support-grant:'||$1,0))", [access.shopId]);
-      if (await supportGranted(db, access.shopId, 'feedback') !== enabled)
-        await db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'feedback',$2,$3)", [access.shopId, enabled, access.userId]);
-      return { feedback: enabled };
+      if (await supportLevel(db, access.shopId) !== level)
+        await db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,level,actor_id)VALUES($1,'level',$2,$3,$4)",
+          [access.shopId, level !== 'off', level, access.userId]);
+      return { level };
     });
   }
   async update(credential: OwnerCredential, slug:string, input: unknown) {

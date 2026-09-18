@@ -102,6 +102,12 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Kiểm "không lộ" bằng cả giá trị, không bằng một đoạn ngắn.** `expect(text).not.toContain('961')` đỏ ngẫu nhiên vì UUID và mốc thời gian cũng chứa chữ số. Kiểm cả số đầy đủ.
 
+**Radio hoặc checkbox chỉ đổi sau khi server trả lời thì `check()` của Playwright báo "did not change its state"**, và người dùng thật cũng thấy bấm không ăn. Hiện lựa chọn ngay (trạng thái tạm) rồi để giá trị đã lưu thay vào.
+
+**`toBeDisabled` không đọc `<option disabled>`.** Kiểm bằng `toHaveAttribute('disabled','')`.
+
+**Test mở `/preview` hoặc trang khách lần đầu trong lúc một trang khác đang giữ trạng thái thì trang đó bị tải lại** (bẫy `next dev` ở trên). Mở trước các route đó trong một tab riêng ở đầu test.
+
 **Đừng kiểm database ngay sau khi bấm một nút.** Nút gửi request rồi mới hiện thông báo; đọc bảng một lần ngay sau đó thấy 0 dòng và trông như nút hỏng. Dùng `expect.poll`.
 
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.

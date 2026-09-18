@@ -6,8 +6,12 @@ export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
   tags: number; active_tags: number;
   owner_user_id: string | null; owner_username: string | null; owner_email: string | null; last_seen: string | null;
-  feedback_support: boolean;
+  support_level: 'off' | 'view' | 'edit' | 'full';
 };
+/** The owner's four positions, as the operator sees them (migration 012). */
+const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
+const allows = (row: ShopRow, scope: 'overview' | 'feedback' | 'design') =>
+  scope === 'overview' ? row.support_level !== 'edit' : scope === 'feedback' ? ['view', 'full'].includes(row.support_level) : ['edit', 'full'].includes(row.support_level);
 
 type Handover = { slug: string; name: string; tagCode: string; ownerUsername: string; ownerUserId: string; setupUrl: string | null; expiresAt: string };
 
@@ -101,14 +105,13 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
       <h2>Xem thay mặt {standIn.name}</h2>
       <p className={styles.muted}>
         Phiên chỉ xem, tối đa 30 phút, mỗi lúc một phiên, không tải được dữ liệu. Chủ shop <strong>{standIn.owner_username}</strong> sẽ
-        thấy phiên này cùng lý do nguyên văn. Đọc góp ý riêng tư chỉ mở được khi chủ shop đang bật công tắc cho phép.
+        thấy phiên này cùng lý do nguyên văn. Mức hỗ trợ chủ shop đang đặt: <strong>{LEVELS[standIn.support_level]}</strong>.
       </p>
       <form className={styles.form} onSubmit={event => { event.preventDefault(); void impersonate(standIn, new FormData(event.currentTarget)); }}>
-        <label>Phạm vi<select name="scope" defaultValue="overview">
-          <option value="overview">Chỉ số liệu tổng quan</option>
-          <option value="feedback" disabled={!standIn.feedback_support}>
-            {standIn.feedback_support ? 'Kèm góp ý riêng tư' : 'Kèm góp ý riêng tư (chủ shop chưa cho phép)'}
-          </option>
+        <label>Phạm vi<select name="scope" defaultValue={allows(standIn, 'overview') ? 'overview' : 'design'}>
+          <option value="overview" disabled={!allows(standIn, 'overview')}>Chỉ số liệu tổng quan{allows(standIn, 'overview') ? '' : ' (khấc 2 ẩn dữ liệu)'}</option>
+          <option value="feedback" disabled={!allows(standIn, 'feedback')}>Kèm góp ý riêng tư{allows(standIn, 'feedback') ? '' : ' (cần khấc 1 hoặc 3)'}</option>
+          <option value="design" disabled={!allows(standIn, 'design')}>Sửa giao diện{allows(standIn, 'design') ? '' : ' (cần khấc 2 hoặc 3)'}</option>
         </select></label>
         <label>Lý do (chủ shop sẽ đọc)<input name="reason" required minLength={10} maxLength={200} placeholder="Shop nhờ kiểm vì sao số lượt mở giảm"/></label>
         <button disabled={busy}>Mở dashboard</button>
@@ -168,7 +171,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
       <div className={styles.wide}>
         <table className={styles.table}>
-          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trạng thái</th><th>Đọc góp ý</th><th>Hoạt động</th><th/></tr></thead>
+          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
               <td>{row.is_template && <><strong>KHUÔN</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
@@ -179,7 +182,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
                 : row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
               <td>{row.active_tags}/{row.tags} hoạt động</td>
               <td>{row.publishing_state}</td>
-              <td data-feedback-support={row.feedback_support ? 'on' : 'off'}>{row.is_template ? '—' : row.feedback_support ? 'shop cho phép' : 'chưa cho phép'}</td>
+              <td data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
               <td>{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
               <td>{row.owner_user_id && !row.is_template && <>
                 <button disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>

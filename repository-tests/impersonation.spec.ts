@@ -14,7 +14,7 @@ type Fixture=Awaited<ReturnType<typeof ownerFixture>>&{adminId:string;adminToken
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_imp_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const base=await ownerFixture(db),admins=new AdminAuth(db);
   const adminId=await admins.bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
@@ -24,13 +24,14 @@ const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
 }});
 const filters=()=>parseFilters(new URLSearchParams());
 const reason='Shop nhờ kiểm vì sao góp ý không hiện';
-const open=async(f:Fixture,scope:'overview'|'feedback',shop=0,why=reason)=>{
+const open=async(f:Fixture,scope:'overview'|'feedback'|'design',shop=0,why=reason)=>{
  const opened=await f.imp.start(f.adminToken,{shopId:f.shops[shop],ownerUserId:f.users[shop].id,scope,reason:why});
  return {...opened,credential:{impersonation:opened.token}};
 };
 const audit=async(f:Fixture,action:string)=>(await f.db.query('SELECT actor_id,shop_id,on_behalf_of,detail FROM admin_audit WHERE action=$1 ORDER BY id',[action])).rows;
 // The owner's switch, moved the way the owner moves it.
-const allow=(f:Fixture,enabled:boolean,shop=0)=>new OwnerDashboard(f.db).setSupport(f.users[shop].token,['one','two'][shop],{permission:'feedback',enabled});
+const allow=(f:Fixture,enabled:boolean,shop=0)=>new OwnerDashboard(f.db).setSupport(f.users[shop].token,['one','two'][shop],{level:enabled?'view':'off'});
+const position=(f:Fixture,level:string,shop=0)=>new OwnerDashboard(f.db).setSupport(f.users[shop].token,['one','two'][shop],{level});
 const exports=['experiences','page_visits','receipts'] as const;
 
 test('overview: needs no permission, feedback text is removed on the server, every export and every write is refused',async({f})=>{
@@ -43,7 +44,7 @@ test('overview: needs no permission, feedback text is removed on the server, eve
  const read=await dashboard.read(s.credential,'one',filters());
  expect(read.viewer).toMatchObject({kind:'admin',admin:'operator',scope:'overview',reason});
  // Support state and visits live in the light summary; reading it as a stand-in counts as a read too.
- expect((await dashboard.summary(s.credential,'one')).support).toEqual({feedback:false,history:[]});
+ expect((await dashboard.summary(s.credential,'one')).support).toEqual({level:'off',feedback:false,history:[]});
  expect(read.records).toHaveLength(1);
  expect(read.records[0]).toMatchObject({topic:null,message:null,phone:null,note:'',status:'progress',rating:2});
  expect(JSON.stringify(read)).not.toMatch(/Bí mật|Ghi chú của chủ|0961036265/);
@@ -109,7 +110,7 @@ test('feedback: only while the owner allows it, never exports, read-only, one au
  expect(own.adminVisits.map(v=>({scope:v.scope,reason:v.reason,reads:v.reads,end:v.end_reason}))).toEqual([
   {scope:'overview',reason,reads:1,end:null},{scope:'feedback',reason,reads:3,end:'superseded'}]);
  expect(own.support.feedback).toBe(false);
- expect(own.support.history.map(h=>({enabled:h.enabled,by:h.by}))).toEqual([{enabled:false,by:f.users[0].username},{enabled:true,by:f.users[0].username}]);
+ expect(own.support.history.map(h=>({level:h.level,by:h.by}))).toEqual([{level:'off',by:f.users[0].username},{level:'view',by:f.users[0].username}]);
  expect((await f.db.query('SELECT count(*)::int n FROM admin_audit')).rows[0].n).toBe(before);
  // The other shop's owner sees nothing of it.
  expect((await dashboard.summary(f.users[1].token,'two')).adminVisits).toEqual([]);
@@ -118,11 +119,11 @@ test('feedback: only while the owner allows it, never exports, read-only, one au
 test('only the owner moves the switch: not support, not a manager, not another shop; history cannot be edited',async({f})=>{
  const dashboard=new OwnerDashboard(f.db),events='SELECT count(*)::int n FROM shop_support_grant_events';
  const o=await open(f,'overview');
- await expect(dashboard.setSupport(o.credential,'one',{permission:'feedback',enabled:true})).rejects.toThrow('IMPERSONATION_READ_ONLY');
- await expect(dashboard.setSupport(f.users[1].token,'one',{permission:'feedback',enabled:true})).rejects.toThrow('ACCESS_DENIED');
+ await expect(dashboard.setSupport(o.credential,'one',{level:'view'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
+ await expect(dashboard.setSupport(f.users[1].token,'one',{level:'view'})).rejects.toThrow('ACCESS_DENIED');
  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
- await expect(dashboard.setSupport(f.users[1].token,'one',{permission:'feedback',enabled:true})).rejects.toThrow('OWNER_ROLE_REQUIRED');
- for(const bad of [{permission:'feedback'},{permission:'feedback',enabled:'true'},{permission:'config',enabled:true},{permission:'feedback',enabled:true,extra:1},null,[]])
+ await expect(dashboard.setSupport(f.users[1].token,'one',{level:'view'})).rejects.toThrow('OWNER_ROLE_REQUIRED');
+ for(const bad of [{level:'on'},{level:1},{permission:'feedback',enabled:true},{level:'view',extra:1},null,[]])
   await expect(dashboard.setSupport(f.users[0].token,'one',bad)).rejects.toThrow('INVALID_SUPPORT');
  expect((await f.db.query(events)).rows[0].n).toBe(0);
 
@@ -131,7 +132,7 @@ test('only the owner moves the switch: not support, not a manager, not another s
  expect((await f.db.query(events)).rows[0].n).toBe(0);
  await Promise.all([allow(f,true),allow(f,true)]);
  expect((await f.db.query(events)).rows[0].n).toBe(1);
- expect(await allow(f,true)).toEqual({feedback:true});
+ expect(await allow(f,true)).toEqual({level:'view'});
  expect((await f.db.query(events)).rows[0].n).toBe(1);
 
  await expect(f.db.query('UPDATE shop_support_grant_events SET enabled=false')).rejects.toThrow('IMMUTABLE');
@@ -139,7 +140,7 @@ test('only the owner moves the switch: not support, not a manager, not another s
  await expect(f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'config',true,$2)",[f.shops[0],f.users[0].id])).rejects.toThrow('check constraint');
  // The operator's table shows the switch as it stands.
  const {ShopProvisioning}=await import('../lib/admin/provisioning');
- expect((await new ShopProvisioning(f.db).list()).map(r=>[r.slug,r.feedback_support])).toEqual(expect.arrayContaining([['one',true],['two',false]]));
+ expect((await new ShopProvisioning(f.db).list()).map(r=>[r.slug,r.support_level])).toEqual(expect.arrayContaining([['one','view'],['two','off']]));
 
  const sql=await readFile('db/rollback/008_shop_support_grants.sql','utf8'),db=await f.db.connect();
  try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SUPPORT_GRANT_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
@@ -249,4 +250,70 @@ test('rollback refuses while impersonation records exist',async({f})=>{
  const sql=await readFile('db/rollback/007_admin_impersonation.sql','utf8'),db=await f.db.connect();
  try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('IMPERSONATION_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
  expect((await f.db.query('SELECT count(*)::int n FROM admin_impersonation_sessions')).rows[0].n).toBe(1);
+});
+
+test('four positions: what support may open and read at each, checked again on every request',async({f})=>{
+ const dashboard=new OwnerDashboard(f.db),{OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
+ await addExperience(f.db,'one',2,'Góp ý bí mật');
+ const can=async(scope:'overview'|'feedback'|'design')=>f.imp.start(f.adminToken,{shopId:f.shops[0],ownerUserId:f.users[0].id,scope,reason}).then(()=>true,e=>{expect(String(e)).toContain('SUPPORT_NOT_GRANTED');return false;});
+ const table:Record<string,boolean[]>={off:[true,false,false],view:[true,true,false],edit:[false,false,true],full:[true,true,true]};
+ for(const level of ['off','view','edit','full']){
+  await position(f,level);
+  expect([await can('overview'),await can('feedback'),await can('design')],level).toEqual(table[level]);
+ }
+ // Position 2 hides every figure from an open design session, and moving the switch applies to the next request.
+ await position(f,'edit');const d=await open(f,'design');
+ await expect(dashboard.summary(d.credential,'one')).rejects.toThrow('SUPPORT_NOT_GRANTED');
+ await expect(dashboard.read(d.credential,'one',filters())).rejects.toThrow('SUPPORT_NOT_GRANTED');
+ await expect(design.read(d.credential,'one')).resolves.toMatchObject({draft:{revision:expect.any(Number)}});
+ await position(f,'view');
+ await expect(design.read(d.credential,'one')).rejects.toThrow('SUPPORT_NOT_GRANTED');
+ await position(f,'full');
+ await expect(dashboard.summary(d.credential,'one')).resolves.toBeTruthy();
+ await expect(design.read(d.credential,'one')).resolves.toBeTruthy();
+ // Never at any position: case notes, exports, the switch itself.
+ await expect(dashboard.update(d.credential,'one',{sessionId:randomUUID(),expectedCaseRevision:0,expectedExperienceRevision:'1',status:'resolved',note:''})).rejects.toThrow('IMPERSONATION_READ_ONLY');
+ await expect(dashboard.setSupport(d.credential,'one',{level:'off'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
+ await expect(exportStream(f.db,d.credential,'one',filters(),'experiences','csv',new AbortController().signal)).rejects.toThrow('IMPERSONATION_NO_EXPORT');
+ // An overview or feedback session cannot edit the page.
+ const o=await open(f,'overview');await expect(design.read(o.credential,'one')).rejects.toThrow('IMPERSONATION_SCOPE');
+});
+test('older on/off decisions keep their meaning; rollback 012 refuses once four-position data exists',async({f})=>{
+ await f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'feedback',true,$2)",[f.shops[0],f.users[0].id]);
+ const own=await new OwnerDashboard(f.db).summary(f.users[0].token,'one');
+ expect(own.support).toMatchObject({level:'view',feedback:true});expect(own.support.history.map(h=>h.level)).toEqual(['view']);
+ await expect(f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,level,actor_id)VALUES($1,'level',true,'off',$2)",[f.shops[0],f.users[0].id])).rejects.toThrow('check constraint');
+ await expect(f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'level',true,$2)",[f.shops[0],f.users[0].id])).rejects.toThrow('check constraint');
+ await position(f,'edit');
+ const sql=await readFile('db/rollback/012_support_levels.sql','utf8'),db=await f.db.connect();
+ try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SUPPORT_LEVEL_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
+});
+test('the page editor: owners and managers edit and publish; support edits only in a design session and is recorded',async({f})=>{
+ const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
+ const {PublishingResolver}=await import('../lib/publishing/repository');
+ const state=await design.read(f.users[0].token,'one');
+ expect(state.draft.config.schemaVersion).toBe(2);expect(state.live).not.toBeNull();
+ const config={...state.draft.config,name:'Tên mới',layout:'card' as const,links:[{label:{vi:'Gọi',en:'Call'},url:'tel:0901234567',icon:'phone' as const}]};
+ await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config:{...config,html:'<b>'}})).rejects.toThrow('INVALID_CONFIG');
+ const saved=await design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config});
+ await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config})).rejects.toThrow('DRAFT_CONFLICT');
+ const preview=await design.preview(f.users[0].token,'one',{action:'preview',expectedRevision:saved.revision});
+ expect((await new PublishingResolver(f.db).preview(preview.token)).config.name).toBe('Tên mới');
+ expect((await new PublishingResolver(f.db).live({slug:'one'})).config.name).not.toBe('Tên mới');
+ const published=await design.publish(f.users[0].token,'one',{action:'publish',expectedRevision:saved.revision});
+ expect((await new PublishingResolver(f.db).live({slug:'one'})).config).toMatchObject({name:'Tên mới',layout:'card'});
+ // A manager edits too; another shop's owner does not.
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
+ const again=await design.read(f.users[1].token,'one');expect(again.draft.revision).toBe(published.revision);
+ await expect(design.read(f.users[1].token,'two')).resolves.toBeTruthy();
+ await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1 AND shop_id=$2',[f.users[1].id,f.shops[0]]);
+ await expect(design.read(f.users[1].token,'one')).rejects.toThrow('ACCESS_DENIED');
+ // Support at position 2, in a design session: saves and publishes, each recorded as on the owner's behalf.
+ await position(f,'edit');const d=await open(f,'design');
+ const current=await design.read(d.credential,'one');
+ const s2=await design.save(d.credential,'one',{expectedRevision:current.draft.revision,config:{...current.draft.config,name:'Sửa hộ'}});
+ await design.publish(d.credential,'one',{action:'publish',expectedRevision:s2.revision});
+ expect((await audit(f,'impersonation.design.save')).map(r=>[r.actor_id,r.on_behalf_of])).toEqual([[f.adminId,f.users[0].id]]);
+ expect(await audit(f,'impersonation.design.publish')).toHaveLength(1);
+ expect((await f.db.query("SELECT created_by FROM page_releases ORDER BY created_at DESC LIMIT 1")).rows[0].created_by).toBe(`admin:${f.adminId}`);
 });

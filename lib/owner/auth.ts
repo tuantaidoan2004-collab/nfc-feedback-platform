@@ -23,10 +23,12 @@ const opaque = (token: unknown): token is string => typeof token === 'string' &&
 export type OwnerCredential = string | undefined | { impersonation: string | undefined };
 /**
  * What the caller is about to do. Every caller names it, so no route can forget to ask:
- * overview = counts and rows without feedback text · feedback = feedback text · export = bulk files, never for support · write = change anything.
+ * shell = the dashboard frame only, no data · overview = counts and rows without feedback text · feedback = feedback
+ * text · design = edit and publish the customer page · export = bulk files, never for support · write = change
+ * case notes and the support switch, never for support.
  */
-export type OwnerNeed = 'overview' | 'feedback' | 'export' | 'write';
-export type ImpersonationScope = 'overview' | 'feedback';
+export type OwnerNeed = 'shell' | 'overview' | 'feedback' | 'design' | 'export' | 'write';
+export type ImpersonationScope = 'overview' | 'feedback' | 'design';
 export type OwnerActor = { kind: 'owner' }
   | { kind: 'admin'; adminId: string; adminUsername: string; sessionId: string; scope: ImpersonationScope; reason: string; expiresAt: string };
 export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager'; actor: OwnerActor };
@@ -44,11 +46,17 @@ export async function ownerShop(db: PoolClient, userId: string, shop: { slug: st
     { id: string; slug: string; name: string; role: 'owner' | 'manager' } | undefined;
 }
 
-export type SupportPermission = 'feedback';
-/** The owner's switch. No row yet means off: a shop that never touched it has granted nothing. */
-export async function supportGranted(db: PoolClient, shopId: string, permission: SupportPermission) {
-  return (await db.query('SELECT enabled FROM shop_support_grant_events WHERE shop_id=$1 AND permission=$2 ORDER BY id DESC LIMIT 1',
-    [shopId, permission])).rows[0]?.enabled === true;
+/**
+ * The owner's four-position support switch (migration 012): off · view (1: read feedback) · edit (2: change the
+ * page, no data at all) · full (3). Older on/off rows still count: on = view. No row means off.
+ */
+export type SupportLevel = 'off' | 'view' | 'edit' | 'full';
+export const SUPPORT_LEVELS: SupportLevel[] = ['off', 'view', 'edit', 'full'];
+export async function supportLevel(db: PoolClient, shopId: string): Promise<SupportLevel> {
+  const row = (await db.query(`SELECT permission,enabled,level FROM shop_support_grant_events WHERE shop_id=$1 AND permission IN ('feedback','level')
+    ORDER BY id DESC LIMIT 1`, [shopId])).rows[0];
+  if (!row) return 'off';
+  return row.permission === 'level' ? row.level : row.enabled ? 'view' : 'off';
 }
 
 async function now(db: PoolClient) { return (await db.query('SELECT clock_timestamp() now')).rows[0].now as Date; }
@@ -81,11 +89,16 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   // The shop's data leaves only through the shop's own hands. No scope and no switch opens bulk export to support.
   if (need === 'export') throw new OwnerError(403, 'IMPERSONATION_NO_EXPORT');
   if (need === 'feedback' && row.scope !== 'feedback') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
+  if (need === 'design' && row.scope !== 'design') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
   const shop = await ownerShop(db, row.owner_user_id, { slug });
   // The cookie is scoped to one shop's paths, but the session is what decides: it names exactly one shop.
   if (!shop || shop.id !== row.shop_id) throw new OwnerError(403, 'ACCESS_DENIED');
-  // Asked on every request, so switching it off takes effect at once rather than when the session runs out.
-  if (row.scope === 'feedback' && !await supportGranted(db, shop.id, 'feedback')) throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
+  // Asked on every request, so moving the switch takes effect at once rather than when the session runs out.
+  const level = await supportLevel(db, shop.id);
+  if (row.scope === 'feedback' && !['view', 'full'].includes(level)) throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
+  if (row.scope === 'design' && !['edit', 'full'].includes(level)) throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
+  // Position 2 lets support edit the page but hides every figure, even the overview allowed when the switch is off.
+  if ((need === 'overview' || need === 'feedback') && level === 'edit') throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
   if (await now(db) >= row.expires_at) throw new OwnerError(401, 'IMPERSONATION_ENDED');
   return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role,
     actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, sessionId: row.id, scope: row.scope, reason: row.reason,

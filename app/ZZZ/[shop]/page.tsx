@@ -14,7 +14,8 @@ export default async function Page({params}:{params:Promise<{shop:string}>}) {
   const slug=(await params).shop;
   let access;
   const credential=await ownerCredential();
-  try{access=await new OwnerAuth(database()).access(credential,slug,'overview');}
+  // The frame only: each view asks for its own data with its own need, so a design session can open the page too.
+  try{access=await new OwnerAuth(database()).access(credential,slug,'shell');}
   catch(error){
    // A finished impersonation must not fall through to the owner's sign-in form: the administrator is not the owner.
    if(error instanceof OwnerError && error.code==='IMPERSONATION_ENDED')return <main className="dashboard-wrap"><h1>Phiên xem thay mặt đã kết thúc</h1><p>Mở phiên mới từ trang quản trị nếu vẫn cần hỗ trợ shop này.</p><Link href="/gov">Về trang quản trị</Link></main>;
