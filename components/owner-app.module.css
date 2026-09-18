@@ -144,3 +144,10 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
 .upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .upload span { display: inline-flex; align-items: center; min-height: 42px; padding: 8px 14px; border: 1px dashed #9fb39a; border-radius: 10px; background: var(--mist); font-weight: 650; }
 .upload small { font-size: 12px; color: var(--muted); }
+
+/* Password change (Cài đặt). */
+.passwordForm { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.passwordForm h3 { grid-column: 1 / -1; margin: 0; font-size: 16px; }
+.passwordForm p { grid-column: 1 / -1; }
+.passwordForm button { justify-self: start; min-height: 42px; padding: 8px 16px; border: 0; border-radius: 11px; background: var(--forest-2); color: #fff; font-weight: 650; }
+@media (max-width: 900px) { .passwordForm { grid-template-columns: minmax(0, 1fr); } }

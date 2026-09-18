@@ -167,6 +167,32 @@ test('cards: nhân bản thẻ, see the fee before switching on, the card opens 
  await panel.screenshot({path:info.outputPath('cards-390.png')});
  expect(errors).toEqual([]);
 });
+test('password: change it in Settings, the old one stops working, the new one signs in; other origins refused',async({page,context,f})=>{
+ const a=f.users[0],next='the-new-shop-password';
+ const other=await context.browser()!.newContext({baseURL:origin});
+ try{
+  const second=await other.newPage();await login(second,a);
+  await login(page,a);
+  await page.locator('[data-view="settings"]').click();
+  const form=page.locator('[data-password-form]');
+  await form.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('not-the-password');
+  await form.getByLabel('Mật khẩu mới (ít nhất 12 ký tự)',{exact:true}).fill(next);
+  await form.getByLabel('Nhập lại mật khẩu mới',{exact:true}).fill(next);
+  await form.getByRole('button',{name:'Đổi mật khẩu',exact:true}).click();
+  await expect(form.locator('[data-password-notice]')).toHaveText('Mật khẩu hiện tại chưa đúng.');
+  await form.getByLabel('Mật khẩu hiện tại',{exact:true}).fill(a.password);
+  await form.getByRole('button',{name:'Đổi mật khẩu',exact:true}).click();
+  await expect(form.locator('[data-password-notice]')).toContainText('Đã đổi mật khẩu');
+  // The other browser is signed out; this one keeps working.
+  expect((await second.request.get('/api/owner/v2/one/summary')).status()).toBe(401);
+  expect((await page.request.get('/api/owner/v2/one/summary')).status()).toBe(200);
+  expect((await page.request.put('/api/owner/v2/password',{headers:{Origin:'https://invalid.example'},data:{current:next,next:'another-long-password'}})).status()).toBe(403);
+  await page.getByRole('button',{name:'Đăng xuất'}).click();await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
+  await page.getByLabel('Tài khoản',{exact:true}).fill(a.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(a.password);
+  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
+  await login(page,{username:a.username,password:next});
+ }finally{await other.close();}
+});
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{
  await addExperience(f.db);const b=await addExperience(f.db,'two');
  expect((await request.get('/api/owner/v2/one')).status()).toBe(401);

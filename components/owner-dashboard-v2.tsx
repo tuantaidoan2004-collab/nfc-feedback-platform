@@ -104,6 +104,38 @@ function Support({ support, canChange, change }: { support: Summary['support']; 
   </section>;
 }
 
+const PASSWORD_ERRORS: Record<string, string> = {
+  WRONG_PASSWORD: 'Mật khẩu hiện tại chưa đúng.', WEAK_PASSWORD: 'Mật khẩu mới cần ít nhất 12 ký tự.',
+  SAME_PASSWORD: 'Mật khẩu mới phải khác mật khẩu hiện tại.', TOO_MANY_ATTEMPTS: 'Thử sai quá nhiều lần. Đợi 15 phút rồi thử lại.',
+  LOGIN_REQUIRED: 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi đổi mật khẩu.',
+};
+/** The owner's own password. Other devices signed in to this account are signed out; this one stays. */
+function PasswordForm() {
+  const [values, setValues] = useState({ current: '', next: '', confirm: '' }), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  const set = (key: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement>) => { setValues({ ...values, [key]: e.target.value }); setNotice(''); };
+  return <form className={styles.passwordForm} data-password-form onSubmit={async e => {
+    e.preventDefault();
+    if (values.next.length < 12) { setNotice(PASSWORD_ERRORS.WEAK_PASSWORD); return; }
+    if (values.next !== values.confirm) { setNotice('Hai lần nhập mật khẩu mới chưa giống nhau.'); return; }
+    setBusy(true);
+    try {
+      const response = await fetch('/api/owner/v2/password', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ current: values.current, next: values.next }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) { setNotice(PASSWORD_ERRORS[body.error] ?? 'Chưa đổi được mật khẩu. Thử lại.'); return; }
+      setValues({ current: '', next: '', confirm: '' });
+      setNotice('Đã đổi mật khẩu. Các máy khác đang đăng nhập tài khoản này đã bị đăng xuất.');
+    } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
+    finally { setBusy(false); }
+  }}>
+    <h3>Đổi mật khẩu</h3>
+    <label>Mật khẩu hiện tại<input type="password" autoComplete="current-password" required value={values.current} onChange={set('current')} /></label>
+    <label>Mật khẩu mới (ít nhất 12 ký tự)<input type="password" autoComplete="new-password" required minLength={12} value={values.next} onChange={set('next')} /></label>
+    <label>Nhập lại mật khẩu mới<input type="password" autoComplete="new-password" required value={values.confirm} onChange={set('confirm')} /></label>
+    <button disabled={busy}>{busy ? 'Đang đổi…' : 'Đổi mật khẩu'}</button>
+    <p role="status" className={styles.hint} data-password-notice>{notice}</p>
+  </form>;
+}
+
 function AdminVisits({ visits }: { visits: Summary['adminVisits'] }) {
   return <section className={styles.panel} aria-label="Lượt truy cập của quản trị" data-admin-visits><h2>Lượt truy cập của quản trị</h2>
     <p className={styles.hint}>Mỗi lần quản trị viên nền tảng xem dashboard thay mặt shop đều được ghi lại ở đây, kèm lý do. Quản trị viên chỉ được xem, không sửa và không tải được dữ liệu.</p>
@@ -329,7 +361,8 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {view === 'settings' && <section aria-label="Cài đặt" data-panel="settings">
         {summary && <section className={styles.panel} aria-label="Tài khoản"><h2>Tài khoản</h2>
           <p><strong>{summary.account}</strong> · {summary.viewer.kind === 'admin' ? 'quản trị viên đang xem thay mặt' : summary.viewer.role === 'owner' ? 'chủ shop' : 'quản lý'}</p>
-          <p className={styles.hint}>Đổi mật khẩu và tài khoản phụ sẽ có ở đây.</p></section>}
+          {owner ? <PasswordForm /> : <p className={styles.hint}>Quản trị không đổi được mật khẩu của chủ shop.</p>}
+          <p className={styles.hint}>Tài khoản phụ (quản lý, nhân viên) sẽ có ở đây.</p></section>}
         {summary && <Support support={summary.support} canChange={owner && summary.viewer.kind === 'owner' && summary.viewer.role === 'owner'} change={changeSupport} />}
         {summary && <AdminVisits visits={summary.adminVisits} />}
       </section>}

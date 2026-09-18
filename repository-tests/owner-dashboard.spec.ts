@@ -92,6 +92,25 @@ test('the summary carries period totals, seven days, unresolved and the account\
  await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1 AND shop_id=$2',[a.id,f.shops[1]]);
  expect((await dashboard.summary(a.token,'one')).shops.map(s=>s.slug)).toEqual(['one']);
 });
+test('changing the password: needs the current one, a long new one, signs out other sessions and keeps this one',async({f})=>{
+ const a=f.users[0],auth=f.auth,next='a-brand-new-long-password';
+ const other=await auth.login(a.username,a.password);
+ await expect(auth.changePassword(a.token,'wrong-current-password',next)).rejects.toThrow('WRONG_PASSWORD');
+ await expect(auth.changePassword(a.token,a.password,'short')).rejects.toThrow('WEAK_PASSWORD');
+ await expect(auth.changePassword(a.token,a.password,a.password)).rejects.toThrow('SAME_PASSWORD');
+ await expect(auth.changePassword(a.token,a.password,'x'.repeat(257))).rejects.toThrow('WEAK_PASSWORD');
+ await expect(auth.changePassword(undefined,a.password,next)).rejects.toThrow('LOGIN_REQUIRED');
+ await expect(auth.changePassword({impersonation:'a'.repeat(64)},a.password,next)).rejects.toThrow('IMPERSONATION_READ_ONLY');
+ await expect(auth.changePassword(a.token,a.password,next)).resolves.toEqual({changed:true});
+ await expect(auth.access(a.token,'one','overview')).resolves.toBeTruthy();
+ await expect(auth.access(other.token,'one','overview')).rejects.toThrow('LOGIN_REQUIRED');
+ await expect(auth.login(a.username,a.password)).rejects.toThrow('LOGIN_FAILED');
+ await expect(auth.login(a.username,next)).resolves.toMatchObject({token:expect.any(String)});
+ // Guessing the current password through this screen counts against the same limit as signing in: the two sign-ins
+ // just above already used two of the eight attempts in this window.
+ for(let i=0;i<6;i++)await expect(auth.changePassword(a.token,`guess-number-${i}-wrong`,'yet-another-long-password')).rejects.toThrow('WRONG_PASSWORD');
+ await expect(auth.changePassword(a.token,next,'yet-another-long-password')).rejects.toThrow('TOO_MANY_ATTEMPTS');
+});
 test('case CAS concurrent actors, audit immutability, feedback revision conflict and automatic reopening',async({f})=>{
  const x=await addExperience(f.db),dashboard=new OwnerDashboard(f.db),a=f.users[0],b=f.users[1];
  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[b.id,f.shops[0]]);

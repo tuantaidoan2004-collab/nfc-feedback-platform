@@ -137,6 +137,43 @@ export class OwnerAuth {
     });
     if (!result) throw new OwnerError(401, 'LOGIN_FAILED'); return result;
   }
+  /**
+   * The owner's own password change (Tài, 2026-09-18). Only a real owner session, never a stand-in. The current
+   * password is checked against the same per-account limit as signing in, so this screen cannot be used to guess it;
+   * the attempt is counted even when the check fails. Every other session of the account is signed out; this one stays.
+   */
+  async changePassword(credential: OwnerCredential, current: unknown, next: unknown) {
+    if (typeof credential === 'object') throw new OwnerError(403, 'IMPERSONATION_READ_ONLY');
+    if (!opaque(credential)) throw new OwnerError(401, 'LOGIN_REQUIRED');
+    if (typeof current !== 'string' || !current || Buffer.byteLength(current) > 256) throw new OwnerError(400, 'INVALID_PASSWORD');
+    if (!validPassword(next)) throw new OwnerError(400, 'WEAK_PASSWORD');
+    if (next === current) throw new OwnerError(400, 'SAME_PASSWORD');
+    const token = credential;
+    // Decided inside the transaction, thrown after it commits, so a wrong guess still counts against the limit.
+    const outcome = await transaction(this.pool, async db => {
+      const user = (await db.query(`SELECT u.id,u.username,u.password_salt,u.password_key FROM owner_auth_sessions_v2 a
+        JOIN owner_identities_v2 u ON u.id=a.user_id WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active
+        FOR UPDATE OF u`, [sessionHash(token)])).rows[0];
+      if (!user) return 'LOGIN_REQUIRED' as const;
+      const attempts = (await db.query(`INSERT INTO owner_login_limits(bucket,window_start,attempts)VALUES($1,clock_timestamp(),1)
+        ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-interval '900 seconds' THEN 1 ELSE owner_login_limits.attempts+1 END,
+        window_start=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-interval '900 seconds' THEN clock_timestamp() ELSE owner_login_limits.window_start END
+        RETURNING attempts`, [loginBucket(user.username)])).rows[0].attempts as number;
+      if (attempts > 8) return 'TOO_MANY_ATTEMPTS' as const;
+      const matches = timingSafeEqual(await passwordKey(current, user.password_salt), Buffer.from(user.password_key, 'hex'));
+      if (!matches) return 'WRONG_PASSWORD' as const;
+      const salt = randomBytes(16).toString('hex'), key = (await passwordKey(next, salt)).toString('hex');
+      await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3 WHERE id=$1', [user.id, salt, key]);
+      await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL', [user.id, sessionHash(token)]);
+      // A successful change clears the account's failed-guess count, as a successful sign-in would reset its window.
+      await db.query('DELETE FROM owner_login_limits WHERE bucket=$1', [loginBucket(user.username)]);
+      return 'CHANGED' as const;
+    });
+    if (outcome === 'LOGIN_REQUIRED') throw new OwnerError(401, outcome);
+    if (outcome === 'TOO_MANY_ATTEMPTS') throw new OwnerError(429, outcome);
+    if (outcome === 'WRONG_PASSWORD') throw new OwnerError(403, outcome);
+    return { changed: true };
+  }
   async logout(token?: string) {
     if (token && /^[a-f0-9]{64}$/.test(token)) await this.pool.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE token_hash=$1 AND revoked_at IS NULL', [sessionHash(token)]);
   }

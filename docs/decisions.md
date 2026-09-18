@@ -543,6 +543,13 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Tài thêm 5 biến R2 cho branch preview; agent push commit rỗng `c8aa02c` để deploy lại. Tài tải poster, logo lên được nhưng tưởng Lưu nháp là đã đổi trang khách: câu thông báo "Nhớ Lưu nháp hoặc Phát hành" của agent gây hiểu nhầm. Đã sửa: sau khi lưu và sau khi tải lên đều nói rõ khách chỉ thấy bản đã Phát hành. Kiểm commit `f0ab42a`: đủ 7 bộ xanh (repository 99, contracts 70, client 75, public-v2 16+1 skip+2, publishing 10+2, owner 6+2, admin 6+2).
 - Tài cũng yêu cầu chạy hướng dẫn cài đặt Cloudflare cho agent (`developers.cloudflare.com/agent-setup/prompt.md`: cài plugin `cloudflare/skills` và các MCP server cần đăng nhập OAuth). Agent **chưa chạy**: nó đổi cấu hình Claude Code toàn máy, cài mã bên ngoài và cho agent quyền trên tài khoản Cloudflare, trong khi R2 không cần tới. Chờ Tài xác nhận.
 
+## Đổi mật khẩu — 2026-09-18
+
+- Cài đặt → Tài khoản có **Đổi mật khẩu** (`OwnerAuth.changePassword`, `PUT /api/owner/v2/password`): cần mật khẩu hiện tại, mật khẩu mới ít nhất 12 ký tự và khác mật khẩu cũ. Đổi xong, **mọi phiên khác** của tài khoản bị đăng xuất, phiên đang dùng ở lại.
+- Nhập sai mật khẩu hiện tại tính vào **cùng giới hạn 8 lần / 15 phút** với đăng nhập (lượt sai vẫn được đếm dù bị từ chối), nên không dò được mật khẩu qua màn này; đổi thành công thì xoá bộ đếm. Quản trị xem thay mặt không đổi được mật khẩu.
+- Với tài khoản khuôn `yourshop` / `1`: đổi sang mật khẩu dài được; nút "Đặt lại tài khoản test" ở `/gov` vẫn đưa về `1`.
+- Lỗi của agent: test tính sai số lượt còn lại, quên rằng hai lần đăng nhập ngay trước đó cũng được đếm (giới hạn dùng chung là cố ý).
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -566,7 +573,7 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- R2 production: thêm 5 biến cho Production và gắn custom domain cho bucket khi có tên miền (preview đã chạy thật); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ; tên miền thật (phải có trước khi ghi thẻ cho khách);
+- R2 production: thêm 5 biến cho Production và gắn custom domain cho bucket khi có tên miền (preview đã chạy thật); kết nối Google Business Profile; tài khoản phụ (quản lý, nhân viên); tên miền thật (phải có trước khi ghi thẻ cho khách);
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
