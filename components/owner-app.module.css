@@ -222,3 +222,62 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
   .editProfile { margin-top: 4px; }
 }
 @media (max-width: 900px) { .me { margin: 0 0 0 auto; } }
+
+/* Team, roles and activity (lát F3). */
+.roleBadge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border: 1px solid; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.members, .roles { list-style: none; margin: 12px 0 0; padding: 0; display: grid; }
+.members li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.memberText { display: grid; flex: 1 1 160px; min-width: 0; }
+.memberText strong { font-size: 15px; overflow-wrap: anywhere; }
+.memberText span { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.pending { color: #b45309; font-style: normal; }
+.memberControls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.memberControls select, .inviteForm input, .inviteForm select, .activityFilters select, .activityFilters input, .roleEditor input:not([type="checkbox"]) {
+  min-height: 38px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 14px; }
+.dangerText { padding: 0; border: 0; background: none; color: #b42318; font: inherit; font-weight: 650; cursor: pointer; }
+.inviteForm { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.inviteForm h3 { grid-column: 1 / -1; margin: 0; font-size: 15px; }
+.inviteForm label, .activityFilters label, .roleEditorRow label { display: grid; gap: 6px; font-size: 13px; font-weight: 650; }
+.inviteForm button, .roleEditor button:not(.textButton):not(.dangerText), .addRole, .setupLink button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--forest); color: #fff; font-weight: 700; }
+.setupLink { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: #fff8e6; border: 1px solid #f0d7a1; display: grid; gap: 8px; }
+.setupLink p { margin: 0; font-size: 14px; }
+.setupLink code { overflow-wrap: anywhere; font-size: 13px; }
+.setupLink button { justify-self: start; }
+.roles li { padding: 12px 0; border-top: 1px solid var(--line); }
+.roleLine { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.roleLine .hint { margin: 0; flex: 1 1 200px; }
+.addRole { margin-top: 12px; }
+.roleEditor { display: grid; gap: 12px; }
+.roleEditorRow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 72px; gap: 10px; }
+.roleEditorRow input[type="color"] { width: 100%; min-height: 38px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; }
+.switches { margin: 0; padding: 0; border: 0; display: grid; gap: 2px; }
+.switches legend { font-size: 13px; font-weight: 650; margin-bottom: 6px; }
+.app .switchRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 14px; }
+.app .switchRow input { appearance: none; position: relative; flex: none; width: 40px; height: 24px; min-height: 0; padding: 0; border: 0; border-radius: 999px; background: #c9d3cc; cursor: pointer; transition: background .15s; }
+.switchRow input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0003; transition: transform .15s; }
+.switchRow input:checked { background: var(--forest-2); }
+.switchRow input:checked::after { transform: translateX(16px); }
+.shopLine { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.shopLine .switchRow { flex-basis: 100%; }
+.app .spotlight { display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 52px; border: 1px solid var(--line); border-radius: 14px; background: var(--mist); color: var(--muted); }
+.spotlight:focus-within { border-color: var(--forest-2); background: var(--paper); box-shadow: 0 0 0 4px #214e3c1f; }
+.app .spotlight input { flex: 1; min-width: 0; min-height: 0; padding: 10px 0; border: 0; border-radius: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink); outline: none; }
+.spotlight kbd { padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 12px; background: var(--paper); }
+.activityFilters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; }
+.timeline li { display: grid; grid-template-columns: minmax(120px, auto) 1fr auto; gap: 4px 14px; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.timeline li:first-child { border-top: 0; }
+.timelineWhat { overflow-wrap: anywhere; }
+.timelineWhat small { color: var(--muted); }
+.timeline time { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .inviteForm, .activityFilters { grid-template-columns: minmax(0, 1fr); }
+  .roleEditorRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .roleEditorRow label:first-child { grid-column: 1 / -1; }
+  .timeline li { grid-template-columns: 1fr auto; }
+  .timelineWhat { grid-column: 1 / -1; order: 3; }
+}
+@media (max-width: 640px) { .spotlight kbd { display: none; } }
+.app .actions .textButton, .app .actions .dangerText { min-height: 0; padding: 0 4px; border: 0; background: none; box-shadow: none; }
+.app .actions .textButton { color: var(--forest-2); }
+.app .actions .dangerText { color: #b42318; }

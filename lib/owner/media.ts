@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { authorize, transaction, OwnerError, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { presignUrl } from '../media/sigv4';
+import { recordActivity } from './activity';
 
 /**
  * Direct uploads to Cloudflare R2 (Tài, 2026-09-18). The browser asks for a short-lived signed PUT, then sends the
@@ -47,6 +48,7 @@ export class OwnerMedia {
       date: this.now(), expiresSeconds: UPLOAD_EXPIRES_SECONDS, headers: { 'content-type': type as string, 'content-length': String(size) } });
     if (access.actor.kind === 'admin') await recordAdminAction(this.pool, access.actor.adminId, { action: 'impersonation.design.upload',
       shopId: access.shopId, onBehalfOf: access.userId, detail: { session: access.actor.sessionId, key, type, size } });
+    await recordActivity(this.pool, access, 'media.upload', rule.kind === 'video' ? 'Video' : 'Ảnh', { type: type as string });
     return { upload, url: `${this.settings.publicOrigin}/${key}`, kind: rule.kind, headers: { 'Content-Type': type as string } };
   }
 }

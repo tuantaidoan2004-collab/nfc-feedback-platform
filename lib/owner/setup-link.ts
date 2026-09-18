@@ -60,7 +60,7 @@ export class OwnerSetupLinks {
   }
 
   /** Issuing a link retires any other open one for the same purpose: only the newest can ever be used. */
-  private async write(db: PoolClient, userId: string, purpose: SetupPurpose): Promise<SetupLink> {
+  async write(db: PoolClient, userId: string, purpose: SetupPurpose): Promise<SetupLink> {
     await db.query('UPDATE owner_setup_tokens SET superseded_at=clock_timestamp() WHERE user_id=$1 AND purpose=$2 AND used_at IS NULL AND superseded_at IS NULL',
       [userId, purpose]);
     const token = randomBytes(32).toString('hex');

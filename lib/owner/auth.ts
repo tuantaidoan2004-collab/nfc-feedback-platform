@@ -38,11 +38,26 @@ export type OwnerCredential = string | undefined | { impersonation: string | und
  * text · design = edit and publish the customer page · export = bulk files, never for support · write = change
  * case notes and the support switch, never for support.
  */
-export type OwnerNeed = 'shell' | 'overview' | 'feedback' | 'design' | 'export' | 'write';
+export type OwnerNeed = 'shell' | 'overview' | 'feedback' | 'design' | 'cards' | 'export' | 'write';
+/**
+ * Switches a shop role turns on (migration 015, lát F3). The owner has all of them; every member sees the overview.
+ * `write` needs no switch of its own: each write names the switch it depends on with requirePermission.
+ */
+export type Permission = 'feedback' | 'design' | 'cards' | 'members' | 'activity' | 'export';
+export const PERMISSIONS: Permission[] = ['feedback', 'design', 'cards', 'members', 'activity', 'export'];
+/** A member from before roles existed, or whose role row is missing, counts as the default Quản lý. */
+export const MANAGER_DEFAULT: Permission[] = ['feedback', 'design', 'cards', 'members', 'activity'];
+const NEED_PERMISSION: Partial<Record<OwnerNeed, Permission>> = { feedback: 'feedback', design: 'design', cards: 'cards', export: 'export' };
 export type ImpersonationScope = 'overview' | 'feedback' | 'design';
 export type OwnerActor = { kind: 'owner' }
   | { kind: 'admin'; adminId: string; adminUsername: string; adminHandle: string | null; adminTitle: string | null; sessionId: string; scope: ImpersonationScope; reason: string; expiresAt: string };
-export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager'; actor: OwnerActor };
+export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager'; actor: OwnerActor;
+  /** What this member may do; empty for support, whose reach is its impersonation scope instead. */
+  permissions: Permission[] };
+/** Refuses a member without the switch. Support is governed by the scope checks in authorize, not by this. */
+export function requirePermission(access: OwnerAccess, permission: Permission) {
+  if (access.actor.kind === 'owner' && !access.permissions.includes(permission)) throw new OwnerError(403, 'PERMISSION_REQUIRED');
+}
 
 /**
  * The one gate both kinds of caller pass through: the owner identity is active, the membership is active and the
@@ -51,10 +66,14 @@ export type OwnerAccess = { userId: string; shopId: string; slug: string; name: 
  */
 export async function ownerShop(db: PoolClient, userId: string, shop: { slug: string } | { id: string }) {
   const [where, key] = 'slug' in shop ? ['lower(s.slug)=lower($2)', shop.slug] : ['s.id=$2', shop.id];
-  return (await db.query(`SELECT s.id,s.slug,s.name,m.role FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
-    JOIN owner_identities_v2 u ON u.id=m.user_id
-    WHERE m.user_id=$1 AND ${where} AND u.active AND m.active AND s.publishing_state='active' FOR SHARE OF m,s,u`, [userId, key])).rows[0] as
-    { id: string; slug: string; name: string; role: 'owner' | 'manager' } | undefined;
+  const row = (await db.query(`SELECT s.id,s.slug,s.name,m.role,r.permissions,m.feedback_override FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
+    JOIN owner_identities_v2 u ON u.id=m.user_id LEFT JOIN shop_roles r ON r.id=m.role_id AND r.shop_id=m.shop_id
+    WHERE m.user_id=$1 AND ${where} AND u.active AND m.active AND s.publishing_state='active' FOR SHARE OF m,s,u`, [userId, key])).rows[0];
+  if (!row) return undefined;
+  let permissions: Permission[] = row.role === 'owner' ? [...PERMISSIONS] : [...(row.permissions ?? MANAGER_DEFAULT)] as Permission[];
+  if (row.role !== 'owner' && row.feedback_override !== null)
+    permissions = row.feedback_override ? [...new Set([...permissions, 'feedback' as const])] : permissions.filter(p => p !== 'feedback');
+  return { id: row.id as string, slug: row.slug as string, name: row.name as string, role: row.role as 'owner' | 'manager', permissions };
 }
 
 /**
@@ -83,7 +102,9 @@ export async function authorize(db: PoolClient, credential: OwnerCredential, slu
   const shop = await ownerShop(db, session.user_id, { slug });
   if (!shop) throw new OwnerError(403, 'ACCESS_DENIED');
   if (await now(db) >= session.expires_at) throw new OwnerError(401,'LOGIN_REQUIRED');
-  return { userId: session.user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, actor: { kind: 'owner' } };
+  const needed = NEED_PERMISSION[need];
+  if (needed && !shop.permissions.includes(needed)) throw new OwnerError(403, 'PERMISSION_REQUIRED');
+  return { userId: session.user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, actor: { kind: 'owner' }, permissions: shop.permissions };
 }
 
 async function authorizeImpersonation(db: PoolClient, token: string | undefined, slug: string, need: OwnerNeed): Promise<OwnerAccess> {
@@ -100,7 +121,7 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   // The shop's data leaves only through the shop's own hands. No scope and no switch opens bulk export to support.
   if (need === 'export') throw new OwnerError(403, 'IMPERSONATION_NO_EXPORT');
   if (need === 'feedback' && row.scope !== 'feedback') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
-  if (need === 'design' && row.scope !== 'design') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
+  if ((need === 'design' || need === 'cards') && row.scope !== 'design') throw new OwnerError(403, 'IMPERSONATION_SCOPE');
   const shop = await ownerShop(db, row.owner_user_id, { slug });
   // The cookie is scoped to one shop's paths, but the session is what decides: it names exactly one shop.
   if (!shop || shop.id !== row.shop_id) throw new OwnerError(403, 'ACCESS_DENIED');
@@ -111,7 +132,7 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   // Position 2 lets support edit the page but hides every figure, even the overview allowed when the switch is off.
   if ((need === 'overview' || need === 'feedback') && level === 'edit') throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
   if (await now(db) >= row.expires_at) throw new OwnerError(401, 'IMPERSONATION_ENDED');
-  return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role,
+  return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, permissions: [],
     actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, adminHandle: row.handle ?? null, adminTitle: row.title ?? null, sessionId: row.id, scope: row.scope, reason: row.reason,
       expiresAt: (row.expires_at as Date).toISOString() } };
 }

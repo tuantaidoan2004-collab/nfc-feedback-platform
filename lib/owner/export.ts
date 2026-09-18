@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { OwnerAuth, OwnerError, type OwnerCredential } from './auth';
 import { cohort, type Filters } from './filters';
 import { experienceSelect, utc } from './dashboard';
+import { recordActivity } from './activity';
 export type Dataset='experiences'|'page_visits'|'receipts';
 const fields = {
  experiences:['schemaVersion','dataset','session_id','first_rated_at','updated_at','rating','experience_revision','topic','message','phone','status','note','case_revision','case_updated_at','tag_id','source_label','release_id','origin_release_id'],
@@ -45,6 +46,7 @@ export const exportHeaders=(format:'csv'|'jsonl'|'dictionary',dataset:Dataset)=>
 /** Fixed 256-row database cursor; backpressure + cancel/abort/idle timeout release the connection. */
 export async function exportStream(pool:Pool, credential:OwnerCredential, slug:string, f:Filters, dataset:Dataset, format:'csv'|'jsonl', signal:AbortSignal, cursorPool:Pool=pool){
  const auth=new OwnerAuth(pool),access=await auth.access(credential,slug,'export'),q=cohort(access.shopId,{...f,cursor:undefined});
+ await recordActivity(pool,access,'export.download',dataset,{format});
  const db=await cursorPool.connect();let closed=false;let timer:ReturnType<typeof setTimeout>|undefined;let control:ReadableStreamDefaultController<Uint8Array>|undefined;
  const finish=()=>{if(closed)return;closed=true;clearTimeout(timer);signal.removeEventListener('abort',abort);db.removeListener('error',abort);db.release(true);};
  const abort=()=>{if(closed)return;finish();control?.error(new Error('Export interrupted'));};

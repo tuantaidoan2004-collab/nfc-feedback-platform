@@ -10,6 +10,8 @@ import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
 import AdminBadge from './admin-badge';
 import ProfilePanel, { Avatar, useProfile } from './profile-panel';
+import TeamPanel from './team-panel';
+import ActivityPanel from './activity-panel';
 
 /**
  * Owner dashboard, lát C2 (2026-09-18). A left menu with four views. Overview loads only totals, so the dashboard
@@ -18,13 +20,14 @@ import ProfilePanel, { Avatar, useProfile } from './profile-panel';
  */
 type Summary = Awaited<ReturnType<Repository['summary']>>;
 type Data = Awaited<ReturnType<Repository['read']>>;
-type View = 'home' | 'data' | 'design' | 'settings' | 'profile';
+type View = 'home' | 'data' | 'design' | 'activity' | 'settings' | 'profile';
 export type Impersonation = { admin: string; adminTitle: string | null; scope: 'overview' | 'feedback' | 'design'; reason: string; expiresAt: string };
 
 const VIEWS: [View, string, string][] = [
   ['home', 'Tổng quan', 'M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z'],
   ['data', 'Dữ liệu', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
   ['design', 'Thiết kế & Link', 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Zm9-13 4 4'],
+  ['activity', 'Hoạt động', 'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
   ['settings', 'Cài đặt', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.5a7.5 7.5 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.2 1.3l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.3Z'],
   ['profile', 'Hồ sơ', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 9a8 8 0 0 1 16 0'],
 ];
@@ -94,7 +97,7 @@ function LandingPages({ url, endpoint }: { url: string; endpoint: string }) {
     try {
       const response = await fetch(`${endpoint}/cards`, { cache: 'no-store' });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) { setCards([]); setStatus('Phiên này không xem được danh sách thẻ.'); return; }
+      if (!response.ok) { setCards([]); setStatus('Chưa xem được danh sách thẻ.'); return; }
       setCards((body.cards as Array<{ id: string; code: string; label: string; state: string }>).map(card =>
         ({ key: card.id, name: card.label, code: card.code, url: `${origin}/t/${card.code}`, state: card.state })));
     } catch { setCards([]); setStatus('Không thể kết nối. Vui lòng thử lại.'); }
@@ -213,7 +216,7 @@ function FeedbackTable({ rows, readOnly, overview, save }: { rows: ExperienceRow
         </tr>
         {hasFeedback && <tr className={styles.messageRow} data-message-for={row.session_id}><td colSpan={7}>
           <div className={styles.messageLine}>
-            <p className={styles.message}>{row.message ?? (overview ? 'Nội dung góp ý ẩn trong phạm vi tổng quan.' : '')}</p>
+            <p className={styles.message}>{row.message ?? (overview ? 'Nội dung góp ý đang ẩn với bạn.' : '')}</p>
             {!readOnly && <button type="button" className={styles.noteButton} aria-expanded={editing === row.session_id}
               onClick={() => setEditing(editing === row.session_id ? null : row.session_id)}>{row.note ? 'Ghi chú ✎' : 'Ghi chú'}</button>}
           </div>
@@ -314,18 +317,23 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   const totals = summary?.totals;
   const owner = !impersonation;
   const { profile, setProfile } = useProfile(owner);
+  // What this member's role allows (lát F3). Support is governed by its session scope instead.
+  const perms = summary?.viewer.kind === 'owner' ? summary.viewer.permissions : null;
+  const may = (p: string) => !owner || !perms || perms.includes(p as never);
+  const shown = (id: View) => id === 'activity' ? owner && !!perms?.includes('activity')
+    : id === 'design' ? may('design') || may('cards') : id === 'profile' ? owner : true;
   const title = VIEWS.find(([id]) => id === view)![1];
   return <div className={styles.app}>
     <aside className={styles.side}>
       <div className={styles.avatar} aria-hidden="true">{initials(name)}</div>
       <p className={styles.shopName}>{name}</p>
       {owner ? <button type="button" className={styles.me} data-me onClick={() => setView('profile')} aria-label="Mở hồ sơ của bạn">
-          {profile ? <><Avatar profile={profile} size={28} /><span>@{profile.handle}</span></> : <span>{summary ? summary.account : ' '}</span>}</button>
+          {profile ? <><Avatar profile={profile} size={28} /><span>@{profile.handle}{(() => { const here = profile.shops.find(x => x.slug.toLowerCase() === slug.toLowerCase()); return here?.roleIcon && here.showBadge ? ` ${here.roleIcon}` : ''; })()}</span></> : <span>{summary ? summary.account : ' '}</span>}</button>
         : <p className={styles.account}>{summary ? summary.account : ' '}</p>}
       {summary && summary.shops.length > 1 && <label className={styles.picker}>Shop đang xem
         <select value={slug} onChange={e => { if (e.target.value !== slug) router.push(`/ZZZ/${e.target.value}`); }}>
           {summary.shops.map(shop => <option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}
-      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.filter(([id]) => (!designOnly || id === 'design') && (owner || id !== 'profile')).map(([id, label, icon]) =>
+      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.filter(([id]) => (!designOnly || id === 'design') && shown(id)).map(([id, label, icon]) =>
         <button key={id} type="button" data-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}><Icon path={icon} /><span>{label}</span></button>)}</nav>
       {owner && <button type="button" className={styles.logout} onClick={logout}>Đăng xuất</button>}
     </aside>
@@ -382,10 +390,10 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
               <span>{row.label}</span><strong>{row.sessions}</strong></li>)}</ul>}
           </section>
           <section className={styles.panel} aria-label="Phản hồi của khách"><h2>Phản hồi của khách</h2>
-            <FeedbackTable rows={data.records} readOnly={!!impersonation} overview={impersonation?.scope === 'overview'} save={save} />
+            <FeedbackTable rows={data.records} readOnly={!!impersonation || !may('feedback')} overview={impersonation?.scope === 'overview' || !may('feedback')} save={save} />
             <nav className={styles.actions} aria-label="Phân trang">{cursor && <button type="button" onClick={() => setCursor('')}>Về trang đầu</button>}{data.nextCursor && <button type="button" onClick={() => setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>
           </section>
-          {owner && <section className={styles.panel} aria-label="Tải dữ liệu"><h2>Tải dữ liệu</h2>
+          {owner && may('export') && <section className={styles.panel} aria-label="Tải dữ liệu"><h2>Tải dữ liệu</h2>
             <div className={styles.actions}><label>Loại dữ liệu<select value={dataset} onChange={e => setDataset(e.target.value)}><option value="experiences">Phản hồi hiện tại</option><option value="page_visits">Lượt truy cập</option><option value="receipts">Lịch sử phản hồi</option></select></label>
               {['csv', 'jsonl', 'dictionary'].map(format => <a key={format} className={styles.linkButton} href={`${endpoint}/export?${query}&dataset=${dataset}&format=${format}`}>{format === 'dictionary' ? 'Từ điển dữ liệu' : format.toUpperCase()}</a>)}</div>
             <p className={styles.hint}>CSV cho Excel. JSONL đọc theo từng dòng cho dữ liệu lớn. File giữ cùng khoảng thời gian và bộ lọc đang áp dụng.</p></section>}
@@ -395,16 +403,19 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {view === 'design' && (impersonation && !designOnly
         ? <section className={styles.panel} aria-label="Thiết kế & Link" data-panel="design"><h2>Thiết kế & Link</h2>
             <p className={styles.hint}>Phiên này chỉ để xem. Để chỉnh giao diện, mở phiên “Sửa giao diện”; chủ shop cần đặt mức hỗ trợ Khấc 2 hoặc Khấc 3.</p></section>
-        : <div data-panel="design"><DesignEditor endpoint={endpoint} customerUrl={customerUrl} />
-            <CardsPanel endpoint={endpoint} origin={customerUrl.replace(/\/[^/]*$/, '')} /></div>)}
+        : <div data-panel="design">{may('design') && <DesignEditor endpoint={endpoint} customerUrl={customerUrl} />}
+            {may('cards') && <CardsPanel endpoint={endpoint} origin={customerUrl.replace(/\/[^/]*$/, '')} />}</div>)}
+
+      {view === 'activity' && owner && <ActivityPanel endpoint={endpoint} />}
 
       {view === 'settings' && <section aria-label="Cài đặt" data-panel="settings">
         {summary && <section className={styles.panel} aria-label="Tài khoản"><h2>Tài khoản</h2>
-          <p><strong>{summary.account}</strong> · {summary.viewer.kind === 'admin' ? 'quản trị viên đang xem thay mặt' : summary.viewer.role === 'owner' ? 'chủ shop' : 'quản lý'}</p>
+          <p><strong>{summary.account}</strong> · {summary.viewer.kind === 'admin' ? 'quản trị viên đang xem thay mặt' : summary.viewer.role === 'owner' ? 'chủ shop' : (profile?.shops.find(s => s.slug.toLowerCase() === slug.toLowerCase())?.roleName ?? 'thành viên').toLowerCase()}</p>
           {owner ? <p className={styles.hint}>Tên, @handle, ảnh và mật khẩu nằm ở <button type="button" className={styles.textButton} onClick={() => setView('profile')}>Hồ sơ</button>.</p>
             : <p className={styles.hint}>Quản trị không đổi được hồ sơ hay mật khẩu của chủ shop.</p>}
-          <p className={styles.hint}>Tài khoản phụ (quản lý, nhân viên) sẽ có ở đây.</p></section>}
+</section>}
         {summary && <Support support={summary.support} canChange={owner && summary.viewer.kind === 'owner' && summary.viewer.role === 'owner'} change={changeSupport} />}
+        {owner && <TeamPanel endpoint={endpoint} />}
         {summary && <AdminVisits visits={summary.adminVisits} />}
       </section>}
 

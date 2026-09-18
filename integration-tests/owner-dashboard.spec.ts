@@ -249,6 +249,65 @@ test('profile: a channel-like page, edit name, @handle and bio, then sign in wit
  await login(page,{username:'Hoa@Example.com',password:a.password});
  expect(errors).toEqual([]);
 });
+test('team: invite a Nhân viên by link, they see only what the role allows; roles like Discord; the owner searches the history with ⌘K',async({page,context,browser,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ // next dev compiles a route the first time it is hit and then reloads every open page (operations-gotchas.md): the
+ // setup page would reload after its link was spent. Compile the pages and the setup API before any page is open.
+ const warm=await context.newPage();await warm.goto(`/owner/setup/${'0'.repeat(64)}`);await warm.goto('/owner/login?next=/ZZZ/one');
+ await warm.request.post('/api/owner/v2/setup',{headers:{Origin:origin},data:{token:'0'.repeat(64),password:'not-a-real-password'}});await warm.close();
+ await addExperience(f.db,'one',2,'Lời khách riêng tư');
+ await login(page,f.users[0]);
+ await page.locator('[data-view="settings"]').click();
+ const team=page.locator('[data-team]');
+ await expect(team.locator('[data-member]')).toHaveCount(1);
+ const invite=team.locator('[data-invite]');
+ await invite.getByLabel('@handle',{exact:true}).fill('@An.NV');
+ await invite.locator('select').selectOption({label:'Nhân viên'});
+ await invite.getByRole('button',{name:'Tạo tài khoản'}).click();
+ const url=(await team.locator('[data-setup-link] code').textContent())!;
+ expect(url).toMatch(/\/owner\/setup\/[a-f0-9]{64}$/);
+ await expect(team.locator('[data-member="an.nv"]')).toContainText('chưa đặt mật khẩu');
+ // Roles, Discord-style: two to start with, and the owner makes another with its own switches.
+ const roles=page.locator('[data-roles]');
+ await expect(roles.locator('[data-role]')).toHaveCount(2);
+ await roles.getByRole('button',{name:'+ Tạo vai'}).click();
+ const editor=roles.locator('[data-role-editor]');
+ await editor.getByLabel('Tên vai',{exact:true}).fill('Thu ngân');await editor.getByLabel('Biểu tượng',{exact:true}).fill('💵');
+ await editor.getByRole('switch',{name:'Xem lịch sử hoạt động'}).check();
+ await editor.screenshot({path:info.outputPath('role-editor.png')});
+ await editor.getByRole('button',{name:'Lưu vai'}).click();
+ await expect(roles.locator('[data-role="Thu ngân"]')).toContainText('Xem lịch sử hoạt động');
+ await page.screenshot({path:info.outputPath('team-1280.png'),fullPage:true});
+ // An opens the link on their own phone, chooses a password, signs in with the @handle.
+ const other=await browser.newContext({baseURL:origin});
+ try{
+  const an=await other.newPage();await an.goto(new URL(url).pathname);
+  await an.getByLabel('Mật khẩu mới',{exact:true}).fill('an-chooses-this-one');await an.getByLabel('Nhập lại',{exact:true}).fill('an-chooses-this-one');
+  await an.getByRole('button',{name:'Đặt mật khẩu'}).click();
+  await expect(an.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
+  await an.getByLabel('@handle hoặc email',{exact:true}).fill('@an.nv');await an.getByLabel('Mật khẩu',{exact:true}).fill('an-chooses-this-one');
+  await an.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+  await expect(an.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+  await expect(an.locator('[data-view="activity"]')).toHaveCount(0);await expect(an.locator('[data-view="design"]')).toHaveCount(0);
+  await an.locator('[data-view="data"]').click();await an.getByRole('button',{name:'7 ngày',exact:true}).click();
+  await expect(an.locator('[data-message-for]').first()).toContainText('Nội dung góp ý đang ẩn với bạn.');
+  await expect(an.getByRole('region',{name:'Tải dữ liệu'})).toHaveCount(0);
+ }finally{await other.close();}
+ // The owner reads the history; ⌘K (Ctrl+K) jumps to the search, which ignores accents.
+ await page.locator('[data-view="activity"]').click();
+ const history=page.locator('[data-activity]');
+ await expect(history.locator('[data-activity-row]')).toHaveCount(2);
+ await page.keyboard.press('Control+k');
+ await expect(history.locator('[data-activity-search]')).toBeFocused();
+ await page.keyboard.type('thu ngan');
+ await expect(history.locator('[data-activity-row]')).toHaveCount(1);
+ await expect(history.locator('[data-activity-row]')).toHaveAttribute('data-activity-row','role.create');
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath('activity-390.png'),fullPage:true});
+ await page.locator('[data-view="settings"]').click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath('team-390.png'),fullPage:true});
+ expect(errors).toEqual([]);
+});
 test('unauthorized/expired/revoked/cross-shop read write export and origin protections',async({page,context,request,f})=>{
  await addExperience(f.db);const b=await addExperience(f.db,'two');
  expect((await request.get('/api/owner/v2/one')).status()).toBe(401);

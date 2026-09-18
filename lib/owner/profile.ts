@@ -12,7 +12,9 @@ import { r2Settings, UPLOAD_EXPIRES_SECONDS, type R2Settings } from './media';
  */
 export type Profile = {
   id: string; handle: string; displayName: string | null; bio: string | null; avatarUrl: string | null; coverUrl: string | null;
-  email: string | null; joinedAt: string; shops: { slug: string; name: string; role: 'owner' | 'manager' }[]; uploads: boolean;
+  email: string | null; joinedAt: string; uploads: boolean;
+  /** Each shop with the person's role there: the owner, or a role with its icon and colour (migration 015). */
+  shops: { slug: string; name: string; role: 'owner' | 'manager'; roleName: string | null; roleIcon: string | null; roleColor: string | null; showBadge: boolean }[];
 };
 const IMAGES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MAX_IMAGE = 5 * 1024 * 1024;
@@ -54,7 +56,8 @@ export class OwnerProfiles {
   async get(credential: OwnerCredential): Promise<Profile> {
     return transaction(this.pool, async db => {
       const u = await this.user(db, credential);
-      const shops = (await db.query(`SELECT s.slug,s.name,m.role FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
+      const shops = (await db.query(`SELECT s.slug,s.name,m.role,r.name "roleName",r.icon "roleIcon",r.color "roleColor",m.show_badge "showBadge"
+        FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id LEFT JOIN shop_roles r ON r.id=m.role_id
         WHERE m.user_id=$1 AND m.active AND s.publishing_state='active' ORDER BY m.role='owner' DESC,s.name`, [u.id])).rows;
       return { id: u.id, handle: u.username, displayName: u.display_name, bio: u.bio, avatarUrl: u.avatar_url, coverUrl: u.cover_url,
         email: u.email ?? null, joinedAt: (u.created_at as Date).toISOString(), shops, uploads: !!this.settings };

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Profile } from '@/lib/owner/profile';
 import styles from './owner-app.module.css';
+import RoleBadge from './role-badge';
 
 /**
  * Hồ sơ (lát F2, Tài 2026-09-18): the signed-in person's own page, laid out like a YouTube channel — cover across
@@ -78,7 +79,9 @@ export default function ProfilePanel({ slug, profile, setProfile, password }: { 
   if (!profile) return <p className={styles.hint}>Đang tải hồ sơ…</p>;
   const name = profile.displayName ?? profile.handle;
   const saved = (next: Profile, message: string) => { setProfile(next); setNotice(message); };
-  const role = profile.shops.find(shop => shop.slug.toLowerCase() === slug.toLowerCase())?.role;
+  const here = profile.shops.find(shop => shop.slug.toLowerCase() === slug.toLowerCase());
+  const badge = (shop: Profile['shops'][number]) => shop.role === 'owner' ? <span className={styles.ownerPill}>{ROLES.owner}</span>
+    : <RoleBadge role={{ name: shop.roleName ?? ROLES.manager, icon: shop.roleIcon, color: shop.roleColor ?? '#7a5410' }} />;
   return <section aria-label="Hồ sơ" data-profile={profile.handle}>
     <div className={`${styles.panel} ${styles.channel}`}>
       <div className={styles.cover} data-cover style={profile.coverUrl ? { backgroundImage: `url("${profile.coverUrl}")` } : undefined} />
@@ -87,7 +90,7 @@ export default function ProfilePanel({ slug, profile, setProfile, password }: { 
         <div className={styles.channelText}>
           <h2 data-profile-name>{name}</h2>
           <p className={styles.channelMeta}><span data-profile-handle>@{profile.handle}</span>
-            {role && <span className={role === 'owner' ? styles.ownerPill : styles.rolePill}>{ROLES[role]}</span>}
+            {here && badge(here)}
             <span>{joined(profile.joinedAt)}</span></p>
           {profile.bio && <p className={styles.channelBio} data-profile-bio>{profile.bio}</p>}
         </div>
@@ -122,7 +125,14 @@ export default function ProfilePanel({ slug, profile, setProfile, password }: { 
       {password}
     </section>
     <section className={styles.panel} aria-label="Shop của bạn"><h2>Shop của bạn</h2>
-      <ul className={styles.list}>{profile.shops.map(shop => <li key={shop.slug}><strong>{shop.name}</strong> · {ROLES[shop.role]}</li>)}</ul>
+      <ul className={styles.list}>{profile.shops.map(shop => <li key={shop.slug} className={styles.shopLine}><strong>{shop.name}</strong> {badge(shop)}
+        {shop.role !== 'owner' && shop.roleIcon && <label className={styles.switchRow} data-badge-toggle={shop.slug}><span>Hiện {shop.roleIcon} cạnh tên tôi</span>
+          <input type="checkbox" role="switch" checked={shop.showBadge} onChange={async e => {
+            const value = e.target.checked;
+            const response = await fetch(`/api/owner/v2/${encodeURIComponent(shop.slug)}/team`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'badge', value }) }).catch(() => null);
+            if (response?.ok) setProfile({ ...profile, shops: profile.shops.map(x => x.slug === shop.slug ? { ...x, showBadge: value } : x) });
+            else setNotice('Chưa đổi được. Thử lại.');
+          }} /></label>}</li>)}</ul>
     </section>
   </section>;
 }

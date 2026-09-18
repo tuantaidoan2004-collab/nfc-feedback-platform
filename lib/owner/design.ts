@@ -4,6 +4,7 @@ import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
 import { DEFAULT_FEEDBACK_BUTTON, PublishingError, validateConfig, type PageConfig } from '../publishing/config';
 import { r2Settings } from './media';
+import { recordActivity } from './activity';
 
 /**
  * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an
@@ -70,6 +71,7 @@ export class OwnerDesign {
     const access = await this.access(credential, slug);
     const revision = await this.admin(access).saveDraft(access.shopId, expected, data.config).catch(translate);
     await this.audit(access, 'impersonation.design.save', { revision });
+    await recordActivity(this.pool, access, 'design.save', `Bản nháp ${revision}`);
     return { revision };
   }
 
@@ -78,6 +80,7 @@ export class OwnerDesign {
     const access = await this.access(credential, slug);
     const published = await this.admin(access).publish(access.shopId, expected).catch(translate);
     await this.audit(access, 'impersonation.design.publish', { releaseId: published.releaseId });
+    await recordActivity(this.pool, access, 'design.publish', `Bản nháp ${published.draftRevision}`);
     return { releaseId: published.releaseId, revision: published.draftRevision };
   }
 

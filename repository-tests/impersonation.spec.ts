@@ -14,7 +14,7 @@ type Fixture=Awaited<ReturnType<typeof ownerFixture>>&{adminId:string;adminToken
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_imp_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql','014_account_profiles.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const base=await ownerFixture(db),admins=new AdminAuth(db);
   const adminId=await admins.bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
@@ -106,7 +106,7 @@ test('feedback: only while the owner allows it, never exports, read-only, one au
  // The owner sees both visits, the reasons as written, and their own switching; reading adds nothing to the record.
  const before=(await f.db.query('SELECT count(*)::int n FROM admin_audit')).rows[0].n;
  const own=await dashboard.summary(f.users[0].token,'one');
- expect(own.viewer).toEqual({kind:'owner',role:'owner'});
+ expect(own.viewer).toEqual({kind:'owner',role:'owner',permissions:['feedback','design','cards','members','activity','export']});
  expect(own.adminVisits.map(v=>({scope:v.scope,reason:v.reason,reads:v.reads,end:v.end_reason}))).toEqual([
   {scope:'overview',reason,reads:1,end:null},{scope:'feedback',reason,reads:3,end:'superseded'}]);
  expect(own.support.feedback).toBe(false);

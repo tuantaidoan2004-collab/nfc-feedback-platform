@@ -236,7 +236,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  await expect(page.locator('[data-kpi="private"] [data-kpi-value]')).toHaveText('1');
  await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
  await expect(page.locator('[data-metric="feedback"]')).toHaveText('1');
- await expect(page.locator('[data-message-for]')).toContainText('Nội dung góp ý ẩn trong phạm vi tổng quan.');
+ await expect(page.locator('[data-message-for]')).toContainText('Nội dung góp ý đang ẩn với bạn.');
  await expect(page.getByText('Góp ý kín của khách')).toHaveCount(0);
  for(const name of ['Lưu xử lý','Đăng xuất',/^Ghi chú/])await expect(page.getByRole('button',{name})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);

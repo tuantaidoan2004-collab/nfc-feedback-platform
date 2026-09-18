@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
-import { authorize, supportLevel, SUPPORT_LEVELS, transaction, OwnerError, type OwnerAccess, type OwnerCredential, type SupportLevel } from './auth';
+import { authorize, requirePermission, supportLevel, SUPPORT_LEVELS, transaction, OwnerError, type OwnerAccess, type OwnerCredential, type SupportLevel } from './auth';
 import { recordAdminAction } from '../admin/audit';
+import { recordActivity } from './activity';
 import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './filters';
 /**
  * The last seven Ho Chi Minh days, including days with nothing, so the chart keeps its shape. Live scope only, and
@@ -71,7 +72,7 @@ async function accessibleShops(db: PoolClient, access: OwnerAccess) {
   return (await db.query(`SELECT s.slug,s.name FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
     WHERE m.user_id=$1 AND m.active ORDER BY s.name,s.slug LIMIT 50`, [access.userId])).rows as { slug: string; name: string }[];
 }
-const viewer = (access: OwnerAccess) => access.actor.kind === 'owner' ? { kind: 'owner' as const, role: access.role }
+const viewer = (access: OwnerAccess) => access.actor.kind === 'owner' ? { kind: 'owner' as const, role: access.role, permissions: access.permissions }
   : { kind: 'admin' as const, admin: access.actor.adminUsername, scope: access.actor.scope, reason: access.actor.reason, expiresAt: access.actor.expiresAt };
 export class OwnerDashboard {
   constructor(private pool: Pool) {}
@@ -96,7 +97,8 @@ export class OwnerDashboard {
       const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];
       const sources=result.sources as SourceCount[];
       delete result.records;delete result.tags;delete result.releases;delete result.sources;
-      const actor=access.actor, hidden=actor.kind==='admin'&&actor.scope==='overview';
+      // Support in an overview session, and a member without the feedback switch, get the rows without the words.
+      const actor=access.actor, hidden=(actor.kind==='admin'&&actor.scope==='overview')||(actor.kind==='owner'&&!access.permissions.includes('feedback'));
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
       const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:''}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
@@ -140,8 +142,9 @@ export class OwnerDashboard {
       // Two switches at once are applied one after the other, so the newest row is always the last decision.
       await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-support-grant:'||$1,0))", [access.shopId]);
       if (await supportLevel(db, access.shopId) !== level)
-        await db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,level,actor_id)VALUES($1,'level',$2,$3,$4)",
+      { await db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,level,actor_id)VALUES($1,'level',$2,$3,$4)",
           [access.shopId, level !== 'off', level, access.userId]);
+        await recordActivity(db, access, 'support.level', level); }
       return { level };
     });
   }
@@ -153,7 +156,7 @@ export class OwnerDashboard {
       typeof data.expectedExperienceRevision!=='string' || !/^[1-9][0-9]{0,15}$/.test(data.expectedExperienceRevision) ||
       !['new','progress','resolved'].includes(String(data.status)) || typeof data.note!=='string' || [...data.note].length>2000 || /\u0000/.test(data.note))throw new OwnerError(400,'INVALID_CASE');
     return transaction(this.pool,async db=>{
-      const access=await authorize(db,credential,slug,'write');
+      const access=await authorize(db,credential,slug,'write');requirePermission(access,'feedback');
       const e=(await db.query("SELECT * FROM rating_experiences WHERE shop_id=$1 AND scope='live' AND session_id=$2 FOR UPDATE",[access.shopId,data.sessionId])).rows[0];
       if(!e?.feedback_message)throw new OwnerError(404,'NOT_FOUND');
       const current=(await db.query('SELECT revision FROM owner_feedback_cases WHERE session_id=$1',[data.sessionId])).rows[0];
@@ -162,6 +165,8 @@ export class OwnerDashboard {
         VALUES($1,$2,'live',$3,$4,$5,1,$6,$7) ON CONFLICT(session_id) DO UPDATE SET status=EXCLUDED.status,note=EXCLUDED.note,revision=owner_feedback_cases.revision+1,
         feedback_seen_at=EXCLUDED.feedback_seen_at,actor_id=EXCLUDED.actor_id,updated_at=clock_timestamp() RETURNING revision`,[data.sessionId,access.shopId,e.entry_key,data.status,data.note,e.feedback_updated_at,access.userId])).rows[0];
       await db.query('INSERT INTO owner_feedback_audit(shop_id,session_id,revision,status,note,experience_revision,actor_id)VALUES($1,$2,$3,$4,$5,$6,$7)',[access.shopId,data.sessionId,result.revision,data.status,data.note,e.revision,access.userId]);
+      // Only a reference: the history is readable without the feedback switch, so neither the customer's words nor the note go in it.
+      await recordActivity(db,access,'note.save',`Phản hồi ${String(data.sessionId).slice(0,8)}`);
       return {saved:true,revision:result.revision};
     });
   }

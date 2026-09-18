@@ -222,7 +222,7 @@ Một shop có thể có nhiều tài khoản vào cùng dashboard. Chủ shop c
 - **Quản lý:** quản lý và điều hành.
 - **Nhân viên:** chỉ xem và bình luận. Chỉ thấy nội dung góp ý của khách **nếu chủ shop cho phép** nhân viên đó.
 
-Bảng `owner_memberships_v2` đã có `role` (`owner`/`manager`); vai nhân viên và quyền xem góp ý theo từng người là thay đổi schema của lát đó.
+Bảng `owner_memberships_v2` đã có `role` (`owner`/`manager`); vai nhân viên và quyền xem góp ý theo từng người là thay đổi schema của lát đó. **Đã làm ở lát F3 (migration 015):** cột `role` giờ chỉ phân biệt chủ shop với người khác; quyền của người khác nằm ở vai (`shop_roles`).
 
 **Mỗi người một tài khoản, không phải một két nhiều chìa (Tài hỏi 2026-09-18).** Tài hỏi dashboard có nên như két sắt với nhiều cách mở khoá không. Không: nhiều chìa mở cùng một két thì không biết ai đã làm gì. Hướng chọn là **mỗi quản lý, nhân viên có ID và mật khẩu riêng**, cùng vào dashboard của shop, quyền theo vai. Hệ quả:
 - **Lịch sử hoạt động:** mọi thao tác của người trong shop (ghi chú, đổi giao diện, phát hành, thêm/tắt thẻ, gạt công tắc, tạo tài khoản phụ) ghi một dòng **không sửa được**: ai (ID + tên tài khoản lúc đó), làm gì, trên cái gì, lúc nào. Cùng kiểu với `admin_audit` và lượt truy cập của quản trị đã có.
@@ -257,7 +257,7 @@ Tài chốt: làm xong **hệ thống tài khoản** trước, tài khoản ph�
 Chia lát dự kiến:
 1. **Danh sách Review Landing Page** — **xong 18/09**, xem `redesign-v2.md`.
 2. **Hồ sơ tài khoản + tab Hồ sơ** — **xong 18/09 (migration 014)**, xem `redesign-v2.md` mục Lát F2.
-3. **Tài khoản phụ + lịch sử hoạt động + tìm kiếm** — effort high, có migration.
+3. **Tài khoản phụ + lịch sử hoạt động + tìm kiếm** — **xong 18/09 (migration 015)**, xem `redesign-v2.md` mục Lát F3.
 4. **Luồng bình luận** (like, ghim, sửa, xoá, bỏ trạng thái) — effort high, có migration.
 
 ### Mật khẩu đầu tiên — Tài không bao giờ biết
