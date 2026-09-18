@@ -24,6 +24,10 @@ export const ACTIONS: Record<string, string> = {
   'role.update': 'Sửa vai',
   'role.delete': 'Xoá vai',
   'export.download': 'Tải dữ liệu',
+  'comment.create': 'Viết phản hồi',
+  'comment.edit': 'Sửa phản hồi',
+  'comment.delete': 'Xoá phản hồi',
+  'comment.pin': 'Ghim phản hồi',
 };
 export type ActivityRow = { id: string; actor_kind: 'member' | 'admin'; actor_id: string; actor_handle: string; action: string; target: string | null;
   detail: Record<string, unknown>; at: string };

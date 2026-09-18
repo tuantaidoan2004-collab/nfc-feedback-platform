@@ -19,6 +19,9 @@ async function login(page:Page,user:{username:string;password:string},shop='one'
 // The Data view loads nothing until a period is picked.
 async function data(page:Page,period='7 ngày'){await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:period,exact:true}).click();await expect(page.locator('[data-metric="opens"]')).toBeVisible();}
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
+// next dev compiles an API on its first call and reloads every open page (operations-gotchas.md): compile the ones the
+// dashboard calls after it has opened before any page exists. The answers (401 without a session) do not matter.
+test.beforeEach(async({request})=>{for(const api of ['team','activity','comments?session=x','cards'])await request.get(`/api/owner/v2/warm/${api}`);await request.get('/api/owner/v2/profile');});
 test('Publishing v2 customer→owner login→real metrics/filter/handling/export, responsive and logout',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // Guest page v2: the stars are in the private card, and Send saves the star and then the text.
@@ -28,7 +31,8 @@ test('Publishing v2 customer→owner login→real metrics/filter/handling/export
  // Overview: totals only, each card with its own period menu.
  await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toHaveText('1');
  await expect(page.locator('[data-kpi="private"] [data-kpi-value]')).toHaveText('1');
- await expect(page.locator('[data-kpi="unresolved"] [data-kpi-value]')).toHaveText('1');
+ // No processing status since lát F4: the "not handled" card is gone.
+ await expect(page.locator('[data-kpi="unresolved"]')).toHaveCount(0);
  await expect(page.locator('[data-kpi="google"]')).toContainText('Chưa kết nối Google');
  await page.getByRole('button',{name:'Đổi khoảng thời gian: Lượt truy cập',exact:true}).click();
  await page.getByRole('menuitemradio',{name:'30 ngày',exact:true}).click();
@@ -36,18 +40,36 @@ test('Publishing v2 customer→owner login→real metrics/filter/handling/export
  const cookie=(await context.cookies()).find(c=>c.name==='nfc_owner_v2')!;expect(cookie).toMatchObject({httpOnly:true,sameSite:'Strict'});expect(await page.evaluate(()=>document.cookie)).not.toContain(cookie.value);
  await expect(page.getByText('=SUM(1,2)',{exact:true})).toHaveCount(0);
  await data(page);
- for(const key of ['opens','sessions','rated','feedback','unresolved'])await expect(page.locator(`[data-metric="${key}"]`)).toHaveText('1');
- // A table row per response, the face instead of "2/5", and the customer's words right under it.
- const row=page.locator('[data-feedback-table] tr[data-row]');await expect(row).toHaveCount(1);
+ for(const key of ['opens','sessions','rated','feedback'])await expect(page.locator(`[data-metric="${key}"]`)).toHaveText('1');
+ await expect(page.locator('[data-metric="unresolved"]')).toHaveCount(0);await expect(page.getByRole('combobox',{name:'Xử lý'})).toHaveCount(0);
+ // A comment thread per response, as on YouTube: the face as the picture, the kind and relative time, ⓘ for details.
+ const row=page.locator('[data-feedback-threads] [data-row]');await expect(row).toHaveCount(1);
  await expect(row.getByRole('img',{name:'2 sao'})).toHaveText('😤');
+ await expect(row.locator('[data-kind]')).toHaveText('Riêng tư');await expect(row.locator('time').first()).toHaveText(/giây trước|phút trước/);
  await expect(page.locator('[data-message-for]')).toContainText('=SUM(1,2)');
- await page.getByRole('button',{name:'Ghi chú',exact:true}).click();
- await page.getByRole('combobox',{name:'Trạng thái',exact:true}).selectOption('resolved');await page.getByRole('textbox',{name:'Ghi chú nội bộ',exact:true}).fill('Đã gọi lại');await page.getByRole('button',{name:'Lưu xử lý',exact:true}).click();
- await expect(page.getByRole('status')).toHaveText('Đã lưu xử lý.');await expect(page.locator('[data-metric="unresolved"]')).toHaveText('0');
- await expect(row.locator('[data-status="resolved"]')).toHaveText('Đã xử lý');
- expect((await f.db.query('SELECT count(*)::int n FROM owner_feedback_audit')).rows[0].n).toBe(1);
+ await row.locator('[data-info-button]').click();await expect(row.locator('[data-info]')).toContainText('Lúc');await expect(row.locator('[data-info]')).toContainText('Trực tiếp');
+ // A reply: written, liked, edited (marked as such, the old text kept), pinned.
+ await row.locator('[data-reply]').click();
+ await row.getByRole('textbox',{name:'Phản hồi nội bộ'}).fill('Đã gọi lại');await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ const reply=row.locator('[data-comment]');await expect(reply).toHaveCount(1);
+ await expect(row.locator('[data-replies-toggle]')).toHaveText(/1 phản hồi/);
+ await expect(reply.locator('[data-comment-author]')).toHaveText(`@${f.users[0].username}`);await expect(reply.locator('[data-comment-body]')).toHaveText('Đã gọi lại');
+ await reply.locator('[data-like]').click();await expect(row.locator('[data-comment] [data-like]')).toHaveAttribute('aria-pressed','true');await expect(row.locator('[data-comment] [data-like]')).toHaveText('1');
+ await row.locator('[data-comment]').getByRole('button',{name:'Thêm thao tác'}).click();await row.getByRole('menuitem',{name:'Sửa'}).click();
+ await row.getByRole('textbox',{name:'Sửa phản hồi'}).fill('Đã gọi lại, khách đồng ý quay lại');await row.locator('[data-comment] [data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await expect(row.locator('[data-comment]')).toContainText('(đã chỉnh sửa)');await expect(row.locator('[data-comment-body]')).toHaveText('Đã gọi lại, khách đồng ý quay lại');
+ await row.locator('[data-comment]').getByRole('button',{name:'Thêm thao tác'}).click();await row.getByRole('menuitem',{name:'Ghim'}).click();
+ await expect(row.locator('[data-comment]')).toContainText('📌 Đã ghim');
+ await row.locator('[data-info-button]').click();await expect(row.locator('[data-info]')).toHaveCount(0);
+ await row.screenshot({path:info.outputPath('thread-1200.png')});
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await row.screenshot({path:info.outputPath('thread-390.png')});await page.setViewportSize({width:1200,height:844});
+ expect((await f.db.query('SELECT count(*)::int n FROM feedback_comment_revisions')).rows[0].n).toBe(1);
+ expect((await f.db.query("SELECT action FROM shop_activity WHERE action LIKE 'comment.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['comment.create','comment.edit','comment.pin']);
  const download=page.waitForEvent('download');await page.getByRole('link',{name:'CSV',exact:true}).click();const file=await download;
- expect(file.suggestedFilename()).toBe('nfc-v1-experiences.csv');const text=await readFile((await file.path())!,'utf8');expect(text.startsWith('\uFEFF')).toBe(true);expect(text).toContain('"\'=SUM(1,2)"');expect(text).toContain('Đã gọi lại');
+ expect(file.suggestedFilename()).toBe('nfc-v1-experiences.csv');const text=await readFile((await file.path())!,'utf8');expect(text.startsWith('\uFEFF')).toBe(true);expect(text).toContain('"\'=SUM(1,2)"');
+ // The replies are the shop's data too: they leave in their own file (lát F4).
+ const replies=await (await context.request.get('/api/owner/v2/one/export?format=csv&dataset=comments')).text();expect(replies).toContain('Đã gọi lại, khách đồng ý quay lại');expect(replies).toContain(f.users[0].username);
  const jsonl=await context.request.get('/api/owner/v2/one/export?format=jsonl&dataset=receipts');expect(jsonl.headers()['cache-control']).toContain('no-store');const events=(await jsonl.text()).trim().split('\n').map(x=>JSON.parse(x));expect(events).toHaveLength(2);expect(events[1].message).toBe('=SUM(1,2)');
  const dict=await context.request.get('/api/owner/v2/one/export?format=dictionary&dataset=receipts');expect((await dict.json()).fields.every((f:{meaning:string})=>f.meaning)).toBe(true);
  await page.getByRole('combobox',{name:'Cảm xúc',exact:true}).selectOption('5');await expect(page.locator('[data-metric="rated"]')).toHaveText('0');
@@ -76,7 +98,7 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  await expect(page.locator('[data-support]')).toBeVisible();
  // Opening Data asks the server for nothing until a period is chosen.
  await page.locator('[data-view="data"]').click();
- await expect(page.locator('[data-feedback-table]')).toHaveCount(0);
+ await expect(page.locator('[data-feedback-threads]')).toHaveCount(0);
  expect(rows).toEqual([]);
  await page.getByRole('button',{name:'Hôm nay',exact:true}).click();
  await expect(page.locator('[data-sources] [data-source="Trực tiếp"]')).toContainText('1');
@@ -302,6 +324,15 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
  await page.keyboard.type('thu ngan');
  await expect(history.locator('[data-activity-row]')).toHaveCount(1);
  await expect(history.locator('[data-activity-row]')).toHaveAttribute('data-activity-row','role.create');
+ // Typing @ lists accounts, accents and case aside; picking one filters the history to that person.
+ await history.locator('[data-activity-search]').fill('');await page.keyboard.type('@AN');
+ await expect(history.locator('[data-mention]')).toHaveCount(1);await expect(history.locator('[data-mention]')).toHaveAttribute('data-mention','an.nv');
+ await page.keyboard.press('Enter');
+ await expect(history.locator('[data-mentions]')).toHaveCount(0);await expect(history.locator('[data-activity-search]')).toHaveValue('');
+ await expect(history.locator('select').first()).toHaveValue(/^[0-9a-f-]{36}$/);
+ await expect(history.getByText('Không có hoạt động nào khớp.')).toBeVisible();
+ await history.locator('[data-activity-search]').fill('@');await expect(history.locator('[data-mention]')).toHaveCount(2);
+ await page.keyboard.press('Escape');await expect(history.locator('[data-mentions]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath('activity-390.png'),fullPage:true});
  await page.locator('[data-view="settings"]').click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -324,15 +355,19 @@ test('unauthorized/expired/revoked/cross-shop read write export and origin prote
  await page.goto('/ZZZ/one');await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
  await page.goto('/t/demo');await expect(page.getByRole('button',{name:'5 sao',exact:true})).toBeEnabled();await page.goto('/demo/dashboard');await expect(page.getByRole('heading').first()).toBeVisible();
 });
-test('concurrent handling gives conflict, reloads latest record, preserves customer revision history',async({page,context,f})=>{
+test('two people reply at once: both replies stay, the thread reloads; the customer\'s revision history is untouched',async({page,context,f})=>{
  await addExperience(f.db);await login(page,f.users[0]);
- // The page holds the row first; then another operator saves over it.
  await data(page);
  const records=(await (await context.request.get('/api/owner/v2/one')).json()).records;
- const row=records[0];await context.request.patch('/api/owner/v2/one',{headers:{Origin:origin},data:{sessionId:row.session_id,expectedCaseRevision:0,expectedExperienceRevision:'2',status:'progress',note:'Another operator'}});
- await page.getByRole('button',{name:/^Ghi chú/}).click();
- await page.getByRole('textbox',{name:'Ghi chú nội bộ',exact:true}).fill('Stale draft');await page.getByRole('button',{name:'Lưu xử lý',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('đã thay đổi');await expect(page.getByRole('textbox',{name:'Ghi chú nội bộ',exact:true})).toHaveValue('Another operator');
+ const row=page.locator(`[data-row="${records[0].session_id}"]`);
+ await row.locator('[data-reply]').click();await row.getByRole('textbox',{name:'Phản hồi nội bộ'}).fill('Của tôi');
+ // Someone else replies while this one is still typing.
+ expect((await context.request.post('/api/owner/v2/one/comments',{headers:{Origin:origin},data:{sessionId:records[0].session_id,body:'Người khác viết trước'}})).status()).toBe(200);
+ await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await expect(row.locator('[data-comment-body]')).toHaveText(['Người khác viết trước','Của tôi']);
+ await expect(row.locator('[data-replies-toggle]')).toHaveText(/2 phản hồi/);
+ expect((await context.request.post('/api/owner/v2/one/comments',{headers:{Origin:origin},data:{sessionId:records[0].session_id,body:'   '}})).status()).toBe(400);
+ expect((await context.request.post('/api/owner/v2/one/comments',{headers:{Origin:'https://invalid.example'},data:{sessionId:records[0].session_id,body:'x'}})).status()).toBe(403);
  expect((await f.db.query('SELECT revision::text FROM rating_experiences')).rows[0].revision).toBe('2');expect((await f.db.query('SELECT count(*)::int n FROM rating_intent_receipts')).rows[0].n).toBe(2);
  expect((await context.request.get('/api/owner/v2/one?scope=test')).status()).toBe(400);
  expect((await context.request.get(`/api/owner/v2/one?source=${randomUUID()}`)).status()).toBe(200);

@@ -28,7 +28,7 @@
 .notice { margin: 0 0 12px; font-size: 14px; }
 .hint { margin: 6px 0 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .kpi, .small { position: relative; background: var(--paper); border-radius: 16px; padding: 16px 16px 14px;
   box-shadow: 0 1px 2px #0000000f, 0 8px 22px -12px #17382c40; }
 .kpi header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); }
@@ -281,3 +281,60 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
 .app .actions .textButton, .app .actions .dangerText { min-height: 0; padding: 0 4px; border: 0; background: none; box-shadow: none; }
 .app .actions .textButton { color: var(--forest-2); }
 .app .actions .dangerText { color: #b42318; }
+/* @ suggestions under the Spotlight box (lát F3 follow-up). */
+.mentions { list-style: none; margin: 6px 0 0; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: 0 12px 30px -12px #17382c55; display: grid; gap: 2px; }
+.mentions li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border-radius: 9px; cursor: pointer; }
+.mentions li[aria-selected="true"] { background: var(--mist); }
+.mentions li span { display: grid; min-width: 0; }
+.mentions li small { font-size: 12px; color: var(--muted); }
+
+/* Feedback as a comment thread (lát F4): YouTube's proportions — 40px picture, 16px gap, a line from the picture
+   that curves into "N phản hồi", replies indented with 28px pictures — in NFC's colours. */
+.thread { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 16px; padding: 14px 0; }
+.thread + .thread { border-top: 1px solid var(--line); }
+.threadRail { display: flex; flex-direction: column; align-items: flex-start; }
+.customerFace { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--mist); font-size: 22px; line-height: 1; flex: none; }
+.stem { flex: 1; min-height: 18px; width: 30px; margin: 6px 0 17px 19px; border-left: 2px solid #c9d3cc; border-bottom: 2px solid #c9d3cc; border-bottom-left-radius: 14px; }
+.threadMain { min-width: 0; }
+.threadHead, .replyHead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 13px; }
+.threadHead strong { font-size: 13px; }
+.threadHead time, .replyHead time { color: var(--muted); }
+.app .infoButton { display: inline-grid; place-items: center; width: 18px; height: 18px; min-height: 0; padding: 0; flex: none; border: 1.5px solid var(--muted); border-radius: 50%;
+  background: none; color: var(--muted); font: italic 700 11px/1 Georgia, serif; cursor: pointer; }
+.infoButton[aria-expanded="true"] { border-color: var(--forest-2); color: var(--forest-2); }
+.infoPanel { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--mist); font-size: 13px; }
+.infoPanel dt { color: var(--muted); }
+.infoPanel dd { margin: 0; overflow-wrap: anywhere; }
+.threadBody, .replyBody { margin: 4px 0 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.muted { color: var(--muted); font-style: italic; }
+.replyActions { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.app .ghostButton { min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ghostButton:hover, .likeButton:hover:not(:disabled), .dots:hover { background: #17382c12; }
+.app .likeButton { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 0; border-radius: 999px; background: none; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.likeButton[aria-pressed="true"] { color: var(--forest-2); }
+.likeButton:disabled { cursor: default; color: var(--muted); }
+.app .repliesToggle { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin-top: 2px; padding: 0 12px 0 10px; border: 0; border-radius: 999px;
+  background: none; color: var(--forest-2); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.repliesToggle:hover { background: #214e3c14; }
+.repliesToggle svg { transition: transform .15s; }
+.repliesToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.replies { grid-column: 2; list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 14px; }
+.reply { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; }
+.replyMain { min-width: 0; }
+.pinnedLabel { margin: 0 0 2px; font-size: 12px; color: var(--muted); }
+.handle, .ownerHandle { font-weight: 700; }
+.ownerHandle { padding: 1px 8px; border-radius: 999px; background: #17382c14; }
+.edited { color: var(--muted); }
+.menuWrap { position: relative; }
+.app .dots { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.menuWrap .menu { top: 34px; right: auto; left: 0; }
+.adminPicture { display: grid; place-items: center; border-radius: 50%; background: #a855f71a; flex: none; }
+.composer { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; margin-top: 8px; }
+.composerBox textarea { width: 100%; min-height: 0; padding: 4px 0; border: 0; border-bottom: 1px solid #b9c5bc; border-radius: 0; background: transparent; resize: none; font: inherit; font-size: 14px; line-height: 1.5; overflow: hidden; }
+.composerBox textarea:focus { outline: none; border-bottom: 2px solid var(--forest-2); }
+.composerActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.app .sendButton { min-height: 34px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--forest); color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.sendButton:disabled { background: #d7ded9; color: #7b8a80; cursor: default; }
+@media (max-width: 640px) {
+  .thread { column-gap: 12px; }
+}

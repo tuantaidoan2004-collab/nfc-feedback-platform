@@ -34,13 +34,14 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  e.rating,e.revision::text experience_revision,e.feedback_topic topic,e.feedback_message message,e.feedback_phone phone,
  ${effectiveStatus} status,COALESCE(c.note,'') note,COALESCE(c.revision,0) case_revision,
  ${utc('c.updated_at')} case_updated_at,s.tag_id,COALESCE(NULLIF(t.location_label,''),CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) source_label,
- s.release_id,origin.release_id origin_release_id
+ s.release_id,origin.release_id origin_release_id,
+ (SELECT count(*)::int FROM feedback_comments fc WHERE fc.session_id=e.session_id AND fc.deleted_at IS NULL) comment_count
  FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id
  LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id
  LEFT JOIN tags t ON t.id=s.tag_id
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
-export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null};
+export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null;comment_count:number};
 export type AdminVisit = {id:string;admin:string;admin_title:string|null;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
 export type SupportChange = {level:SupportLevel;by:string;at:string};
 /**
@@ -87,7 +88,6 @@ export class OwnerDashboard {
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id WHERE e.rating IS NOT NULL) rated,
         (SELECT round(avg(e.rating),2)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id) average,
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id WHERE e.feedback_message IS NOT NULL) feedback,
-        (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id WHERE ${effectiveStatus}<>'resolved') unresolved,
         COALESCE((SELECT jsonb_agg(tags) FROM (SELECT id,COALESCE(NULLIF(location_label,''),public_code) label FROM tags WHERE shop_id=$1 ORDER BY public_code LIMIT 100) tags),'[]') tags,
         COALESCE((SELECT jsonb_agg(releases) FROM (SELECT id,created_at FROM page_releases WHERE shop_id=$1 ORDER BY created_at DESC,id LIMIT 100) releases),'[]') releases,
         COALESCE((SELECT jsonb_agg(sources ORDER BY sessions DESC,label) FROM (SELECT COALESCE(NULLIF(t.location_label,''),
@@ -100,7 +100,7 @@ export class OwnerDashboard {
       // Support in an overview session, and a member without the feedback switch, get the rows without the words.
       const actor=access.actor, hidden=(actor.kind==='admin'&&actor.scope==='overview')||(actor.kind==='owner'&&!access.permissions.includes('feedback'));
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
-      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:''}:row);
+      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:'',comment_count:0}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
         detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
       return {shop:{slug:access.slug,name:access.name},sources,viewer:viewer(access),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
@@ -115,15 +115,13 @@ export class OwnerDashboard {
       const access = await authorize(db, credential, slug, 'overview');
       const totals = Object.fromEntries((await db.query(periodTotals, [access.shopId])).rows.map(({ key, ...rest }) => [key, rest])) as Record<Period, PeriodTotals>;
       const daily = (await db.query(`SELECT * FROM (${daySeries}) days ORDER BY day`, [access.shopId])).rows as DayPoint[];
-      const unresolved = (await db.query(`SELECT count(*)::int n FROM rating_experiences e LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id
-        WHERE e.shop_id=$1 AND e.scope='live' AND ${effectiveStatus}<>'resolved'`, [access.shopId])).rows[0].n as number;
       const actor = access.actor;
       const account = actor.kind === 'admin' ? actor.adminUsername
         : (await db.query('SELECT username FROM owner_identities_v2 WHERE id=$1', [access.userId])).rows[0].username as string;
       if (actor.kind === 'admin') await recordAdminAction(db, actor.adminId, { action: 'impersonation.read', shopId: access.shopId, onBehalfOf: access.userId,
         detail: { session: actor.sessionId, scope: actor.scope, view: 'summary', rows: 0, feedbackShown: false } });
       return { shop: { slug: access.slug, name: access.name }, account, shops: await accessibleShops(db, access), viewer: viewer(access),
-        totals, daily, unresolved, adminVisits: await adminVisits(db, access.shopId), support: await support(db, access.shopId) };
+        totals, daily, adminVisits: await adminVisits(db, access.shopId), support: await support(db, access.shopId) };
     });
   }
   /**

@@ -1,13 +1,14 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import type { OwnerDashboard as Repository, ExperienceRow, Period } from '@/lib/owner/dashboard';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { OwnerDashboard as Repository, Period } from '@/lib/owner/dashboard';
 import { copy } from '@/lib/copy';
 import { faceFor } from '@/lib/faces';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
+import FeedbackThreads, { type Me } from './feedback-threads';
 import AdminBadge from './admin-badge';
 import ProfilePanel, { Avatar, useProfile } from './profile-panel';
 import TeamPanel from './team-panel';
@@ -32,7 +33,6 @@ const VIEWS: [View, string, string][] = [
   ['profile', 'Hồ sơ', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 9a8 8 0 0 1 16 0'],
 ];
 const PERIODS: Record<Period, string> = { today: 'Hôm nay', week: '7 ngày', month: '30 ngày' };
-const STATUS: Record<string, string> = { new: 'Chưa xử lý', progress: 'Đang xử lý', resolved: 'Đã xử lý' };
 const SCOPES: Record<string, string> = { overview: 'Chỉ số liệu tổng quan', feedback: 'Kèm góp ý riêng tư', design: 'Sửa giao diện' };
 /** The owner's four positions (Tài, 2026-09-17). Nothing, at any position, lets support export the shop's data. */
 const LEVELS: [string, string, string][] = [
@@ -187,48 +187,6 @@ function AdminVisits({ visits }: { visits: Summary['adminVisits'] }) {
   </section>;
 }
 
-function CaseForm({ row, save }: { row: ExperienceRow; save: (row: ExperienceRow, status: string, note: string) => Promise<boolean> }) {
-  const [status, setStatus] = useState(row.status ?? 'new'), [note, setNote] = useState(row.note), [busy, setBusy] = useState(false);
-  return <form className={styles.caseForm} onSubmit={async e => { e.preventDefault(); setBusy(true); await save(row, status, note); setBusy(false); }}>
-    <label>Trạng thái<select value={status} onChange={e => setStatus(e.target.value)} disabled={busy}>{Object.entries(STATUS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label>
-    <label>Ghi chú nội bộ<textarea value={note} maxLength={2000} onChange={e => setNote(e.target.value)} disabled={busy} /></label>
-    <button disabled={busy}>{busy ? 'Đang lưu…' : 'Lưu xử lý'}</button>
-  </form>;
-}
-
-/** One row per response; the customer's own words span the whole table right under it, with the note button beside. */
-function FeedbackTable({ rows, readOnly, overview, save }: { rows: ExperienceRow[]; readOnly: boolean; overview: boolean; save: (row: ExperienceRow, status: string, note: string) => Promise<boolean> }) {
-  const [editing, setEditing] = useState<string | null>(null);
-  if (rows.length === 0) return <p className={styles.hint}>Chưa có phản hồi trong khoảng này.</p>;
-  return <div className={styles.tableWrap}><table className={styles.table} data-feedback-table>
-    <thead><tr><th>Thời gian</th><th>Cảm xúc</th><th>Loại</th><th>Chủ đề</th><th>Nguồn</th><th>Số gọi lại</th><th>Xử lý</th></tr></thead>
-    <tbody>{rows.map(row => {
-      const face = faceFor(row.rating), hasFeedback = !!row.status;
-      return <Fragment key={`${row.session_id}:${row.case_revision}:${row.experience_revision}`}>
-        <tr data-row={row.session_id} className={hasFeedback ? styles.withMessage : undefined}>
-          <td>{time(row.first_rated_at)}</td>
-          <td className={styles.face}>{face ? <span role="img" aria-label={`${row.rating} sao`}>{face}</span> : <span title="Chưa chấm sao">—</span>}</td>
-          <td>Riêng tư</td>
-          <td>{row.topic ? TOPICS[row.topic] ?? row.topic : '—'}</td>
-          <td>{row.source_label}</td>
-          <td data-phone>{row.phone ? <a href={`tel:${row.phone}`}>{row.phone}</a> : '—'}</td>
-          <td><span className={styles.status} data-status={row.status ?? 'none'}>{row.status ? STATUS[row.status] : '—'}</span></td>
-        </tr>
-        {hasFeedback && <tr className={styles.messageRow} data-message-for={row.session_id}><td colSpan={7}>
-          <div className={styles.messageLine}>
-            <p className={styles.message}>{row.message ?? (overview ? 'Nội dung góp ý đang ẩn với bạn.' : '')}</p>
-            {!readOnly && <button type="button" className={styles.noteButton} aria-expanded={editing === row.session_id}
-              onClick={() => setEditing(editing === row.session_id ? null : row.session_id)}>{row.note ? 'Ghi chú ✎' : 'Ghi chú'}</button>}
-          </div>
-          {readOnly && row.note && <p className={styles.hint}>Ghi chú nội bộ: {row.note}</p>}
-          {!readOnly && !editing && row.note && <p className={styles.hint}>Ghi chú: {row.note}</p>}
-          {!readOnly && editing === row.session_id && <CaseForm row={row} save={async (...args) => { const ok = await save(...args); if (ok) setEditing(null); return ok; }} />}
-        </td></tr>}
-      </Fragment>;
-    })}</tbody>
-  </table></div>;
-}
-
 type Range = { key: Period | 'custom'; from: string; to: string };
 const rangeFor = (key: Period): Range => ({ key, from: hcmDate(key === 'today' ? 0 : key === 'week' ? 6 : 29), to: hcmDate() });
 
@@ -244,7 +202,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   const [periods, setPeriods] = useState<Record<string, Period>>({ visits: 'today', google: 'today', private: 'today' });
   const [range, setRange] = useState<Range | null>(null);
   const [custom, setCustom] = useState({ from: hcmDate(6), to: hcmDate() });
-  const [extra, setExtra] = useState({ source: '', release: '', rating: '', status: '' });
+  const [extra, setExtra] = useState({ source: '', release: '', rating: '' });
   const [cursor, setCursor] = useState(''), [dataset, setDataset] = useState('experiences');
   const latest = useRef(0);
 
@@ -295,16 +253,6 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       setNotice(`Đã đặt mức hỗ trợ: ${LEVEL_NAMES[level]}.`); await loadSummary();
     } catch { setNotice('Chưa xác nhận được mức hỗ trợ. Tải lại để kiểm tra.'); }
   };
-  const save = async (row: ExperienceRow, status: string, note: string) => {
-    try {
-      const response = await fetch(endpoint, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: row.session_id, expectedCaseRevision: row.case_revision, expectedExperienceRevision: row.experience_revision, status, note }) });
-      if (response.status === 401) { setExpired(true); setNotice('Phiên đăng nhập đã hết hạn.'); return false; }
-      if (response.status === 409) { setNotice('Góp ý hoặc trạng thái đã thay đổi. Dữ liệu mới được tải lại; hãy kiểm tra trước khi lưu.'); await loadData(true); return false; }
-      if (!response.ok) { setNotice('Không lưu được. Kiểm tra quyền truy cập và thử lại.'); return false; }
-      setNotice('Đã lưu xử lý.'); await Promise.all([loadData(true), loadSummary()]); return true;
-    } catch { setNotice('Chưa xác nhận được kết quả lưu. Tải lại để kiểm tra trước khi gửi lại.'); return false; }
-  };
   const logout = async () => {
     try { const r = await fetch('/api/owner/v2/logout', { method: 'POST' }); if (r.ok) { setSummary(null); setData(null); router.replace(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`); } else setNotice('Chưa đăng xuất được. Thử lại.'); }
     catch { setNotice('Chưa đăng xuất được. Thử lại.'); }
@@ -320,6 +268,10 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   // What this member's role allows (lát F3). Support is governed by its session scope instead.
   const perms = summary?.viewer.kind === 'owner' ? summary.viewer.permissions : null;
   const may = (p: string) => !owner || !perms || perms.includes(p as never);
+  // Replies: members with the feedback switch; support only in a feedback session at position 3 (Tài's Minecraft rule).
+  const canComment = owner ? may('feedback') : impersonation?.scope === 'feedback' && summary?.support.level === 'full';
+  const me: Me | null = owner ? (profile ? { kind: 'member', handle: profile.handle, displayName: profile.displayName, avatarUrl: profile.avatarUrl } : null)
+    : impersonation ? { kind: 'admin', handle: impersonation.admin, title: impersonation.adminTitle } : null;
   const shown = (id: View) => id === 'activity' ? owner && !!perms?.includes('activity')
     : id === 'design' ? may('design') || may('cards') : id === 'profile' ? owner : true;
   const title = VIEWS.find(([id]) => id === view)![1];
@@ -355,7 +307,6 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
             <Kpi id="google" title="Đánh giá Google" value="—" sub="Chưa kết nối Google" period={periods.google} onPeriod={p => setPeriods({ ...periods, google: p })} />
             <Kpi id="private" title="Phản hồi riêng tư" value={String(totals[periods.private].private)} sub={`${totals[periods.private].messages} có lời nhắn`}
               period={periods.private} onPeriod={p => setPeriods({ ...periods, private: p })} />
-            <Kpi id="unresolved" title="Góp ý chưa xử lý" value={String(summary!.unresolved)} sub="Tất cả thời gian" />
           </div>
           <p className={styles.hint} data-google-note>Số đánh giá Google sẽ có khi shop kết nối Google Business Profile. Trang khách không biết được khách đã đăng review hay chưa.</p>
           <Week daily={summary!.daily} />
@@ -377,24 +328,24 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
             <label>Nguồn<select value={extra.source} onChange={e => setExtra({ ...extra, source: e.target.value })}><option value="">Tất cả</option><option value="direct">Trực tiếp</option><option value="unknown">Chưa rõ</option>{data.tags.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
             <label>Bản phát hành<select value={extra.release} onChange={e => setExtra({ ...extra, release: e.target.value })}><option value="">Tất cả</option><option value="unknown">Chưa rõ</option>{data.releases.map(r => <option key={r.id} value={r.id}>{time(r.created_at)} · {r.id.slice(0, 8)}</option>)}</select></label>
             <label>Cảm xúc<select value={extra.rating} onChange={e => setExtra({ ...extra, rating: e.target.value })}><option value="">Tất cả</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{faceFor(n)} {n}</option>)}</select></label>
-            <label>Xử lý<select value={extra.status} onChange={e => setExtra({ ...extra, status: e.target.value })}><option value="">Tất cả</option>{Object.entries(STATUS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label>
           </form>}
           {!range && <p className={styles.hint}>Chọn khoảng thời gian để xem dữ liệu. Dữ liệu chỉ tải khi bạn chọn, để dashboard luôn nhẹ.</p>}
         </div>
         {loading && <p className={styles.hint}>Đang tải dữ liệu…</p>}
         {data && range && <>
-          <div className={styles.kpis}>{Object.entries({ opens: 'Lượt truy cập', sessions: 'Phiên 15 phút', rated: 'Có chấm sao', average: 'Điểm trung bình', feedback: 'Có lời nhắn', unresolved: 'Chưa xử lý' })
+          <div className={styles.kpis}>{Object.entries({ opens: 'Lượt truy cập', sessions: 'Phiên 15 phút', rated: 'Có chấm sao', average: 'Điểm trung bình', feedback: 'Có lời nhắn' })
             .map(([key, label]) => <article key={key} className={styles.small}><span>{label}</span><strong data-metric={key}>{data.metrics[key as keyof typeof data.metrics] ?? '—'}</strong></article>)}</div>
           <section className={styles.panel} aria-label="Nguồn thẻ" data-sources><h2>Nguồn thẻ</h2>
             {data.sources.length === 0 ? <p className={styles.hint}>Chưa có phiên nào trong khoảng này.</p> : <ul className={styles.sources}>{data.sources.map(row => <li key={row.label} data-source={row.label}>
               <span>{row.label}</span><strong>{row.sessions}</strong></li>)}</ul>}
           </section>
           <section className={styles.panel} aria-label="Phản hồi của khách"><h2>Phản hồi của khách</h2>
-            <FeedbackTable rows={data.records} readOnly={!!impersonation || !may('feedback')} overview={impersonation?.scope === 'overview' || !may('feedback')} save={save} />
+            <FeedbackThreads rows={data.records} endpoint={endpoint} hidden={impersonation?.scope === 'overview' || !may('feedback')} canWrite={canComment} me={me}
+              topic={key => TOPICS[key] ?? key} />
             <nav className={styles.actions} aria-label="Phân trang">{cursor && <button type="button" onClick={() => setCursor('')}>Về trang đầu</button>}{data.nextCursor && <button type="button" onClick={() => setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>
           </section>
           {owner && may('export') && <section className={styles.panel} aria-label="Tải dữ liệu"><h2>Tải dữ liệu</h2>
-            <div className={styles.actions}><label>Loại dữ liệu<select value={dataset} onChange={e => setDataset(e.target.value)}><option value="experiences">Phản hồi hiện tại</option><option value="page_visits">Lượt truy cập</option><option value="receipts">Lịch sử phản hồi</option></select></label>
+            <div className={styles.actions}><label>Loại dữ liệu<select value={dataset} onChange={e => setDataset(e.target.value)}><option value="experiences">Phản hồi hiện tại</option><option value="comments">Phản hồi nội bộ</option><option value="page_visits">Lượt truy cập</option><option value="receipts">Lịch sử phản hồi</option></select></label>
               {['csv', 'jsonl', 'dictionary'].map(format => <a key={format} className={styles.linkButton} href={`${endpoint}/export?${query}&dataset=${dataset}&format=${format}`}>{format === 'dictionary' ? 'Từ điển dữ liệu' : format.toUpperCase()}</a>)}</div>
             <p className={styles.hint}>CSV cho Excel. JSONL đọc theo từng dòng cho dữ liệu lớn. File giữ cùng khoảng thời gian và bộ lọc đang áp dụng.</p></section>}
         </>}

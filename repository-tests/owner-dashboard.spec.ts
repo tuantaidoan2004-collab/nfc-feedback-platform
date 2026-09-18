@@ -11,7 +11,7 @@ const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provideFixture)=>{
  const schema=`nfc_owner_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  await provideFixture(await ownerFixture(db));}finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const filters=()=>parseFilters(new URLSearchParams());
@@ -45,7 +45,7 @@ test('live cohort metrics/date boundaries, filters and source attribution exclud
  await repo.recordRating({...c,visitId:v.visit.visitId},{intentId:randomUUID(),expectedRevision:0,score:5},hash);
  const filter=parseFilters(new URLSearchParams('from=2026-09-13&to=2026-09-13&source=direct&rating=2&status=new'));
  const result=await new OwnerDashboard(f.db).read(f.users[0].token,'one',filter);
- expect(result.metrics).toMatchObject({opens:'2',sessions:'2',rated:'2',average:'2.00',feedback:'2',unresolved:'2'});expect(result.records).toHaveLength(2);
+ expect(result.metrics).toMatchObject({opens:'2',sessions:'2',rated:'2',average:'2.00',feedback:'2'});expect(result.metrics).not.toHaveProperty('unresolved');expect(result.records).toHaveLength(2);
  const filtered=await new OwnerDashboard(f.db).read(f.users[0].token,'one',{...filter,release:result.records[0].release_id!});expect(filtered.records).toHaveLength(2);
  expect(JSON.stringify(result)).not.toMatch(/browser_hash|token_hash|password|proof/);
 });
@@ -54,7 +54,7 @@ test('feedback without a star counts as feedback, not as a rating, and exports i
  await addExperience(f.db,'one',4,null,at);const unrated=await addExperience(f.db,'one',null,'Không chấm sao',at,'0961036265');
  const dashboard=new OwnerDashboard(f.db),range='from=2026-09-13&to=2026-09-13';
  const all=await dashboard.read(f.users[0].token,'one',parseFilters(new URLSearchParams(range)));
- expect(all.metrics).toMatchObject({opens:'2',sessions:'2',rated:'1',average:'4.00',feedback:'1',unresolved:'1'});
+ expect(all.metrics).toMatchObject({opens:'2',sessions:'2',rated:'1',average:'4.00',feedback:'1'});
  const row=all.records.find(r=>r.session_id===unrated.session.sessionId)!;
  expect(row).toMatchObject({rating:null,message:'Không chấm sao',phone:'0961036265',status:'new',experience_revision:'1'});
  expect(row.origin_release_id).toBe(row.release_id);expect(row.origin_release_id).not.toBeNull();
@@ -68,7 +68,7 @@ test('feedback without a star counts as feedback, not as a rating, and exports i
  const {dictionary}=await import('../lib/owner/export');
  expect(dictionary('experiences').fields.find(x=>x.name==='rating')).toMatchObject({nullable:true});
 });
-test('the summary carries period totals, seven days, unresolved and the account\'s shops; rows load only on read',async({f})=>{
+test('the summary carries period totals, seven days and the account\'s shops (no processing status since lát F4); rows load only on read',async({f})=>{
  const today=new Date(),yesterday=new Date(Date.now()-86400000),longAgo=new Date(Date.now()-20*86400000),older=new Date(Date.now()-40*86400000);
  await addExperience(f.db,'one',5,null,today);await addExperience(f.db,'one',4,'Hôm nay',today);await addExperience(f.db,'one',null,'Góp ý',yesterday);
  await addExperience(f.db,'one',3,null,longAgo);await addExperience(f.db,'one',2,null,older);await addExperience(f.db,'two',5,null,today);
@@ -77,7 +77,6 @@ test('the summary carries period totals, seven days, unresolved and the account\
  expect(summary).not.toHaveProperty('records');
  expect(summary.account).toBe(a.username);
  expect(summary.totals).toEqual({today:{opens:2,sessions:2,private:2,messages:1},week:{opens:3,sessions:3,private:3,messages:2},month:{opens:4,sessions:4,private:4,messages:2}});
- expect(summary.unresolved).toBe(2);
  // Seven days, oldest first, every day present even when nothing happened, and only this shop's live opens.
  expect(summary.daily).toHaveLength(7);
  expect(summary.daily.map(d=>d.day)).toEqual([...summary.daily].sort((x,y)=>x.day.localeCompare(y.day)).map(d=>d.day));

@@ -18,7 +18,7 @@ test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().u
 // next dev compiles an API the first time it is called and then reloads every open page (operations-gotchas.md).
 // The owner's Settings calls the team API (lát F3); compile it before any page is open, or the owner page reloads
 // back to the overview in the middle of a test. The answer (401 without a session) does not matter.
-test.beforeEach(async({request})=>{await request.get('/api/owner/v2/warm/team');await request.get('/api/owner/v2/warm/activity');});
+test.beforeEach(async({request})=>{for(const api of ['team','activity','comments?session=x'])await request.get(`/api/owner/v2/warm/${api}`);});
 
 test('sign in, session cookie stays inside /gov, sign out',async({page,context,admin})=>{
  await page.goto('/gov');
@@ -297,6 +297,8 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
   await expect(page.getByRole('button',{name:/^Ghi chú/})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
+  // Position 1 lets support read, not reply: replying needs position 3.
+  await expect(page.locator('[data-reply]')).toHaveCount(0);
   await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
   await refusedExports();
   expect((await context.request.patch(api,{headers:{Origin:origin},data:patch})).status()).toBe(403);
@@ -326,8 +328,9 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Khấc 1 · Xem bởi quan-hotro');
   await expect(ownerPage.locator('[data-impersonation]')).toHaveCount(0);
   await ownerPage.locator('[data-view="data"]').click();await ownerPage.getByRole('button',{name:'7 ngày',exact:true}).click();
-  await ownerPage.getByRole('button',{name:/^Ghi chú/}).click();
-  await expect(ownerPage.getByRole('button',{name:'Lưu xử lý'})).toBeVisible();
+  // The owner, unlike support at position 1, can reply under the feedback (lát F4).
+  await ownerPage.locator('[data-reply]').first().click();
+  await expect(ownerPage.getByRole('textbox',{name:'Phản hồi nội bộ'})).toBeVisible();
   await expect(ownerPage.getByRole('link',{name:'CSV',exact:true})).toBeVisible();
  }finally{await owner.close();}
 });

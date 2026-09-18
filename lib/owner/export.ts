@@ -3,11 +3,12 @@ import { OwnerAuth, OwnerError, type OwnerCredential } from './auth';
 import { cohort, type Filters } from './filters';
 import { experienceSelect, utc } from './dashboard';
 import { recordActivity } from './activity';
-export type Dataset='experiences'|'page_visits'|'receipts';
+export type Dataset='experiences'|'page_visits'|'receipts'|'comments';
 const fields = {
  experiences:['schemaVersion','dataset','session_id','first_rated_at','updated_at','rating','experience_revision','topic','message','phone','status','note','case_revision','case_updated_at','tag_id','source_label','release_id','origin_release_id'],
  page_visits:['schemaVersion','dataset','visit_id','session_id','opened_at','navigation_kind','tag_id','release_id'],
  receipts:['schemaVersion','dataset','session_id','visit_id','revision','operation','rating','applied_at','topic','message','phone','tag_id','release_id'],
+ comments:['schemaVersion','dataset','comment_id','session_id','author_kind','author_handle','body','created_at','edited_at','pinned','likes','deleted_at'],
 } as const;
 const descriptions:Record<string,string>={
  schemaVersion:'Export schema version, nfc-owner-export-v1.',dataset:'Row family: experiences, page_visits or receipts.',
@@ -20,18 +21,25 @@ const descriptions:Record<string,string>={
  release_id:'Release of latest matching open (experience) or source visit (event); null means historical attribution unknown.',
  origin_release_id:'Immutable release of the first rating or private feedback; can differ from matching open.',navigation_kind:'Client navigation classification, not verified physical tap.',
  operation:'rating or feedback.',applied_at:'DB time of applied immutable intent.',
+ comment_id:'One internal reply under a customer feedback (lát F4).',author_kind:'member of the shop, or admin (platform support at switch position 3).',
+ author_handle:'@handle of the author when they wrote it.',body:'Current text of the internal reply; earlier versions are kept by the platform.',
+ created_at:'When the reply was written.',edited_at:'Last edit, null when never edited.',pinned:'true for the pinned reply of its thread.',
+ likes:'Number of likes.',deleted_at:'When the reply was deleted and hidden, null while visible.',
 };
-const nullable=new Set(['rating','phone','topic','message','status','case_updated_at','tag_id','release_id','origin_release_id']);
+const nullable=new Set(['rating','phone','topic','message','status','case_updated_at','tag_id','release_id','origin_release_id','edited_at','deleted_at']);
 export function dictionary(dataset:Dataset){return {schemaVersion:'nfc-owner-export-v1',dataset,scope:'live',storageTimezone:'UTC',displayTimezone:'Asia/Ho_Chi_Minh',
  filterSemantics:'Inclusive Ho Chi Minh calendar start; exclusive day-after-end. Cohort = matching live opens filtered by source/release and current rating/case status. Experiences are current state of cohort sessions; receipts are complete immutable history of those sessions, including events outside the open date/release filter.',
  consistency:'Repeatable-read database snapshot per export. Authorization rechecked with fresh database state before each chunk. No credential/browser hash/proof fields.',
- fields:fields[dataset].map(name=>({name,type:['rating','case_revision'].includes(name)?'integer':name==='revision'||name==='experience_revision'?'decimal-string':name.endsWith('_at')?'timestamp':'string',
+ fields:fields[dataset].map(name=>({name,type:['rating','case_revision','likes'].includes(name)?'integer':name==='pinned'?'boolean':name==='revision'||name==='experience_revision'?'decimal-string':name.endsWith('_at')?'timestamp':'string',
  nullable:nullable.has(name),unit:name.endsWith('_at')?'UTC ISO8601, microseconds':name==='rating'?'stars, 1–5':null,meaning:descriptions[name]}))};}
 export function csvCell(value:unknown){let text=value===null||value===undefined?'':String(value);
  if(/^[\s\u0000-\u001f]*[=+\-@]/u.test(text)||/^[\u0000-\u001f]/.test(text))text="'"+text;
  return '"'+text.replaceAll('"','""')+'"';}
 export function exportSelect(dataset:Dataset){
  if(dataset==='experiences')return `${experienceSelect} ORDER BY e.first_interaction_at DESC,e.session_id DESC`;
+ if(dataset==='comments')return `SELECT c.id comment_id,c.session_id,c.author_kind,c.author_handle,c.body,${utc('c.created_at')} created_at,${utc('c.edited_at')} edited_at,
+ c.pinned_at IS NOT NULL pinned,(SELECT count(*)::int FROM feedback_comment_likes l WHERE l.comment_id=c.id) likes,${utc('c.deleted_at')} deleted_at
+ FROM selected s JOIN feedback_comments c ON c.session_id=s.session_id ORDER BY c.created_at,c.id`;
  if(dataset==='page_visits')return `SELECT m.id visit_id,m.session_id,${utc('m.opened_at')} opened_at,m.navigation_kind,m.tag_id,m.release_id FROM matched m ORDER BY m.opened_at,m.id`;
  return `SELECT r.session_id,r.visit_id,r.applied_revision::text revision,r.operation,r.score rating,${utc('r.applied_at')} applied_at,r.feedback_topic topic,r.feedback_message message,r.feedback_phone phone,p.tag_id,p.release_id
  FROM selected s JOIN rating_intent_receipts r ON r.session_id=s.session_id AND r.scope='live'
