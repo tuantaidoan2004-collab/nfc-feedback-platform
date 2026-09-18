@@ -522,7 +522,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Trình chỉnh trang khách (lưu nháp, xem trước, phát hành) và công tắc hỗ trợ 4 vị trí với migration 012. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát D. Thẻ theo bàn và kích hoạt thẻ để lát E.
 - Trang `/ZZZ/<shop>` giờ chỉ cần quyền `shell` (khung, không dữ liệu); từng mục tự xin quyền dữ liệu của nó. Nhờ vậy phiên sửa giao diện ở khấc 2 mở được trang mà không thấy số nào.
 - Kiểm commit `83fab57`: tsc/eslint exit 0; repository **97**; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **5 + 2**; admin **6 + 2**; tất cả exit 0. `scripts/migrate.mjs` áp 012 lên database đã có 001–011, rollback 012 chạy được khi chưa có dữ liệu mới.
-- **Chờ Tài migrate 012 lên Neon (production và preview) trước khi push.**
+- Tài migrate 012 lên Neon production và preview ngày 18/09 (mỗi branch báo `Applied 012_support_levels.`), rồi mới push; **001–012 đã có trên cả hai branch**.
 - **Lỗi và bẫy trong lát:** nút chọn mức hỗ trợ chỉ đổi sau khi server trả lời nên trông như bấm không ăn (đã sửa: hiện lựa chọn ngay); `toBeDisabled` không đọc `<option disabled>`; `next dev` tải lại dashboard khi `/preview` được biên dịch lần đầu (test phải mở trước `/one` và `/preview`). Ghi trong gotchas.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát D)
@@ -531,7 +531,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước,
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). Migration 011 (lát B4) Tài chạy trên cả hai branch tối 18/09, mỗi branch báo `Applied 011_feedback_phone.`; tức **001–011 đã có trên production và preview**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). Migration 011 và 012 Tài đã chạy trên cả hai branch ngày 18/09; tức **001–012 đã có trên production và preview**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
