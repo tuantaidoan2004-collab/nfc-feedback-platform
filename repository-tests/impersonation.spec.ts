@@ -42,7 +42,8 @@ test('overview: needs no permission, feedback text is removed on the server, eve
 
  const read=await dashboard.read(s.credential,'one',filters());
  expect(read.viewer).toMatchObject({kind:'admin',admin:'operator',scope:'overview',reason});
- expect(read.support).toEqual({feedback:false,history:[]});
+ // Support state and visits live in the light summary; reading it as a stand-in counts as a read too.
+ expect((await dashboard.summary(s.credential,'one')).support).toEqual({feedback:false,history:[]});
  expect(read.records).toHaveLength(1);
  expect(read.records[0]).toMatchObject({topic:null,message:null,phone:null,note:'',status:'progress',rating:2});
  expect(JSON.stringify(read)).not.toMatch(/Bí mật|Ghi chú của chủ|0961036265/);
@@ -103,7 +104,7 @@ test('feedback: only while the owner allows it, never exports, read-only, one au
 
  // The owner sees both visits, the reasons as written, and their own switching; reading adds nothing to the record.
  const before=(await f.db.query('SELECT count(*)::int n FROM admin_audit')).rows[0].n;
- const own=await dashboard.read(f.users[0].token,'one',filters());
+ const own=await dashboard.summary(f.users[0].token,'one');
  expect(own.viewer).toEqual({kind:'owner',role:'owner'});
  expect(own.adminVisits.map(v=>({scope:v.scope,reason:v.reason,reads:v.reads,end:v.end_reason}))).toEqual([
   {scope:'overview',reason,reads:1,end:null},{scope:'feedback',reason,reads:3,end:'superseded'}]);
@@ -111,7 +112,7 @@ test('feedback: only while the owner allows it, never exports, read-only, one au
  expect(own.support.history.map(h=>({enabled:h.enabled,by:h.by}))).toEqual([{enabled:false,by:f.users[0].username},{enabled:true,by:f.users[0].username}]);
  expect((await f.db.query('SELECT count(*)::int n FROM admin_audit')).rows[0].n).toBe(before);
  // The other shop's owner sees nothing of it.
- expect((await dashboard.read(f.users[1].token,'two',filters())).adminVisits).toEqual([]);
+ expect((await dashboard.summary(f.users[1].token,'two')).adminVisits).toEqual([]);
 });
 
 test('only the owner moves the switch: not support, not a manager, not another shop; history cannot be edited',async({f})=>{

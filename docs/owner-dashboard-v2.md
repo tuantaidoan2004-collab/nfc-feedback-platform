@@ -56,7 +56,7 @@ GET `/api/owner/v2/<shop>/export` với cùng filters; không nhận cursor. `da
 
 ## UI và caching
 
-Shell server đã auth, dữ liệu riêng lấy API no-store. Dashboard tiếng Việt, filter/KPI/feedback/export, responsive390px/desktop, loading/empty/error/expired rõ. Không menu editor/nút giả. /t/demo và /demo/dashboard giữ browser-only legacy. Khi tab hidden dữ liệu/draft note trong memory được bỏ, visible/restored tải lại auth/data; chưa hứa lưu draft qua chuyển tab/reload/crash. English dashboard chưa làm; trang khách VI/EN nguyên trạng.
+Shell server đã auth, dữ liệu riêng lấy API no-store. Dashboard tiếng Việt, filter/KPI/feedback/export, responsive390px/desktop, loading/empty/error/expired rõ. Không menu editor/nút giả. /t/demo và /demo/dashboard giữ browser-only legacy. ~~Khi tab hidden dữ liệu/draft note trong memory được bỏ~~ (thay ngày 18/09, lát C2: Tài chọn tốc độ, dữ liệu ở lại khi tab ẩn và được cập nhật âm thầm khi quay về; khôi phục BFCache vẫn tải lại); chưa hứa lưu draft qua chuyển tab/reload/crash. English dashboard chưa làm; trang khách VI/EN nguyên trạng.
 
 Private API/export/login/logout có `private, no-store`, nosniff, no-referrer, frame deny; owner routes có CSP frame-ancestors/object/base restrictions và noindex. **Next16.3.4 dev tự override HTML Cache-Control thành no-cache,must-revalidate** (đã đọc base-server.js); không sửa framework. Shell không chứa feedback/note. Bản build dynamic owner HTML đã kiểm tra no-store. Trước phát hành cần kiểm tra HTTPS/Secure cookie và history/caching trên Safari/iPhone thật; chưa claim các test đó.
 

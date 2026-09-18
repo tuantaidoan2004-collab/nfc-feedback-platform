@@ -1,154 +1,319 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useCallback,useEffect,useState,useRef } from 'react';
-import type { OwnerDashboard as Repository,ExperienceRow } from '@/lib/owner/dashboard';
-import styles from './owner-dashboard.module.css';
-type Data=Awaited<ReturnType<Repository['read']>>;
-const localDate=(days=0)=>new Date(Date.now()+7*3600000-days*86400000).toISOString().slice(0,10);
-const time=(value:string|null)=>value?new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
-const labels:Record<string,string>={new:'Chưa xử lý',progress:'Đang xử lý',resolved:'Đã xử lý'};
-function CaseForm({row,save}:{row:ExperienceRow;save:(row:ExperienceRow,status:string,note:string)=>Promise<boolean>}){
- const [status,setStatus]=useState(row.status??'new'),[note,setNote]=useState(row.note),[busy,setBusy]=useState(false);
- return <form onSubmit={async e=>{e.preventDefault();setBusy(true);await save(row,status,note);setBusy(false);}}>
- <label>Trạng thái<select value={status} onChange={e=>setStatus(e.target.value)} disabled={busy}>{Object.entries(labels).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></label>
- <label>Ghi chú nội bộ<textarea value={note} maxLength={2000} onChange={e=>setNote(e.target.value)} disabled={busy}/></label>
- <button disabled={busy}>{busy?'Đang lưu…':'Lưu xử lý'}</button></form>;
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import type { OwnerDashboard as Repository, ExperienceRow, Period } from '@/lib/owner/dashboard';
+import { copy } from '@/lib/copy';
+import { faceFor } from '@/lib/faces';
+import styles from './owner-app.module.css';
+
+/**
+ * Owner dashboard, lát C2 (2026-09-18). A left menu with four views. Overview loads only totals, so the dashboard
+ * opens fast however much data a shop has; the Data view loads rows only when the owner picks a period. Data stays
+ * on screen when the tab is hidden and is refreshed quietly on return, instead of blanking and reloading.
+ */
+type Summary = Awaited<ReturnType<Repository['summary']>>;
+type Data = Awaited<ReturnType<Repository['read']>>;
+type View = 'home' | 'data' | 'design' | 'settings';
+export type Impersonation = { admin: string; scope: 'overview' | 'feedback'; reason: string; expiresAt: string };
+
+const VIEWS: [View, string, string][] = [
+  ['home', 'Tổng quan', 'M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z'],
+  ['data', 'Dữ liệu', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
+  ['design', 'Thiết kế & Link', 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Zm9-13 4 4'],
+  ['settings', 'Cài đặt', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.5a7.5 7.5 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.2 1.3l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.3Z'],
+];
+const PERIODS: Record<Period, string> = { today: 'Hôm nay', week: '7 ngày', month: '30 ngày' };
+const STATUS: Record<string, string> = { new: 'Chưa xử lý', progress: 'Đang xử lý', resolved: 'Đã xử lý' };
+const SCOPES: Record<string, string> = { overview: 'Chỉ số liệu tổng quan', feedback: 'Kèm góp ý riêng tư' };
+const ENDINGS: Record<string, string> = { ended: 'đã kết thúc', superseded: 'bị thay bằng phiên mới', expired: 'hết hạn' };
+const TOPICS = copy.vi as Record<string, string>;
+const hcmDate = (daysBack = 0) => new Date(Date.now() + 7 * 3600000 - daysBack * 86400000).toISOString().slice(0, 10);
+const time = (value: string | null) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—';
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(word => Array.from(word)[0] ?? '').join('').toUpperCase();
+
+function Icon({ path }: { path: string }) {
+  return <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={path} /></svg>;
 }
-const scopes:Record<string,string>={overview:'Chỉ số liệu tổng quan',feedback:'Kèm góp ý riêng tư'};
-const endings:Record<string,string>={ended:'đã kết thúc',superseded:'bị thay bằng phiên mới',expired:'hết hạn'};
-export type Impersonation={admin:string;scope:'overview'|'feedback';reason:string;expiresAt:string};
-function AdminVisits({visits}:{visits:Data['adminVisits']}){
- return <section aria-label="Lượt truy cập của quản trị" data-admin-visits><h2>Lượt truy cập của quản trị</h2>
- <p className={styles.explain}>Mỗi lần quản trị viên nền tảng xem dashboard thay mặt shop đều được ghi lại ở đây, kèm lý do. Quản trị viên chỉ được xem, không sửa và không tải được dữ liệu.</p>
- {visits.length===0?<p>Chưa có lượt nào.</p>:visits.map(v=><article className={styles.card} key={v.id} data-admin-visit={v.id}>
- <div className={styles.row}><strong>{v.admin}</strong><time>{time(v.started_at)}</time><span>{scopes[v.scope]}</span></div>
- <p data-reason>{v.reason}</p>
- <p className={styles.muted}>{v.ended_at?`${endings[v.end_reason??'ended']} lúc ${time(v.ended_at)}`:`hết hạn lúc ${time(v.expires_at)}`} · {v.reads} lần xem</p>
- </article>)}</section>;
+
+/** A total with its own period menu (the ≡ button), so each card can show a different window without reloading. */
+function Kpi({ id, title, value, sub, period, onPeriod, accent }: { id: string; title: string; value: string; sub?: string; period?: Period; onPeriod?: (p: Period) => void; accent?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return <article className={`${styles.kpi}${accent ? ` ${styles.accent}` : ''}`} data-kpi={id}>
+    <header><span>{title}</span>
+      {onPeriod && <button type="button" className={styles.menuButton} aria-label={`Đổi khoảng thời gian: ${title}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>}
+    </header>
+    <strong data-kpi-value>{value}</strong>
+    <p>{period ? PERIODS[period] : ''}{sub ? `${period ? ' · ' : ''}${sub}` : ''}</p>
+    {open && onPeriod && <div className={styles.menu} role="menu">{(Object.keys(PERIODS) as Period[]).map(key =>
+      <button key={key} type="button" role="menuitemradio" aria-checked={key === period} onClick={() => { onPeriod(key); setOpen(false); }}>{PERIODS[key]}</button>)}</div>}
+  </article>;
 }
-/** The shop's customer page, to open on other phones or send over Zalo. No QR code: Tài chose not to add one. */
-function CustomerLink({url}:{url:string}){
- const [status,setStatus]=useState('');
- const copy=async()=>{try{await navigator.clipboard.writeText(url);setStatus('Đã sao chép.');}catch{setStatus('Chưa sao chép được. Giữ lâu vào đường dẫn để sao chép.');}};
- return <section className={styles.exports} aria-label="Trang khách" data-customer-link={url}><h2>Trang khách</h2>
- <p>Đây là trang khách chấm sao và gửi góp ý. Mở trên điện thoại khác hoặc gửi qua Zalo để thử; mỗi lượt sẽ hiện trong dashboard này.</p>
- <a href={url} target="_blank" rel="noreferrer">{url}</a>
- <button type="button" onClick={copy}>Sao chép</button>
- {/* Phones open their own share sheet; a browser without one copies instead. */}
- <button type="button" onClick={()=>{if('share' in navigator)void navigator.share({title:'Trang đánh giá',url}).catch(()=>{});else void copy();}}>Chia sẻ</button>
- {status&&<p>{status}</p>}
- </section>;
-}
-function Support({support,canChange,change}:{support:Data['support'];canChange:boolean;change:(enabled:boolean)=>Promise<void>}){
- const [busy,setBusy]=useState(false);
- return <section className={styles.exports} aria-label="Hỗ trợ từ quản trị" data-support={support.feedback?'on':'off'}><h2>Hỗ trợ từ quản trị</h2>
- <p>Quản trị viên nền tảng luôn xem được số liệu tổng quan để hỗ trợ, và mỗi lượt đều hiện ở mục bên dưới. Nội dung góp ý của khách chỉ đọc được khi công tắc này đang bật. Xong việc thì tắt lại.</p>
- <label className={styles.switch}><input type="checkbox" role="switch" checked={support.feedback} disabled={!canChange||busy}
-  onChange={async e=>{setBusy(true);await change(e.target.checked);setBusy(false);}}/>Cho phép quản trị đọc góp ý riêng tư</label>
- {!canChange&&<p>Chỉ tài khoản chủ shop đổi được công tắc này.</p>}
- {support.history.length>0&&<p data-support-history>{support.history.map(h=>`${h.enabled?'Bật':'Tắt'} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
- </section>;
-}
-const TABS=[['data','Dữ liệu'],['design','Thiết kế giao diện'],['products','Sản phẩm & link']] as const;
-type Tab=typeof TABS[number][0];
+
 /** Seven days of openings, drawn with CSS bars: no chart library, and it reads the same on a phone. */
-function Week({daily}:{daily:Data['daily']}){
- const peak=Math.max(1,...daily.map(d=>d.opens));
- const day=(value:string)=>new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',weekday:'short'}).format(new Date(`${value}T12:00:00Z`));
- return <section className={styles.week} aria-label="Bảy ngày gần nhất" data-week><h2>Bảy ngày gần nhất</h2>
- <ol>{daily.map(point=><li key={point.day} data-day={point.day}>
-  <span className={styles.bar} style={{height:`${Math.round(point.opens/peak*100)}%`}} data-opens={point.opens}
-   title={`${point.day}: ${point.opens} lượt mở, ${point.sessions} phiên, ${point.rated} chấm sao`}/>
-  <strong>{point.opens}</strong><span>{day(point.day)}</span></li>)}</ol>
- <p className={styles.explain}>Cột là lượt mở trang theo giờ Việt Nam, không phụ thuộc bộ lọc bên dưới. Di chuột hoặc chạm vào cột để xem số phiên và số lượt chấm sao.</p>
- </section>;
+function Week({ daily }: { daily: Summary['daily'] }) {
+  const peak = Math.max(1, ...daily.map(d => d.opens));
+  const weekday = (value: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short' }).format(new Date(`${value}T12:00:00Z`));
+  return <section className={styles.panel} aria-label="Bảy ngày gần nhất" data-week><h2>Bảy ngày gần nhất</h2>
+    <ol className={styles.bars}>{daily.map(point => <li key={point.day} data-day={point.day}>
+      <span className={styles.bar} style={{ height: `${Math.round(point.opens / peak * 100)}%` }} data-opens={point.opens}
+        title={`${point.day}: ${point.opens} lượt truy cập, ${point.sessions} phiên, ${point.private} phản hồi riêng`} />
+      <strong>{point.opens}</strong><span>{weekday(point.day)}</span></li>)}</ol>
+    <p className={styles.hint}>Lượt truy cập trang khách theo giờ Việt Nam. Chạm vào cột để xem số phiên và phản hồi riêng.</p>
+  </section>;
 }
-function Sources({sources}:{sources:Data['sources']}){
- const total=sources.reduce((sum,row)=>sum+row.sessions,0);
- return <section className={styles.exports} aria-label="Nguồn thẻ" data-sources><h2>Nguồn thẻ</h2>
- {sources.length===0?<p>Chưa có phiên nào trong bộ lọc này.</p>:<ul className={styles.sources}>{sources.map(row=><li key={row.label} data-source={row.label}>
-  <span>{row.label}</span><strong>{row.sessions}</strong><span className={styles.muted}>{Math.round(row.sessions/Math.max(1,total)*100)}%</span></li>)}</ul>}
- </section>;
+
+/** The shop's customer page, to open on other phones or send over Zalo. No QR code: Tài chose not to add one. */
+function CustomerLink({ url }: { url: string }) {
+  const [status, setStatus] = useState('');
+  const copyLink = async () => { try { await navigator.clipboard.writeText(url); setStatus('Đã sao chép.'); } catch { setStatus('Chưa sao chép được. Giữ lâu vào đường dẫn để sao chép.'); } };
+  return <section className={styles.panel} aria-label="Trang khách" data-customer-link={url}><h2>Trang khách</h2>
+    <p className={styles.hint}>Trang khách mở ra khi chạm thẻ. Gửi qua Zalo hoặc mở trên điện thoại khác để thử; mỗi lượt sẽ hiện ở đây.</p>
+    <div className={styles.actions}><a href={url} target="_blank" rel="noreferrer" className={styles.linkBox}>{url}</a>
+      <button type="button" onClick={copyLink}>Sao chép</button>
+      {/* Phones open their own share sheet; a browser without one copies instead. */}
+      <button type="button" onClick={() => { if ('share' in navigator) void navigator.share({ title: 'Trang đánh giá', url }).catch(() => {}); else void copyLink(); }}>Chia sẻ</button></div>
+    {status && <p className={styles.hint}>{status}</p>}
+  </section>;
 }
-export default function OwnerDashboard({slug,name,customerUrl,impersonation}:{slug:string;name:string;customerUrl:string;impersonation:Impersonation|null}){
- const router=useRouter(),latest=useRef(0);
- const [data,setData]=useState<Data|null>(null),[busy,setBusy]=useState(true),[notice,setNotice]=useState(''),[expired,setExpired]=useState(false);
- const [filters,setFilters]=useState({from:localDate(29),to:localDate(),source:'',release:'',rating:'',status:''});
- const [query,setQuery]=useState(()=>new URLSearchParams({from:localDate(29),to:localDate()}).toString());
- const [cursor,setCursor]=useState(''),[dataset,setDataset]=useState('experiences'),[tab,setTab]=useState<Tab>('data');
- const endpoint=`/api/owner/v2/${encodeURIComponent(slug)}`;
- const refresh=useCallback((signal?:AbortSignal)=>{
- const sequence=++latest.current;
- return fetch(`${endpoint}?${query}${cursor?`&cursor=${encodeURIComponent(cursor)}`:''}`,{cache:'no-store',signal}).then(async response=>{
- if(signal?.aborted||sequence!==latest.current)return;
- if(response.status===401){setExpired(true);setData(null);setNotice(impersonation?'Phiên xem thay mặt đã kết thúc.':'Phiên đăng nhập đã hết hạn.');return;}
- if(response.status===403&&impersonation&&(await response.clone().json().catch(()=>({}))).error==='SUPPORT_NOT_GRANTED'){setData(null);setNotice('Chủ shop đã tắt quyền đọc góp ý. Kết thúc phiên này và mở lại ở phạm vi tổng quan.');return;}
- if(!response.ok){setData(null);setNotice(response.status===403?'Bạn không còn quyền truy cập shop này.':'Không thể tải dữ liệu. Vui lòng thử lại.');return;}
- const loaded=await response.json();if(!signal?.aborted&&sequence===latest.current&&document.visibilityState!=='hidden'){setData(loaded);setExpired(false);}
- }).catch(()=>{if(!signal?.aborted&&sequence===latest.current){setData(null);setNotice('Không thể kết nối. Vui lòng thử lại.');}}).finally(()=>{if(!signal?.aborted&&sequence===latest.current)setBusy(false);});
- },[endpoint,query,cursor,impersonation]);
- useEffect(()=>{const controller=new AbortController();void refresh(controller.signal);return()=>controller.abort();},[refresh]);
- useEffect(()=>{const change=()=>{if(document.visibilityState==='hidden'){latest.current++;setData(null);}else void refresh();};const restored=(event:PageTransitionEvent)=>{if(event.persisted)void refresh();};document.addEventListener('visibilitychange',change);window.addEventListener('pageshow',restored);return()=>{document.removeEventListener('visibilitychange',change);window.removeEventListener('pageshow',restored);};},[refresh]);
- const changeSupport=async(enabled:boolean)=>{
- try{const response=await fetch(`${endpoint}/support`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({permission:'feedback',enabled})});
- if(!response.ok){setNotice(response.status===401?'Phiên đăng nhập đã hết hạn.':'Chưa đổi được công tắc. Thử lại.');return;}
- setNotice(enabled?'Đã cho phép quản trị đọc góp ý.':'Đã tắt quyền đọc góp ý của quản trị.');await refresh();
- }catch{setNotice('Chưa xác nhận được công tắc. Tải lại để kiểm tra.');}};
- const save=async(row:ExperienceRow,status:string,note:string)=>{
- try{const response=await fetch(endpoint,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:row.session_id,expectedCaseRevision:row.case_revision,expectedExperienceRevision:row.experience_revision,status,note})});
- if(response.status===401){setExpired(true);setData(null);setNotice('Phiên đăng nhập đã hết hạn.');return false;}
- if(response.status===409){setNotice('Góp ý hoặc trạng thái đã thay đổi. Dữ liệu mới được tải lại; hãy kiểm tra trước khi lưu.');await refresh();return false;}
- if(!response.ok){setNotice('Không lưu được. Kiểm tra quyền truy cập và thử lại.');return false;}
- setNotice('Đã lưu xử lý.');await refresh();return true;
- }catch{setNotice('Chưa xác nhận được kết quả lưu. Tải lại để kiểm tra trước khi gửi lại.');return false;}};
- return <main className={styles.shell}>
- {impersonation&&<aside className={styles.impersonation} data-impersonation={impersonation.scope} role="note">
- <strong>Đang xem thay mặt chủ shop</strong> · {impersonation.admin} · {scopes[impersonation.scope]} · chỉ xem · hết hạn lúc {time(impersonation.expiresAt)}
- <p>Lý do: {impersonation.reason}</p>
- <button onClick={async()=>{try{const r=await fetch(`${endpoint}/impersonation`,{method:'DELETE'});if(r.ok){latest.current++;setData(null);router.replace('/gov');}else setNotice('Chưa kết thúc được phiên. Thử lại.');}catch{setNotice('Chưa kết thúc được phiên. Kiểm tra kết nối.');}}}>Kết thúc phiên</button>
- </aside>}
- <header className={styles.header}><div><p className={styles.brand}>NFC Feedback</p><h1>{name}</h1><span>Dữ liệu live · giờ Việt Nam</span>
- {data&&data.shops.length>1&&<label className={styles.shopPicker}>Shop đang xem<select value={slug} onChange={e=>{if(e.target.value!==slug)router.push(`/ZZZ/${e.target.value}`);}}>
-  {data.shops.map(shop=><option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}</div>
- {!impersonation&&<button onClick={async()=>{try{const r=await fetch('/api/owner/v2/logout',{method:'POST'});if(r.ok){latest.current++;setData(null);router.replace(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);router.refresh();}else setNotice('Chưa đăng xuất được. Thử lại.');}catch{setNotice('Chưa đăng xuất được. Kiểm tra kết nối.');}}}>Đăng xuất</button>}</header>
- <nav className={styles.tabs} role="tablist" aria-label="Phần của dashboard">{TABS.map(([id,label])=>
-  <button key={id} role="tab" type="button" aria-selected={tab===id} data-tab={id} onClick={()=>setTab(id)}>{label}</button>)}</nav>
- {tab!=='data'&&<section role="tabpanel" aria-label={TABS.find(([id])=>id===tab)![1]} className={styles.exports} data-soon={tab}>
-  <h2>{TABS.find(([id])=>id===tab)![1]}</h2>
-  <p>{tab==='design'?'Chỉnh poster, logo, nền, watermark và nút trên trang khách. Phần này đang được làm; hiện cấu hình chỉ đổi được qua quản trị.'
-   :'Sửa nút và đường dẫn, tạo thẻ cho từng bàn và kích hoạt thẻ. Phần này đang được làm.'}</p></section>}
- <div role="tabpanel" aria-label="Dữ liệu" hidden={tab!=='data'}>
- <form className={styles.filters} onSubmit={e=>{e.preventDefault();const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v);});setNotice('');setBusy(true);if(!cursor&&query===p.toString())void refresh();else{setCursor('');setQuery(p.toString());}}}>
- <label>Từ ngày<input type="date" value={filters.from} onChange={e=>setFilters({...filters,from:e.target.value})} required/></label>
- <label>Đến ngày<input type="date" value={filters.to} onChange={e=>setFilters({...filters,to:e.target.value})} required/></label>
- <label>Nguồn<select value={filters.source} onChange={e=>setFilters({...filters,source:e.target.value})}><option value="">Tất cả</option><option value="direct">Trực tiếp</option><option value="unknown">Chưa rõ nguồn</option>{data?.tags.map(t=><option value={t.id} key={t.id}>{t.label}</option>)}</select></label>
- <label>Bản phát hành<select value={filters.release} onChange={e=>setFilters({...filters,release:e.target.value})}><option value="">Tất cả</option><option value="unknown">Chưa rõ</option>{data?.releases.map(r=><option value={r.id} key={r.id}>{time(r.created_at)} · {r.id.slice(0,8)}</option>)}</select></label>
- <label>Số sao<select value={filters.rating} onChange={e=>setFilters({...filters,rating:e.target.value})}><option value="">Tất cả</option>{[1,2,3,4,5].map(n=><option key={n}>{n}</option>)}</select></label>
- <label>Xử lý góp ý<select value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="">Tất cả</option>{Object.entries(labels).map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></label>
- <button>Lọc dữ liệu</button></form>
- <p className={styles.explain}>Lọc lượt mở trang, xem đánh giá hiện tại của các phiên tương ứng. Phiên 15 phút không phải số khách duy nhất. Sao nội bộ không phải đánh giá Google.</p>
- <p role="status" aria-live="polite">{notice}</p>{expired&&(impersonation?<Link href="/gov">Về trang quản trị</Link>:<a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập lại</a>)}
- {busy&&<p>Đang tải dữ liệu…</p>}
- {!busy&&!data&&!expired&&<button onClick={()=>void refresh()}>Thử lại</button>}
- {data&&<>
- <section className={styles.metrics} aria-label="Tổng quan">{Object.entries({opens:'Lượt mở trang',sessions:'Phiên 15 phút',rated:'Trải nghiệm chấm sao',average:'Điểm nội bộ trung bình',feedback:'Có góp ý riêng',unresolved:'Góp ý chưa xử lý'}).map(([key,label])=><article key={key}><span>{label}</span><strong data-metric={key}>{data.metrics[key]??'—'}</strong></article>)}</section>
- <Week daily={data.daily}/>
- <Sources sources={data.sources}/>
- {!impersonation&&<section className={styles.exports}><h2>Tải dữ liệu</h2><label>Loại dữ liệu<select value={dataset} onChange={e=>setDataset(e.target.value)}><option value="experiences">Trải nghiệm hiện tại</option><option value="page_visits">Lượt mở trang</option><option value="receipts">Lịch sử đánh giá / góp ý</option></select></label>
- {['csv','jsonl','dictionary'].map(format=><a key={format} href={`${endpoint}/export?${query}&dataset=${dataset}&format=${format}`}>{format==='dictionary'?'Từ điển dữ liệu':format.toUpperCase()}</a>)}
- <p>CSV cho Excel. JSONL đọc theo từng dòng cho dữ liệu lớn. File giữ cùng bộ lọc đang áp dụng; lịch sử gồm toàn bộ sự kiện của nhóm phiên đã chọn.</p></section>}
- <section aria-label="Danh sách trải nghiệm"><h2>Trải nghiệm & góp ý</h2>{data.records.length===0?<p>Chưa có trải nghiệm phù hợp bộ lọc.</p>:data.records.map(row=><article className={styles.card} key={`${row.session_id}:${row.case_revision}:${row.experience_revision}`}>
- <div className={styles.row}><strong>{row.rating===null?'Chưa chấm sao':`${row.rating}/5 sao nội bộ`}</strong><time>{time(row.first_rated_at)}</time><span>{row.status?labels[row.status]:'Chưa gửi góp ý'}</span></div>
- <p className={styles.muted}>{row.source_label} · Bản {row.release_id?.slice(0,8)??'chưa rõ'} · Phiên {row.session_id.slice(0,8)}</p>
- {row.message&&<><p className={styles.message}>{row.message}</p><p className={styles.muted}>Chủ đề: {row.topic}</p>{row.phone&&<p className={styles.muted} data-phone>Số gọi lại: <a href={`tel:${row.phone}`}>{row.phone}</a></p>}{impersonation?(row.note&&<p className={styles.muted}>Ghi chú nội bộ: {row.note}</p>):<CaseForm row={row} save={save}/>}</>}
- {!row.message&&impersonation?.scope==='overview'&&row.status&&<p className={styles.muted}>Nội dung góp ý ẩn trong phạm vi tổng quan.</p>}
- </article>)}</section>
- <CustomerLink url={customerUrl}/>
- <Support support={data.support} canChange={!impersonation&&data.viewer.kind==='owner'&&data.viewer.role==='owner'} change={changeSupport}/>
- <AdminVisits visits={data.adminVisits}/>
- <nav className={styles.row} aria-label="Phân trang">{cursor&&<button onClick={()=>setCursor('')}>Về trang đầu</button>}{data.nextCursor&&<button onClick={()=>setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>
- </>}
- </div>
- </main>;
+
+function Support({ support, canChange, change }: { support: Summary['support']; canChange: boolean; change: (enabled: boolean) => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  return <section className={styles.panel} aria-label="Hỗ trợ từ quản trị" data-support={support.feedback ? 'on' : 'off'}><h2>Hỗ trợ từ quản trị</h2>
+    <p className={styles.hint}>Quản trị viên nền tảng luôn xem được số liệu tổng quan để hỗ trợ, và mỗi lượt đều hiện ở mục bên dưới. Nội dung góp ý của khách chỉ đọc được khi công tắc này đang bật. Xong việc thì tắt lại.</p>
+    <label className={styles.switch}><input type="checkbox" role="switch" checked={support.feedback} disabled={!canChange || busy}
+      onChange={async e => { setBusy(true); await change(e.target.checked); setBusy(false); }} />Cho phép quản trị đọc góp ý riêng tư</label>
+    {!canChange && <p className={styles.hint}>Chỉ tài khoản chủ shop đổi được công tắc này.</p>}
+    {support.history.length > 0 && <p className={styles.hint} data-support-history>{support.history.map(h => `${h.enabled ? 'Bật' : 'Tắt'} bởi ${h.by} lúc ${time(h.at)}`).join(' · ')}</p>}
+  </section>;
+}
+
+function AdminVisits({ visits }: { visits: Summary['adminVisits'] }) {
+  return <section className={styles.panel} aria-label="Lượt truy cập của quản trị" data-admin-visits><h2>Lượt truy cập của quản trị</h2>
+    <p className={styles.hint}>Mỗi lần quản trị viên nền tảng xem dashboard thay mặt shop đều được ghi lại ở đây, kèm lý do. Quản trị viên chỉ được xem, không sửa và không tải được dữ liệu.</p>
+    {visits.length === 0 ? <p>Chưa có lượt nào.</p> : <ul className={styles.list}>{visits.map(v => <li key={v.id} data-admin-visit={v.id}>
+      <strong>{v.admin}</strong> · {time(v.started_at)} · {SCOPES[v.scope]}
+      <p data-reason>{v.reason}</p>
+      <p className={styles.hint}>{v.ended_at ? `${ENDINGS[v.end_reason ?? 'ended']} lúc ${time(v.ended_at)}` : `hết hạn lúc ${time(v.expires_at)}`} · {v.reads} lần xem</p>
+    </li>)}</ul>}
+  </section>;
+}
+
+function CaseForm({ row, save }: { row: ExperienceRow; save: (row: ExperienceRow, status: string, note: string) => Promise<boolean> }) {
+  const [status, setStatus] = useState(row.status ?? 'new'), [note, setNote] = useState(row.note), [busy, setBusy] = useState(false);
+  return <form className={styles.caseForm} onSubmit={async e => { e.preventDefault(); setBusy(true); await save(row, status, note); setBusy(false); }}>
+    <label>Trạng thái<select value={status} onChange={e => setStatus(e.target.value)} disabled={busy}>{Object.entries(STATUS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label>
+    <label>Ghi chú nội bộ<textarea value={note} maxLength={2000} onChange={e => setNote(e.target.value)} disabled={busy} /></label>
+    <button disabled={busy}>{busy ? 'Đang lưu…' : 'Lưu xử lý'}</button>
+  </form>;
+}
+
+/** One row per response; the customer's own words span the whole table right under it, with the note button beside. */
+function FeedbackTable({ rows, readOnly, overview, save }: { rows: ExperienceRow[]; readOnly: boolean; overview: boolean; save: (row: ExperienceRow, status: string, note: string) => Promise<boolean> }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  if (rows.length === 0) return <p className={styles.hint}>Chưa có phản hồi trong khoảng này.</p>;
+  return <div className={styles.tableWrap}><table className={styles.table} data-feedback-table>
+    <thead><tr><th>Thời gian</th><th>Cảm xúc</th><th>Loại</th><th>Chủ đề</th><th>Nguồn</th><th>Số gọi lại</th><th>Xử lý</th></tr></thead>
+    <tbody>{rows.map(row => {
+      const face = faceFor(row.rating), hasFeedback = !!row.status;
+      return <Fragment key={`${row.session_id}:${row.case_revision}:${row.experience_revision}`}>
+        <tr data-row={row.session_id} className={hasFeedback ? styles.withMessage : undefined}>
+          <td>{time(row.first_rated_at)}</td>
+          <td className={styles.face}>{face ? <span role="img" aria-label={`${row.rating} sao`}>{face}</span> : <span title="Chưa chấm sao">—</span>}</td>
+          <td>Riêng tư</td>
+          <td>{row.topic ? TOPICS[row.topic] ?? row.topic : '—'}</td>
+          <td>{row.source_label}</td>
+          <td data-phone>{row.phone ? <a href={`tel:${row.phone}`}>{row.phone}</a> : '—'}</td>
+          <td><span className={styles.status} data-status={row.status ?? 'none'}>{row.status ? STATUS[row.status] : '—'}</span></td>
+        </tr>
+        {hasFeedback && <tr className={styles.messageRow} data-message-for={row.session_id}><td colSpan={7}>
+          <div className={styles.messageLine}>
+            <p className={styles.message}>{row.message ?? (overview ? 'Nội dung góp ý ẩn trong phạm vi tổng quan.' : '')}</p>
+            {!readOnly && <button type="button" className={styles.noteButton} aria-expanded={editing === row.session_id}
+              onClick={() => setEditing(editing === row.session_id ? null : row.session_id)}>{row.note ? 'Ghi chú ✎' : 'Ghi chú'}</button>}
+          </div>
+          {readOnly && row.note && <p className={styles.hint}>Ghi chú nội bộ: {row.note}</p>}
+          {!readOnly && !editing && row.note && <p className={styles.hint}>Ghi chú: {row.note}</p>}
+          {!readOnly && editing === row.session_id && <CaseForm row={row} save={async (...args) => { const ok = await save(...args); if (ok) setEditing(null); return ok; }} />}
+        </td></tr>}
+      </Fragment>;
+    })}</tbody>
+  </table></div>;
+}
+
+type Range = { key: Period | 'custom'; from: string; to: string };
+const rangeFor = (key: Period): Range => ({ key, from: hcmDate(key === 'today' ? 0 : key === 'week' ? 6 : 29), to: hcmDate() });
+
+export default function OwnerDashboard({ slug, name, customerUrl, impersonation }: { slug: string; name: string; customerUrl: string; impersonation: Impersonation | null }) {
+  const router = useRouter();
+  const endpoint = `/api/owner/v2/${encodeURIComponent(slug)}`;
+  const [view, setView] = useState<View>('home');
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [data, setData] = useState<Data | null>(null);
+  const [notice, setNotice] = useState(''), [expired, setExpired] = useState(false), [loading, setLoading] = useState(false);
+  const [periods, setPeriods] = useState<Record<string, Period>>({ visits: 'today', google: 'today', private: 'today' });
+  const [range, setRange] = useState<Range | null>(null);
+  const [custom, setCustom] = useState({ from: hcmDate(6), to: hcmDate() });
+  const [extra, setExtra] = useState({ source: '', release: '', rating: '', status: '' });
+  const [cursor, setCursor] = useState(''), [dataset, setDataset] = useState('experiences');
+  const latest = useRef(0);
+
+  const query = range ? (() => { const p = new URLSearchParams({ from: range.from, to: range.to }); Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v); }); return p.toString(); })() : '';
+  const fail = useCallback(async (response: Response) => {
+    if (response.status === 401) { setExpired(true); setNotice(impersonation ? 'Phiên xem thay mặt đã kết thúc.' : 'Phiên đăng nhập đã hết hạn.'); return; }
+    if (response.status === 403 && impersonation && (await response.clone().json().catch(() => ({}))).error === 'SUPPORT_NOT_GRANTED') { setNotice('Chủ shop đã tắt quyền đọc góp ý. Kết thúc phiên và mở lại ở phạm vi tổng quan.'); return; }
+    setNotice(response.status === 403 ? 'Bạn không còn quyền truy cập shop này.' : 'Không thể tải dữ liệu. Vui lòng thử lại.');
+  }, [impersonation]);
+  const loadSummary = useCallback(async () => {
+    try {
+      const response = await fetch(`${endpoint}/summary`, { cache: 'no-store' });
+      if (!response.ok) return fail(response);
+      setSummary(await response.json()); setExpired(false);
+    } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
+  }, [endpoint, fail]);
+  const loadData = useCallback(async (quiet = false) => {
+    if (!query) return;
+    const sequence = ++latest.current;
+    if (!quiet) setLoading(true);
+    try {
+      const response = await fetch(`${endpoint}?${query}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
+      if (sequence !== latest.current) return;
+      if (!response.ok) { await fail(response); return; }
+      setData(await response.json()); setExpired(false);
+    } catch { if (sequence === latest.current) setNotice('Không thể kết nối. Vui lòng thử lại.'); }
+    finally { if (sequence === latest.current) setLoading(false); }
+  }, [endpoint, query, cursor, fail]);
+
+  // Loads start after the render that asked for them (a microtask), never synchronously inside the effect.
+  useEffect(() => { void Promise.resolve().then(loadSummary); }, [loadSummary]);
+  useEffect(() => { void Promise.resolve().then(() => loadData()); }, [loadData]);
+  // Keep what is on screen while the tab is hidden; on return refresh quietly in the background.
+  useEffect(() => {
+    const refresh = () => { void loadSummary(); void loadData(true); };
+    const visible = () => { if (document.visibilityState === 'visible') refresh(); };
+    const restored = (event: PageTransitionEvent) => { if (event.persisted) refresh(); };
+    document.addEventListener('visibilitychange', visible); window.addEventListener('pageshow', restored);
+    return () => { document.removeEventListener('visibilitychange', visible); window.removeEventListener('pageshow', restored); };
+  }, [loadSummary, loadData]);
+
+  const pick = (key: Period) => { setNotice(''); setCursor(''); setRange(rangeFor(key)); };
+  const changeSupport = async (enabled: boolean) => {
+    try {
+      const response = await fetch(`${endpoint}/support`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ permission: 'feedback', enabled }) });
+      if (!response.ok) { setNotice(response.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : 'Chưa đổi được công tắc. Thử lại.'); return; }
+      setNotice(enabled ? 'Đã cho phép quản trị đọc góp ý.' : 'Đã tắt quyền đọc góp ý của quản trị.'); await loadSummary();
+    } catch { setNotice('Chưa xác nhận được công tắc. Tải lại để kiểm tra.'); }
+  };
+  const save = async (row: ExperienceRow, status: string, note: string) => {
+    try {
+      const response = await fetch(endpoint, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: row.session_id, expectedCaseRevision: row.case_revision, expectedExperienceRevision: row.experience_revision, status, note }) });
+      if (response.status === 401) { setExpired(true); setNotice('Phiên đăng nhập đã hết hạn.'); return false; }
+      if (response.status === 409) { setNotice('Góp ý hoặc trạng thái đã thay đổi. Dữ liệu mới được tải lại; hãy kiểm tra trước khi lưu.'); await loadData(true); return false; }
+      if (!response.ok) { setNotice('Không lưu được. Kiểm tra quyền truy cập và thử lại.'); return false; }
+      setNotice('Đã lưu xử lý.'); await Promise.all([loadData(true), loadSummary()]); return true;
+    } catch { setNotice('Chưa xác nhận được kết quả lưu. Tải lại để kiểm tra trước khi gửi lại.'); return false; }
+  };
+  const logout = async () => {
+    try { const r = await fetch('/api/owner/v2/logout', { method: 'POST' }); if (r.ok) { setSummary(null); setData(null); router.replace(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`); } else setNotice('Chưa đăng xuất được. Thử lại.'); }
+    catch { setNotice('Chưa đăng xuất được. Thử lại.'); }
+  };
+  const endStandIn = async () => {
+    try { const r = await fetch(`${endpoint}/impersonation`, { method: 'DELETE' }); if (r.ok) { setSummary(null); setData(null); router.replace('/gov'); } else setNotice('Chưa kết thúc được phiên. Thử lại.'); }
+    catch { setNotice('Chưa kết thúc được phiên. Thử lại.'); }
+  };
+
+  const totals = summary?.totals;
+  const owner = !impersonation;
+  const title = VIEWS.find(([id]) => id === view)![1];
+  return <div className={styles.app}>
+    <aside className={styles.side}>
+      <div className={styles.avatar} aria-hidden="true">{initials(name)}</div>
+      <p className={styles.shopName}>{name}</p>
+      <p className={styles.account}>{summary ? summary.account : ' '}</p>
+      {summary && summary.shops.length > 1 && <label className={styles.picker}>Shop đang xem
+        <select value={slug} onChange={e => { if (e.target.value !== slug) router.push(`/ZZZ/${e.target.value}`); }}>
+          {summary.shops.map(shop => <option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}
+      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.map(([id, label, icon]) =>
+        <button key={id} type="button" data-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}><Icon path={icon} /><span>{label}</span></button>)}</nav>
+      {owner && <button type="button" className={styles.logout} onClick={logout}>Đăng xuất</button>}
+    </aside>
+    <main className={styles.content}>
+      {impersonation && <aside className={styles.impersonation} data-impersonation={impersonation.scope} role="note">
+        <strong>Đang xem thay mặt chủ shop</strong> · {impersonation.admin} · {SCOPES[impersonation.scope]} · chỉ xem · hết hạn lúc {time(impersonation.expiresAt)}
+        <p>Lý do: {impersonation.reason}</p>
+        <button type="button" onClick={endStandIn}>Kết thúc phiên</button>
+      </aside>}
+      <header className={styles.top}><p className={styles.brand}>NFC Feedback</p><h1>{title}</h1></header>
+      <p role="status" aria-live="polite" className={styles.notice}>{notice}</p>
+      {expired && (impersonation ? <Link href="/gov">Về trang quản trị</Link> : <a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập lại</a>)}
+
+      {view === 'home' && <section aria-label="Tổng quan" data-panel="home">
+        {!totals ? <p className={styles.hint}>Đang tải…</p> : <>
+          <div className={styles.kpis}>
+            <Kpi id="visits" accent title="Lượt truy cập" value={String(totals[periods.visits].opens)} sub={`${totals[periods.visits].sessions} phiên`}
+              period={periods.visits} onPeriod={p => setPeriods({ ...periods, visits: p })} />
+            <Kpi id="google" title="Đánh giá Google" value="—" sub="Chưa kết nối Google" period={periods.google} onPeriod={p => setPeriods({ ...periods, google: p })} />
+            <Kpi id="private" title="Phản hồi riêng tư" value={String(totals[periods.private].private)} sub={`${totals[periods.private].messages} có lời nhắn`}
+              period={periods.private} onPeriod={p => setPeriods({ ...periods, private: p })} />
+            <Kpi id="unresolved" title="Góp ý chưa xử lý" value={String(summary!.unresolved)} sub="Tất cả thời gian" />
+          </div>
+          <p className={styles.hint} data-google-note>Số đánh giá Google sẽ có khi shop kết nối Google Business Profile. Trang khách không biết được khách đã đăng review hay chưa.</p>
+          <Week daily={summary!.daily} />
+          <CustomerLink url={customerUrl} />
+        </>}
+      </section>}
+
+      {view === 'data' && <section aria-label="Dữ liệu" data-panel="data">
+        <div className={styles.panel}>
+          <div className={styles.presets} role="group" aria-label="Khoảng thời gian">
+            {(Object.keys(PERIODS) as Period[]).map(key => <button key={key} type="button" aria-pressed={range?.key === key} onClick={() => pick(key)}>{PERIODS[key]}</button>)}
+            <button type="button" aria-pressed={range?.key === 'custom'} onClick={() => { setCursor(''); setRange({ key: 'custom', ...custom }); }}>Tùy chọn</button>
+          </div>
+          {range?.key === 'custom' && <form className={styles.filters} onSubmit={e => { e.preventDefault(); setCursor(''); setRange({ key: 'custom', ...custom }); }}>
+            <label>Từ ngày<input type="date" value={custom.from} onChange={e => setCustom({ ...custom, from: e.target.value })} required /></label>
+            <label>Đến ngày<input type="date" value={custom.to} onChange={e => setCustom({ ...custom, to: e.target.value })} required /></label>
+            <button>Xem</button></form>}
+          {data && <form className={styles.filters} onSubmit={e => { e.preventDefault(); setCursor(''); void loadData(); }}>
+            <label>Nguồn<select value={extra.source} onChange={e => setExtra({ ...extra, source: e.target.value })}><option value="">Tất cả</option><option value="direct">Trực tiếp</option><option value="unknown">Chưa rõ</option>{data.tags.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
+            <label>Bản phát hành<select value={extra.release} onChange={e => setExtra({ ...extra, release: e.target.value })}><option value="">Tất cả</option><option value="unknown">Chưa rõ</option>{data.releases.map(r => <option key={r.id} value={r.id}>{time(r.created_at)} · {r.id.slice(0, 8)}</option>)}</select></label>
+            <label>Cảm xúc<select value={extra.rating} onChange={e => setExtra({ ...extra, rating: e.target.value })}><option value="">Tất cả</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{faceFor(n)} {n}</option>)}</select></label>
+            <label>Xử lý<select value={extra.status} onChange={e => setExtra({ ...extra, status: e.target.value })}><option value="">Tất cả</option>{Object.entries(STATUS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label>
+          </form>}
+          {!range && <p className={styles.hint}>Chọn khoảng thời gian để xem dữ liệu. Dữ liệu chỉ tải khi bạn chọn, để dashboard luôn nhẹ.</p>}
+        </div>
+        {loading && <p className={styles.hint}>Đang tải dữ liệu…</p>}
+        {data && range && <>
+          <div className={styles.kpis}>{Object.entries({ opens: 'Lượt truy cập', sessions: 'Phiên 15 phút', rated: 'Có chấm sao', average: 'Điểm trung bình', feedback: 'Có lời nhắn', unresolved: 'Chưa xử lý' })
+            .map(([key, label]) => <article key={key} className={styles.small}><span>{label}</span><strong data-metric={key}>{data.metrics[key as keyof typeof data.metrics] ?? '—'}</strong></article>)}</div>
+          <section className={styles.panel} aria-label="Nguồn thẻ" data-sources><h2>Nguồn thẻ</h2>
+            {data.sources.length === 0 ? <p className={styles.hint}>Chưa có phiên nào trong khoảng này.</p> : <ul className={styles.sources}>{data.sources.map(row => <li key={row.label} data-source={row.label}>
+              <span>{row.label}</span><strong>{row.sessions}</strong></li>)}</ul>}
+          </section>
+          <section className={styles.panel} aria-label="Phản hồi của khách"><h2>Phản hồi của khách</h2>
+            <FeedbackTable rows={data.records} readOnly={!!impersonation} overview={impersonation?.scope === 'overview'} save={save} />
+            <nav className={styles.actions} aria-label="Phân trang">{cursor && <button type="button" onClick={() => setCursor('')}>Về trang đầu</button>}{data.nextCursor && <button type="button" onClick={() => setCursor(data.nextCursor!)}>Trang tiếp</button>}</nav>
+          </section>
+          {owner && <section className={styles.panel} aria-label="Tải dữ liệu"><h2>Tải dữ liệu</h2>
+            <div className={styles.actions}><label>Loại dữ liệu<select value={dataset} onChange={e => setDataset(e.target.value)}><option value="experiences">Phản hồi hiện tại</option><option value="page_visits">Lượt truy cập</option><option value="receipts">Lịch sử phản hồi</option></select></label>
+              {['csv', 'jsonl', 'dictionary'].map(format => <a key={format} className={styles.linkButton} href={`${endpoint}/export?${query}&dataset=${dataset}&format=${format}`}>{format === 'dictionary' ? 'Từ điển dữ liệu' : format.toUpperCase()}</a>)}</div>
+            <p className={styles.hint}>CSV cho Excel. JSONL đọc theo từng dòng cho dữ liệu lớn. File giữ cùng khoảng thời gian và bộ lọc đang áp dụng.</p></section>}
+        </>}
+      </section>}
+
+      {view === 'design' && <section className={styles.panel} aria-label="Thiết kế & Link" data-panel="design" data-soon="design">
+        <h2>Thiết kế & Link</h2>
+        <p className={styles.hint}>Chỉnh poster, logo, nền, watermark, nút máy bay và các nút link trên trang khách; tạo thẻ cho từng bàn và kích hoạt thẻ. Phần này đang được làm.</p>
+      </section>}
+
+      {view === 'settings' && <section aria-label="Cài đặt" data-panel="settings">
+        {summary && <section className={styles.panel} aria-label="Tài khoản"><h2>Tài khoản</h2>
+          <p><strong>{summary.account}</strong> · {summary.viewer.kind === 'admin' ? 'quản trị viên đang xem thay mặt' : summary.viewer.role === 'owner' ? 'chủ shop' : 'quản lý'}</p>
+          <p className={styles.hint}>Đổi mật khẩu và tài khoản phụ sẽ có ở đây.</p></section>}
+        {summary && <Support support={summary.support} canChange={owner && summary.viewer.kind === 'owner' && summary.viewer.role === 'owner'} change={changeSupport} />}
+        {summary && <AdminVisits visits={summary.adminVisits} />}
+      </section>}
+    </main>
+  </div>;
 }

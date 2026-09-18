@@ -8,12 +8,25 @@ import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './fil
  */
 // `day` is a keyword, so the alias needs AS.
 const daySeries = `SELECT to_char(d.day,'YYYY-MM-DD') AS day,
-    count(v.id)::int opens, count(DISTINCT v.session_id)::int sessions, count(DISTINCT e.session_id)::int rated
+    count(v.id)::int opens, count(DISTINCT v.session_id)::int sessions,
+    (SELECT count(DISTINCT r.session_id)::int FROM rating_intent_receipts r WHERE r.shop_id=$1 AND r.scope='live'
+      AND (timezone('Asia/Ho_Chi_Minh',r.applied_at))::date=d.day) private
   FROM generate_series((timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date-6,(timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date,interval '1 day') d(day)
   LEFT JOIN page_visits v ON v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date=d.day
-  LEFT JOIN rating_experiences e ON e.session_id=v.session_id AND e.rating IS NOT NULL
   GROUP BY d.day`;
-export type DayPoint = { day: string; opens: number; sessions: number; rated: number };
+/**
+ * Today, the last 7 and the last 30 Ho Chi Minh days. "private" counts sessions that sent the feedback card at least
+ * once (stars, words or both) in the period; "messages" counts sessions whose written feedback was last sent in it.
+ */
+const periodTotals = `SELECT p.key,
+  (SELECT count(*)::int FROM page_visits v WHERE v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date>=b.today-p.back) opens,
+  (SELECT count(DISTINCT v.session_id)::int FROM page_visits v WHERE v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date>=b.today-p.back) sessions,
+  (SELECT count(DISTINCT r.session_id)::int FROM rating_intent_receipts r WHERE r.shop_id=$1 AND r.scope='live' AND (timezone('Asia/Ho_Chi_Minh',r.applied_at))::date>=b.today-p.back) private,
+  (SELECT count(*)::int FROM rating_experiences e WHERE e.shop_id=$1 AND e.scope='live' AND e.feedback_message IS NOT NULL AND (timezone('Asia/Ho_Chi_Minh',e.feedback_updated_at))::date>=b.today-p.back) messages
+  FROM (SELECT (timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date today) b, (VALUES ('today',0),('week',6),('month',29)) p(key,back)`;
+export type Period = 'today' | 'week' | 'month';
+export type PeriodTotals = { opens: number; sessions: number; private: number; messages: number };
+export type DayPoint = { day: string; opens: number; sessions: number; private: number };
 export type SourceCount = { label: string; sessions: number };
 export const utc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_at')} first_rated_at,${utc('e.updated_at')} updated_at,
@@ -76,17 +89,36 @@ export class OwnerDashboard {
         COALESCE((SELECT jsonb_agg(sources ORDER BY sessions DESC,label) FROM (SELECT COALESCE(NULLIF(t.location_label,''),
           CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) label,
           count(*)::int sessions FROM selected s LEFT JOIN tags t ON t.id=s.tag_id GROUP BY 1 LIMIT 50) sources),'[]') sources,
-        COALESCE((SELECT jsonb_agg(days ORDER BY day) FROM (${daySeries}) days),'[]') daily,
         COALESCE((SELECT jsonb_agg(page ORDER BY first_rated_at DESC,session_id DESC) FROM page),'[]') records`,values)).rows[0];
       const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];
-      const daily=result.daily as DayPoint[], sources=result.sources as SourceCount[];
-      delete result.records;delete result.tags;delete result.releases;delete result.daily;delete result.sources;
+      const sources=result.sources as SourceCount[];
+      delete result.records;delete result.tags;delete result.releases;delete result.sources;
       const actor=access.actor, hidden=actor.kind==='admin'&&actor.scope==='overview';
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
       const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:''}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
         detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
-      return {shop:{slug:access.slug,name:access.name},shops:await accessibleShops(db,access),daily,sources,viewer:viewer(access),adminVisits:await adminVisits(db,access.shopId),support:await support(db,access.shopId),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
+      return {shop:{slug:access.slug,name:access.name},sources,viewer:viewer(access),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};
+    });
+  }
+  /**
+   * The light first view: period totals, seven days and the account around it, but no feedback rows, so opening the
+   * dashboard stays fast however much data the shop has. Rows load only when the Data view asks for them.
+   */
+  async summary(credential: OwnerCredential, slug: string) {
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'overview');
+      const totals = Object.fromEntries((await db.query(periodTotals, [access.shopId])).rows.map(({ key, ...rest }) => [key, rest])) as Record<Period, PeriodTotals>;
+      const daily = (await db.query(`SELECT * FROM (${daySeries}) days ORDER BY day`, [access.shopId])).rows as DayPoint[];
+      const unresolved = (await db.query(`SELECT count(*)::int n FROM rating_experiences e LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id
+        WHERE e.shop_id=$1 AND e.scope='live' AND ${effectiveStatus}<>'resolved'`, [access.shopId])).rows[0].n as number;
+      const actor = access.actor;
+      const account = actor.kind === 'admin' ? actor.adminUsername
+        : (await db.query('SELECT username FROM owner_identities_v2 WHERE id=$1', [access.userId])).rows[0].username as string;
+      if (actor.kind === 'admin') await recordAdminAction(db, actor.adminId, { action: 'impersonation.read', shopId: access.shopId, onBehalfOf: access.userId,
+        detail: { session: actor.sessionId, scope: actor.scope, view: 'summary', rows: 0, feedbackShown: false } });
+      return { shop: { slug: access.slug, name: access.name }, account, shops: await accessibleShops(db, access), viewer: viewer(access),
+        totals, daily, unresolved, adminVisits: await adminVisits(db, access.shopId), support: await support(db, access.shopId) };
     });
   }
   /**

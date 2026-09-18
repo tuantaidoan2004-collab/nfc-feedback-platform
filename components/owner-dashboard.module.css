@@ -2,16 +2,3 @@
 .impersonation{background:#fbeed8;border:1px solid #cd923c;border-radius:14px;padding:14px 18px;margin-bottom:20px;font-size:14px;line-height:1.6;overflow-wrap:anywhere}.impersonation p{margin:6px 0 10px}
 .switch{display:flex!important;align-items:center;gap:10px;flex-basis:100%}.switch input{width:22px!important;height:22px;margin:0}
 
-.brand{font-size:11px;letter-spacing:.16em;font-weight:700;color:#4a6a58;text-transform:uppercase}
-.shopPicker{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#4a6a58}
-.shopPicker select{min-height:40px;padding:6px 10px;border:1px solid #cdd8c9;border-radius:10px;background:#fff;font-size:15px;color:#17382c;max-width:260px}
-.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 8px;border-bottom:1px solid #dce4d8;padding-bottom:8px}
-.tabs button{min-height:44px;padding:8px 16px;border:1px solid transparent;border-radius:999px;background:transparent;color:#41604f;font-size:14px;font-weight:650;cursor:pointer}
-.tabs button[aria-selected="true"]{background:#e7eee2;border-color:#c6d4c0;color:#17382c}
-.week{background:#fff;border:1px solid #e1e7dd;border-radius:16px;padding:18px;margin:20px 0}
-.week ol{display:flex;align-items:flex-end;gap:8px;list-style:none;margin:14px 0 0;padding:0;height:170px}
-.week li{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;font-size:11px;color:#5d6f62}
-.week li strong{font-size:13px;color:#17382c}
-.week .bar{display:block;width:100%;max-width:38px;min-height:3px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,#3c6a54,#22493a);margin-top:auto}
-.sources{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
-.sources li{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;border-top:1px solid #e6ebe2;padding-top:8px}

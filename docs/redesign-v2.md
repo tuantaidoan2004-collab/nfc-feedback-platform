@@ -147,3 +147,20 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 Tài không đăng nhập được `yourshop` / `1` trên preview. Không đọc được database của Tài nên không xác định được nguyên nhân trong ba khả năng: tài khoản chưa có, mật khẩu không phải `1`, hoặc bị khoá vì thử quá 8 lần trong 15 phút. Vì vậy `/gov` có thêm nút **"Đặt lại tài khoản test (yourshop / 1)"**, xử lý cả ba: đặt lại mật khẩu, bật lại tài khoản và quyền chủ shop trên khuôn, xoá luôn bản đếm chặn đăng nhập của tên đó. Ghi sổ `template.account.reset`. Vẫn bị từ chối trên production (`TEST_ACCOUNT_FORBIDDEN`) vì mật khẩu cố tình yếu.
 
 Điều này thay quy tắc cũ "gọi lại không bao giờ đặt lại mật khẩu": nút **Tạo** vẫn không đặt lại, nút **Đặt lại** thì có, và chỉ hiện khi khuôn đã có tài khoản.
+
+## Lát C2 — dashboard kiểu bảng điều khiển — 2026-09-18
+
+Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, ô số lớn, biểu đồ) và yêu cầu:
+
+- **Menu bên trái:** Tổng quan · Dữ liệu · Thiết kế & Link (gộp hai tab cũ) · Cài đặt. Trên điện thoại menu thành một hàng cuộn ngang ở đầu trang.
+- **Tổng quan** chỉ tải một gói nhẹ (`GET /api/owner/v2/<shop>/summary`), **không có danh sách phản hồi**, nên mở nhanh dù shop nhiều dữ liệu. Gồm:
+  - bốn ô số: **Lượt truy cập**, **Đánh giá Google**, **Phản hồi riêng tư**, **Góp ý chưa xử lý**. Ba ô đầu có nút ☰ để chọn Hôm nay / 7 ngày / 30 ngày, đổi ngay không tải lại;
+  - **Đánh giá Google** hiện "Chưa kết nối Google": trang khách không biết được khách đã đăng review. Cách hợp lệ là shop kết nối **Google Business Profile** (API của Google, chủ shop đồng ý) để lấy số review mới và số sao theo ngày, nhưng không gắn được với từng khách chạm thẻ. Việc này để lát sau;
+  - "Phản hồi riêng tư" đếm số phiên đã gửi thẻ góp ý (sao, chữ hoặc cả hai) trong khoảng; dòng phụ là số phiên có lời nhắn;
+  - biểu đồ 7 ngày và link trang khách.
+- **Dữ liệu** không tải gì cho tới khi chọn **Hôm nay / 7 ngày / 30 ngày / Tùy chọn**. Sau lần tải đầu mới hiện bộ lọc thêm (nguồn, bản phát hành, cảm xúc, xử lý); đổi bộ lọc là tải lại ngay.
+  - **"Phản hồi của khách"** (tên mới của "Trải nghiệm & góp ý") là **bảng truyền thống**: Thời gian · Cảm xúc · Loại · Chủ đề · Nguồn · Số gọi lại · Xử lý. Lời khách viết nằm ở **dòng phụ trải ngang cả bảng** ngay dưới dòng chính, kèm nút **Ghi chú** bên cạnh để mở phần xử lý. Trên điện thoại bảng cuộn ngang, còn dòng phụ và nút Ghi chú luôn dính theo chiều rộng màn hình.
+  - Số sao hiện bằng **emoji** 😡 😤 😕 😊 🤩 (dùng chung `lib/faces.ts` với trang khách). Chủ đề hiện bằng tiếng Việt. Cột "Loại" hiện là "Riêng tư"; sau này thêm "Google" khi có kết nối.
+- **Cài đặt:** tài khoản và vai trò, công tắc hỗ trợ, lượt truy cập của quản trị. Đổi mật khẩu và tài khoản phụ để sau.
+- **Rời tab không còn xoá dữ liệu.** Trước đây (quyết định cũ trong `owner-dashboard-v2.md`) dashboard bỏ dữ liệu khỏi bộ nhớ khi tab bị ẩn và tải lại khi quay về, gây chờ 1–2 giây. Tài chọn tốc độ; giờ dữ liệu ở lại, quay về thì âm thầm cập nhật. Khôi phục từ BFCache vẫn tải lại.
+- **Sao trên trang khách:** đã bỏ lưu khi chạm từ lát B3; chỉ nút Gửi mới lưu.

@@ -96,6 +96,10 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **macOS không có lệnh `timeout`.** Lệnh báo exit 127 mà không chạy gì.
 
+**Phần tử render phía server hiện ra trước khi trang hydrate.** Banner mạo danh có sẵn trong HTML, nên chờ nó rồi bấm nút menu thì cú bấm rơi vào nút chưa có trình xử lý: nút nhận focus nhưng không có gì xảy ra. Chờ một thứ do client tải (ô số liệu) trước khi bấm.
+
+**Playwright xoá `test-results/` mỗi lần chạy.** Ảnh chụp của bộ trước mất khi chạy bộ sau; chép ra scratchpad ngay sau khi chạy.
+
 **Đừng kiểm database ngay sau khi bấm một nút.** Nút gửi request rồi mới hiện thông báo; đọc bảng một lần ngay sau đó thấy 0 dòng và trông như nút hỏng. Dùng `expect.poll`.
 
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.

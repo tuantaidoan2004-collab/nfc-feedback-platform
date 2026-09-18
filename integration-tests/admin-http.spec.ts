@@ -126,7 +126,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await expect(page.locator('[data-metric="opens"]')).toBeVisible();
+ await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
  await expect(page).toHaveURL(`${origin}/ZZZ/${slug}`);
  // The customer page is right there, to open on other phones.
  await expect(page.locator(`[data-customer-link="${origin}/${slug}"]`)).toBeVisible();
@@ -149,7 +149,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');
  await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await expect(page.getByRole('heading',{name:'YOUR SHOP',exact:true})).toBeVisible();
+ await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 
  // Password unknown and the username locked out by failed attempts: one press puts both back.
  await admin.db.query("UPDATE owner_identities_v2 SET password_key=repeat('0',64) WHERE username='yourshop'");
@@ -168,7 +168,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.goto(`/ZZZ/${templateSlug}`);
  await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await expect(page.getByRole('heading',{name:'YOUR SHOP',exact:true})).toBeVisible();
+ await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 });
 
 test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{
@@ -205,6 +205,8 @@ async function standIn(page:Page,shop:string,scope:'overview'|'feedback',reason:
  await page.getByLabel('Lý do (chủ shop sẽ đọc)',{exact:true}).fill(reason);
  await page.getByRole('button',{name:'Mở dashboard',exact:true}).click();
  await expect(page.locator(`[data-impersonation="${scope}"]`)).toBeVisible();
+ // The banner is server-rendered; wait for the client's own data so clicks land after hydration.
+ await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 }
 
 test('impersonation: cookie stays on one shop, support never exports, feedback only while the owner allows it',async({page,context,browser,admin})=>{
@@ -225,10 +227,14 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  await signIn(page,admin.username);
  await standIn(page,shopName,'overview',overviewReason);
  await expect(page).toHaveURL(`${origin}/ZZZ/${made.slug}`);
+ await expect(page.locator('[data-kpi="private"] [data-kpi-value]')).toHaveText('1');
+ await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
  await expect(page.locator('[data-metric="feedback"]')).toHaveText('1');
+ await expect(page.locator('[data-message-for]')).toContainText('Nội dung góp ý ẩn trong phạm vi tổng quan.');
  await expect(page.getByText('Góp ý kín của khách')).toHaveCount(0);
- for(const name of ['Lưu xử lý','Đăng xuất'])await expect(page.getByRole('button',{name})).toHaveCount(0);
+ for(const name of ['Lưu xử lý','Đăng xuất',/^Ghi chú/])await expect(page.getByRole('button',{name})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
+ await page.locator('[data-view="settings"]').click();
  await expect(page.getByRole('switch')).toBeDisabled();
 
  const cookies=(await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1');
@@ -267,6 +273,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await ownerPage.getByLabel('Tài khoản',{exact:true}).fill('quan-hotro');
   await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+  await ownerPage.locator('[data-view="settings"]').click();
   const toggle=ownerPage.getByRole('switch',{name:'Cho phép quản trị đọc góp ý riêng tư'});
   await expect(toggle).not.toBeChecked();
   await toggle.click();
@@ -275,7 +282,9 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await page.goto('/gov');
   await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-feedback-support="on"]')).toBeVisible();
   await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
+  await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
   await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
+  await expect(page.getByRole('button',{name:/^Ghi chú/})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
   await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
   await refusedExports();
@@ -298,11 +307,14 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
 
   // The owner sees both visits with the reason exactly as typed, and their own two switches.
   await ownerPage.reload();
+  await ownerPage.locator('[data-view="settings"]').click();
   await expect(ownerPage.locator('[data-admin-visits] [data-admin-visit]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-reason]').filter({hasText:overviewReason})).toHaveText(overviewReason);
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Tắt bởi quan-hotro');
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Bật bởi quan-hotro');
   await expect(ownerPage.locator('[data-impersonation]')).toHaveCount(0);
+  await ownerPage.locator('[data-view="data"]').click();await ownerPage.getByRole('button',{name:'7 ngày',exact:true}).click();
+  await ownerPage.getByRole('button',{name:/^Ghi chú/}).click();
   await expect(ownerPage.getByRole('button',{name:'Lưu xử lý'})).toBeVisible();
   await expect(ownerPage.getByRole('link',{name:'CSV',exact:true})).toBeVisible();
  }finally{await owner.close();}

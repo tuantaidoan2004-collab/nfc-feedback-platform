@@ -508,7 +508,14 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kiểm commit `79d4c66`: tsc/eslint exit 0; repository **94**; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **4 + 2**; admin **5 + 2**; tất cả exit 0. Không có migration.
 - **Lỗi của agent:** test kiểm sổ ngay sau khi bấm nút, trước khi request kịp xong, nên đỏ nhầm; đổi sang `expect.poll`.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát C)
+## Lát C2: dashboard kiểu bảng điều khiển — 2026-09-18
+
+- Menu bên trái (Tổng quan · Dữ liệu · Thiết kế & Link · Cài đặt); Tổng quan chỉ tải tổng số qua `/summary`; Dữ liệu chỉ tải khi chọn khoảng thời gian; phản hồi hiện thành bảng, lời khách ở dòng phụ trải ngang, số sao thành emoji. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát C2.
+- **Thay quyết định cũ:** dashboard không còn xoá dữ liệu khi tab bị ẩn (Tài chọn tốc độ). Ghi trong `owner-dashboard-v2.md`.
+- **Đánh giá Google:** agent nói rõ không thể biết khách đã đăng review từ trang khách; cách hợp lệ là Google Business Profile, để lát sau.
+- **Bẫy trong lát:** test bấm menu khi trang chưa hydrate (banner mạo danh render phía server nên xuất hiện trước khi nút có trình xử lý) → chờ số liệu phía client trước khi bấm. Test xung đột ghi chú phải tải dữ liệu *trước* khi người khác sửa, vì Dữ liệu giờ chỉ tải khi chọn khoảng.
+
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát C2)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
 
@@ -531,14 +538,14 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- nội dung tab Thiết kế giao diện và Sản phẩm & link; editor; công tắc 4 vị trí;
+- nội dung mục Thiết kế & Link; editor; công tắc 4 vị trí; kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ;
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 
 ### Lát tiếp theo
 
-1. **Lát D: tab Thiết kế giao diện** (gồm chỉnh nút máy bay, poster, logo, nền) và công tắc 4 vị trí.
-2. Lát E: Sản phẩm & link, thẻ theo bàn, kích hoạt thẻ.
+1. **Lát D: mục Thiết kế & Link** (poster, logo, nền, nút máy bay, các nút link, thẻ theo bàn) và công tắc 4 vị trí.
+2. Lát E: kích hoạt thẻ; kết nối Google Business Profile để đếm đánh giá Google.
 3. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
 import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
+import { FACES } from '@/lib/faces';
 import './guest-page.css';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
@@ -59,8 +60,6 @@ const pageCopy = {
     phone: 'Phone, if you would like the manager to call back', phoneHint: 'Only the shop’s managers see this number',
     thanks: 'Thank you — we are grateful for your feedback' },
 } as const;
-/** The chosen score turns every filled star into that score's face. */
-const FACES = ['😡', '😤', '😕', '😊', '🤩'] as const;
 const HINT_DELAY_MS = 2000;
 
 const noop = () => () => {};
