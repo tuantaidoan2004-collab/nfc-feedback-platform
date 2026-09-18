@@ -566,7 +566,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–015 đã có trên Neon production và preview; 016 (lát F4) chờ Tài chạy.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–016 đã có trên Neon production và preview.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`, và 5 biến R2 cho branch (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET=nfc-media`, `MEDIA_PUBLIC_ORIGIN=https://pub-fc28….r2.dev`).
 
