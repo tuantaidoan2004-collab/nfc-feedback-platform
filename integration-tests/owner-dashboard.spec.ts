@@ -52,13 +52,13 @@ test('Publishing v2 customer→owner login→real metrics/filter/handling/export
  await row.locator('[data-info-button]').click();await expect(row.locator('[data-info]')).toContainText('Lúc');await expect(row.locator('[data-info]')).toContainText('Trực tiếp');
  // A reply: written, liked, edited (marked as such, the old text kept), pinned.
  await row.locator('[data-reply]').click();
- await row.getByLabel('Phản hồi nội bộ').fill('Đã gọi lại');await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await row.getByLabel('Phản hồi nội bộ',{exact:true}).fill('Đã gọi lại');await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();
  const reply=row.locator('[data-comment]');await expect(reply).toHaveCount(1);
  await expect(row.locator('[data-replies-toggle]')).toHaveText(/1 phản hồi/);
  await expect(reply.locator('[data-comment-author]')).toHaveText(`@${f.users[0].username}`);await expect(reply.locator('[data-comment-body]')).toHaveText('Đã gọi lại');
  await reply.locator('[data-like]').click();await expect(row.locator('[data-comment] [data-like]')).toHaveAttribute('aria-pressed','true');await expect(row.locator('[data-comment] [data-like]')).toHaveText('1');
  await row.locator('[data-comment]').getByRole('button',{name:'Thêm thao tác'}).click();await row.getByRole('menuitem',{name:'Sửa'}).click();
- await row.getByLabel('Sửa phản hồi').fill('Đã gọi lại, khách đồng ý quay lại');await row.locator('[data-comment] [data-composer]').getByRole('button',{name:'Phản hồi'}).click();
+ await row.getByLabel('Sửa phản hồi',{exact:true}).fill('Đã gọi lại, khách đồng ý quay lại');await row.locator('[data-comment] [data-composer]').getByRole('button',{name:'Phản hồi'}).click();
  await expect(row.locator('[data-comment]')).toContainText('(đã chỉnh sửa)');await expect(row.locator('[data-comment-body]')).toHaveText('Đã gọi lại, khách đồng ý quay lại');
  await row.locator('[data-comment]').getByRole('button',{name:'Thêm thao tác'}).click();await row.getByRole('menuitem',{name:'Ghim'}).click();
  await expect(row.locator('[data-comment]')).toContainText('📌 Đã ghim');
@@ -353,7 +353,7 @@ test('mentions: @ in a reply suggests who can read feedback; the one mentioned s
  await login(page,f.users[0]);await data(page);
  const row=page.locator(`[data-row="${x.session.sessionId}"]`);
  await row.locator('[data-reply]').click();
- const box=row.getByLabel('Phản hồi nội bộ');await box.pressSequentially('Nhờ @');
+ const box=row.getByLabel('Phản hồi nội bộ',{exact:true});await box.pressSequentially('Nhờ @');
  // an.nv cannot read feedback, so only the owner and mai.ql are offered; typing narrows, Enter picks.
  await expect(row.locator('[data-composer-mentions] [data-mention]')).toHaveCount(2);
  await box.pressSequentially('MA');await expect(row.locator('[data-composer-mentions] [data-mention]')).toHaveCount(1);
@@ -403,7 +403,7 @@ test('two people reply at once: both replies stay, the thread reloads; the custo
  await data(page);
  const records=(await (await context.request.get('/api/owner/v2/one')).json()).records;
  const row=page.locator(`[data-row="${records[0].session_id}"]`);
- await row.locator('[data-reply]').click();await row.getByLabel('Phản hồi nội bộ').fill('Của tôi');
+ await row.locator('[data-reply]').click();await row.getByLabel('Phản hồi nội bộ',{exact:true}).fill('Của tôi');
  // Someone else replies while this one is still typing.
  expect((await context.request.post('/api/owner/v2/one/comments',{headers:{Origin:origin},data:{sessionId:records[0].session_id,body:'Người khác viết trước'}})).status()).toBe(200);
  await row.locator('[data-composer]').getByRole('button',{name:'Phản hồi'}).click();

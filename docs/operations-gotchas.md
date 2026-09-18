@@ -116,7 +116,7 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Biên dịch lần đầu một API cũng làm trang đang mở tải lại.** Test đặt mật khẩu qua giao diện: trang `/owner/setup/<link>` gọi `POST /api/owner/v2/setup` lần đầu; `next dev` biên dịch API rồi tải lại trang, lúc đó link đã dùng nên hiện "Liên kết không dùng được". Làm nóng bằng một request tới đúng API **trước khi** mở trang (lát F3).
 
-**`getByLabel` không khớp `select` nằm trong `label`.** Tên truy cập của nó gồm cả chữ của lựa chọn đang chọn ("Vai Nhân viên"). Chọn bằng `locator('select')` trong khung đó.
+**`getByLabel` không khớp `select` nằm trong `label`.** Tên truy cập của nó gồm cả chữ của lựa chọn đang chọn ("Vai Nhân viên"). Chọn bằng `locator('select')` trong khung đó. Ngược lại, chữ của mọi lựa chọn nằm trong nhãn, nên `getByLabel('X')` không `exact` còn khớp cả `select` có lựa chọn tên X (lát F5).
 
 **`.app label`, `.app input` và `.app button` thắng mọi class đơn.** `.app button` đặt lại `font`, nên một nút tròn nhỏ (ⓘ) bị kéo thành bầu dục (lát F4). Một `label` có class riêng (ô tìm kiếm, hàng công tắc) vẫn bị đổi thành lưới và ô nhập bị thêm viền. Viết `.app .ten-class`. Chỉ ảnh chụp bắt được lỗi này, test không bắt được (lát F3).
 
@@ -133,6 +133,8 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.
 
 **`getByRole('alert')` vi phạm strict mode.** Next render `__next-route-announcer__` cũng mang `role="alert"` trên mọi trang. Thu hẹp bằng `getByRole('main')`.
+
+**Đặt con trỏ trong ô nhập sau khi đổi giá trị: dùng `useLayoutEffect`, đừng dùng `requestAnimationFrame`.** Khung vẽ sau đến trễ hơn các phím gõ tiếp theo, kéo con trỏ lùi và làm chữ nhảy chỗ. Test gõ bằng `pressSequentially` bắt được, nhưng chỉ lúc có lúc không (lát F5).
 
 ## Kỷ luật khi làm
 

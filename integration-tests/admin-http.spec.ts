@@ -330,7 +330,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await ownerPage.locator('[data-view="data"]').click();await ownerPage.getByRole('button',{name:'7 ngày',exact:true}).click();
   // The owner, unlike support at position 1, can reply under the feedback (lát F4).
   await ownerPage.locator('[data-reply]').first().click();
-  await expect(ownerPage.getByLabel('Phản hồi nội bộ')).toBeVisible();
+  await expect(ownerPage.getByLabel('Phản hồi nội bộ',{exact:true})).toBeVisible();
   await expect(ownerPage.getByRole('link',{name:'CSV',exact:true})).toBeVisible();
  }finally{await owner.close();}
 });

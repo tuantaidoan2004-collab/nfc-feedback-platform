@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ExperienceRow } from '@/lib/owner/dashboard';
 import type { FeedbackComment, ThreadExperience } from '@/lib/owner/comments';
 import { faceFor } from '@/lib/faces';
@@ -51,9 +51,16 @@ function Composer({ me, initial, label, people = [], onSend, onCancel }: { me: M
   const matches = typed && !closed ? people.filter(p => fold(`${p.handle} ${p.displayName ?? ''}`).includes(fold(typed[2]))).slice(0, 6) : [];
   const choose = (person: Person) => {
     const start = typed!.index + typed![1].length, next = `${value.slice(0, start)}@${person.handle} ${value.slice(caret)}`;
-    setValue(next); setPick(0); const at = start + person.handle.length + 2; setCaret(at);
-    requestAnimationFrame(() => { box.current?.focus(); box.current?.setSelectionRange(at, at); });
+    const at = start + person.handle.length + 2;
+    setValue(next); setPick(0); setCaret(at); pending.current = at;
   };
+  // Put the caret after the inserted @handle in the same commit as the new text. A later frame would land after the
+  // next keystrokes and send them to the wrong place (found by the test: "gọi lại khách" became "kháchgọi lại").
+  const pending = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (pending.current === null || !box.current) return;
+    box.current.focus(); box.current.setSelectionRange(pending.current, pending.current); pending.current = null;
+  }, [value]);
   useEffect(() => { const el = box.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, []);
   const send = async () => { if (!value.trim() || busy) return; setBusy(true); if (await onSend(value)) setValue(''); setBusy(false); };
   return <div className={styles.composer} data-composer>
