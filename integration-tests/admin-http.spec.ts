@@ -15,6 +15,10 @@ const test=base.extend<{admin:{db:Pool;username:string}}>({admin:async({},provid
   await provide({db,username:'boss'});}finally{await db.end();}
 }});
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
+// next dev compiles an API the first time it is called and then reloads every open page (operations-gotchas.md).
+// The owner's Settings calls the team API (lát F3); compile it before any page is open, or the owner page reloads
+// back to the overview in the middle of a test. The answer (401 without a session) does not matter.
+test.beforeEach(async({request})=>{await request.get('/api/owner/v2/warm/team');await request.get('/api/owner/v2/warm/activity');});
 
 test('sign in, session cookie stays inside /gov, sign out',async({page,context,admin})=>{
  await page.goto('/gov');
