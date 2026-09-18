@@ -532,7 +532,8 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Tài báo `/gov` vào được không cần mật khẩu: đã kiểm, là phiên đăng nhập còn hạn, không phải lỗ hổng.
 - Google Business Profile để lát E2, chờ Google cấp quyền API.
 - Kiểm commit `c2b0d56`: tsc/eslint exit 0; repository **98**; contracts **68**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **6 + 2**; admin **6 + 2**; tất cả exit 0. Rollback 013 chạy được khi chưa có mã ngắn.
-- **Chờ Tài migrate 013 lên Neon (production và preview) trước khi push.**
+- Tài migrate 013 lên Neon production và preview ngày 18/09 rồi mới push; **001–013 đã có trên cả hai branch**.
+- **Google Business Profile bị chặn ở phía Google:** form xin quyền API trả "profile must be verified and have been active for at least 60 days". Hồ sơ doanh nghiệp của Tài đang chờ xác minh, nên E2 dừng cho tới khi có một hồ sơ đã xác minh và hoạt động đủ 60 ngày. Không cần bật billing cho việc này lúc này.
 - **Lỗi của agent:** regex `\u0000` trong `lib/owner/cards.ts` bị ghi thành ký tự NUL thật; `git diff --stat` báo `Bin` nên bắt được trước commit. Ghi trong gotchas.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
@@ -541,7 +542,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước,
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). Migration 011 và 012 Tài đã chạy trên cả hai branch ngày 18/09; tức **001–012 đã có trên production và preview**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`. Preview Vercel chạy thật với Neon; **migration 001–010 đã có trên cả branch production và preview của Neon** (Tài chạy 010 lúc 22:24 ngày 17/09). Migration 011, 012 và 013 Tài đã chạy trên cả hai branch ngày 18/09; tức **001–013 đã có trên production và preview**. Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
 
 Preview đang bật `NFC_PUBLISHING_ENABLED` (có `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`.
 
@@ -564,7 +565,7 @@ Chưa có:
 
 ### Lát tiếp theo
 
-1. **Lát E2: Google Business Profile** sau khi Google duyệt quyền API cho project của Tài; đếm review mới theo ngày và ước đoán khớp với lượt bấm nút Google (ghi rõ là ước đoán).
+1. **Lát E2: Google Business Profile** — bị chặn: Google chỉ duyệt quyền API khi hồ sơ doanh nghiệp đã xác minh và hoạt động đủ 60 ngày. Khi có, đếm review mới theo ngày và ước đoán khớp với lượt bấm nút Google (ghi rõ là ước đoán).
 2. Thanh toán: `paid_until` **chỉ là một ngày**; xem `commercial-model.md` mục 2.
 
 ### Cách làm (Tài chốt 17/09)
