@@ -14,6 +14,8 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **`vercel env pull` thiếu biến.** Biến do tích hợp quản lý được gắn phạm vi theo git branch. **Thêm `--git-branch=<branch>`**, nếu không nó im lặng bỏ qua.
 
+**Thêm biến cho cả Production và một branch preview thì báo "Environment Variables with `gitBranch` can only be used with `target=preview`".** Một biến gắn branch chỉ được là Preview. Muốn dùng cho cả hai thì chọn Production + Preview (mọi branch), hoặc lưu hai biến riêng. Tài dính khi thêm `NFC_SUPPORT_CONTACT` (lát F2); giá trị công khai nên chọn **Config**, không phải Secret.
+
 **Mọi request tới preview trả 302 về `vercel.com/sso-api`.** Deployment Protection bật mặc định. Dùng `vercel curl <url>` để đi xuyên qua khi cần kiểm, hoặc tắt trong Settings → Deployment Protection.
 
 ## Neon
