@@ -42,7 +42,7 @@ function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string
         if (!signed.ok) { setState(UPLOAD_ERRORS[body.error] ?? 'Chưa tải lên được.'); return; }
         const sent = await fetch(body.upload, { method: 'PUT', headers: body.headers, body: file });
         if (!sent.ok) { setState('Kho lưu trữ từ chối tệp. Thử lại.'); return; }
-        onDone(body.url, body.kind); setState('Đã tải lên. Nhớ Lưu nháp hoặc Phát hành.');
+        onDone(body.url, body.kind); setState('Đã tải lên. Bấm Phát hành để khách thấy; Xem trước để xem thử.');
       } catch { setState('Không thể kết nối tới kho lưu trữ.'); }
     }} />
     <span>{label}</span>{state && <small data-upload-state>{state}</small>}
@@ -90,7 +90,8 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
     try {
       const revision = await saved();
       if (revision === null) { tab?.close(); return; }
-      if (what === 'save') { setNotice('Đã lưu bản nháp.'); return; }
+      // A saved draft is not what customers see; say so, since that is the natural thing to expect.
+      if (what === 'save') { setNotice('Đã lưu bản nháp. Khách chưa thấy thay đổi này; bấm Phát hành để đưa lên trang khách.'); return; }
       if (what === 'preview') {
         const result = await send('POST', { action: 'preview', expectedRevision: revision });
         if (!result) { tab?.close(); return; }
@@ -115,7 +116,7 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
   return <section aria-label="Thiết kế & Link" data-design-editor>
     <div className={styles.panel}>
       <div className={styles.editorBar}>
-        <p className={styles.hint} data-draft-state>{dirty ? 'Có thay đổi chưa lưu.' : `Bản nháp số ${state.draft.revision}.`} Trang khách: <a href={customerUrl} target="_blank" rel="noreferrer">mở trang đang chạy</a></p>
+        <p className={styles.hint} data-draft-state>{dirty ? 'Có thay đổi chưa lưu.' : `Bản nháp số ${state.draft.revision}.`} Khách chỉ thấy bản đã <strong>Phát hành</strong>. Trang khách: <a href={customerUrl} target="_blank" rel="noreferrer">mở trang đang chạy</a></p>
         <div className={styles.actions}>
           <button type="button" disabled={busy} onClick={() => void act('save')}>Lưu nháp</button>
           <button type="button" disabled={busy} onClick={() => void act('preview')}>Xem trước</button>

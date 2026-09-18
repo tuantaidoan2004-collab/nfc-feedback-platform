@@ -112,7 +112,7 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  await row.getByRole('textbox',{name:'Chữ trên nút',exact:true}).fill('Gọi quán');
  await row.getByRole('textbox',{name:/Số điện thoại/}).fill('tel:0901234567');
  await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
- await expect(page.locator('[data-design-notice]')).toHaveText('Đã lưu bản nháp.');
+ await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp. Khách chưa thấy');
  await expect(page.locator('[data-link-row]')).toHaveCount(before+1);
  // A bad link is refused by the server and nothing is saved.
  await row.getByRole('textbox',{name:/Số điện thoại/}).fill('0901234567');
