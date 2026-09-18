@@ -548,6 +548,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Cài đặt → Tài khoản có **Đổi mật khẩu** (`OwnerAuth.changePassword`, `PUT /api/owner/v2/password`): cần mật khẩu hiện tại, mật khẩu mới ít nhất 12 ký tự và khác mật khẩu cũ. Đổi xong, **mọi phiên khác** của tài khoản bị đăng xuất, phiên đang dùng ở lại.
 - Nhập sai mật khẩu hiện tại tính vào **cùng giới hạn 8 lần / 15 phút** với đăng nhập (lượt sai vẫn được đếm dù bị từ chối), nên không dò được mật khẩu qua màn này; đổi thành công thì xoá bộ đếm. Quản trị xem thay mặt không đổi được mật khẩu.
 - Với tài khoản khuôn `yourshop` / `1`: đổi sang mật khẩu dài được; nút "Đặt lại tài khoản test" ở `/gov` vẫn đưa về `1`.
+- Kiểm commit `1fe10f1`: tsc/eslint exit 0; repository **100**; contracts **70**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **7 + 2**; admin **6 + 2**; tất cả exit 0. Không có migration.
 - Lỗi của agent: test tính sai số lượt còn lại, quên rằng hai lần đăng nhập ngay trước đó cũng được đếm (giới hạn dùng chung là cố ý).
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
