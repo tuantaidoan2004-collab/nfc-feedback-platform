@@ -566,7 +566,7 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- bật tải lên R2 (mã xong; chờ Tài tạo bucket, token và thêm biến Vercel theo `r2-uploads.md`); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ; tên miền thật (phải có trước khi ghi thẻ cho khách);
+- R2 production: thêm 5 biến cho Production và gắn custom domain cho bucket khi có tên miền (preview đã chạy thật); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ; tên miền thật (phải có trước khi ghi thẻ cho khách);
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 

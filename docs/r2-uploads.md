@@ -1,5 +1,7 @@
 # Tải ảnh và video lên Cloudflare R2 — 2026-09-18
 
+**Đang chạy trên preview (18/09):** Tài tạo bucket `nfc-media` (APAC), bật R2.dev URL, thêm CORS và 5 biến cho branch `feat/local-app-foundation`; tải poster và logo lên, phát hành, trang khách hiện đúng.
+
 Tài có tài khoản Cloudflare R2 và yêu cầu làm mọi thứ liên quan. Mã đã xong; bật lên cần Tài làm các bước tài khoản ở dưới.
 
 ## Cách chạy
