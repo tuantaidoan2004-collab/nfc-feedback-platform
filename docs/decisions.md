@@ -505,6 +505,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 ## Sửa tài khoản test của khuôn — 2026-09-18
 
 - Tài báo không đăng nhập được `yourshop` / `1` trên preview. Thêm nút `/gov` → **"Đặt lại tài khoản test (yourshop / 1)"**: đặt lại mật khẩu, bật lại quyền, xoá bản đếm chặn đăng nhập; ghi sổ `template.account.reset`; production vẫn từ chối. Chi tiết trong [redesign-v2.md](redesign-v2.md).
+- Kiểm commit `79d4c66`: tsc/eslint exit 0; repository **94**; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **4 + 2**; admin **5 + 2**; tất cả exit 0. Không có migration.
 - **Lỗi của agent:** test kiểm sổ ngay sau khi bấm nút, trước khi request kịp xong, nên đỏ nhầm; đổi sang `expect.poll`.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát C)
