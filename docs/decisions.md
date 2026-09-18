@@ -531,6 +531,8 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Agent quyết (Tài bảo làm nhanh): thẻ đi thẳng từ chưa kích hoạt sang hoạt động, bật lại được sau khi tắt; chỉ chủ shop kích hoạt; báo phí theo bảng giá đã chốt trước khi kích hoạt.
 - Tài báo `/gov` vào được không cần mật khẩu: đã kiểm, là phiên đăng nhập còn hạn, không phải lỗ hổng.
 - Google Business Profile để lát E2, chờ Google cấp quyền API.
+- Kiểm commit `c2b0d56`: tsc/eslint exit 0; repository **98**; contracts **68**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **6 + 2**; admin **6 + 2**; tất cả exit 0. Rollback 013 chạy được khi chưa có mã ngắn.
+- **Chờ Tài migrate 013 lên Neon (production và preview) trước khi push.**
 - **Lỗi của agent:** regex `\u0000` trong `lib/owner/cards.ts` bị ghi thành ký tự NUL thật; `git diff --stat` báo `Bin` nên bắt được trước commit. Ghi trong gotchas.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
