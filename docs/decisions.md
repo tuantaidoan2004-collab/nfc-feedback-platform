@@ -513,6 +513,7 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Menu bên trái (Tổng quan · Dữ liệu · Thiết kế & Link · Cài đặt); Tổng quan chỉ tải tổng số qua `/summary`; Dữ liệu chỉ tải khi chọn khoảng thời gian; phản hồi hiện thành bảng, lời khách ở dòng phụ trải ngang, số sao thành emoji. Chi tiết: [redesign-v2.md](redesign-v2.md) mục Lát C2.
 - **Thay quyết định cũ:** dashboard không còn xoá dữ liệu khi tab bị ẩn (Tài chọn tốc độ). Ghi trong `owner-dashboard-v2.md`.
 - **Đánh giá Google:** agent nói rõ không thể biết khách đã đăng review từ trang khách; cách hợp lệ là Google Business Profile, để lát sau.
+- Kiểm commit `fc192b1`: tsc/eslint exit 0; contracts **65**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **4 + 2**; admin **5 + 2**; repository **93 passed, 1 failed** (test chập chờn ở dưới). Commit sửa `23faca8` chỉ đổi hai file test: repository **94**, publishing **10 + 2**, tsc exit 0. Không có migration.
 - **Lỗi của agent (từ lát B4):** test "không trả số điện thoại" kiểm chuỗi con `961`; `intentId` ngẫu nhiên có lúc chứa đúng đoạn đó nên đỏ khi kiểm commit C2. Sửa thành kiểm cả số (`961036265`), cả ở test publishing.
 - **Bẫy trong lát:** test bấm menu khi trang chưa hydrate (banner mạo danh render phía server nên xuất hiện trước khi nút có trình xử lý) → chờ số liệu phía client trước khi bấm. Test xung đột ghi chú phải tải dữ liệu *trước* khi người khác sửa, vì Dữ liệu giờ chỉ tải khi chọn khoảng.
 
