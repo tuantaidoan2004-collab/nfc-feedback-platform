@@ -150,6 +150,25 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByRole('heading',{name:'YOUR SHOP',exact:true})).toBeVisible();
+
+ // Password unknown and the username locked out by failed attempts: one press puts both back.
+ await admin.db.query("UPDATE owner_identities_v2 SET password_key=repeat('0',64) WHERE username='yourshop'");
+ await page.context().clearCookies({name:'nfc_owner_v2'});
+ for(let i=0;i<9;i++){
+  await page.goto(`/ZZZ/${templateSlug}`);
+  await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
+  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+  await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
+ }
+ await page.goto('/gov');
+ await page.getByRole('button',{name:'Đặt lại tài khoản test (yourshop / 1)',exact:true}).click();
+ await expect(page.getByRole('main')).toContainText('yourshop / 1');
+ // The button's request lands after the notice appears, so wait for the record rather than reading once.
+ await expect.poll(async()=>(await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.reset'")).rows[0].n).toBe(1);
+ await page.goto(`/ZZZ/${templateSlug}`);
+ await page.getByLabel('Tài khoản',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'YOUR SHOP',exact:true})).toBeVisible();
 });
 
 test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{

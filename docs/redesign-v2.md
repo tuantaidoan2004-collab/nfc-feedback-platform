@@ -141,3 +141,9 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 - **Ai thấy gì:** danh sách shop để chuyển chỉ gồm shop tài khoản còn quyền (`active`). Quản trị viên đang xem thay mặt **chỉ thấy đúng shop được phép**, không thấy các shop khác của chủ shop đó.
 - Trang "Không thể mở dashboard" giờ có lối **đăng nhập bằng tài khoản khác** (chỗ thiếu đã ghi ở lát A).
 - Chưa làm: nội dung thật của hai tab kia; biểu đồ chưa có lựa chọn khoảng thời gian khác.
+
+## Tài khoản test của khuôn — sửa 2026-09-18
+
+Tài không đăng nhập được `yourshop` / `1` trên preview. Không đọc được database của Tài nên không xác định được nguyên nhân trong ba khả năng: tài khoản chưa có, mật khẩu không phải `1`, hoặc bị khoá vì thử quá 8 lần trong 15 phút. Vì vậy `/gov` có thêm nút **"Đặt lại tài khoản test (yourshop / 1)"**, xử lý cả ba: đặt lại mật khẩu, bật lại tài khoản và quyền chủ shop trên khuôn, xoá luôn bản đếm chặn đăng nhập của tên đó. Ghi sổ `template.account.reset`. Vẫn bị từ chối trên production (`TEST_ACCOUNT_FORBIDDEN`) vì mật khẩu cố tình yếu.
+
+Điều này thay quy tắc cũ "gọi lại không bao giờ đặt lại mật khẩu": nút **Tạo** vẫn không đặt lại, nút **Đặt lại** thì có, và chỉ hiện khi khuôn đã có tài khoản.

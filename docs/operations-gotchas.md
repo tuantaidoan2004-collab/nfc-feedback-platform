@@ -96,6 +96,8 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **macOS không có lệnh `timeout`.** Lệnh báo exit 127 mà không chạy gì.
 
+**Đừng kiểm database ngay sau khi bấm một nút.** Nút gửi request rồi mới hiện thông báo; đọc bảng một lần ngay sau đó thấy 0 dòng và trông như nút hỏng. Dùng `expect.poll`.
+
 **Selector theo tên class CSS module không khớp gì.** Class bị băm lúc build. Dùng thuộc tính `data-`.
 
 **`getByRole('alert')` vi phạm strict mode.** Next render `__next-route-announcer__` cũng mang `role="alert"` trên mọi trang. Thu hẹp bằng `getByRole('main')`.

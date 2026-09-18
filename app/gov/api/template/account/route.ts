@@ -12,3 +12,12 @@ export async function POST(request: Request) {
     return adminJson({ account: await new ShopProvisioning(database()).ensureTemplateAccount(principal.adminId, nfcEnv() !== 'production') });
   } catch (error) { return adminFailure(error); }
 }
+
+// Puts that sign-in back to yourshop / 1 and clears its throttle, for when the password is unknown or locked out.
+export async function PUT(request: Request) {
+  try {
+    adminGate(); adminOrigin(request);
+    const principal = await new AdminAuth(database()).access(await adminSessionToken());
+    return adminJson({ account: await new ShopProvisioning(database()).resetTemplateAccount(principal.adminId, nfcEnv() !== 'production') });
+  } catch (error) { return adminFailure(error); }
+}

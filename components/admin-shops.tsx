@@ -78,10 +78,10 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
-  const makeTemplateAccount = async () => {
+  const makeTemplateAccount = async (reset = false) => {
     setBusy(true); setError('');
     try {
-      const response = await fetch('/gov/api/template/account', { method: 'POST', credentials: 'same-origin' });
+      const response = await fetch('/gov/api/template/account', { method: reset ? 'PUT' : 'POST', credentials: 'same-origin' });
       if (!response.ok) { setError(failed(response.status)); return; }
       setError('Tài khoản test của khuôn: yourshop / 1. Mở cột Dashboard của dòng KHUÔN để đăng nhập.');
       await refresh();
@@ -162,7 +162,9 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
         {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop khuôn</button>}
         {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa khuôn về mặc định mới</button>}
         {testAccountAllowed && shops.some(row => row.is_template && !row.owner_username) &&
-          <button disabled={busy} onClick={makeTemplateAccount}>Tạo tài khoản test cho khuôn</button>}
+          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản test cho khuôn</button>}
+        {testAccountAllowed && shops.some(row => row.is_template && row.owner_username) &&
+          <button disabled={busy} onClick={() => void makeTemplateAccount(true)}>Đặt lại tài khoản test (yourshop / 1)</button>}
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
       <div className={styles.wide}>
         <table className={styles.table}>

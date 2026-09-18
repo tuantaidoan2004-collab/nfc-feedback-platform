@@ -203,6 +203,22 @@ test('only the exact built-in media paths are accepted, and only as their own ki
  expect(()=>validateConfig({...templateConfig(),logo:{kind:'image',url:STEM_BACKGROUND.video}})).toThrow('INVALID_CONFIG');
 });
 
+test('the test account can be put back to yourshop / 1, which also clears its sign-in throttle',async({f})=>{
+ await expect(f.shops.resetTemplateAccount(f.actorId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
+ const made=await f.shops.resetTemplateAccount(f.actorId,true);
+ expect(made).toMatchObject({username:'yourshop',created:true});
+ await expect(f.auth.login('yourshop','1')).resolves.toMatchObject({token:expect.any(String)});
+ // Password forgotten or never what we thought, and the account locked out by failed attempts: one press fixes both.
+ await f.db.query("UPDATE owner_identities_v2 SET password_key=repeat('0',64) WHERE username='yourshop'");
+ await f.db.query("UPDATE owner_memberships_v2 SET active=false WHERE user_id=(SELECT id FROM owner_identities_v2 WHERE username='yourshop')");
+ for(let i=0;i<9;i++)await expect(f.auth.login('yourshop','1')).rejects.toThrow('LOGIN_FAILED');
+ expect((await f.db.query('SELECT count(*)::int n FROM owner_login_limits')).rows[0].n).toBeGreaterThan(0);
+ const again=await f.shops.resetTemplateAccount(f.actorId,true);
+ expect(again).toMatchObject({username:'yourshop',created:false});
+ const session=await f.auth.login('yourshop','1');
+ await expect(f.auth.access(session.token,again.slug,'overview')).resolves.toMatchObject({role:'owner'});
+ expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.reset'")).rows[0].n).toBe(2);
+});
 test('the template test account signs in to the template only, is refused when not allowed, and is never reset',async({f})=>{
  await expect(f.shops.ensureTemplateAccount(f.actorId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
  expect((await f.db.query("SELECT count(*)::int n FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].n).toBe(0);

@@ -2,7 +2,8 @@ import { randomBytes, createHash, scrypt, timingSafeEqual } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export class OwnerError extends Error { constructor(public status: number, public code: string) { super(code); } }
 export const sessionHash = (token: string) => createHash('sha256').update(`nfc-owner-session-v2\0${token}`).digest('hex');
-const bucketHash = (name: string) => createHash('sha256').update(`nfc-owner-login-v2\0${name}`).digest('hex');
+/** The sign-in throttle bucket for a username; resetting the template test account clears its row. */
+export const loginBucket = (name: string) => createHash('sha256').update(`nfc-owner-login-v2\0${name}`).digest('hex');
 export const username = (value: unknown) => typeof value === 'string' && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(value.trim().toLowerCase()) ? value.trim().toLowerCase() : null;
 export const validPassword = (value: unknown): value is string => typeof value === 'string' && value.length >= 12 && Buffer.byteLength(value) <= 256;
 // Fixed, versioned parameters; never accept KDF work factors from public input.
@@ -106,7 +107,7 @@ export class OwnerAuth {
     const result = await transaction(this.pool, async db => {
       if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked) return null;
       await db.query("DELETE FROM owner_login_limits WHERE window_start<clock_timestamp()-interval '1 hour'");
-      for (const [bucket, limit, seconds] of [['global', 60, 60], [bucketHash(normalized), 8, 900]] as const) {
+      for (const [bucket, limit, seconds] of [['global', 60, 60], [loginBucket(normalized), 8, 900]] as const) {
         const r = (await db.query(`INSERT INTO owner_login_limits(bucket,window_start,attempts)VALUES($1,clock_timestamp(),1)
           ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-$2*interval '1 second' THEN 1 ELSE owner_login_limits.attempts+1 END,
           window_start=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-$2*interval '1 second' THEN clock_timestamp() ELSE owner_login_limits.window_start END RETURNING attempts`, [bucket, seconds])).rows[0];

@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
 import { PublishingError, templateConfig, validateConfig } from '../publishing/config';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
-import { passwordKey, transaction, username } from '../owner/auth';
+import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 
@@ -110,6 +110,30 @@ export class ShopProvisioning {
       if (created) await recordAdminAction(db, actorId, { action: 'template.account.create', shopId: template.shopId, onBehalfOf: user.id,
         detail: { username: TEMPLATE_USERNAME, weakPassword: true } });
       return { username: TEMPLATE_USERNAME, created, slug: template.slug };
+    });
+  }
+
+  /**
+   * Puts the template's test sign-in back to `yourshop` / `1` and clears that username's sign-in throttle, for when
+   * the password is unknown or too many attempts locked it out (Tài, 2026-09-18). Same production refusal as
+   * issuing it: the password is deliberately weak.
+   */
+  async resetTemplateAccount(actorId: string, allowed: boolean) {
+    if (!allowed) throw new AdminError(403, 'TEST_ACCOUNT_FORBIDDEN');
+    const template = await this.ensureTemplate(actorId);
+    const salt = randomBytes(16).toString('hex'), key = (await passwordKey(TEMPLATE_PASSWORD, salt)).toString('hex');
+    return transaction(this.pool, async db => {
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-template-account',0))");
+      const existing = (await db.query('SELECT id FROM owner_identities_v2 WHERE username=$1', [TEMPLATE_USERNAME])).rows[0];
+      const user = existing
+        ? (await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3,active=true WHERE id=$1 RETURNING id', [existing.id, salt, key])).rows[0]
+        : (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id', [TEMPLATE_USERNAME, salt, key])).rows[0];
+      await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')
+        ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
+      await db.query('DELETE FROM owner_login_limits WHERE bucket=$1', [loginBucket(TEMPLATE_USERNAME)]);
+      await recordAdminAction(db, actorId, { action: 'template.account.reset', shopId: template.shopId, onBehalfOf: user.id,
+        detail: { username: TEMPLATE_USERNAME, weakPassword: true, created: !existing } });
+      return { username: TEMPLATE_USERNAME, created: !existing, slug: template.slug };
     });
   }
 
