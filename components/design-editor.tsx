@@ -8,7 +8,7 @@ import styles from './owner-app.module.css';
  * Design & Link editor (lát D). Works on the saved draft: Save keeps it, Preview opens the saved draft in a new tab
  * exactly as it would publish, Publish makes it the live page. Media are https links until per-shop uploads exist.
  */
-type State = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null };
+type State = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean };
 const ICONS: [LinkIcon, string][] = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['zalo', 'Zalo'], ['phone', 'Gọi điện'], ['booking', 'Đặt lịch'], ['link', 'Liên kết']];
 const PLANES: [FeedbackButton['icon'], string][] = [['plane', 'Máy bay giấy'], ['chat', 'Bong bóng chat'], ['mail', 'Phong bì']];
 const ERRORS: Record<string, string> = {
@@ -19,6 +19,35 @@ const ERRORS: Record<string, string> = {
   SHOP_SUSPENDED: 'Shop đang bị tạm khoá nên chưa phát hành được.',
 };
 const mediaOf = (value: string, kind: MediaRef['kind']): MediaRef | null => value.trim() ? { kind, url: value.trim() } : null;
+const UPLOAD_ERRORS: Record<string, string> = {
+  UNSUPPORTED_MEDIA: 'Chỉ nhận ảnh JPG, PNG, WebP hoặc video MP4.', MEDIA_TOO_LARGE: 'Ảnh tối đa 5 MB, video tối đa 30 MB.',
+  UPLOADS_NOT_CONFIGURED: 'Kho lưu trữ chưa được bật.', SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện.',
+};
+
+/**
+ * Picks a file, asks the app for a signed upload, and sends the file straight to R2. The page keeps only the
+ * public link that comes back; nothing is published until Publish.
+ */
+function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string; accept: string; label: string; enabled: boolean; onDone: (url: string, kind: MediaRef['kind']) => void }) {
+  const [state, setState] = useState('');
+  if (!enabled) return <span className="upload-off" data-upload-off>Tải lên cần bật kho lưu trữ R2.</span>;
+  return <label className={styles.upload} data-upload={label}>
+    <input type="file" accept={accept} onChange={async e => {
+      const file = e.target.files?.[0]; e.target.value = '';
+      if (!file) return;
+      setState('Đang tải lên…');
+      try {
+        const signed = await fetch(`${endpoint}/media`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: file.type, size: file.size }) });
+        const body = await signed.json().catch(() => ({}));
+        if (!signed.ok) { setState(UPLOAD_ERRORS[body.error] ?? 'Chưa tải lên được.'); return; }
+        const sent = await fetch(body.upload, { method: 'PUT', headers: body.headers, body: file });
+        if (!sent.ok) { setState('Kho lưu trữ từ chối tệp. Thử lại.'); return; }
+        onDone(body.url, body.kind); setState('Đã tải lên. Nhớ Lưu nháp hoặc Phát hành.');
+      } catch { setState('Không thể kết nối tới kho lưu trữ.'); }
+    }} />
+    <span>{label}</span>{state && <small data-upload-state>{state}</small>}
+  </label>;
+}
 
 export default function DesignEditor({ endpoint, customerUrl }: { endpoint: string; customerUrl: string }) {
   const [state, setState] = useState<State | null>(null);
@@ -111,14 +140,24 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
         <option value="image">Ảnh</option><option value="video">Video</option></select></label>
       <label>Link poster (bỏ trống để hiện khung “POSTER SỰ KIỆN”)<input type="url" value={config.poster?.url ?? ''} onChange={e => change({ poster: mediaOf(e.target.value, config.poster?.kind ?? 'image') })} placeholder="https://…" /></label>
       <label>Link logo (bỏ trống để hiện chữ cái đầu)<input type="url" value={config.logo?.url ?? ''} onChange={e => change({ logo: e.target.value.trim() ? { kind: 'image', url: e.target.value.trim() } : null })} placeholder="https://…" /></label>
-    </div><p className={styles.hint}>Tải ảnh và video lên trực tiếp sẽ có khi bật kho lưu trữ; hiện dán link https của ảnh hoặc video.</p></fieldset>
+      <div className={styles.uploads}>
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải poster lên" enabled={state.uploads} onDone={(url, kind) => change({ poster: { kind, url } })} />
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp" label="Tải logo lên" enabled={state.uploads} onDone={url => change({ logo: { kind: 'image', url } })} />
+      </div>
+    </div><p className={styles.hint}>Tải lên: ảnh JPG, PNG, WebP tối đa 5 MB; video MP4 tối đa 30 MB. Cũng có thể dán link https.</p></fieldset>
 
     <fieldset className={styles.panel}><legend>Nền và watermark</legend><div className={styles.grid2}>
-      <label>Kiểu nền<select value={b.kind === 'media' ? 'video' : b.kind} onChange={e => {
+      <label>Kiểu nền<select value={b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.video ? 'video' : 'upload'} onChange={e => {
         const kind = e.target.value;
         change({ background: kind === 'solid' ? { kind: 'solid', color: '#214034' } : kind === 'gradient' ? { kind: 'gradient', colors: ['#214034', '#EFF2E8'], angle: 135 }
+          : kind === 'upload' ? { kind: 'media', media: { kind: 'image', url: 'https://' }, loop: true }
           : { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } });
-      }}><option value="video">Video mặc định</option><option value="gradient">Chuyển màu</option><option value="solid">Một màu</option></select></label>
+      }}><option value="video">Video mặc định</option><option value="upload">Ảnh hoặc video của shop</option><option value="gradient">Chuyển màu</option><option value="solid">Một màu</option></select></label>
+      {b.kind === 'media' && b.media.url !== STEM_BACKGROUND.video && <>
+        <label>Link ảnh hoặc video nền<input type="url" value={b.media.url} onChange={e => change({ background: { ...b, media: { ...b.media, url: e.target.value.trim() } } })} /></label>
+        <label>Loại<select value={b.media.kind} onChange={e => change({ background: { ...b, media: { ...b.media, kind: e.target.value as MediaRef['kind'] } } })}><option value="image">Ảnh</option><option value="video">Video (chạy lặp, không tiếng)</option></select></label>
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải nền lên" enabled={state.uploads} onDone={(url, kind) => change({ background: { kind: 'media', media: { kind, url }, loop: true } })} />
+      </>}
       {b.kind === 'solid' && <label>Màu nền<input type="color" value={b.color} onChange={e => change({ background: { kind: 'solid', color: e.target.value.toUpperCase() } })} /></label>}
       {b.kind === 'gradient' && <>
         <label>Màu đầu<input type="color" value={b.colors[0]} onChange={e => change({ background: { ...b, colors: [e.target.value.toUpperCase(), b.colors[1]] } })} /></label>

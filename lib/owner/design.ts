@@ -3,13 +3,14 @@ import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredent
 import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
 import { DEFAULT_FEEDBACK_BUTTON, PublishingError, validateConfig, type PageConfig } from '../publishing/config';
+import { r2Settings } from './media';
 
 /**
  * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an
  * administrator edits only through a 'design' impersonation, which the owner's switch allows at positions 2 and 3.
  * Every administrator save and publish is recorded as done on the owner's behalf.
  */
-export type DesignState = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null };
+export type DesignState = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean };
 
 /** Older pages are v1; the editor always works in v2, which adds the card layout, more buttons and the plane. */
 export function upgradeConfig(config: PageConfig): PageConfig {
@@ -59,7 +60,9 @@ export class OwnerDesign {
     const live = (await this.pool.query(`SELECT r.id,r.config_snapshot FROM shops s JOIN page_releases r ON r.id=s.active_release_id
       WHERE s.id=$1`, [access.shopId])).rows[0];
     return { draft: { revision: Number(draft.revision), config: upgradeConfig(validateConfig(draft.config)) },
-      live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null };
+      live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null,
+      // Whether the upload buttons can work here: all R2 settings present.
+      uploads: r2Settings() !== null };
   }
 
   async save(credential: OwnerCredential, slug: string, body: unknown) {

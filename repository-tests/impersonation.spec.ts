@@ -352,3 +352,30 @@ test('cards: anyone running the shop adds and renames; only the owner switches o
  const sql=await readFile('db/rollback/013_short_card_codes.sql','utf8'),db=await f.db.connect();
  try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SHORT_CARD_CODES_EXIST');await db.query('ROLLBACK');}finally{db.release();}
 });
+
+test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s folder; editors only; support recorded',async({f})=>{
+ const {OwnerMedia,r2Settings}=await import('../lib/owner/media');
+ const env={R2_ACCOUNT_ID:'a'.repeat(32),R2_ACCESS_KEY_ID:'AKFIXTURE',R2_SECRET_ACCESS_KEY:'secret-fixture',R2_BUCKET:'nfc-media',MEDIA_PUBLIC_ORIGIN:'https://media.example.com/'};
+ expect(r2Settings(env)).toMatchObject({publicOrigin:'https://media.example.com'});
+ for(const missing of ['R2_ACCOUNT_ID','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','MEDIA_PUBLIC_ORIGIN'])expect(r2Settings({...env,[missing]:''})).toBeNull();
+ expect(r2Settings({...env,MEDIA_PUBLIC_ORIGIN:'http://media.example.com'})).toBeNull();
+ const media=new OwnerMedia(f.db,r2Settings(env),()=>new Date('2026-09-18T10:00:00Z'));
+ const signed=await media.presign(f.users[0].token,'one',{type:'image/png',size:12345});
+ expect(signed.kind).toBe('image');expect(signed.headers).toEqual({'Content-Type':'image/png'});
+ expect(signed.url).toMatch(new RegExp(`^https://media\\.example\\.com/shops/${f.shops[0]}/[0-9a-f-]{36}\\.png$`));
+ const upload=new URL(signed.upload);
+ expect(upload.host).toBe(`${'a'.repeat(32)}.r2.cloudflarestorage.com`);expect(upload.pathname).toBe(`/nfc-media/${new URL(signed.url).pathname.slice(1)}`);
+ expect(upload.searchParams.get('X-Amz-SignedHeaders')).toBe('content-length;content-type;host');
+ expect(upload.searchParams.get('X-Amz-Expires')).toBe('300');expect(signed.upload).not.toContain('secret-fixture');
+ await expect(media.presign(f.users[0].token,'one',{type:'image/gif',size:10})).rejects.toThrow('UNSUPPORTED_MEDIA');
+ await expect(media.presign(f.users[0].token,'one',{type:'image/jpeg',size:5*1024*1024+1})).rejects.toThrow('MEDIA_TOO_LARGE');
+ await expect(media.presign(f.users[0].token,'one',{type:'video/mp4',size:30*1024*1024})).resolves.toMatchObject({kind:'video'});
+ for(const bad of [{type:'image/png'},{type:'image/png',size:0},{type:'image/png',size:1,name:'x'},null])await expect(media.presign(f.users[0].token,'one',bad)).rejects.toThrow('INVALID_UPLOAD');
+ await expect(media.presign(f.users[1].token,'one',{type:'image/png',size:10})).rejects.toThrow('ACCESS_DENIED');
+ await expect(new OwnerMedia(f.db,null).presign(f.users[0].token,'one',{type:'image/png',size:10})).rejects.toThrow('UPLOADS_NOT_CONFIGURED');
+ // Support uploads only inside a design session, and each upload is on the record.
+ const o=await open(f,'overview');await expect(media.presign(o.credential,'one',{type:'image/png',size:10})).rejects.toThrow('IMPERSONATION_SCOPE');
+ await position(f,'edit');const d=await open(f,'design');
+ await media.presign(d.credential,'one',{type:'image/jpeg',size:10});
+ expect((await audit(f,'impersonation.design.upload')).map(r=>[r.actor_id,r.on_behalf_of,r.detail.type])).toEqual([[f.adminId,f.users[0].id,'image/jpeg']]);
+});

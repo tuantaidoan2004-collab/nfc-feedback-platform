@@ -101,6 +101,8 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  await login(page,f.users[0]);
  await page.locator('[data-view="design"]').click();
  await expect(page.getByLabel('Tên hiển thị',{exact:true})).toHaveValue('Shop one');
+ // Without R2 settings the editor says so instead of offering an upload that would fail.
+ await expect(page.locator('[data-upload-off]').first()).toContainText('Tải lên cần bật kho lưu trữ R2');
  await page.getByLabel('Tên hiển thị',{exact:true}).fill('Quán Mới Sửa');
  await page.getByRole('radio',{name:'Dạng thẻ',exact:true}).check();
  const before=await page.locator('[data-link-row]').count();

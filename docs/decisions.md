@@ -536,6 +536,11 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - **Google Business Profile bị chặn ở phía Google:** form xin quyền API trả "profile must be verified and have been active for at least 60 days". Hồ sơ doanh nghiệp của Tài đang chờ xác minh, nên E2 dừng cho tới khi có một hồ sơ đã xác minh và hoạt động đủ 60 ngày. Không cần bật billing cho việc này lúc này.
 - **Lỗi của agent:** regex `\u0000` trong `lib/owner/cards.ts` bị ghi thành ký tự NUL thật; `git diff --stat` báo `Bin` nên bắt được trước commit. Ghi trong gotchas.
 
+## Tải lên R2 — 2026-09-18
+
+- Tài có tài khoản R2, yêu cầu làm mọi thứ liên quan. Trình chỉnh có nút tải poster, logo, nền lên thẳng R2 qua link ký 5 phút; không thêm thư viện. Chi tiết và các bước Tài làm trên Cloudflare, Vercel: [r2-uploads.md](r2-uploads.md).
+- Tài cũng yêu cầu chạy hướng dẫn cài đặt Cloudflare cho agent (`developers.cloudflare.com/agent-setup/prompt.md`: cài plugin `cloudflare/skills` và các MCP server cần đăng nhập OAuth). Agent **chưa chạy**: nó đổi cấu hình Claude Code toàn máy, cài mã bên ngoài và cho agent quyền trên tài khoản Cloudflare, trong khi R2 không cần tới. Chờ Tài xác nhận.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (sau lát E1)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước, rồi mới đọc theo thứ tự bên dưới.
@@ -559,7 +564,7 @@ Shop trên preview:
 
 Chưa có:
 - âm thanh popup; khuôn trên preview còn cấu hình v1 cho tới khi bấm "Đưa khuôn về mặc định mới" ở `/gov`;
-- tải ảnh và video lên (cần R2); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ; tên miền thật (phải có trước khi ghi thẻ cho khách);
+- bật tải lên R2 (mã xong; chờ Tài tạo bucket, token và thêm biến Vercel theo `r2-uploads.md`); kết nối Google Business Profile; đổi mật khẩu và tài khoản phụ; tên miền thật (phải có trước khi ghi thẻ cho khách);
 - kích hoạt thẻ (`/t/<mã>` chưa sống);
 - thanh toán; email; R2; tên miền riêng.
 

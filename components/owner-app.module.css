@@ -137,3 +137,10 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
   .levels, .grid2 { grid-template-columns: minmax(0, 1fr); }
   .linkList li { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Direct uploads to R2 (lát R2). */
+.uploads { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.upload { position: relative; display: inline-grid !important; gap: 4px !important; color: var(--ink) !important; cursor: pointer; }
+.upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload span { display: inline-flex; align-items: center; min-height: 42px; padding: 8px 14px; border: 1px dashed #9fb39a; border-radius: 10px; background: var(--mist); font-weight: 650; }
+.upload small { font-size: 12px; color: var(--muted); }
