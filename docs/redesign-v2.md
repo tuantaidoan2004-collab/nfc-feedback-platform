@@ -230,9 +230,14 @@ Tài gửi ảnh phần bình luận YouTube và muốn bảng "Phản hồi c�
 - **Ghi chú cũ thuộc về đúng người đã viết.** Kiểm mã 18/09: mọi ghi chú hiện có đã lưu `actor_id` (`owner_feedback_cases`), kèm từng bản sửa (`owner_feedback_audit`). Phiên mạo danh của admin **chỉ đọc** (`IMPERSONATION_READ_ONLY`), nên admin chưa từng ghi được ghi chú; ghi chú Tài viết khi vào bằng nút ở `/gov` là của tài khoản test `yourshop`. Chuyển đổi: mỗi ghi chú cũ thành phản hồi đầu tiên, tác giả là `actor_id` của nó.
 - Tài khoản phải **đàng hoàng như mạng xã hội**: xem mục "Hệ thống tài khoản" ở `commercial-model.md` mục 8.
 
-## Danh sách Review Landing Page — Tài yêu cầu 18/09, chưa làm
+## Lát F1 — Trang bio (danh sách Review Landing Page) — 2026-09-18
 
-Hiện dashboard chỉ có một khung "Trang khách" với một link. Tài muốn **danh sách mọi link**:
-- Một mục gọn, bấm vào mở xuống (dropdown) thành **bảng**: tên (trang chính, "Bàn 3", "Quầy"…), link, trạng thái thẻ, nút **Sao chép** và **Truy cập** (mở trang trong tab mới). **Bỏ nút Chia sẻ.**
-- Tên mục: **"Review Landing Page"** hoặc **"Trang bio"**, Tài chưa chọn.
-- Giao diện chỗ này làm lại cho gọn, tinh tế.
+Tài yêu cầu 18/09: dashboard chỉ có một khung "Trang khách" với một link; cần **danh sách mọi link**, bấm vào mở xuống thành bảng, nút **Truy cập** thay nút Chia sẻ, giao diện gọn và tinh tế. Tên mục theo ngôn ngữ dashboard: **"Trang bio"** / **"Review Landing Pages"**.
+
+- Ở Tổng quan, khung "Trang khách" thay bằng **Trang bio** (`LandingPages` trong `components/owner-dashboard-v2.tsx`): một dòng gọn, bấm thì mở xuống.
+- Bảng gồm **Trang chính** (`/<mã shop>`) và **mỗi thẻ NFC** (`/t/<mã>`): tên, mã, link, trạng thái (chấm màu), nút **Sao chép** và **Truy cập** (mở tab mới). Không còn nút Chia sẻ, không có QR.
+- Danh sách thẻ **chỉ tải khi mở**, dùng lại `GET …/cards`, nên Tổng quan vẫn nhẹ. Phiên không có quyền xem thẻ (admin ở khấc Tắt hoặc Xem) chỉ thấy Trang chính kèm một dòng báo.
+- Trên điện thoại mỗi link thành một khối xếp dọc, nút cao 40px; không cuộn ngang.
+- Không có migration, không đổi API.
+- **Test:** thêm vào test "cards" của `owner-dashboard.spec.ts`: danh sách đóng lúc đầu, mở ra đủ 2 link, nút Truy cập trỏ đúng `/t/<mã>`, không có nút Chia sẻ, 390px không cuộn ngang. Test xanh ngay lần đầu nên agent **cố tình phá mã** (chỉ hiện Trang chính): test đỏ đúng chỗ `Expected: 2`, rồi khôi phục.
+- **Lỗi của agent trong lượt này:** khi sửa tài liệu, agent ghi nhầm chữ `PLACEHOLDER` vào `redesign-v2.md` rồi gỡ ngay, trước commit. Khi phá thử mã, agent chép bản lưu ra `/tmp` thay vì scratchpad của phiên; đã xoá.

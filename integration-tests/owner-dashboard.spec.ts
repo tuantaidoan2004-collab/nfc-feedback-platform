@@ -165,6 +165,22 @@ test('cards: nhân bản thẻ, see the fee before switching on, the card opens 
  await expect(row.getByRole('button',{name:'Bật lại',exact:true})).toBeVisible();
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await panel.screenshot({path:info.outputPath('cards-390.png')});
+ // Trang bio: collapsed on the overview, drops down into every link — main page and each card — with Truy cập, no share.
+ await page.setViewportSize({width:1280,height:900});
+ await page.locator('[data-view="home"]').click();
+ const bio=page.locator('[data-landing-pages]');
+ await expect(bio.locator('tr[data-landing]')).toHaveCount(0);
+ await bio.getByRole('button',{name:/Trang bio/}).click();
+ await expect(bio.locator('tr[data-landing]')).toHaveCount(2);
+ await expect(bio.locator('tr[data-landing="one"]')).toContainText('Trang chính');
+ const bioCard=bio.locator(`tr[data-landing="${code}"]`);
+ await expect(bioCard).toContainText('Bàn 3');await expect(bioCard).toContainText('Đã tắt');
+ await expect(bioCard.getByRole('link',{name:'Truy cập'})).toHaveAttribute('href',new RegExp(`/t/${code}$`));
+ await expect(bio.getByRole('button',{name:'Chia sẻ'})).toHaveCount(0);
+ await bioCard.getByRole('button',{name:'Sao chép'}).click();
+ await expect(bio.getByRole('status')).toContainText(/Đã sao chép link Bàn 3|Chưa sao chép được/);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await bio.screenshot({path:info.outputPath('bio-390.png')});
  expect(errors).toEqual([]);
 });
 test('password: change it in Settings, the old one stops working, the new one signs in; other origins refused',async({page,context,f})=>{

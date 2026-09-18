@@ -74,17 +74,51 @@ function Week({ daily }: { daily: Summary['daily'] }) {
   </section>;
 }
 
-/** The shop's customer page, to open on other phones or send over Zalo. No QR code: Tài chose not to add one. */
-function CustomerLink({ url }: { url: string }) {
-  const [status, setStatus] = useState('');
-  const copyLink = async () => { try { await navigator.clipboard.writeText(url); setStatus('Đã sao chép.'); } catch { setStatus('Chưa sao chép được. Giữ lâu vào đường dẫn để sao chép.'); } };
-  return <section className={styles.panel} aria-label="Trang khách" data-customer-link={url}><h2>Trang khách</h2>
-    <p className={styles.hint}>Trang khách mở ra khi chạm thẻ. Gửi qua Zalo hoặc mở trên điện thoại khác để thử; mỗi lượt sẽ hiện ở đây.</p>
-    <div className={styles.actions}><a href={url} target="_blank" rel="noreferrer" className={styles.linkBox}>{url}</a>
-      <button type="button" onClick={copyLink}>Sao chép</button>
-      {/* Phones open their own share sheet; a browser without one copies instead. */}
-      <button type="button" onClick={() => { if ('share' in navigator) void navigator.share({ title: 'Trang đánh giá', url }).catch(() => {}); else void copyLink(); }}>Chia sẻ</button></div>
-    {status && <p className={styles.hint}>{status}</p>}
+/**
+ * Trang bio (Review Landing Pages in English): every link that opens the shop's page — the main page and each NFC
+ * card — in one quiet row that drops down into a table. Cards load only when opened, so the overview stays light.
+ * Each row copies its link or opens it ("Truy cập"); no share button and no QR code (Tài chose both).
+ */
+type Landing = { key: string; name: string; code: string; url: string; state: string | null };
+const CARD_STATES: Record<string, string> = { prepared: 'Chưa kích hoạt', tested: 'Đã thử', active: 'Đang hoạt động', disabled: 'Đã tắt' };
+function LandingPages({ url, endpoint }: { url: string; endpoint: string }) {
+  const [open, setOpen] = useState(false), [cards, setCards] = useState<Landing[] | null>(null), [status, setStatus] = useState('');
+  const origin = url.replace(/\/[^/]*$/, '');
+  const main: Landing = { key: 'main', name: 'Trang chính', code: url.slice(origin.length + 1), url, state: null };
+  const toggle = async () => {
+    setOpen(!open);
+    if (open || cards) return;
+    try {
+      const response = await fetch(`${endpoint}/cards`, { cache: 'no-store' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) { setCards([]); setStatus('Phiên này không xem được danh sách thẻ.'); return; }
+      setCards((body.cards as Array<{ id: string; code: string; label: string; state: string }>).map(card =>
+        ({ key: card.id, name: card.label, code: card.code, url: `${origin}/t/${card.code}`, state: card.state })));
+    } catch { setCards([]); setStatus('Không thể kết nối. Vui lòng thử lại.'); }
+  };
+  const copy = async (row: Landing) => {
+    try { await navigator.clipboard.writeText(row.url); setStatus(`Đã sao chép link ${row.name}.`); }
+    catch { setStatus('Chưa sao chép được. Giữ lâu vào link để sao chép.'); }
+  };
+  const rows = [main, ...(cards ?? [])];
+  return <section className={`${styles.panel} ${styles.landing}`} aria-label="Trang bio" data-customer-link={url} data-landing-pages>
+    <button type="button" className={styles.landingHead} aria-expanded={open} aria-controls="landing-pages" onClick={() => void toggle()}>
+      <span><strong>Trang bio</strong><small>{cards ? `${rows.length} link` : 'Trang chính và link của từng thẻ NFC'}</small></span>
+      <svg className={styles.chevron} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+    {open && <div id="landing-pages">
+      {!cards ? <p className={styles.hint}>Đang tải…</p> : <table className={styles.landingTable}>
+        <thead><tr><th>Tên</th><th>Link</th><th>Trạng thái</th><th><span className={styles.srOnly}>Thao tác</span></th></tr></thead>
+        <tbody>{rows.map(row => <tr key={row.key} data-landing={row.code}>
+          <td><strong>{row.name}</strong> <code>{row.code}</code></td>
+          <td className={styles.landingUrl}>{row.url.replace(/^https?:\/\//, '')}</td>
+          <td>{row.state ? <span className={styles.dot} data-state={row.state}>{CARD_STATES[row.state] ?? row.state}</span> : <span className={styles.dot} data-state="main">Trang gốc</span>}</td>
+          <td className={styles.landingActions}><button type="button" onClick={() => void copy(row)}>Sao chép</button>
+            <a href={row.url} target="_blank" rel="noreferrer">Truy cập</a></td>
+        </tr>)}</tbody>
+      </table>}
+      <p role="status" className={styles.hint}>{status}</p>
+    </div>}
   </section>;
 }
 
@@ -311,7 +345,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
           </div>
           <p className={styles.hint} data-google-note>Số đánh giá Google sẽ có khi shop kết nối Google Business Profile. Trang khách không biết được khách đã đăng review hay chưa.</p>
           <Week daily={summary!.daily} />
-          <CustomerLink url={customerUrl} />
+          <LandingPages url={customerUrl} endpoint={endpoint} />
         </>}
       </section>}
 

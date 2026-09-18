@@ -244,8 +244,18 @@ Tài chốt: làm xong **hệ thống tài khoản** trước, tài khoản ph�
 - **Tạo tài khoản phụ** bằng link thiết lập dùng một lần, như khách tự đặt mật khẩu (mục "Mật khẩu đầu tiên"): chủ shop cũng không bao giờ biết mật khẩu nhân viên.
 - Người rời shop thì tắt membership; bình luận cũ giữ tên họ.
 
+**Tài trả lời 18/09 (chốt):**
+- **Mạo danh là "chủ server Minecraft":** admin xuất hiện để sửa lỗi, và lâu lâu vào trò chuyện, chọc ghẹo chủ shop như một người chơi có mặt thật. Admin **viết được bình luận** khi công tắc hỗ trợ ở **Khấc 3 · Toàn quyền**.
+- **Danh tính admin:** tên `@Quitesensational`, **dấu tick hình răng cưa như tick xác minh của Instagram, màu tím neon**, nhãn **"Admin Tài"**.
+- **Hồ sơ:** nhận toàn bộ đề xuất ở trên, **có ảnh bìa** như kênh YouTube.
+- **Đăng nhập bằng `@handle` hoặc email** (dễ nhớ), cùng một ô.
+- **Quên mật khẩu:** liên hệ Tài qua email, hotline hoặc Zalo, Tài đặt lại hộ. Số và email của Tài để trong cấu hình (biến môi trường), **không ghi vào repo**. Link đặt lại tự gửi qua email để sau, khi có dịch vụ email.
+- **Vai kiểu Discord:** chủ shop tạo vai, đặt tên, biểu tượng (👑 hoặc biểu tượng khác) và màu, rồi gán cho người; ai có vai có biểu tượng thì tự bật/tắt hiện biểu tượng đó trên tên mình trong hồ sơ.
+- Huy hiệu: chủ shop có viên nhạt quanh tên như chủ kênh YouTube; nhân viên không có huy hiệu mặc định.
+- Tên mục danh sách link theo ngôn ngữ dashboard: **"Trang bio"** (tiếng Việt), **"Review Landing Pages"** (tiếng Anh). Dashboard hiện chỉ có tiếng Việt.
+
 Chia lát dự kiến:
-1. **Danh sách Review Landing Page** — nhỏ, effort medium, không migration, làm được ngay.
+1. **Danh sách Review Landing Page** — **xong 18/09**, xem `redesign-v2.md`.
 2. **Hồ sơ tài khoản + tab Hồ sơ** — effort high, có migration.
 3. **Tài khoản phụ + lịch sử hoạt động + tìm kiếm** — effort high, có migration.
 4. **Luồng bình luận** (like, ghim, sửa, xoá, bỏ trạng thái) — effort high, có migration.
