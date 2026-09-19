@@ -33,7 +33,7 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 ### F-003 · Trung bình · Số điện thoại khách vẫn trả cho admin ở phạm vi đọc góp ý
 - Chờ Tài chọn (a) giữ và sửa câu chữ, hay (b) ẩn với admin mọi khấc. Nếu (b): xoá ở server trong `read()`, `comments`, thông báo, và kiểm đường xuất. Roadmap A5.
 
-### F-004 · Thấp · `AGENTS.md` còn ghi "chỉ local, chưa deploy" — Astra. **Đã sửa** (Claude, commit ghi ở dưới).
+### F-004 · Thấp · `AGENTS.md` còn ghi "chỉ local, chưa deploy" — Astra. **Đã sửa** (Claude, `bb2e93d`).
 
 ### F-005 · Cao (nếu làm theo) · Roadmap A3 ghi nhầm `app/api/v2` là mã cũ cần xoá — Astra. **Đã sửa** trong `roadmap-slices.md` (Claude). `app/api/v2` là API trang khách đang chạy.
 
