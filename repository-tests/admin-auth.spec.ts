@@ -124,6 +124,10 @@ test('a password created by the bootstrap script opens a session through the lib
  expect(session.token).toMatch(/^[a-f0-9]{64}$/);
  await expect(f.auth.login('scripted',`${secret}x`)).rejects.toThrow('ADMIN_LOGIN_FAILED');
  expect((await f.db.query("SELECT action FROM admin_audit")).rows.map(r=>r.action)).toEqual(['admin.bootstrap']);
+ // Opening production (lát F6): an administrator created after migration 014 gets its badge from the script.
+ await run(process.execPath,['scripts/bootstrap-admin.mjs','tai','--handle=Quitesensational','--title=Admin Tài'],
+  {env:{...process.env,NFC_ADMIN_PASSWORD:secret,DATABASE_URL:`${uri}?options=-c%20search_path%3D${f.schema}`}});
+ expect((await f.db.query("SELECT handle,title FROM platform_admins WHERE username='tai'")).rows).toEqual([{handle:'Quitesensational',title:'Admin Tài'}]);
 });
 
 test('rollback refuses to discard administrative identities or the audit trail',async({f})=>{

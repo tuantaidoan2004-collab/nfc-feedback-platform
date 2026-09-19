@@ -592,7 +592,7 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 
 ### Việc còn treo của Tài
 
-- **Tên miền: `quitesensational-review-bio.vercel.app` (miễn phí) cho Production trước**, `.com` mua ở Cloudflare sau (Tài chốt 19/09). Cần lát "mở production" trước khi ghi thẻ cho khách. — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
+- **Tên miền: `quitesensational-review-bio.vercel.app` (miễn phí) cho Production trước**, `.com` mua ở Cloudflare sau (Tài chốt 19/09). Lát "mở production" (F6) đang làm: các bước và biến ở `production-launch.md`. — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
 - Xác minh hồ sơ Google Business Profile, chờ 60 ngày, rồi xin quyền API.
 - Trả lời agent có cài plugin Cloudflare cho Claude Code không (hướng dẫn `developers.cloudflare.com/agent-setup/prompt.md`; agent chưa chạy vì đổi cấu hình toàn máy và cho agent quyền trên tài khoản Cloudflare).
 - Khi siết mật khẩu đồng loạt: xoay mật khẩu `neondb_owner` và admin `tai` (đã xuất hiện trong hội thoại), đổi `yourshop`.

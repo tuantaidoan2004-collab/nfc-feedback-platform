@@ -17,6 +17,12 @@ const derive = (password, salt) => new Promise((resolve, reject) =>
 const args = process.argv.slice(2);
 const reset = args.includes('--reset');
 const name = (args.find(a => !a.startsWith('--')) ?? '').trim().toLowerCase();
+// How the administrator appears to shops (migration 014): --handle=Quitesensational --title="Admin Tài". Optional; an
+// account created after 014 ran has neither unless given here (lát F6, opening production).
+const option = key => { const found = args.find(a => a.startsWith(`--${key}=`)); return found === undefined ? null : found.slice(key.length + 3).trim(); };
+const handle = option('handle'), title = option('title');
+if (handle !== null && !/^[A-Za-z0-9][A-Za-z0-9_.]{2,31}$/.test(handle)) throw new Error('--handle must be 3-32 letters, digits, _ or .');
+if (title !== null && (!title || [...title].length > 40 || /[<>]/.test(title))) throw new Error('--title must be 1-40 characters without < or >.');
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL required');
 if (!/^[a-z0-9][a-z0-9_.-]{2,63}$/.test(name)) throw new Error('Usage: node scripts/bootstrap-admin.mjs <username> [--reset]');
 
@@ -94,6 +100,8 @@ try {
         [name, salt, key, SCHEME])).rows[0].id;
   if (!id) throw new Error(`No administrator named ${name}; drop --reset to create one.`);
   if (reset) await client.query('UPDATE admin_auth_sessions SET revoked_at=clock_timestamp() WHERE admin_id=$1 AND revoked_at IS NULL', [id]);
+  if (handle !== null || title !== null)
+    await client.query('UPDATE platform_admins SET handle=COALESCE($2,handle),title=COALESCE($3,title) WHERE id=$1', [id, handle, title]);
   // Self-recorded, because no administrator authorised it. The trail still shows where this came from.
   await client.query('INSERT INTO admin_audit(actor_id,action,detail)VALUES($1,$2,$3)',
     [id, reset ? 'admin.password_reset' : 'admin.bootstrap', JSON.stringify({ username: name, via: 'scripts/bootstrap-admin.mjs' })]);

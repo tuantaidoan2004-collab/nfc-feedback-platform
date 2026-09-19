@@ -24,7 +24,7 @@ Tài có tài khoản Cloudflare R2 và yêu cầu làm mọi thứ liên quan. 
    ```json
    [{"AllowedOrigins":["https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app"],"AllowedMethods":["PUT"],"AllowedHeaders":["content-type"],"MaxAgeSeconds":3600}]
    ```
-   Khi có tên miền production thì thêm nó vào `AllowedOrigins`.
+   Khi có tên miền production thì thêm nó vào `AllowedOrigins`. **19/09:** thêm `https://quitesensational-review-bio.vercel.app` (xem `production-launch.md`).
 4. **R2 → Manage API tokens → Create API token**: quyền **Object Read & Write**, chỉ bucket `nfc-media`. Chép **Access Key ID** và **Secret Access Key** (chỉ hiện một lần). **Account ID** nằm ở trang tổng quan R2.
 
 ## Việc Tài làm trên Vercel
