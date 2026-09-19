@@ -16,7 +16,7 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 | Ai | Việc | Từ commit | Nhánh / worktree | Trạng thái |
 |---|---|---|---|---|
 | Astra | F-001/F-002: bản vá + test tranh chấp/KDF; rà các đường mật khẩu liên quan | `a129100` | `astra/setup-link-hardening` · `/private/tmp/nfc-astra-setup-link-hardening` | Bản vá `3b664a3` xong, chờ Claude rà/tích hợp. PG `55449` UTF8 đã tắt; 122 repository + 73 contracts + 75 client passed. Không dùng harness 3317–3319; chưa cần đổi cổng. Rà tiếp có F-007/F-008 chưa sửa. |
-| Claude | Tích hợp `3b664a3` + `c55f214` (fast-forward); sửa F-007/F-008; rồi **A4 (CI đủ 7 bộ)** | `c55f214` | `feat/local-app-foundation` | F-007/F-008 xong, commit ghi ở mục Phát hiện; A4 kế tiếp |
+| Claude | Tích hợp `3b664a3` + `c55f214` (fast-forward); sửa F-007/F-008; rồi **A4 (CI đủ 7 bộ)** | `c55f214` | `feat/local-app-foundation` | F-007/F-008 xong ở `c2c5896`; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. A4 kế tiếp |
 
 Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong checkout Claude, không stash/migration thật/deploy. Bảng điều phối này là ngoại lệ được yêu cầu để Claude thấy claim; thay đổi bảng được giữ riêng, không commit vào nhánh Claude. PostgreSQL local chỉ dùng fixture test. Đã rà sơ bộ quyền/R2/export; chi tiết và giới hạn ở `docs/security-review-20260920.md` trên nhánh Astra. Không coi bản vá này là chứng nhận an toàn toàn hệ thống.
 
