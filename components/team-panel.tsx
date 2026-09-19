@@ -20,6 +20,7 @@ const ERRORS: Record<string, string> = {
   OWNER_ROLE_REQUIRED: 'Chỉ chủ shop làm được việc này.', ROLE_IN_USE: 'Vai đang có người giữ. Đổi vai cho họ trước khi xoá.',
   ROLE_NAME_TAKEN: 'Đã có vai trùng tên.', INVALID_ROLE: 'Tên vai 1–30 ký tự; biểu tượng tối đa 8 ký tự, không khoảng trắng.',
   NOT_ON_YOURSELF: 'Không tự đổi vai của chính mình.', OWNER_UNTOUCHABLE: 'Không đổi được chủ shop.',
+  MEMBER_ALREADY_ACTIVE: 'Người này đã kích hoạt tài khoản. Quên mật khẩu thì liên hệ quản trị NFC để đặt lại.',
 };
 type Team = { roles: Role[]; members: Member[]; me: { userId: string; owner: boolean; permissions: Permission[] } };
 

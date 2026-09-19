@@ -77,9 +77,12 @@ test('a Quản lý invites and manages, but never above their own reach, never t
  // Only the owner activates a card, whatever the role says.
  const card=await new OwnerCards(f.db).create(mai.token,'one',{label:'Bàn 3'});
  await expect(new OwnerCards(f.db).update(mai.token,'one',{id:card.id,state:'active'})).rejects.toMatchObject({code:'OWNER_ROLE_REQUIRED'});
- // A fresh link supersedes the old one; removing someone closes the shop to them at once.
- const again=await team.change(mai.token,'one',{op:'link',userId:binh.id}) as {token:string};
+ // A fresh link only for someone who never activated (binh has signed in, so no); removing someone closes the shop at once.
+ await expect(team.change(mai.token,'one',{op:'link',userId:binh.id})).rejects.toMatchObject({code:'MEMBER_ALREADY_ACTIVE'});
+ const pending=await team.invite(mai.token,'one',{handle:'chua.vao',roleId:staffRole});
+ const again=await team.change(mai.token,'one',{op:'link',userId:pending.userId}) as {token:string};
  expect(again.token).toMatch(/^[a-f0-9]{64}$/);
+ await expect(new OwnerSetupLinks(f.db).consume(pending.token,'the-first-link-is-dead')).rejects.toThrow('SETUP_LINK_INVALID');
  await team.change(mai.token,'one',{op:'remove',userId:binh.id});
  await expect(f.auth.access(binh.token,'one','overview')).rejects.toMatchObject({code:'ACCESS_DENIED'});
  // Roles: a taken name, a role still held, and an unknown switch are refused; an empty role can go.
@@ -147,3 +150,29 @@ test('rollback 015 refuses once there is history or an invited member, and remov
   await db.query('BEGIN');await expect(db.query(rollback)).rejects.toThrow('TEAM_DATA_PRESENT');await db.query('ROLLBACK');
  }finally{db.release();}
 });
+
+// Found by Astra 2026-09-20 (docs/security-review-20260920.md), red before the fix in lib/owner/team.ts.
+test('F-007: a manager without the feedback switch cannot act on someone the owner opened feedback to',async({f})=>{
+ const owner=f.users[0].token,team=new OwnerTeam(f.db);
+ const roles=(await team.list(owner,'one')).roles;
+ const limited=await team.roles(owner,'one','POST',{name:'People only',icon:null,color:'#000000',permissions:['members']}) as {id:string};
+ const manager=await join(f,owner,'limited.manager',limited.id);
+ const target=await team.invite(owner,'one',{handle:'feedback.reader',roleId:roles[1].id});
+ await team.change(owner,'one',{op:'feedback',userId:target.userId,value:true});
+ for(const change of [{op:'link',userId:target.userId},{op:'remove',userId:target.userId},{op:'role',userId:target.userId,value:roles[1].id}])
+  await expect(team.change(manager.token,'one',change)).rejects.toMatchObject({code:'ROLE_ABOVE_YOU'});
+});
+
+test('F-008: authority in one shop never resets an identity that is active, or that belongs to another shop',async({f})=>{
+ const owner=f.users[0].token,team=new OwnerTeam(f.db);
+ const roles=(await team.list(owner,'one')).roles;
+ // The owner of shop two also joins shop one (the identity model allows one person in several shops).
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role,role_id,invited_by)VALUES($1,$2,'manager',$3,$4)",[f.users[1].id,f.shops[0],roles[1].id,f.users[0].id]);
+ await expect(team.change(owner,'one',{op:'link',userId:f.users[1].id})).rejects.toMatchObject({code:'MEMBER_ALREADY_ACTIVE'});
+ // Even a never-activated account is refused once it belongs to a second shop.
+ const pending=await team.invite(owner,'one',{handle:'hai.shop',roleId:roles[1].id});
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')",[pending.userId,f.shops[1]]);
+ await expect(team.change(owner,'one',{op:'link',userId:pending.userId})).rejects.toMatchObject({code:'MEMBER_ALREADY_ACTIVE'});
+ await expect(f.auth.access(f.users[1].token,'two','export')).resolves.toBeTruthy();
+});
+

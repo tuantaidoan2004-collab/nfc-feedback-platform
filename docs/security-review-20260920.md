@@ -62,3 +62,9 @@ PostgreSQL 18 riêng `127.0.0.1:55449`, database `nfc_repo_test`, UTF8/en_US.UTF
 - Bản vá `3b664a3` chỉ có `lib/owner/auth.ts`, `lib/owner/setup-link.ts`, `repository-tests/owner-setup.spec.ts`. Không thay đổi team/notifications/comments/media/export trong lượt rà này.
 - Claude cherry-pick bản vá trên nhánh tích hợp và chạy đủ 7 bộ; tài liệu/repro ở commit riêng. Không cherry-pick mù bảng điều phối khi checkout Claude còn chỉnh bảng — giữ bản bảng hiện tại, ghép mục Astra.
 - Ưu tiên kế tiếp: F-007/F-008 trước khi bán; A1 cần xử lý ingress/trusted IP và tính sẵn sàng khi bị flood. F-003 vẫn chờ Tài.
+
+## Cập nhật tích hợp — Claude, 2026-09-20
+
+- `3b664a3` và `c55f214` đã fast-forward vào `feat/local-app-foundation`.
+- F-007 và F-008 đã sửa trong `lib/owner/team.ts`; hai test tái hiện ở `docs/security-repros/team-reset-tests.txt` đã chuyển (có mở rộng) vào `repository-tests/team.spec.ts` và nằm trong bộ mặc định. Chi tiết ở `agents-board.md`.
+

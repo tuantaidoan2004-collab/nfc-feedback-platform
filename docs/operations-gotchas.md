@@ -152,6 +152,8 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Đừng giữ advisory lock trên một kết nối pool trong khi việc bên trong cần thêm kết nối.** Bản đầu của `ensureTemplate` khoá trên một kết nối, rồi `PublishingAdmin` mở kết nối khác để tạo nháp và phát hành. Mười lần gọi cùng lúc giữ hết pool để chờ khoá, còn bên giữ khoá không lấy được kết nối nào: treo cho tới khi test hết giờ. Pool production chỉ có **3 kết nối**, nên 3 lần tạo shop cùng lúc là đủ treo. Làm từng bước chịu được việc chạy trùng (unique index, khoá chính, revision), bên chậm chân thì thử lại ngắn. Test đồng thời phải chạy qua pool **cỡ production**.
 
+**Danh tính là toàn hệ thống, quyền là theo shop.** Một người có thể ở nhiều shop. Mọi thao tác trên **danh tính** (đặt lại mật khẩu, cấp link, khoá tài khoản) mà chỉ dựa trên quyền **ở một shop** là lỗ hổng: shop A chiếm được tài khoản đang làm chủ shop B (F-008, lỗi của Claude ở lát F3, Astra bắt 20/09). Khi so quyền giữa hai người, dùng **quyền hiệu lực** (vai cộng quyền cấp riêng), không dùng quyền của vai (F-007).
+
 **Thứ tự các bước là thứ giữ cho lỗi vô hại.** Khi một chuỗi thao tác không thể nằm trong một transaction, xếp sao cho hỏng giữa chừng là vô hại: kiểm điều kiện dễ sai nhất **trước khi ghi gì**, và để bước làm-cho-công-khai **cuối cùng**. Bản đầu của `ShopProvisioning` làm ngược và để lại một trang công khai không có chủ.
 
 **Đo trước khi tối ưu.** Login mất 2,5s trên preview. Đo ra: 0,41s nền, 0,25s database, **1,9s scrypt** — và 1,9s đó là **cố ý**, đúng mức OWASP. Không phải lỗi hiệu năng. Máy local nhanh gấp 10 lần chỉ vì CPU mạnh hơn.

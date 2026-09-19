@@ -63,15 +63,22 @@ export class OwnerTeam {
     if (!row) throw new OwnerError(404, 'ROLE_NOT_FOUND');
     return row as { id: string; name: string; permissions: Permission[] };
   }
-  /** Someone else in this shop, whose current permissions bound what the actor may do to them. */
+  /**
+   * Someone else in this shop, whose **effective** permissions bound what the actor may do to them: the role's switches
+   * plus or minus the owner's per-person feedback choice. Comparing the role alone let a manager without the feedback
+   * switch act on someone the owner had opened feedback to (F-007, found by Astra 2026-09-20).
+   */
   private async target(db: PoolClient, access: OwnerAccess, userId: unknown) {
-    const row = (await db.query(`SELECT m.user_id,m.role,u.username,COALESCE(r.permissions,$3::text[]) permissions FROM owner_memberships_v2 m
+    const row = (await db.query(`SELECT m.user_id,m.role,m.feedback_override,u.username,COALESCE(r.permissions,$3::text[]) permissions FROM owner_memberships_v2 m
       JOIN owner_identities_v2 u ON u.id=m.user_id LEFT JOIN shop_roles r ON r.id=m.role_id
       WHERE m.shop_id=$1 AND m.user_id=$2 AND m.active FOR UPDATE OF m`, [access.shopId, id(userId), MANAGER_DEFAULT])).rows[0];
     if (!row) throw new OwnerError(404, 'MEMBER_NOT_FOUND');
     if (row.role === 'owner') throw new OwnerError(403, 'OWNER_UNTOUCHABLE');
     if (row.user_id === access.userId) throw new OwnerError(403, 'NOT_ON_YOURSELF');
-    return row as { user_id: string; username: string; permissions: Permission[] };
+    let permissions = row.permissions as Permission[];
+    if (row.feedback_override !== null)
+      permissions = row.feedback_override ? [...new Set([...permissions, 'feedback' as const])] : permissions.filter(p => p !== 'feedback');
+    return { user_id: row.user_id as string, username: row.username as string, permissions };
   }
   private guard(access: OwnerAccess, permissions: Permission[]) {
     requirePermission(access, 'members');
@@ -151,6 +158,15 @@ export class OwnerTeam {
         await recordActivity(db, access, 'member.remove', `@${person.username}`);
       } else if (op === 'link') {
         this.guard(access, person.permissions);
+        // A shop may only re-send the invitation of someone who never activated it and who belongs to this shop alone.
+        // An identity is global: resetting an active one from one shop would take over its other shops (F-008, found by
+        // Astra 2026-09-20). A member who forgot their password recovers through NFC support instead.
+        const activated = (await db.query(`SELECT EXISTS(SELECT 1 FROM owner_setup_tokens WHERE user_id=$1 AND used_at IS NOT NULL)
+            OR EXISTS(SELECT 1 FROM owner_auth_sessions_v2 WHERE user_id=$1) activated,
+          (SELECT count(*)::int FROM owner_memberships_v2 WHERE user_id=$1 AND shop_id<>$2) elsewhere,
+          (SELECT invited_by IS NOT NULL FROM owner_memberships_v2 WHERE user_id=$1 AND shop_id=$2) invited`,
+          [person.user_id, access.shopId])).rows[0];
+        if (activated.activated || activated.elsewhere > 0 || !activated.invited) throw new OwnerError(409, 'MEMBER_ALREADY_ACTIVE');
         const link = await new OwnerSetupLinks(this.pool).write(db, person.user_id, 'setup');
         await recordActivity(db, access, 'member.link', `@${person.username}`);
         return { token: link.token, expiresAt: link.expiresAt };
