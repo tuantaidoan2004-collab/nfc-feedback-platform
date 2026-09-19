@@ -12,7 +12,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 |---|---|---|---|---|
 | A1 | **Chặn bot và giới hạn tần suất** cho API trang khách (lượt chạm, sao, góp ý): giới hạn theo IP, theo thẻ, theo phiên; chặn tăng đột biến | V | AWS WAF, Telegram | P0. Hiện bot bơm được dữ liệu giả không giới hạn |
 | A2 | **2FA bắt buộc cho admin**: mã 6 số từ ứng dụng xác thực, mã dự phòng dùng một lần | V | Telegram | P0. Một admin chạm được mọi shop |
-| A3 | **Dọn mã cũ**: `app/api/owner/[shop]`, `app/api/shops`, `app/api/v2`, `app/demo`, `shop-dashboard.tsx`, `owner-dashboard.tsx`, `lib/demo-store.ts`, `prototypes/` | V | — | P0. Giảm bề mặt tấn công, bớt nhầm cho người mới |
+| A3 | **Dọn mã cũ**, xác minh **từng route** trước khi xoá: ứng viên `app/api/owner/[shop]`, `app/api/shops`, `app/demo`, `shop-dashboard.tsx`, `owner-dashboard.tsx`, `lib/demo-store.ts`, `prototypes/`. **Không xoá `app/api/v2`**: đó là API trang khách đang chạy (`lib/client/visit-fetch-transport.ts`) | V | — | P0. Tách riêng, không gộp với A1/A2. Bản 20/09 ghi nhầm `app/api/v2` vào danh sách xoá; Astra bắt được |
 | A4 | **CI chạy đủ 7 bộ** trên GitHub Actions (Postgres UTF-8, harness) | V | AWS Well-Architected | P0. Tài bật bảo vệ nhánh `main` sau đó (mục F) |
 | A5 | **Trang pháp lý bản nháp**: Chính sách quyền riêng tư, Điều khoản, câu đồng ý khi để số điện thoại (mục đích, ai xem, lưu bao lâu, rút lại); sửa câu sai "Chỉ quản lý của quán thấy số này" | V | — | P0. Luật sư duyệt ở C2 |
 | A6 | **Nén ảnh ngay trên trình duyệt** trước khi tải lên (cỡ tối đa, WebP), nhiều cỡ cho poster/logo | V | Canva | P0. Ảnh 5 MB đang phục vụ nguyên |
