@@ -184,6 +184,8 @@ export class OwnerAuth {
     const token = credential;
     // Decided inside the transaction, thrown after it commits, so a wrong guess still counts against the limit.
     const outcome = await transaction(this.pool, async db => {
+      // Share the owner login/reset resource budget, including both sequential hashes.
+      if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked) return 'TOO_MANY_ATTEMPTS' as const;
       const user = (await db.query(`SELECT u.id,u.username,u.password_salt,u.password_key FROM owner_auth_sessions_v2 a
         JOIN owner_identities_v2 u ON u.id=a.user_id WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active
         FOR UPDATE OF u`, [sessionHash(token)])).rows[0];

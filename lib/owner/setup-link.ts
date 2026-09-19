@@ -65,6 +65,9 @@ export class OwnerSetupLinks {
    * hours after a reset link replaced it (found by the template account test, 2026-09-19).
    */
   async write(db: PoolClient, userId: string, purpose: SetupPurpose): Promise<SetupLink> {
+    // Serialize before UPDATE takes its READ COMMITTED snapshot; a concurrent INSERT
+    // must be committed and visible before we retire the previous account links.
+    await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-owner-setup:'||$1,0))", [userId]);
     await db.query('UPDATE owner_setup_tokens SET superseded_at=clock_timestamp() WHERE user_id=$1 AND used_at IS NULL AND superseded_at IS NULL',
       [userId]);
     const token = randomBytes(32).toString('hex');
@@ -98,17 +101,43 @@ export class OwnerSetupLinks {
   async consume(token: unknown, password: unknown) {
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new OwnerError(400, 'SETUP_LINK_INVALID');
     if (!validPassword(password)) throw new OwnerError(400, 'INVALID_CREDENTIAL');
-    const salt = randomBytes(16).toString('hex'), key = await passwordKey(password, salt);
-    return transaction(this.pool, async db => {
+    const result = await transaction(this.pool, async db => {
+      // Same database-wide KDF slot as owner login/password change. No hash queue,
+      // and no separate connection held while asking the pool for more work.
+      if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked)
+        return { error: 'TOO_MANY_ATTEMPTS' } as const;
+      // Invalid tokens are cheap but still bounded. Commit rejected attempts; throwing
+      // inside this transaction would roll the limiter back. No raw token/IP is stored.
+      const attempt = (await db.query(`INSERT INTO owner_login_limits(bucket,window_start,attempts)VALUES('setup-global',clock_timestamp(),1)
+        ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-interval '1 minute' THEN 1
+        ELSE LEAST(owner_login_limits.attempts,60)+1 END,
+        window_start=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-interval '1 minute' THEN clock_timestamp()
+        ELSE owner_login_limits.window_start END RETURNING attempts`)).rows[0].attempts;
+      if (attempt > 60) return { error: 'TOO_MANY_ATTEMPTS' } as const;
+      const hash = setupTokenHash(token);
+      const candidate = (await db.query(`SELECT user_id FROM owner_setup_tokens WHERE token_hash=$1
+        AND used_at IS NULL AND superseded_at IS NULL AND expires_at>clock_timestamp()`, [hash])).rows[0];
+      if (!candidate) return { error: 'SETUP_LINK_INVALID' } as const;
+      // Identity before account lock/token row: reissue checks the identity first too.
+      // This prevents resetting against an old key while login/password change is in flight.
+      if (!(await db.query('SELECT 1 FROM owner_identities_v2 WHERE id=$1 AND active FOR UPDATE', [candidate.user_id])).rowCount)
+        return { error: 'SETUP_LINK_INVALID' } as const;
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-owner-setup:'||$1,0))", [candidate.user_id]);
+      if (!(await db.query(`SELECT 1 FROM owner_setup_tokens WHERE token_hash=$1 AND used_at IS NULL
+        AND superseded_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE`, [hash])).rowCount)
+        return { error: 'SETUP_LINK_INVALID' } as const;
+      const salt = randomBytes(16).toString('hex'), key = await passwordKey(password, salt);
+      // Recheck expiration after hashing. A failed final claim rolls back every write.
       const claimed = (await db.query(`UPDATE owner_setup_tokens SET used_at=clock_timestamp()
         WHERE token_hash=$1 AND used_at IS NULL AND superseded_at IS NULL AND expires_at>clock_timestamp() RETURNING user_id`,
-        [setupTokenHash(token)])).rows[0];
+        [hash])).rows[0];
       if (!claimed) throw new OwnerError(400, 'SETUP_LINK_INVALID');
-      if (!(await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3 WHERE id=$1 AND active',
-        [claimed.user_id, salt, key.toString('hex')])).rowCount) throw new OwnerError(404, 'OWNER_NOT_FOUND');
-      // Anything signed in with the previous password loses access at the moment the new one takes effect.
+      await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3 WHERE id=$1',
+        [claimed.user_id, salt, key.toString('hex')]);
       await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND revoked_at IS NULL', [claimed.user_id]);
-      return claimed.user_id as string;
+      return { userId: claimed.user_id as string };
     });
+    if ('error' in result) throw new OwnerError(result.error === 'TOO_MANY_ATTEMPTS' ? 429 : 400, result.error!);
+    return result.userId;
   }
 }
