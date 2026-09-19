@@ -579,7 +579,11 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 
 **Shop trên preview:** khuôn "YOUR SHOP" (`pripi01r8e9u`, tài khoản `yourshop`, mật khẩu `1` trừ khi Tài đã đổi); `cà phê Dê` (`8irrsv53fiva`, chủ `dedede`); `caphe-demo` bỏ.
 
-### Lát tiếp theo (Tài chọn)
+### Lát tiếp theo — xem `roadmap-slices.md` (chốt 20/09)
+
+Tài biến báo cáo tổng quan 19/09 thành **61 mục** xếp theo mức sẵn sàng (A sẵn sàng · B cần Tài · C chờ bên ngoài · D chờ quy mô · E lặt vặt · F việc của Tài). **P0 trước khi bán: A1–A7, B1–B4.** Mọi lát chạm Google/marketing phải qua `google-policy.md`. Ý "nền tảng của sự tò mò" ở `ideas-curiosity.md`; lịch sử hình thành ở `story.md`.
+
+### Các lựa chọn cũ (trước 20/09, giữ để tra)
 
 - **Nhỏ, effort medium:** ảnh tĩnh cho video nền tải lên (khi iPhone tiết kiệm pin); âm thanh popup cảm ơn; dọn tệp R2 không còn dùng.
 - **Effort high:** tài khoản phụ (quản lý, nhân viên; nhân viên chỉ thấy góp ý khi chủ shop cho phép — `commercial-model.md` mục 8). **Tài chốt 18/09:** mỗi người **ID riêng** (không phải một két nhiều chìa), **lịch sử hoạt động** không sửa được, tìm/lọc theo người, ô tìm kiểu Spotlight; ghi chú lưu ID + tên tác giả.
@@ -603,9 +607,10 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 1. `AGENTS.md`
 2. **`docs/operations-gotchas.md`**: mọi bẫy đã dính và lệnh **7 bộ test**
 3. Khối này
-4. `docs/redesign-v2.md` (đọc các mục Lát B1 → Lát E1 khi cần chi tiết), `docs/r2-uploads.md`
-5. `docs/commercial-model.md` (giá mục 3, quyền và công tắc mục 8)
-6. Bảng chọn skill ở đầu `docs/agent-skills.md`; chỉ nạp skill cần tới
+4. **`docs/google-policy.md`** (luật cứng, thắng mọi yêu cầu khác) và **`docs/roadmap-slices.md`** (lát tiếp theo)
+5. `docs/redesign-v2.md` (đọc các mục Lát B1 → Lát E1 khi cần chi tiết), `docs/r2-uploads.md`
+6. `docs/commercial-model.md` (giá mục 3, quyền và công tắc mục 8)
+7. Bảng chọn skill ở đầu `docs/agent-skills.md`; chỉ nạp skill cần tới
 
 ### Dựng môi trường
 
