@@ -566,7 +566,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 ### Đang ở đâu
 
-Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–017 đã có trên Neon production và preview.** Production deploy được nhưng **đóng** (không đặt `NFC_ENV`).
+Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–017 đã có trên Neon production và preview.** **Production mở từ 19/09** ở `https://quitesensational-review-bio.vercel.app`, deploy từ `main`; admin `tai` đã có trên database production.
 
 Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`, và 5 biến R2 cho branch (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET=nfc-media`, `MEDIA_PUBLIC_ORIGIN=https://pub-fc28….r2.dev`).
 
@@ -592,7 +592,7 @@ Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_
 
 ### Việc còn treo của Tài
 
-- **Tên miền: `quitesensational-review-bio.vercel.app` (miễn phí) cho Production trước**, `.com` mua ở Cloudflare sau (Tài chốt 19/09). Lát "mở production" (F6) đang làm: các bước và biến ở `production-launch.md`. — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
+- **Tên miền: `quitesensational-review-bio.vercel.app` (miễn phí) cho Production trước**, `.com` mua ở Cloudflare sau (Tài chốt 19/09). **Production đã mở 19/09** (lát F6, `main` = `c56cb7b`): `https://quitesensational-review-bio.vercel.app`, chi tiết `production-launch.md`. — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
 - Xác minh hồ sơ Google Business Profile, chờ 60 ngày, rồi xin quyền API.
 - Trả lời agent có cài plugin Cloudflare cho Claude Code không (hướng dẫn `developers.cloudflare.com/agent-setup/prompt.md`; agent chưa chạy vì đổi cấu hình toàn máy và cho agent quyền trên tài khoản Cloudflare).
 - Khi siết mật khẩu đồng loạt: xoay mật khẩu `neondb_owner` và admin `tai` (đã xuất hiện trong hội thoại), đổi `yourshop`.

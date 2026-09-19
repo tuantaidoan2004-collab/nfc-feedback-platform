@@ -8,6 +8,8 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Deployment bị chặn vì commit author email.** Máy không có `~/.gitconfig` nên Git tự dựng danh tính từ tên máy và IP (`doantai@192.168.2.26`). Vercel từ chối. **Đặt `git config --global user.email` bằng email của tài khoản GitHub.** Commit cũ giữ nguyên author; chỉ commit mới cần đúng.
 
+**Vừa đẩy `main` mà production đã trả 200 ngay lần kiểm đầu.** Đó là bản cũ: khi thêm biến, Vercel có thể redeploy bản đang chạy với biến mới. Kiểm bằng một dấu hiệu **chỉ bản mới có**, và xem `vercel ls --prod` còn `Building` không (lát F6).
+
 **Đổi biến môi trường xong mà không thấy tác dụng.** `vercel deploy` từ CLI **không di chuyển alias theo branch**. Bản CLI chạy đúng khi gọi thẳng URL của nó, nhưng alias vẫn trỏ bản cũ. **Ship thay đổi env bằng cách push một commit**, đừng dùng `vercel deploy`.
 
 **Xoay mật khẩu database xong thì mọi thứ trả 503, trong khi kiểm tay đều bình thường.** Vercel **chụp ảnh biến môi trường tại thời điểm tạo deployment**. Tích hợp cập nhật cấu hình project, nhưng bản đang phục vụ giữ ảnh chụp cũ. `vercel env pull` lấy về chuỗi mới nên càng gây hiểu nhầm. **Xoay credential là phải deploy lại.**
