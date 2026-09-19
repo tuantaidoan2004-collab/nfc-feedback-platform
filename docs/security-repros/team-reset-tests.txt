@@ -1,0 +1,22 @@
+
+
+test('audit: a manager without feedback cannot reset a member granted feedback individually',async({f})=>{
+ const owner=f.users[0].token,team=new OwnerTeam(f.db);
+ const roles=(await team.list(owner,'one')).roles;
+ const limited=await team.roles(owner,'one','POST',{name:'People only',icon:null,color:'#000000',permissions:['members']}) as {id:string};
+ const manager=await join(f,owner,'limited.manager',limited.id);
+ const target=await join(f,owner,'feedback.reader',roles[1].id);
+ await team.change(owner,'one',{op:'feedback',userId:target.id,value:true});
+ await expect(team.change(manager.token,'one',{op:'link',userId:target.id})).rejects.toMatchObject({code:'ROLE_ABOVE_YOU'});
+});
+
+test('audit: authority in shop one cannot reset the global identity of shop two owner',async({f})=>{
+ const owner=f.users[0].token,team=new OwnerTeam(f.db);
+ const roles=(await team.list(owner,'one')).roles;
+ // The identity model permits the same person in multiple shops; provision that membership.
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role,role_id)VALUES($1,$2,'manager',$3)",[f.users[1].id,f.shops[0],roles[1].id]);
+ const leaked=await team.change(owner,'one',{op:'link',userId:f.users[1].id}) as {token:string};
+ await new OwnerSetupLinks(f.db).consume(leaked.token,'attacker-chosen-password');
+ const session=await f.auth.login(f.users[1].username,'attacker-chosen-password');
+ await expect(f.auth.access(session.token,'two','export')).rejects.toThrow();
+});

@@ -551,6 +551,12 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Kiểm commit `1fe10f1`: tsc/eslint exit 0; repository **100**; contracts **70**; client **75**; public-v2 + browser-hardening **16 passed, 1 skipped + 2**; publishing **10 + 2**; owner **7 + 2**; admin **6 + 2**; tất cả exit 0. Không có migration.
 - Lỗi của agent: test tính sai số lượt còn lại, quên rằng hai lần đăng nhập ngay trước đó cũng được đếm (giới hạn dùng chung là cố ý).
 
+## Astra rà bảo mật riêng — 20/09/2026
+
+- Theo bàn giao trong `agents-board.md`, Astra làm từ `a129100`, nhánh `astra/setup-link-hardening`, worktree riêng `/private/tmp/nfc-astra-setup-link-hardening`. Claude giữ tích hợp và 7 bộ cuối.
+- Bản vá **`3b664a3`** xử lý F-001/F-002; **chưa tích hợp/chưa deploy**, không migration/dependency. 122 repository, 73 contracts, 75 client passed; type/lint/diff-check xanh. PG riêng 55449 đã tắt, 0 fixture schema còn lại. Không dùng harness Claude.
+- Phát hiện F-007/F-008 về quyền cấp link thành viên đã tái hiện, **chưa sửa**. Chi tiết, repro, giới hạn kiểm ở `security-review-20260920.md`; nhận việc tiếp qua bảng agents.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (cuối phiên, sau đổi mật khẩu)
 
 Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước. Chi tiết từng lát nằm ở các mục phía trên và trong `redesign-v2.md`.
