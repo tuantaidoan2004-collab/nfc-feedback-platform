@@ -26,6 +26,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
   const [handover, setHandover] = useState<Handover | null>(null);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [standIn, setStandIn] = useState<ShopRow | null>(null);
+  const [templateLink, setTemplateLink] = useState<string | null>(null);
 
   const refresh = async () => {
     const response = await fetch('/gov/api/shops', { credentials: 'same-origin' });
@@ -87,7 +88,10 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
     try {
       const response = await fetch('/gov/api/template/account', { method: reset ? 'PUT' : 'POST', credentials: 'same-origin' });
       if (!response.ok) { setError(failed(response.status)); return; }
-      setError('Tài khoản test của khuôn: yourshop / 1. Mở cột Dashboard của dòng KHUÔN để đăng nhập.');
+      const body = await response.json().catch(() => ({}));
+      // Production: a single-use link to choose a strong password instead of yourshop / 1 (lát F6).
+      if (body.account?.setupUrl) { setTemplateLink(body.account.setupUrl); setError('Mở link bên dưới để đặt mật khẩu cho yourshop (dùng một lần, 48 giờ), rồi đăng nhập dashboard của dòng KHUÔN bằng @yourshop.'); }
+      else setError('Tài khoản test của khuôn: yourshop / 1. Mở cột Dashboard của dòng KHUÔN để đăng nhập.');
       await refresh();
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
@@ -164,11 +168,13 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
       <div className={styles.row}><h2>Shop đang có ({shops.filter(row => !row.is_template).length})</h2>
         {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop khuôn</button>}
         {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa khuôn về mặc định mới</button>}
-        {testAccountAllowed && shops.some(row => row.is_template && !row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản test cho khuôn</button>}
-        {testAccountAllowed && shops.some(row => row.is_template && row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount(true)}>Đặt lại tài khoản test (yourshop / 1)</button>}
+        {shops.some(row => row.is_template && !row.owner_username) &&
+          <button disabled={busy} onClick={() => void makeTemplateAccount()}>{testAccountAllowed ? 'Tạo tài khoản test cho khuôn' : 'Tạo tài khoản cho khuôn (link đặt mật khẩu)'}</button>}
+        {shops.some(row => row.is_template && row.owner_username) &&
+          <button disabled={busy} onClick={() => void makeTemplateAccount(true)}>{testAccountAllowed ? 'Đặt lại tài khoản test (yourshop / 1)' : 'Tạo lại link đặt mật khẩu cho yourshop'}</button>}
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
+      {templateLink && <p data-template-link>Link đặt mật khẩu cho <strong>yourshop</strong>: <code>{templateLink}</code>{' '}
+        <button type="button" onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
       <div className={styles.wide}>
         <table className={styles.table}>
           <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>

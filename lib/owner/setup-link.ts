@@ -59,10 +59,14 @@ export class OwnerSetupLinks {
     });
   }
 
-  /** Issuing a link retires any other open one for the same purpose: only the newest can ever be used. */
+  /**
+   * Issuing a link retires every other open link of the account, whatever its purpose: only the newest can ever be
+   * used. Until lát F6 only links of the same purpose were retired, so the first setup link stayed usable for its 48
+   * hours after a reset link replaced it (found by the template account test, 2026-09-19).
+   */
   async write(db: PoolClient, userId: string, purpose: SetupPurpose): Promise<SetupLink> {
-    await db.query('UPDATE owner_setup_tokens SET superseded_at=clock_timestamp() WHERE user_id=$1 AND purpose=$2 AND used_at IS NULL AND superseded_at IS NULL',
-      [userId, purpose]);
+    await db.query('UPDATE owner_setup_tokens SET superseded_at=clock_timestamp() WHERE user_id=$1 AND used_at IS NULL AND superseded_at IS NULL',
+      [userId]);
     const token = randomBytes(32).toString('hex');
     const row = (await db.query(
       `INSERT INTO owner_setup_tokens(token_hash,user_id,purpose,expires_at)VALUES($1,$2,$3,clock_timestamp()+$4*interval '1 hour')RETURNING expires_at`,

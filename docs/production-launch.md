@@ -54,3 +54,11 @@ Gắn `.com` vào Vercel bằng DNS Cloudflare, đổi `APP_ORIGIN`, deploy lạ
 - **Còn lại cho Tài:** đăng nhập `/gov` trên production bằng admin `tai`, tạo shop khuôn, tạo shop thật, rồi thử tải ảnh lên (kiểm CORS R2 và hai khoá R2 mới).
 - **Từ giờ:** production deploy từ `main`. Mỗi lát xong trên branch và đã kiểm trên preview thì fast-forward `main`; lát có migration thì migrate Neon production **trước** khi đẩy `main`.
 
+## Tài khoản dashboard khuôn trên production (19/09)
+
+Tài hỏi tài khoản dashboard khuôn. Preview là `yourshop / 1`; production **từ chối** mật khẩu yếu đó (`TEST_ACCOUNT_FORBIDDEN`), nên lát mở production để lại một lỗ: **không có cách nào sửa khuôn trên production**. Agent không lường trước khi lên kế hoạch lát này.
+
+Sửa: trên production, nút ở `/gov` thành **"Tạo tài khoản cho khuôn (link đặt mật khẩu)"** và **"Tạo lại link đặt mật khẩu cho yourshop"** (`ShopProvisioning.templateAccountLink`). Tài khoản `yourshop` tạo ở trạng thái khoá (như chủ shop mới), `/gov` hiện link đặt mật khẩu dùng một lần 48 giờ; Tài tự đặt mật khẩu mạnh rồi đăng nhập dashboard khuôn bằng `@yourshop`. Cấp link mới cũng mở khoá đếm đăng nhập sai. Preview giữ `yourshop / 1`.
+
+**Lỗi cũ test mới bắt được:** `OwnerSetupLinks.write` chỉ huỷ link còn mở **cùng loại** (`setup` hoặc `reset`). Link đặt mật khẩu đầu tiên (`setup`) vì thế **vẫn dùng được** sau khi admin cấp lại link (`reset`) cho chủ shop, cho tới khi hết 48 giờ. Giờ link mới huỷ mọi link còn mở của tài khoản.
+

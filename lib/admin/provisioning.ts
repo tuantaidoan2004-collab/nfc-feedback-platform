@@ -115,6 +115,31 @@ export class ShopProvisioning {
   }
 
   /**
+   * Production's way into the template's dashboard (lát F6, 2026-09-19). `yourshop / 1` is refused there, which left
+   * no way to edit the template at all. Here the account is created closed, like a shop owner's, and Tài gets a
+   * single-use link to choose a strong password; asking again issues a fresh link and clears the sign-in throttle.
+   */
+  async templateAccountLink(actorId: string) {
+    const template = await this.ensureTemplate(actorId);
+    return transaction(this.pool, async db => {
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-template-account',0))");
+      let user = (await db.query('SELECT id FROM owner_identities_v2 WHERE username=$1', [TEMPLATE_USERNAME])).rows[0];
+      const created = !user;
+      // A random key that no password matches: the account stays closed until the link is used.
+      if (!user) user = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id',
+        [TEMPLATE_USERNAME, randomBytes(16).toString('hex'), randomBytes(32).toString('hex')])).rows[0];
+      else await db.query('UPDATE owner_identities_v2 SET active=true WHERE id=$1', [user.id]);
+      await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')
+        ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
+      await db.query('DELETE FROM owner_login_limits WHERE bucket=$1', [loginBucket(TEMPLATE_USERNAME)]);
+      const link = await new OwnerSetupLinks(this.pool).write(db, user.id, created ? 'setup' : 'reset');
+      await recordAdminAction(db, actorId, { action: 'template.account.link', shopId: template.shopId, onBehalfOf: user.id,
+        detail: { username: TEMPLATE_USERNAME, created } });
+      return { username: TEMPLATE_USERNAME, created, slug: template.slug, setupToken: link.token, expiresAt: link.expiresAt };
+    });
+  }
+
+  /**
    * Puts the template's test sign-in back to `yourshop` / `1` and clears that username's sign-in throttle, for when
    * the password is unknown or too many attempts locked it out (Tài, 2026-09-18). Same production refusal as
    * issuing it: the password is deliberately weak.

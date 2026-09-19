@@ -242,3 +242,21 @@ test('the template test account signs in to the template only, is refused when n
  await expect(f.auth.access(session.token,made.slug,'overview')).rejects.toThrow('ACCESS_DENIED');
  expect((await f.shops.list()).find(r=>r.is_template)).toMatchObject({owner_username:'yourshop'});
 });
+
+test('production: the template account comes with a single-use link, never yourshop / 1 (lát F6)',async({f})=>{
+ const provisioning=new ShopProvisioning(f.db),adminId=(await f.db.query('SELECT id FROM platform_admins LIMIT 1')).rows[0].id;
+ await expect(provisioning.ensureTemplateAccount(adminId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
+ const first=await provisioning.templateAccountLink(adminId);
+ expect(first).toMatchObject({username:'yourshop',created:true});
+ const auth=new OwnerAuth(f.db);
+ await expect(auth.login('yourshop','1')).rejects.toThrow('LOGIN_FAILED');
+ // Asking again replaces the link: the first one no longer works.
+ const second=await provisioning.templateAccountLink(adminId);
+ expect(second.created).toBe(false);
+ const links=new OwnerSetupLinks(f.db);
+ await links.consume(second.setupToken,'a-strong-template-password');
+ await expect(links.consume(first.setupToken,'another-strong-password')).rejects.toThrow('SETUP_LINK_INVALID');
+ const session=await auth.login('@yourshop','a-strong-template-password');
+ await expect(auth.access(session.token,first.slug,'design')).resolves.toMatchObject({role:'owner'});
+ expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.link'")).rows[0].n).toBe(2);
+});
