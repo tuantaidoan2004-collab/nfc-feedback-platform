@@ -87,7 +87,15 @@ const password = await readPassword();
 
 const salt = randomBytes(16).toString('hex');
 const key = (await derive(password, salt)).toString('hex');
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+// Same rule as lib/db-url.ts and scripts/migrate.mjs: name the certificate checking pg already applies, so it stops
+// printing a security warning on every run (seen when Tài created the production administrator, 2026-09-19).
+function explicitSslMode(value) {
+  let url; try { url = new URL(value); } catch { return value; }
+  const mode = url.searchParams.get('sslmode');
+  if (!mode || !['prefer', 'require', 'verify-ca'].includes(mode)) return value;
+  url.searchParams.set('sslmode', 'verify-full'); return url.toString();
+}
+const client = new pg.Client({ connectionString: explicitSslMode(process.env.DATABASE_URL) });
 await client.connect();
 try {
   await client.query('BEGIN');
