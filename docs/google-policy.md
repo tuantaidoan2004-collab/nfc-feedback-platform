@@ -49,6 +49,18 @@ Tài yêu cầu 2026-09-20: một tệp gom mọi thứ Google cấm, để **kh
 
 **Không:** đứng chờ khách đánh giá, cầm điện thoại khách, đưa máy của quán; tặng món, giảm giá, bốc thăm cho người đánh giá; giao chỉ tiêu cho nhân viên; nhờ nhân viên, người nhà đánh giá; nhắn khách sửa đánh giá xấu để đổi quà; chạy chiến dịch làm số đánh giá tăng vọt trong vài ngày.
 
+## 3b. Nền tảng cưỡng chế được cái gì, và không cưỡng chế được cái gì (lát F-013, 21/09)
+
+Astra tìm ra 20/09: nhãn nút link vốn là **chữ tự do**, nên shop publish được *"Đánh giá Google 5 sao để nhận quà"* và *"Khi đánh giá Google hãy nhắc tên nhân viên An"*. Cả hai qua `validateConfig` và render thật. Vi phạm luật 4, 5, 7, 8.
+
+**Đã đóng được (hàng rào):** nhãn nút link giờ **chọn từ danh sách trung lập** trong `lib/publishing/policy.ts`. Không chữ nào khác publish được, ở bất kỳ ngôn ngữ nào. Danh sách **được phép nới** khi shop cần một nút chính đáng — điều kiện duy nhất là nhãn mới phải tự nó trung lập, và có test kiểm đúng điều đó.
+
+**Chỉ chặn được một phần (dây bẫy):** tên quán và câu hỏi là chữ tự do thật. Nền tảng từ chối khi một từ về *đánh giá* đứng cùng một từ về *quà/ưu đãi* hoặc lời nhờ *nhắc tên*. Khớp theo **từ**, không theo chuỗi con, và bỏ dấu.
+
+**Nói thẳng giới hạn:** dây bẫy này **không** bắt được shop cố tình viết vòng, không đọc được chữ trong **ảnh hay video**, không theo được link rút gọn, và không biết shop nói gì **ngoài** nền tảng. Đừng hứa ngược lại với shop hay với luật sư. Phần còn lại dựa vào hướng dẫn ở mục 3 và rà thủ công.
+
+**Chỗ kiểm:** biên **ghi** (`saveDraft`, `createDraft`, `publish`), **không** ở biên đọc. Trang đã phát hành vẫn chạy; luật thêm hôm nay không làm sập trang phát hành hôm qua. Có test riêng cho đúng điều này.
+
 ## 4. Kiểm trước mỗi lát (checklist)
 
 - [ ] Lát này có chạm trang khách hay nút Google không? Nếu có: nút Google vẫn giống nhau với mọi khách, vẫn trong màn hình, vẫn độc lập với sao?

@@ -250,7 +250,7 @@ test('v2: pressing sinks links to 96% and the plane to 70%; buttons and plane fo
 test('v2: background video, still, watermark, poster frame and logo come from the configuration; v1 still renders', async ({ page, fixture: f }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   const revision = await release(f, b2({ links: [{ label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
-    { label: { vi: 'Gọi quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] }), 2);
+    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] }), 2);
   await page.goto('/one'); await loaded(page);
   const video = page.locator('video.guest-bg-media');
   await expect(video).toHaveAttribute('src', STEM_BACKGROUND.video);
@@ -261,7 +261,7 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   await expect(page.locator('.guest-watermark-track span').first()).toHaveText('YOUR LOGO');
   await expect(page.locator('.guest-poster-empty')).toHaveText('POSTER SỰ KIỆN');
   await expect(page.locator('.guest-logo')).toHaveText('QT');
-  const facebook = page.getByRole('link', { name: 'Facebook' }), phone = page.getByRole('link', { name: 'Gọi quán' });
+  const facebook = page.getByRole('link', { name: 'Facebook' }), phone = page.getByRole('link', { name: 'Gọi cho quán' });
   await expect(facebook).toHaveAttribute('href', 'https://facebook.com/quanthu'); await expect(facebook).toHaveAttribute('target', '_blank');
   await expect(phone).toHaveAttribute('href', 'tel:+84901234567'); expect(await phone.getAttribute('target')).toBeNull();
   for (const width of [320, 768, 1440]) {

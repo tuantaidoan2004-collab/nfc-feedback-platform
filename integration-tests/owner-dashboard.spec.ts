@@ -133,7 +133,8 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  await page.getByRole('button',{name:'Thêm nút',exact:true}).click();
  const row=page.locator('[data-link-row]').last();
  await row.getByRole('combobox',{name:'Loại',exact:true}).selectOption('phone');
- await row.getByRole('textbox',{name:'Chữ trên nút',exact:true}).fill('Gọi quán');
+ // The label is chosen, not typed, since lát F-013: a button that names an action cannot also carry an offer.
+ await row.getByRole('combobox',{name:'Chữ trên nút',exact:true}).selectOption({label:'Gọi · Call'});
  await row.getByRole('textbox',{name:/Số điện thoại/}).fill('tel:0901234567');
  await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
  await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp. Khách chưa thấy');
@@ -156,7 +157,7 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
  await customer.reload();
  await expect(customer.getByRole('heading',{name:'Quán Mới Sửa',exact:true})).toBeVisible();
- await expect(customer.getByRole('link',{name:'Gọi quán'})).toHaveAttribute('href','tel:0901234567');
+ await expect(customer.getByRole('link',{name:'Gọi',exact:true})).toHaveAttribute('href','tel:0901234567');
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`design-${width}.png`),fullPage:true});}
  expect(errors).toEqual([]);
 });
