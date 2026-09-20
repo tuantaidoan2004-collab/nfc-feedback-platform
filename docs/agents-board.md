@@ -140,8 +140,18 @@ Theo thứ tự Tài yêu cầu: rà authorize/caller trước, rồi R2. Artifa
 - Chưa đẩy `main` kể từ `33711f0`: nhánh đang đi trước 6 commit, toàn phần CI và test. Đẩy khi CI xanh, rồi Tài bật bảo vệ nhánh `main` (F5).
 
 **Ba phát hiện mới của Astra (`c4ddde7` trên `astra/authorization-audit`), Claude nhận sửa, chưa bắt đầu:**
-- **F-012 · Cao:** `lib/owner/media.ts` và `lib/owner/profile.ts` tra `TYPES[type]` bằng tra cứu đối tượng thô, nên `type: 'constructor'` (hoặc `toString`, `__proto__`) trả về thứ không phải quy tắc; `rule.max` thành `undefined` và trần dung lượng mất tác dụng — ký được PUT 1 GiB. **Lỗi của Claude.** Sửa: `Object.hasOwn` hoặc `Map`, cộng trần tuyệt đối độc lập; test cả ba tên đặc biệt.
+- **F-012 · Cao · ĐÃ SỬA `bdabbab`** (xem mục "Claude sửa F-012" ở cuối tệp): `lib/owner/media.ts` và `lib/owner/profile.ts` tra `TYPES[type]` bằng tra cứu đối tượng thô, nên `type: 'constructor'` (hoặc `toString`, `__proto__`) trả về thứ không phải quy tắc; `rule.max` thành `undefined` và trần dung lượng mất tác dụng — ký được PUT 1 GiB. **Lỗi của Claude.** Sửa: `Object.hasOwn` hoặc `Map`, cộng trần tuyệt đối độc lập; test cả ba tên đặc biệt.
 - **F-011 · Trung bình:** `lib/owner/design.ts` ghi nháp xong mới ghi sổ; nếu ghi sổ lỗi thì nháp đã đổi mà sổ trống. Sửa: gộp một transaction.
 - **F-010 · Trung bình:** `lib/owner/dashboard.ts` cho phiên hỗ trợ ở phạm vi "Sửa giao diện" đọc lời khách qua đường tổng quan. Sửa: chỉ trả lời khách khi phạm vi là "Kèm góp ý riêng tư".
 - Thứ tự Astra đề xuất và Claude đồng ý: **F-012 → F-010 → F-011**. Bốn test đỏ của Astra là đầu bài; chuyển vào bộ chuẩn khi sửa.
 
+
+
+## Claude sửa F-012 — `bdabbab`, 20/09
+
+- **Sửa:** `TYPES` trong `lib/owner/media.ts` và `IMAGES` trong `lib/owner/profile.ts` chuyển từ object literal sang **`Map`**, nên `constructor`/`toString`/`__proto__`/`valueOf`/`hasOwnProperty` trả `undefined` và dừng ở `415 UNSUPPORTED_MEDIA`. Đường upload của shop thêm **trần tuyệt đối `MAX_UPLOAD = 30 MiB`** kiểm độc lập với `rule.max`, để một quy tắc thiếu `max` trong tương lai cũng không mở trần.
+- **Test:** hai ca tái hiện của Astra chuyển vào bộ chuẩn, mở rộng từ một tên lên **năm tên thừa kế**: trong `repository-tests/impersonation.spec.ts` (ca upload của shop, thử `size = 1 GiB`) và `repository-tests/account-profiles.spec.ts` (ca ảnh hồ sơ). Gỡ bản sửa thì **cả hai đỏ**; đã chạy để xác nhận, không chỉ đọc code.
+- **Không đổi hành vi hợp lệ:** `image/jpeg|png|webp` ≤ 5 MiB, `video/mp4` ≤ 30 MiB giữ nguyên; 125 test repository xanh.
+- **Nguồn gốc:** lỗi của Claude ở lát R2 upload. Bẫy đã ghi vào `operations-gotchas.md` ("Tra bảng trắng bằng chuỗi của người dùng thì phải dùng `Map`"), kèm ghi chú TypeScript không cảnh báo vì `Record<string, Rule>`.
+- **Phạm vi chưa phủ:** đây là ký offline; chưa PUT thật lên R2, chưa có quota tổng/finalize/kiểm byte thật sau khi tải lên (vẫn là phần R2 Astra để ngỏ). F-010 và F-011 **chưa bắt đầu**.
+- **7 bộ xanh trên `bdabbab`** trong worktree tạm: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
