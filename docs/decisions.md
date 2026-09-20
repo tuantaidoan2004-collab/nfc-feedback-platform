@@ -573,8 +573,9 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 ### Đang ở đâu (20/09/2026)
 
-- **Production đã mở:** `https://quitesensational-review-bio.vercel.app`, deploy từ `main` (`4ff68f4`, đẩy 20/09 sau khi CI xanh hết). Preview vẫn chạy từ nhánh `feat/local-app-foundation`.
-- **Neon: migration 001–017** đã có ở cả production lẫn preview. Admin `tai` đã có trên production (huy hiệu `@Quitesensational · Admin Tài`). **Lát vừa rồi không có migration.**
+- **Production đã mở:** `https://quitesensational-review-bio.vercel.app`, deploy từ `main` (`c89d27c`, đẩy 20/09 sau khi CI xanh hết). Preview vẫn chạy từ nhánh `feat/local-app-foundation`.
+- **Neon: migration 001–018** đã có ở cả production lẫn preview (018 do Tài chạy 20/09). Admin `tai` đã có trên production (huy hiệu `@Quitesensational · Admin Tài`).
+- **Mật khẩu `neondb_owner` đã được xoay trên cả hai branch 20/09**, sau khi một lệnh sai shell của Claude làm chuỗi kết nối production rơi vào dòng lệnh và `~/.zsh_history`. Xoay trước, migrate sau. Bẫy ghi ở `operations-gotchas.md` ("`read -p` là bash; máy Tài dùng zsh").
 - **CI xanh đủ 7 bộ** (`#96`, `#97`). Nguyên nhân 8 lần đỏ: harness không chuyển `DISPLAY`/`XAUTHORITY` xuống tiến trình con, chi tiết ở cuối `agents-board.md`. `main` và `feat/local-app-foundation` đang trùng nhau.
 - Đã làm trong phiên: Trang bio (F1), hồ sơ tài khoản (F2, migration 014), đội ngũ và vai kiểu Discord + lịch sử hoạt động (F3, 015), luồng bình luận kiểu YouTube (F4, 016), thông báo @ + ảnh tĩnh video + cảnh báo bộ gõ (F5, 017), mở production (F6), CI đủ 7 bộ (A4, chưa xanh hết).
 - Đã sửa cùng Astra: F-001 → F-009 (link đặt mật khẩu, tranh chấp, leo quyền giữa shop, ẩn số điện thoại với quản trị).
@@ -584,7 +585,14 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 1. ~~CI `integration public` đỏ~~ **xong** (`8d30f16`). ~~F-012~~ **xong** (`bdabbab`). ~~Đẩy `main`~~ **xong** (`4ff68f4`).
 2. ~~F-010~~ **xong** (`0d5642e`), ~~F-011~~ **xong** (`29af646`). **Cả ba phát hiện của Astra đã đóng.** Chưa đẩy `main` bốn commit này; chờ CI xanh.
 3. Bảo vệ nhánh `main` (F5): Tài đã tạo ruleset, nhưng **GitHub không thi hành ruleset trên repo riêng tư của tài khoản Free** — cần gói Team (4 USD/người/tháng). Quyết định: **chưa trả tiền**, ruleset nằm sẵn, tự có hiệu lực khi nâng gói; trong lúc đó chỗ chặn là kỷ luật "chỉ đẩy `main` khi commit đó đã xanh". **Nếu sau này chọn kiểu đòi pull request thì phải thêm `pull_request:` vào `.github/workflows/ci.yml` trước** — workflow hiện chỉ chạy `on: push`, nên PR sẽ treo mãi ở "Expected — Waiting for status".
-4. Rồi tiếp **A1** (chặn bot cho API trang khách) theo `roadmap-slices.md`.
+4. ~~A1 (chặn bot cho API trang khách)~~ **xong 20/09** (`94c825e`, migration 018). Chi tiết và những gì chưa phủ: cuối `agents-board.md`.
+
+### Việc mở ra từ A1, chưa làm
+
+- **Dọn dữ liệu bot đã lọt vào trước A1.** Cờ nghi ngờ chỉ gắn từ lúc A1 chạy; mọi thứ đã nằm trong database từ trước vẫn đang tính vào số liệu của shop. Lát nhỏ riêng.
+- **Bảng thống kê "bao nhiêu lượt bị gắn cờ"** cho chủ shop (hiện chỉ có một con số trong ô lọc).
+- **Chặn ở tầng CDN** — cần Cloudflare, tức chờ B4.
+- **Đo chi phí** hai truy vấn thêm mỗi request trên pool 3 kết nối của production: ghép vào E6.
 
 **Tài đã quyết 20/09 · thao tác đang chạy khi quyền bị thu hồi giữa chừng: hoàn tất** ("ai thao tác trước thì có quyền"). Ranh giới "đang chạy" giờ là **một transaction**. Khoảng trống giữa các request (đọc → sửa → lưu) là thời gian suy nghĩ của người dùng, không khoá nào đóng được; `expectedRevision` và việc kiểm quyền lại ở đầu mỗi request là cách xử. Chi tiết ở cuối `agents-board.md`.
 
