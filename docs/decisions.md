@@ -573,17 +573,17 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 ### Đang ở đâu (20/09/2026)
 
-- **Production đã mở:** `https://quitesensational-review-bio.vercel.app`, deploy từ `main` (`33711f0`). Preview vẫn chạy từ nhánh `feat/local-app-foundation`.
-- **Neon: migration 001–017** đã có ở cả production lẫn preview. Admin `tai` đã có trên production (huy hiệu `@Quitesensational · Admin Tài`).
-- **Nhánh `feat/local-app-foundation` đang đi trước `main` 7 commit**, toàn phần CI và test, **chưa đẩy** vì CI còn một job đỏ.
+- **Production đã mở:** `https://quitesensational-review-bio.vercel.app`, deploy từ `main` (`4ff68f4`, đẩy 20/09 sau khi CI xanh hết). Preview vẫn chạy từ nhánh `feat/local-app-foundation`.
+- **Neon: migration 001–017** đã có ở cả production lẫn preview. Admin `tai` đã có trên production (huy hiệu `@Quitesensational · Admin Tài`). **Lát vừa rồi không có migration.**
+- **CI xanh đủ 7 bộ** (`#96`, `#97`). Nguyên nhân 8 lần đỏ: harness không chuyển `DISPLAY`/`XAUTHORITY` xuống tiến trình con, chi tiết ở cuối `agents-board.md`. `main` và `feat/local-app-foundation` đang trùng nhau.
 - Đã làm trong phiên: Trang bio (F1), hồ sơ tài khoản (F2, migration 014), đội ngũ và vai kiểu Discord + lịch sử hoạt động (F3, 015), luồng bình luận kiểu YouTube (F4, 016), thông báo @ + ảnh tĩnh video + cảnh báo bộ gõ (F5, 017), mở production (F6), CI đủ 7 bộ (A4, chưa xanh hết).
 - Đã sửa cùng Astra: F-001 → F-009 (link đặt mật khẩu, tranh chấp, leo quyền giữa shop, ẩn số điện thoại với quản trị).
 
 ### Việc tiếp theo, đúng thứ tự
 
-1. **CI: `integration public` còn đỏ.** Lấy nội dung mục **"why it failed"** của job đó ở lần chạy mới nhất trên GitHub (Tài chụp; repo riêng tư nên agent không đọc được). 7 bộ chạy tại máy đều xanh. Chi tiết ở cuối `agents-board.md`.
-2. **F-012 (Cao, lỗi của Claude)** rồi **F-010**, **F-011** — ba phát hiện của Astra, mô tả và test đỏ ở `agents-board.md` và nhánh `astra/authorization-audit` (`c4ddde7`).
-3. Đẩy `main` khi CI xanh; Tài bật bảo vệ nhánh `main`.
+1. ~~CI `integration public` đỏ~~ **xong** (`8d30f16`). ~~F-012~~ **xong** (`bdabbab`). ~~Đẩy `main`~~ **xong** (`4ff68f4`).
+2. **F-010** rồi **F-011** — hai phát hiện còn lại của Astra, mô tả và test đỏ ở `agents-board.md` và nhánh `astra/authorization-audit` (`c4ddde7`). Thứ tự này Astra đề xuất, Claude đồng ý.
+3. Tài bật bảo vệ nhánh `main` (F5). **Nếu chọn kiểu đòi pull request thì phải thêm `pull_request:` vào `.github/workflows/ci.yml` trước** — workflow hiện chỉ chạy `on: push`, nên PR sẽ treo mãi ở "Expected — Waiting for status".
 4. Rồi tiếp **A1** (chặn bot cho API trang khách) theo `roadmap-slices.md`.
 
 ### Việc còn treo của Tài
