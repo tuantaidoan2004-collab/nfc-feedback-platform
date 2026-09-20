@@ -5,7 +5,6 @@ Dự án thẻ NFC mở trang thương hiệu và thu góp ý riêng cho chủ s
 **Trạng thái:** app Next.js local cho trang khách và dashboard mẫu. Dữ liệu demo chỉ nằm trên trình duyệt; chưa có đăng nhập, database hoặc deployment.
 
 - `docs/decisions.md`: quyết định đã chốt và câu hỏi còn mở.
-- `prototypes/nfc-owner-demo.fragment.html`: bản mô phỏng mới nhất, dành cho giao diện visualize của Codex; không phải website độc lập hoặc ứng dụng production.
 - `AGENTS.md`: cách tiếp tục công việc và khôi phục bối cảnh.
 
 Repo private: https://github.com/tuantaidoan2004-collab/nfc-feedback-platform

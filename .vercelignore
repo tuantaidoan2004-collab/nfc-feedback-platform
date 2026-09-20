@@ -17,7 +17,6 @@ tests
 playwright.*.config.ts
 playwright.config.ts
 
-prototypes
 docs
 .agents
 
