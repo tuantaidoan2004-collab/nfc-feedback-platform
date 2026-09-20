@@ -241,3 +241,39 @@ Kết luận cho Astra: câu hỏi "request đang chạy bị huỷ hay hoàn t�
 **7 bộ xanh trên `94c825e`:** repository 133 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
 
 **Chưa đẩy** (kể cả nhánh): có migration, chờ Tài chạy trên Neon production rồi preview.
+
+
+## Tài giao 20/09 — chạy song song để xong năm lát P0 còn lại
+
+Tài: "tiến tới làm xong các lát lớn, có kết quả càng sớm càng tốt, kéo Astra phụ nữa." Còn **A2, A3, A5, A6, A7** (`roadmap-slices.md`). A1 và A4 xong; A1 đã xác nhận chạy trên production (Tài đăng nhập `/gov` được sau migration 018).
+
+### Chia việc (Claude đề xuất, chờ Astra nhận qua Tài)
+
+| Lát | Ai | Vì sao chia thế |
+|---|---|---|
+| **A2 · 2FA bắt buộc cho admin** | **Claude** | Đụng đường đăng nhập đang chạy và có một bước chỉ Tài làm được (quét mã). Một bên tích hợp. |
+| **A3 · Dọn mã cũ** | **Astra rà, Claude xoá** | Nguy hiểm của A3 là **xoá nhầm thứ đang chạy** — đã suýt xảy ra: bản roadmap 20/09 ghi nhầm `app/api/v2` vào danh sách xoá, Astra bắt được (F-005). Việc này đúng hình dạng của một lượt rà độc lập. |
+| **A7 · Test bảo vệ luật cứng `google-policy.md`** | **Astra** | Là một lượt rà: đọc mười luật cứng, tìm chỗ nào chưa có test bảo vệ, viết test đỏ nếu phát hiện lỗ. Không đụng mã sản phẩm. |
+| **A5 · Trang pháp lý nháp**, **A6 · Nén ảnh trên trình duyệt** | **Claude** | Tính năng, một bên tích hợp. |
+
+### Đầu bài cụ thể cho Astra — A3: chứng minh từng route đã chết
+
+Ứng viên xoá trong `roadmap-slices.md`: `app/api/owner/[shop]`, `app/api/shops`, `app/demo`, `shop-dashboard.tsx`, `owner-dashboard.tsx`, `lib/demo-store.ts`, `prototypes/`. **Không xoá `app/api/v2`** — đó là API trang khách đang chạy.
+
+Cái Claude cần từ Astra, theo từng đường một:
+1. Còn ai gọi tới không — kể cả từ **mã cũ**, từ test, từ `next.config`, từ `middleware`, và từ **trang khách bản cũ** (`/t/demo`, `/demo/*`).
+2. Có **dữ liệu production** nào chỉ đọc được qua đường đó không (bảng `experiences` cũ là ví dụ: migration 002 giữ nó lại).
+3. Xoá nó thì **test nào đỏ**, và test đó bảo vệ điều gì — đỏ vì mất tính năng thật hay đỏ vì test bám vào mã cũ (bẫy "đọc xem test đó thật sự bảo vệ điều gì" ở `operations-gotchas.md`).
+4. Kết luận cho từng đường: **xoá được / chưa xoá được / cần lát riêng**, kèm bằng chứng.
+
+Astra **không cần viết bản vá xoá**; Claude xoá và chạy bảy bộ. Worktree riêng, PG 55449, không dùng harness 3317–3319. Commit cố định để tách nhánh: **`8ff0c48`**.
+
+### Đầu bài cụ thể cho Astra — A7: luật cứng nào chưa có test giữ
+
+`docs/google-policy.md` mục 2 có **mười luật cứng**. Hiện chỉ biết chắc luật 1 và 2 có test (`public-v2.spec.ts`, `publishing.spec.ts`). Cần một bảng: mỗi luật cứng ↔ test nào giữ nó ↔ nếu không có thì **lỗ nằm ở đâu**. Đặc biệt soi: luật 3 (không điền sẵn sao sang Google), luật 7 (không gợi ý nội dung), luật 8 (nội dung marketing không đặt cạnh nút Google kiểu trao đổi) — vì lát A16 sau này sẽ thêm thẻ nội dung lên trang khách và cần hàng rào sẵn.
+
+Cách kiểm hiệu quả nhất đã biết: **cố tình phá mã một lần** để chắc test bắt được (bẫy ở `operations-gotchas.md`). Nếu một luật cứng phá được mà bảy bộ vẫn xanh, đó là phát hiện.
+
+### Thứ tự Claude làm
+
+A2 → A6 → A5. A3 chờ kết quả rà của Astra; A7 nhận lại phát hiện của Astra rồi vá.
