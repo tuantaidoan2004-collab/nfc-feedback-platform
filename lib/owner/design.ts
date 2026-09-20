@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
@@ -41,17 +41,31 @@ export class OwnerDesign {
   private async access(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, db => authorize(db, credential, slug, 'design'));
   }
-  private admin(access: OwnerAccess) {
+  private admin(access: OwnerAccess, db: PoolClient) {
     const actor = access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`;
-    return new PublishingAdmin(this.pool, async request => {
+    return new PublishingAdmin(db, async request => {
       if (request.shopId !== access.shopId) throw new OwnerError(403, 'ACCESS_DENIED');
       return { actorId: actor };
     });
   }
-  private async audit(access: OwnerAccess, action: string, detail: Record<string, unknown>) {
+  private async audit(db: PoolClient, access: OwnerAccess, action: string, detail: Record<string, unknown>) {
     if (access.actor.kind !== 'admin') return;
-    await recordAdminAction(this.pool, access.actor.adminId, { action, shopId: access.shopId, onBehalfOf: access.userId,
+    await recordAdminAction(db, access.actor.adminId, { action, shopId: access.shopId, onBehalfOf: access.userId,
       detail: { session: access.actor.sessionId, ...detail } });
+  }
+  /**
+   * One transaction for the permission check, the change and the record of it, so the three cannot disagree. Before
+   * this, the draft was saved on one connection and written into the books on the next: an audit insert that failed
+   * left a renamed page nobody had recorded (F-011, Astra, 2026-09-20).
+   *
+   * An operation that has already passed the check runs to the end even if the person's access is taken away while
+   * it runs (Tài, 2026-09-20: whoever got there first holds the floor). The row locks decide who is first, and the
+   * next request from that person is refused like any other. Across requests -- read the page, edit it, save it --
+   * the gap is the person's own thinking time and no lock can close it; `expectedRevision` is what keeps two editors
+   * from overwriting each other there, and the check runs again on the way in.
+   */
+  private write<T>(credential: OwnerCredential, slug: string, run: (db: PoolClient, access: OwnerAccess) => Promise<T>) {
+    return transaction(this.pool, async db => run(db, await authorize(db, credential, slug, 'design')));
   }
 
   async read(credential: OwnerCredential, slug: string): Promise<DesignState> {
@@ -68,28 +82,32 @@ export class OwnerDesign {
 
   async save(credential: OwnerCredential, slug: string, body: unknown) {
     const data = input(body, ['expectedRevision', 'config']), expected = revisionOf(data.expectedRevision);
-    const access = await this.access(credential, slug);
-    const revision = await this.admin(access).saveDraft(access.shopId, expected, data.config).catch(translate);
-    await this.audit(access, 'impersonation.design.save', { revision });
-    await recordActivity(this.pool, access, 'design.save', `Bản nháp ${revision}`);
-    return { revision };
+    return this.write(credential, slug, async (db, access) => {
+      const revision = await this.admin(access, db).saveDraft(access.shopId, expected, data.config).catch(translate);
+      await this.audit(db, access, 'impersonation.design.save', { revision });
+      await recordActivity(db, access, 'design.save', `Bản nháp ${revision}`);
+      return { revision };
+    });
   }
 
   async publish(credential: OwnerCredential, slug: string, body: unknown) {
     const expected = revisionOf(input(body, ['action', 'expectedRevision']).expectedRevision);
-    const access = await this.access(credential, slug);
-    const published = await this.admin(access).publish(access.shopId, expected).catch(translate);
-    await this.audit(access, 'impersonation.design.publish', { releaseId: published.releaseId });
-    await recordActivity(this.pool, access, 'design.publish', `Bản nháp ${published.draftRevision}`);
-    return { releaseId: published.releaseId, revision: published.draftRevision };
+    return this.write(credential, slug, async (db, access) => {
+      const published = await this.admin(access, db).publish(access.shopId, expected).catch(translate);
+      await this.audit(db, access, 'impersonation.design.publish', { releaseId: published.releaseId });
+      await recordActivity(db, access, 'design.publish', `Bản nháp ${published.draftRevision}`);
+      return { releaseId: published.releaseId, revision: published.draftRevision };
+    });
   }
 
   /** A preview of the saved draft. The token goes straight into an HttpOnly cookie in the route, never into JSON. */
   async preview(credential: OwnerCredential, slug: string, body: unknown) {
     const expected = revisionOf(input(body, ['action', 'expectedRevision']).expectedRevision);
-    const access = await this.access(credential, slug);
-    const preview = await this.admin(access).preview(access.shopId, { kind: 'draft', revision: expected }).catch(translate);
-    await this.audit(access, 'impersonation.design.preview', { revision: expected });
-    return preview;
+    // A preview writes a row too, so it joins the same transaction rather than leaving an unrecorded one behind.
+    return this.write(credential, slug, async (db, access) => {
+      const preview = await this.admin(access, db).preview(access.shopId, { kind: 'draft', revision: expected }).catch(translate);
+      await this.audit(db, access, 'impersonation.design.preview', { revision: expected });
+      return preview;
+    });
   }
 }

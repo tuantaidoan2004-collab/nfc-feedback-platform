@@ -6,13 +6,22 @@ export const previewHash = (token: string) => createHash('sha256').update(`nfc-p
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
 const error = (code: string): never => { throw new PublishingError(code); };
 const revision = (n: number) => { if (!Number.isSafeInteger(n) || n < 1 || n >= Number.MAX_SAFE_INTEGER) error('INVALID_REVISION'); };
-async function tx<T>(pool: Pool, run: (db: PoolClient) => Promise<T>) {
+/**
+ * A pool opens its own transaction; a client means the caller already has one and wants this work inside it, so the
+ * caller decides what commits together. That is how a page change and the record of who made it become one unit
+ * (F-011). The two are told apart by `release`, which only a checked-out client has -- a client has `connect` too,
+ * inherited from the plain Client it is, and calling it says "already connected".
+ */
+export type PublishingDb = Pool | PoolClient;
+const borrowed = (db: PublishingDb): db is PoolClient => typeof (db as PoolClient).release === 'function';
+async function tx<T>(pool: PublishingDb, run: (db: PoolClient) => Promise<T>): Promise<T> {
+  if (borrowed(pool)) return run(pool);
   const db = await pool.connect(); try { await db.query('BEGIN'); const result = await run(db); await db.query('COMMIT'); return result; }
   catch (e) { await db.query('ROLLBACK'); throw e; } finally { db.release(); }
 }
 /** INTERNAL boundary. Caller must supply real authorization later. No administrative HTTP routes in this slice. */
 export class PublishingAdmin {
-  constructor(private pool: Pool, private authorize: AuthorizePublishing) {}
+  constructor(private pool: PublishingDb, private authorize: AuthorizePublishing) {}
   private async actor(action: string, shopId?: string) {
     const principal = await this.authorize({ action, shopId });
     if (!principal?.actorId?.trim()) error('PUBLISH_FORBIDDEN'); return principal.actorId;

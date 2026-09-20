@@ -312,6 +312,30 @@ test('older on/off decisions keep their meaning; rollback 012 refuses once four-
  const sql=await readFile('db/rollback/012_support_levels.sql','utf8'),db=await f.db.connect();
  try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SUPPORT_LEVEL_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
 });
+test('the page editor: a change and the record of it fall together, so a failed record leaves the page untouched',async({f})=>{
+ // F-011 (Astra, 20/09): the draft was written on one connection and entered in the books on the next, so an audit
+ // insert that failed left a renamed page nobody had recorded. A trigger makes that insert fail on purpose.
+ const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
+ const {PublishingResolver}=await import('../lib/publishing/repository');
+ await position(f,'full');const s=await open(f,'design');
+ const before=await design.read(s.credential,'one'),live=(await new PublishingResolver(f.db).live({slug:'one'})).config;
+ await f.db.query(`CREATE FUNCTION reject_design_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+  IF NEW.action LIKE 'impersonation.design.%' THEN RAISE EXCEPTION 'AUDIT_UNAVAILABLE'; END IF; RETURN NEW; END $$`);
+ await f.db.query('CREATE TRIGGER reject_design_audit BEFORE INSERT ON admin_audit FOR EACH ROW EXECUTE FUNCTION reject_design_audit()');
+ const config={...before.draft.config,name:'KHÔNG ĐƯỢC LƯU'},at=before.draft.revision;
+ await expect(design.save(s.credential,'one',{expectedRevision:at,config})).rejects.toThrow('AUDIT_UNAVAILABLE');
+ await expect(design.preview(s.credential,'one',{action:'preview',expectedRevision:at})).rejects.toThrow('AUDIT_UNAVAILABLE');
+ await expect(design.publish(s.credential,'one',{action:'publish',expectedRevision:at})).rejects.toThrow('AUDIT_UNAVAILABLE');
+ // Nothing moved: same draft at the same revision, same live page, and no activity row claiming otherwise.
+ expect(await design.read(f.users[0].token,'one')).toMatchObject({draft:before.draft});
+ expect((await new PublishingResolver(f.db).live({slug:'one'})).config).toEqual(live);
+ expect((await f.db.query("SELECT 1 FROM shop_activity WHERE action LIKE 'design.%'")).rowCount).toBe(0);
+ // With the books working again the same session saves normally, so joining one transaction did not close the path.
+ await f.db.query('DROP TRIGGER reject_design_audit ON admin_audit');
+ await expect(design.save(s.credential,'one',{expectedRevision:at,config})).resolves.toEqual({revision:at+1});
+ expect((await audit(f,'impersonation.design.save')).at(-1)).toMatchObject({detail:{revision:at+1}});
+});
+
 test('the page editor: owners and managers edit and publish; support edits only in a design session and is recorded',async({f})=>{
  const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
  const {PublishingResolver}=await import('../lib/publishing/repository');
