@@ -158,6 +158,11 @@ export class OwnerTeam {
         await recordActivity(db, access, 'member.remove', `@${person.username}`);
       } else if (op === 'link') {
         this.guard(access, person.permissions);
+        // Lock the identity row first, in the same order consume() takes its locks (identity row, then the account's
+        // advisory lock). Without it the check below could read the state from before someone finished setting their
+        // password in a transaction that had not committed yet, and a link would be issued for an account that is now
+        // active (F-009, found by Astra 2026-09-20).
+        await db.query('SELECT 1 FROM owner_identities_v2 WHERE id=$1 FOR UPDATE', [person.user_id]);
         // A shop may only re-send the invitation of someone who never activated it and who belongs to this shop alone.
         // An identity is global: resetting an active one from one shop would take over its other shops (F-008, found by
         // Astra 2026-09-20). A member who forgot their password recovers through NFC support instead.

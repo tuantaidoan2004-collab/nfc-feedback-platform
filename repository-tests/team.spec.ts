@@ -176,3 +176,25 @@ test('F-008: authority in one shop never resets an identity that is active, or t
  await expect(f.auth.access(f.users[1].token,'two','export')).resolves.toBeTruthy();
 });
 
+// F-009, found by Astra 2026-09-20: the "never activated" check must run after the account lock, not before it.
+test('F-009: a link cannot be re-sent while the member is finishing their password in another transaction',async({f})=>{
+ const owner=f.users[0].token,team=new OwnerTeam(f.db);
+ const roles=(await team.list(owner,'one')).roles;
+ const pending=await team.invite(owner,'one',{handle:'dang.dat',roleId:roles[1].id});
+ // Stand in for consume(): hold the identity row the way it does, then finish and commit while the re-send waits.
+ const held=await f.db.connect();
+ try{
+  await held.query('BEGIN');
+  await held.query('SELECT 1 FROM owner_identities_v2 WHERE id=$1 FOR UPDATE',[pending.userId]);
+  const attempt=team.change(owner,'one',{op:'link',userId:pending.userId});
+  const waiting=attempt.then(()=>'done',()=>'failed');
+  await expect.poll(async()=>(await f.db.query("SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND state='active'")).rows[0].n,
+   {timeout:10000}).toBeGreaterThan(0);
+  await held.query('UPDATE owner_setup_tokens SET used_at=clock_timestamp() WHERE user_id=$1 AND used_at IS NULL',[pending.userId]);
+  await held.query("UPDATE owner_identities_v2 SET password_salt=repeat('a',32),password_key=repeat('b',64) WHERE id=$1",[pending.userId]);
+  await held.query('COMMIT');
+  await expect(attempt).rejects.toMatchObject({code:'MEMBER_ALREADY_ACTIVE'});
+  expect(await waiting).toBe('failed');
+ }finally{held.release();}
+});
+
