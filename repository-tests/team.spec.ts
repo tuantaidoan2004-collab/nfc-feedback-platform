@@ -188,13 +188,20 @@ test('F-009: a link cannot be re-sent while the member is finishing their passwo
   await held.query('SELECT 1 FROM owner_identities_v2 WHERE id=$1 FOR UPDATE',[pending.userId]);
   const attempt=team.change(owner,'one',{op:'link',userId:pending.userId});
   const waiting=attempt.then(()=>'done',()=>'failed');
-  await expect.poll(async()=>(await f.db.query("SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND state='active'")).rows[0].n,
+  // Count only this fixture's own waiters: another suite on the same cluster must not make this pass (Astra, 20/09).
+  await expect.poll(async()=>(await f.db.query(`SELECT count(*)::int n FROM pg_stat_activity
+   WHERE wait_event_type='Lock' AND state='active' AND datname=current_database() AND application_name=current_setting('application_name')`)).rows[0].n,
    {timeout:10000}).toBeGreaterThan(0);
   await held.query('UPDATE owner_setup_tokens SET used_at=clock_timestamp() WHERE user_id=$1 AND used_at IS NULL',[pending.userId]);
   await held.query("UPDATE owner_identities_v2 SET password_salt=repeat('a',32),password_key=repeat('b',64) WHERE id=$1",[pending.userId]);
   await held.query('COMMIT');
   await expect(attempt).rejects.toMatchObject({code:'MEMBER_ALREADY_ACTIVE'});
   expect(await waiting).toBe('failed');
- }finally{held.release();}
+ }finally{
+  // Roll back before returning the connection: a failed assertion above would otherwise hand the pool a connection
+  // still holding the lock, and cleanup would hang (Astra, 20/09).
+  await held.query('ROLLBACK').catch(()=>held.release(new Error('rollback failed')));
+  held.release();
+ }
 });
 

@@ -295,6 +295,10 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
   await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
   await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
+  await expect(page.locator('[data-row] [data-info-button]').first()).toBeVisible();
+  // The call-back number never reaches support, whatever the switch position (F-003).
+  expect((await context.request.get(`${api}?from=2026-01-01&to=2030-01-01`)).ok()).toBe(true);
+  expect(((await (await context.request.get(`${api}?from=2026-01-01&to=2030-01-01`)).json()).records as {phone:string|null}[]).every(r=>r.phone===null)).toBe(true);
   await expect(page.getByRole('button',{name:/^Ghi chú/})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
   // Position 1 lets support read, not reply: replying needs position 3.

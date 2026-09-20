@@ -93,6 +93,12 @@ test('who may see and reply: the feedback switch for members; support reads at 1
  expect((await f.db.query("SELECT actor_kind,actor_handle FROM shop_activity WHERE action='comment.edit'")).rows).toEqual([{actor_kind:'admin',actor_handle:'Quitesensational'}]);
  // Support reads the feedback but never the number, in the thread or in the Data list; the shop's own people do.
  const withPhone=await addExperience(f.db,'one',1,'Gọi lại giúp em',undefined,'0901234567');
+ // The number is withheld at every position, not only at full: check view as well (Astra, 20/09).
+ await dashboard.setSupport(owner,'one',{level:'view'});
+ const atView=await c.list({impersonation:s1.token},'one',withPhone.session.sessionId);
+ expect(atView.experience).toMatchObject({message:'Gọi lại giúp em',phone:null});
+ expect((await new OwnerDashboard(f.db).read({impersonation:s1.token},'one',parseFilters(new URLSearchParams()))).records.every(r=>r.phone===null)).toBe(true);
+ await dashboard.setSupport(owner,'one',{level:'full'});
  const forSupport=await c.list({impersonation:s1.token},'one',withPhone.session.sessionId);
  expect(forSupport.experience).toMatchObject({message:'Gọi lại giúp em',phone:null});
  const supportRows=(await new OwnerDashboard(f.db).read({impersonation:s1.token},'one',parseFilters(new URLSearchParams()))).records;
