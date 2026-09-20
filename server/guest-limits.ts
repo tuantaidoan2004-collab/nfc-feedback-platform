@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 
 /**
@@ -47,6 +48,24 @@ export function clientAddress(request: Request): string | null {
   return first && first.length <= 45 && /^[0-9a-f:.]+$/i.test(first) ? first : null;
 }
 
+/**
+ * The address is counted, not kept. What goes in the table is a hash, so reading the table does not hand anyone a
+ * list of who visited which shop. Say what this is and is not: it is pseudonymisation, not anonymisation -- there
+ * are only four billion IPv4 addresses and anyone holding the table could work back through them. What makes the
+ * data actually short-lived is `forget()` below, not this.
+ */
+const addressHash = (address: string) => createHash('sha256').update(`nfc-guest-address-v1\0${address}`).digest('hex');
+
+/**
+ * A counting row outlives its minute by nothing. Without this an address that tapped one card once would stay in
+ * the table for good: the admin login limiter has swept its own rows since migration 005 and the guest one was
+ * written without it (lát A1, Claude's miss, found while writing the privacy page).
+ *
+ * Swept on register only -- once a page load, not once a request -- and the sweep is what keeps the table small
+ * enough for the scan to stay cheap. If it ever stops being small, the answer is an index on window_start.
+ */
+const forget = (pool: Pool) => pool.query("DELETE FROM public_request_limits WHERE window_start < clock_timestamp() - interval '1 hour'");
+
 /** Refused outright: past the ceiling, not past the marking threshold. */
 export class GuestFlood extends Error {
   constructor(readonly bucket: string) { super('TOO_MANY_REQUESTS'); }
@@ -85,10 +104,11 @@ export async function inspect(pool: Pool, request: Request, context: { shopId: s
      FROM page_visits v WHERE v.id=$1`, [visitId])).rows[0] : undefined;
   const sessionId = visit?.session_id ?? null;
   const address = clientAddress(request);
+  if (operation === 'register') await forget(pool);
   // The card, not the shop: one card being pumped must not mark the shop's other cards.
   const buckets: [string, number][] = [[`entry:${context.shopId}:${context.scope}:${context.entryKey}`, LIMITS.entry]];
   if (visitId) buckets.push([`visit:${visitId}`, LIMITS.visit]);
-  if (address) buckets.push([`address:${context.shopId}:${address}`, LIMITS.address]);
+  if (address) buckets.push([`address:${context.shopId}:${addressHash(address)}`, LIMITS.address]);
   const counted = new Map((await count(pool, buckets.map(([name]) => name))).map(row => [row.bucket, Number(row.attempts)]));
   for (const [name, limit] of buckets) {
     const attempts = counted.get(name) ?? 0;

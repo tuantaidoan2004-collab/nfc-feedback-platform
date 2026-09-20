@@ -372,8 +372,18 @@ test('the address tier runs only behind a proxy that sets the header, never on o
   // F-002's platform-wide limit became a way to lock real people out.
   expect((await db.pool.query("SELECT count(*)::int n FROM public_request_limits WHERE bucket LIKE 'address:%'")).rows[0].n).toBe(0);
   const address = '203.0.113.9';
-  await seed(db, `address:${db.shopId}:${address}`, 600);
+  const bucket = `address:${db.shopId}:${createHash('sha256').update(`nfc-guest-address-v1\0${address}`).digest('hex')}`;
+  await seed(db, bucket, 600);
   const reply = await db.api(request(token, command(), { 'x-vercel-forwarded-for': `${address}, 10.0.0.1` }), { shop: 'one', visitId: visit.id }, 'rating');
   expect(reply.status).toBe(200);
   expect(await marks(db)).toEqual(['address_rate']);
+  // The address is counted, not kept: what is in the table cannot be read back as an address.
+  const stored = (await db.pool.query("SELECT bucket FROM public_request_limits WHERE bucket LIKE 'address:%'")).rows.map(r => r.bucket);
+  expect(stored).toEqual([bucket]);
+  expect(stored[0]).not.toContain(address);
+
+  // And a counting row does not outlive its minute by an hour: registering sweeps what is stale.
+  await db.pool.query("UPDATE public_request_limits SET window_start=clock_timestamp()-interval '2 hours'");
+  await register(db, secret());
+  expect((await db.pool.query('SELECT count(*)::int n FROM public_request_limits')).rows[0].n).toBe(1);
 });
