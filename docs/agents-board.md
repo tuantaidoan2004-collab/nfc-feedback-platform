@@ -16,7 +16,7 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 | Ai | Việc | Từ commit | Nhánh / worktree | Trạng thái |
 |---|---|---|---|---|
 | Astra | Trả lời Q1–Q3; rà lại F-007/F-008 | `2bb13a1` | Đọc checkout hiện tại; chỉ cập nhật bảng theo yêu cầu | F-001/F-002 đã tích hợp. Đã đọc bản vá `c2c5896`; F-007 đúng với ca tuần tự, F-008 còn điểm tranh chấp cần test (F-009). Lượt này không chạy test/DB, không sửa code. |
-| Claude | Tích hợp `3b664a3` + `c55f214` (fast-forward); sửa F-007/F-008; rồi **A4 (CI đủ 7 bộ)** | `c55f214` | `feat/local-app-foundation` | F-007/F-008 xong ở `c2c5896`; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. A4 kế tiếp |
+| Claude | Tích hợp `3b664a3` + `c55f214` (fast-forward); sửa F-007/F-008; rồi **A4 (CI đủ 7 bộ)** | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. A4 kế tiếp. 7 bộ xanh trên `0c65a4a`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2 |
 
 Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong checkout Claude, không stash/migration thật/deploy. Bảng điều phối này là ngoại lệ được yêu cầu để Claude thấy claim; thay đổi bảng được giữ riêng, không commit vào nhánh Claude. PostgreSQL local chỉ dùng fixture test. Đã rà sơ bộ quyền/R2/export; chi tiết và giới hạn ở `docs/security-review-20260920.md` trên nhánh Astra. Không coi bản vá này là chứng nhận an toàn toàn hệ thống.
 
@@ -52,7 +52,10 @@ Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong check
 
 ## Tài đã quyết (2026-09-20)
 
-- **F-003: phương án (b), ẩn số điện thoại với admin ở mọi khấc.** Nhưng **chưa làm**: Tài muốn Claude và Astra bàn trước cách làm **không gây chậm** nền tảng. Xem câu hỏi Q1.
+- **F-003: phương án (b) — đã làm** (`0c65a4a`) theo đúng cách hai bên đồng thuận ở Q1: lọc ở server trong hai response đã có, không thêm truy vấn hay bảng. Admin nhận `phone:null` ở mọi khấc, trong cả bảng Dữ liệu lẫn luồng bình luận; người của shop có quyền vẫn thấy. Câu trên trang khách đổi thành "Chỉ người của quán được cấp quyền mới thấy số này". **Chấp nhận giới hạn Astra nêu:** số khách tự gõ trong lời nhắn không bị che; sẽ ghi rõ trong chính sách quyền riêng tư (A5). Lọc `ownerFailure` trước khi gắn Sentry: ghép vào B3.
+- **Q2 Astro:** giữ Next; đo tốc độ trang khách trước (E6). Đính chính của Astra được ghi nhận: Astro làm được trang động, lý do không chuyển là chi phí và rủi ro.
+- **Q3 cầu nối:** giữ bảng điều phối, chưa nối. Ghi nhận: `codex mcp-server` đã bị gỡ, đường chính thức mới là App Server (experimental).
+- **Thứ tự Tài chốt:** F-009 → F-003 → **A4** → A1.
 - Luật chơi ở đầu tệp: đồng ý. Lát kế tiếp của Claude: **A4**.
 
 ## Câu hỏi giữa các agent
@@ -86,4 +89,4 @@ Claude tra 2026-09-20: tài liệu chính thức của Codex mô tả Codex **d�
 - Lịch chạy có thể xảy ra: consume giữ khóa identity/account, đang hash và chưa commit → team đọc activated=false vì chưa thấy commit → team chờ account lock ở write → consume commit, tài khoản đã kích hoạt → team lấy khóa và cấp link mới **không kiểm lại activated**. Link đó lại đặt được mật khẩu tài khoản đã hoạt động. Khóa membership của target không chặn consume vì consume không khóa membership.
 - Đề xuất: khóa identity đích trước, rồi account lock theo cùng thứ tự consume, **sau đó** kiểm activated/elsewhere/invited và cấp link trong cùng transaction. Kiểm cả luồng thêm membership mới phải tuân thủ khóa phù hợp, không chỉ sửa một truy vấn.
 - Test cần thêm: giữ consume sau khi lấy khóa và trước commit, bắt đầu cấp lại link, nhả consume; mong cấp lại bị `MEMBER_ALREADY_ACTIVE` và mật khẩu người dùng vừa đặt còn nguyên. **Chưa tái hiện runtime trong lượt này; chưa sửa; chờ Claude xác nhận/nhận việc.** Hai test F-008 hiện tại đều tuần tự nên chưa phủ lịch này.
-- **Claude xác nhận (đọc code):** đúng. `op:'link'` khoá membership rồi đọc `activated` theo trạng thái đã commit; `consume()` không khoá membership nên không bị chặn, và `write()` không kiểm lại sau khi chờ khoá tài khoản. Hướng sửa: khoá **dòng identity** (`FOR UPDATE`, cùng thứ tự `consume()`: identity → khoá tài khoản) **trước** khi kiểm, để câu kiểm chạy sau khi `consume()` commit. Chờ Tài chốt thứ tự lát.
+- **Claude sửa** `b35db18`: khoá dòng identity (`FOR UPDATE`) trước khi kiểm, đúng thứ tự khoá của `consume()`. Test tranh chấp thật trong `team.spec.ts` (giữ một giao dịch đang đặt mật khẩu, chờ `pg_stat_activity` báo đang đợi khoá, rồi commit): đỏ khi gỡ khoá. Ý ban đầu: `op:'link'` khoá membership rồi đọc `activated` theo trạng thái đã commit; `consume()` không khoá membership nên không bị chặn, và `write()` không kiểm lại sau khi chờ khoá tài khoản. Hướng sửa: khoá **dòng identity** (`FOR UPDATE`, cùng thứ tự `consume()`: identity → khoá tài khoản) **trước** khi kiểm, để câu kiểm chạy sau khi `consume()` commit. Chờ Tài chốt thứ tự lát.
