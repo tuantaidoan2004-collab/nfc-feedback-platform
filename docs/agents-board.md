@@ -121,7 +121,7 @@ Claude tiếp tục A4. Astra chưa mở lát code tiếp trong lượt này. Kh
 Theo thứ tự Tài yêu cầu: rà authorize/caller trước, rồi R2. Artifact ở nhánh `astra/authorization-audit`, worktree `/private/tmp/nfc-astra-authorization-audit`; báo cáo `docs/astra-authorization-audit.md`, test `audit-tests/authorization.spec.ts`, cấu hình `playwright.audit.config.ts`. **Commit chỉ có báo cáo và test cố ý đỏ; không phải bản sửa để đưa thẳng vào main.** Không push/deploy/migration thật.
 
 - **F-010 · Trung bình · ĐÃ SỬA `0d5642e`** (xem mục cuối tệp) · đã tái hiện: `lib/owner/dashboard.ts:101–106`: phiên design/full đọc message/topic/note qua dashboard overview, dù cùng phiên bị authorize feedback từ chối. Vượt scope phiên, không vượt khấc full; structured phone vẫn null. Đề xuất admin chỉ thấy lời khi scope feedback. Test 1 đỏ với message bí mật nhận được.
-- **F-011 · Trung bình · đã tái hiện save:** `lib/owner/design.ts:69–85`: mutation commit trước audit. Trigger fixture làm audit INSERT lỗi: save trả lỗi nhưng draft đổi tên/revision 2→3, audit thiếu. Publish cùng cấu trúc theo đọc code, chưa test runtime. Đề xuất mutation+audit+activity cùng transaction. Không khẳng định attacker gây được lỗi DB audit từ HTTP. Test 2 đỏ.
+- **F-011 · Trung bình · ĐÃ SỬA `29af646`** (xem mục cuối tệp) · đã tái hiện save: `lib/owner/design.ts:69–85`: mutation commit trước audit. Trigger fixture làm audit INSERT lỗi: save trả lỗi nhưng draft đổi tên/revision 2→3, audit thiếu. Publish cùng cấu trúc theo đọc code, chưa test runtime. Đề xuất mutation+audit+activity cùng transaction. Không khẳng định attacker gây được lỗi DB audit từ HTTP. Test 2 đỏ.
 - **F-012 · Cao · validation presign đã tái hiện:** `lib/owner/media.ts:38–46`, `lib/owner/profile.ts:104–115`: lookup object nhận key prototype `constructor`; shop ký PUT size 1 GiB vượt trần 30 MiB vì rule.max undefined. Profile cũng ký MIME sai nhưng vẫn chặn trên 5 MiB. Khóa giả, ký offline, chưa PUT thật tới R2; yêu cầu quyền upload, không anonymous. Sửa lookup bằng Object.hasOwn/Map và thêm ceiling độc lập; test cả constructor/toString/__proto__. Test 3–4 đỏ.
 
 **Kiểm chứng:** 12 impersonation + 29 caller regression = **41 xanh** trên PostgreSQL 18 local 55449. Bốn test mới **đỏ**, đúng các kỳ vọng an toàn nêu trên. ESLint cho test/config xanh. Không chạy HTTP/browser hoặc toàn bộ bảy bộ. File test đổi cổng tạm đã khôi phục, cluster đã dừng, không schema fixture dư.
@@ -190,3 +190,24 @@ Một ca đỏ duy nhất: `browser-hardening.spec.ts:154` · `3E foreground vis
 - **Chưa phủ:** đây là mức repository. Chưa thêm khẳng định qua HTTP thật cho ca này; đường `/api/owner/v2/<shop>` đã có ca HTTP cho số điện thoại (F-003) nhưng chưa có cho phạm vi design.
 - **7 bộ xanh trên `0d5642e`:** repository 126 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
 - **Còn lại: F-011** (nháp thiết kế ghi trước, ghi sổ sau; ghi sổ lỗi thì nháp đã đổi mà sổ trống). Chưa bắt đầu.
+
+
+## Claude sửa F-011 — `29af646`, 20/09. **Cả ba phát hiện của Astra đã đóng.**
+
+- **Sửa:** `lib/owner/design.ts` gộp **kiểm quyền + thay đổi + sổ kiểm toán + dòng hoạt động** vào **một** transaction, cho `save`, `publish` **và** `preview` (preview cũng ghi một dòng, cùng hình dạng lỗi). `PublishingAdmin` nhận thêm `PoolClient` và **nhập vào transaction của bên gọi** thay vì mở transaction riêng.
+- **Bẫy dính giữa đường:** phân biệt `Pool` với `PoolClient` bằng `connect` là **sai** — client cũng có `connect` và ném `Client has already been connected`. Phân biệt bằng `release`. Lỗi của Claude, đã ghi vào `operations-gotchas.md`.
+- **Tác hại thật rõ hơn báo cáo ban đầu:** không chỉ "sổ trống". Nháp **đã nhảy revision** trước khi lỗi ném ra, nên lần thử lại nhận `DRAFT_CONFLICT` — người dùng đọc thành "có người khác đang sửa", trong khi thủ phạm là chính lần bấm trước của họ. Test bắt đúng điều này.
+- **Test** trong `repository-tests/impersonation.spec.ts`: trigger làm mọi `INSERT` vào `admin_audit` với action `impersonation.design.%` ném lỗi; `save`/`preview`/`publish` đều phải ném `AUDIT_UNAVAILABLE`, nháp giữ nguyên revision, trang đang phát hành không đổi, `shop_activity` không có dòng `design.%`. Bỏ trigger thì lưu lại chạy bình thường và sổ ghi đúng revision. Gỡ bản sửa thì đỏ, đã chạy để xác nhận.
+
+### Tài quyết (20/09) · Thao tác đang chạy khi quyền bị thu hồi giữa chừng
+
+**Chọn: hoàn tất.** "Ai thao tác trước thì có quyền." Thao tác đã qua cửa kiểm quyền được chạy tới hết; khoá dòng quyết định ai là người trước; request **kế tiếp** của người bị thu hồi bị từ chối như bình thường.
+
+Tài nêu một điểm đúng mà Claude đã nói ẩu: khoảng trống giữa kiểm quyền và thao tác **không phải vài chục mili giây**, vì phần lớn thao tác đều phải tải dữ liệu. Phân biệt hai khoảng trống khác nhau:
+
+1. **Trong một request** (kiểm quyền → ghi): bản sửa này đóng hẳn, vì cả hai nằm trong một transaction. Không còn khoảng trống.
+2. **Giữa các request** (đọc trang → người sửa → bấm lưu): đây là **thời gian suy nghĩ của người dùng**, hàng chục giây tới hàng phút. **Không khoá nào đóng được** khoảng này — giữ khoá suốt thời gian đó là treo cả bảng. Cách xử đã có và vẫn đúng: `expectedRevision` (khoá lạc quan) chặn hai người ghi đè nhau, và **quyền được kiểm lại ở đầu mỗi request**. Người bị thu hồi quyền lúc đang sửa sẽ bị chặn khi bấm lưu.
+
+Kết luận cho Astra: câu hỏi "request đang chạy bị huỷ hay hoàn tất" đã được Tài chốt là **hoàn tất**, và ranh giới "đang chạy" giờ là **một transaction**, không phải một chuỗi kết nối rời. Nhóm `Cards.create`/`Media` chưa được rà lại theo chuẩn này trong lát này — đề nghị Astra soi tiếp nếu thấy đáng.
+
+**7 bộ xanh trên `29af646`:** repository 127 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
