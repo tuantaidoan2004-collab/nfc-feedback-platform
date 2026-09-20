@@ -1,6 +1,6 @@
 # NFC project working context
 
-Read `docs/decisions.md` before planning or editing this project. It records accepted decisions separately from proposals. Keep replies brief, in Vietnamese, and work incrementally from first principles.
+Read `docs/decisions.md` before planning or editing this project. Sections 1–7 say what the product is, what its data is for, and what must be built before what; the day-by-day history is in `docs/decisions-archive.md` and is not the place to start. Tài's rule since 2026-09-21: **build from first principles, upgrade in a line** — everything starts at its basic level and is raised from there, and a leap is allowed only along the branch already chosen. Slices that do not sit on that line are what made the work scattered before. Keep replies brief, in Vietnamese, and work incrementally from first principles.
 
 If context is missing, read the local decision checkpoint first, then the Obsidian project note `20 Work/Projects/NFC Branded Feedback Platform.md` in the connected OBSIDIAN BR1 vault. Ask Tai only for the specific gap that remains. Never claim perfect conversational recall.
 
