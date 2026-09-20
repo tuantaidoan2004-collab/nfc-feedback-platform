@@ -155,3 +155,28 @@ Theo thứ tự Tài yêu cầu: rà authorize/caller trước, rồi R2. Artifa
 - **Nguồn gốc:** lỗi của Claude ở lát R2 upload. Bẫy đã ghi vào `operations-gotchas.md` ("Tra bảng trắng bằng chuỗi của người dùng thì phải dùng `Map`"), kèm ghi chú TypeScript không cảnh báo vì `Record<string, Rule>`.
 - **Phạm vi chưa phủ:** đây là ký offline; chưa PUT thật lên R2, chưa có quota tổng/finalize/kiểm byte thật sau khi tải lên (vẫn là phần R2 Astra để ngỏ). F-010 và F-011 **chưa bắt đầu**.
 - **7 bộ xanh trên `bdabbab`** trong worktree tạm: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
+
+
+## CI `integration public` — tìm ra nguyên nhân thật, `8d30f16`, 20/09
+
+**Nguyên nhân:** `xvfb-run -a` đặt `DISPLAY`/`XAUTHORITY` cho tiến trình harness, nhưng `integration-tests/run-local.mjs` truyền môi trường cho tiến trình con bằng **danh sách cho phép** chỉ gồm `CI` và `CHROME_PATH`. Ca duy nhất mở Chrome **có cửa sổ** tự gọi `playwright.chromium.launch({headless:false})` từ trong tiến trình test, nên Chrome đó khởi động **không có X server** và chết:
+
+```
+Error: browserType.launch: Target page, context or browser has been closed
+  ERROR:ui/ozone/platform/x11/ozone_platform_x11.cc:257] Missing X server or $DISPLAY
+  ERROR:ui/aura/env.cc:246] The platform failed to initialize.  Exiting.
+```
+
+Một ca đỏ duy nhất: `browser-hardening.spec.ts:154` · `3E foreground visibility › actual same-window tab switch creates exactly one resume and preserves session`. **Giống hệt nhau ở cả tám lần chạy đỏ `#88`–`#95`** (Tài xác nhận). Mười sáu ca còn lại của job luôn xanh.
+
+**Sửa:** thêm `DISPLAY` và `XAUTHORITY` vào danh sách cho phép. Ca test cũng được cho tự in bằng chứng: một `expect.poll(...).toEqual({sessions,opens,experiences,states,kinds})` thay bốn câu `expect` rời, cộng `info.attach` trong `finally`.
+
+**Lỗi của Claude, ghi đủ:**
+1. Thêm `xvfb` vào workflow (`173091d`) mà không kiểm biến môi trường có tới được tiến trình con không — chính Claude viết danh sách cho phép đó.
+2. Tám vòng "đoán → push → chờ 6 phút" vì đọc log từ dưới lên: harness đổ log app đè lên phần Playwright, còn phần nêu tên ca đỏ và câu `expect` nằm cách cuối log hơn 100 dòng.
+3. Bỏ qua bẫy đã tự ghi trong `operations-gotchas.md` (*"nó có từng chạy được bao giờ chưa?"*). Ca này **skip trên macOS mọi lần chạy**, tức chưa từng chạy ở đâu; lần đầu nó thực thi là trên CI.
+4. Ở lượt trước Claude còn kết luận sai rằng bước "why it failed" rỗng — nó chạy đúng và đã nêu tên ca, chỉ bị thu gọn sau dấu ▸.
+
+**Chưa chứng minh:** ca này **chưa từng chạy hết** ở bất kỳ đâu, nên chưa biết các khẳng định của nó (đúng một `resume`, giữ nguyên phiên) có đúng dưới X server không window manager không. Lần chạy CI sau `8d30f16` là lần đầu tiên kiểm được; nếu vẫn đỏ thì bằng chứng đã nằm sẵn trong thông báo lỗi.
+
+**7 bộ xanh tại máy trên `8d30f16`:** repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2. (Ca `3E foreground visibility` là ca skip — tại máy luôn vậy.)

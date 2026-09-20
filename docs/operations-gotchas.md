@@ -62,7 +62,11 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Một tệp test có thể tự trỏ Chrome, bỏ qua cấu hình chung.** `browser-hardening.spec.ts` khai báo `test.use({ launchOptions: { executablePath: … } })` và còn gọi `chromium.launch({ executablePath: … })` trong hai ca, nên sửa cấu hình chung không đủ: trên CI bảy ca đỏ mà tên lỗi trông như lỗi sản phẩm (BFCache, tab ẩn hiện). Khi đổi cách chọn trình duyệt, `grep` cả `executablePath` lẫn `chromium.launch` (lát A4).
 
-**Test mở trình duyệt có cửa sổ (`headless: false`) cần màn hình ảo trên CI**: `xvfb-run -a`.
+**Test mở trình duyệt có cửa sổ (`headless: false`) cần màn hình ảo trên CI**: `xvfb-run -a`. **Nhưng `xvfb-run` chỉ đặt `DISPLAY` và `XAUTHORITY` cho tiến trình nó gọi.** Harness dựng môi trường cho tiến trình con bằng **danh sách cho phép** (`CI`, `CHROME_PATH`), nên hai biến đó không qua được và Chrome có cửa sổ chết với `Missing X server or $DISPLAY` — trông y như lỗi cấu hình Chrome. Thêm `xvfb` vào workflow **không đủ**; phải cho `DISPLAY` và `XAUTHORITY` vào danh sách cho phép. Lỗi của Claude ở lát A4: tám lần chạy CI đỏ liên tiếp chỉ vì đúng dòng này.
+
+**Một ca skip trên máy dev là một ca chưa từng chạy.** Ca `3E foreground visibility` tự `test.skip` khi môi trường không tạo được trạng thái tab `hidden` thật — macOS không tạo được, nên tại máy nó **luôn skip**. Lên Linux + `xvfb` nó chạy lần đầu, và lần đầu ấy là trên CI, nơi không ai gắn được debugger. Khi một ca chỉ chạy trên CI: cho nó **tự in bằng chứng** (gom mọi thứ quan sát được vào **một** `expect.poll(...).toEqual({...})` để thông báo lỗi in cả hai vế, và `info.attach` trong `finally`), đừng để bốn câu `expect` rời nhau chỉ nêu điểm khác đầu tiên.
+
+**Log lỗi của Playwright bị chôn dưới log app.** Khi harness thất bại nó đổ 4000 ký tự cuối của `on.log`/`off.log`/`production.log`, nên phần Playwright in tên ca đỏ và câu `expect` nằm **phía trên**, cách cuối log hơn 100 dòng. Đọc log CI thì tìm `✘` hoặc `1 failed`, đừng đọc từ dưới lên.
 
 **Chrome thật trong test không còn trỏ cứng đường dẫn macOS.** `playwright.chrome.ts` chọn: `CHROME_PATH` nếu có, `channel: 'chrome'` khi `CI=1`, còn lại là app trên máy Tài. Harness chuyển tiếp đúng hai biến `CI` và `CHROME_PATH` vào tiến trình con (danh sách cho phép, không đổ cả môi trường).
 
