@@ -1,10 +1,33 @@
-# Mở production — 2026-09-19
+# Production — đường vào và cách mở
 
-Tài chốt: Production chạy ở **`https://quitesensational-review-bio.vercel.app`** (tên miền miễn phí của Vercel, đã gắn vào Production); `.com` mua ở Cloudflare sau. Production dùng **branch Neon production** (đã migrate 001–017) và deploy từ **`main`**.
+Phần đầu tệp là **bản đồ dùng hằng ngày**: vào đâu, đăng nhập bằng gì, cái nào đã có cái nào chưa. Phần sau là hồ sơ lát mở production 19/09, giữ lại để tra khi cần. **Đổi trạng thái thì sửa bảng ở đây**, đừng để người sau phải ghép từ checklist cũ.
 
-Trước lát này production **đóng**: không có `NFC_ENV`, và `main` còn là mã cũ (`df0a485`). `main` là tổ tiên của `feat/local-app-foundation`, nên gộp là **fast-forward**, không có xung đột.
+## Đường vào
 
-## Thứ tự
+Production: **`https://quitesensational-review-bio.vercel.app`** (tên miền miễn phí của Vercel; `.com` mua ở Cloudflare sau, xem "Khi có `.com`"). Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–018**.
+
+Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`**, deploy từ nhánh `feat/local-app-foundation`, database là branch Neon preview (cũng đã 001–018). Alias này chỉ di chuyển theo **deployment do Git kích hoạt**; `vercel deploy` từ CLI không di chuyển nó (bẫy ở `platform-admin.md`).
+
+| Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (20/09) |
+|---|---|---|---|
+| `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu, số liệu nền tảng | admin **`tai`** (huy hiệu `@Quitesensational · Admin Tài`) | **Dùng được.** Đây là đường vào duy nhất hiện có |
+| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Chưa có** — phải tạo shop ở `/gov` trước |
+| `/<slug>` | Trang khách (thứ khách nhìn thấy) | không cần | **Chưa có** — sinh ra cùng shop |
+| `/t/<mã>` | Link ghi vào thẻ NFC, dẫn tới trang khách | không cần | **Chưa có thẻ nào** |
+| `/owner/login` | Trang đăng nhập chủ shop | — | Không có `?next=` thì chỉ hiện dòng "Mở đường dẫn dashboard của shop để đăng nhập". **Cố ý, không phải lỗi**: nó cần biết đăng nhập để vào đâu. Vào thẳng `/ZZZ/<slug>`, nó tự đẩy sang đây kèm đích |
+
+Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đổi `r` thành dấu hỏi, `s` thành dấu sắc, nên mật khẩu đúng vẫn báo sai (bẫy ở `operations-gotchas.md`).
+
+**Muốn biết database production có sống không:** đăng nhập `/gov`. Trang đó đọc database để xác thực; `/gov/login` và `/owner/login` trả 200 **không** chứng minh gì vì chúng không đọc database. Đây là cách kiểm sau mỗi lần xoay credential hoặc chạy migration.
+
+## Còn phải làm trên production (tính tới 20/09)
+
+- [ ] Đăng nhập `/gov`, **tạo shop khuôn** rồi **tạo shop thật**. Cho tới khi làm, production chưa có slug nào và mọi đường ở bảng trên trừ `/gov` đều chưa tồn tại.
+- [ ] **Thử tải một ảnh lên** từ dashboard — đây là phép kiểm CORS bucket R2 và hai khoá R2 của production.
+- [ ] Kiểm CORS bucket `nfc-media` đã có origin production chưa (bước 2 trong checklist dưới).
+- [ ] Thử dashboard trên **điện thoại** bằng tên miền production.
+
+## Checklist mở production (19/09, đã xong bước 1–4)
 
 1. **Tài: biến môi trường Production trên Vercel** (mục dưới). Phải xong **trước** khi deploy: Vercel chụp biến lúc tạo deployment.
 2. **Tài: thêm tên miền production vào CORS của bucket R2** (Cloudflare → R2 → `nfc-media` → Settings → CORS policy): `AllowedOrigins` thêm `https://quitesensational-review-bio.vercel.app`, giữ origin preview.
@@ -45,6 +68,8 @@ Bí mật (loại **Secret/Sensitive**, chỉ Production):
 
 Gắn `.com` vào Vercel bằng DNS Cloudflare, đổi `APP_ORIGIN`, deploy lại, cho `quitesensational-review-bio.vercel.app` chuyển hướng 308 sang `.com`. Thẻ đã ghi vẫn chạy qua chuyển hướng; mọi người đăng nhập lại một lần. Có `.com` trên Cloudflare mới gắn được `media.<tên-miền>` cho R2 thay `r2.dev`.
 
+Trước lát 19/09 production **đóng**: không có `NFC_ENV`, và `main` còn là mã cũ (`df0a485`). `main` là tổ tiên của `feat/local-app-foundation`, nên gộp là fast-forward, không xung đột.
+
 ## Đã làm (19/09)
 
 - Tài đặt đủ 17 biến Production (kiểm bằng `vercel env ls production`). Lần kiểm đầu agent lọc sai cột bằng `awk` và tưởng thiếu biến; đọc bảng nguyên văn thì đủ.
@@ -63,3 +88,9 @@ Sửa: trên production, nút ở `/gov` thành **"Tạo tài khoản cho khuôn
 **Lỗi cũ test mới bắt được:** `OwnerSetupLinks.write` chỉ huỷ link còn mở **cùng loại** (`setup` hoặc `reset`). Link đặt mật khẩu đầu tiên (`setup`) vì thế **vẫn dùng được** sau khi admin cấp lại link (`reset`) cho chủ shop, cho tới khi hết 48 giờ. Giờ link mới huỷ mọi link còn mở của tài khoản.
 - 7 bộ trên commit `0aa2f47`: tsc exit 0 · eslint exit 0 · repository `116 passed` · contracts `73 passed` · client `75 passed` · public-v2 + browser-hardening `1 skipped, 16 passed` + `2 passed` · publishing `10 passed` + `2 passed` · owner `10 passed` + `2 passed` · admin `6 passed` + `2 passed`. Không có migration; đã đẩy lên `main`.
 
+
+## Đã làm (20/09)
+
+- Lát **A1** (chặn bot trang khách) lên production cùng **migration 018**. Tài xoay mật khẩu `neondb_owner` trên **cả hai** branch Neon rồi mới migrate cả hai, sau khi một lệnh sai shell của Claude làm chuỗi kết nối production rơi vào dòng lệnh và `~/.zsh_history` (bẫy `read -p` trong `operations-gotchas.md`).
+- Kiểm bản mới lên đúng bằng **`dpl-id`** trong HTML, không bằng mã trạng thái: bản cũ `dpl_GVc1WLuw8Bh…` → bản mới `dpl_6kMpix7VqHqz…` sau 45 giây. Đây là cách đúng, vì Vercel có thể redeploy **bản cũ** với biến mới và làm người kiểm tưởng đã xong.
+- **Chưa chứng minh được database production đã nối lại**: mọi đường Claude kiểm được từ bên ngoài đều không đọc database, và production chưa có shop nào để mở một trang có đọc. Phép kiểm còn lại là Tài đăng nhập `/gov`.

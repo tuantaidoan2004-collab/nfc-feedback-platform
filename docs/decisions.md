@@ -596,6 +596,8 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 **Tài đã quyết 20/09 · thao tác đang chạy khi quyền bị thu hồi giữa chừng: hoàn tất** ("ai thao tác trước thì có quyền"). Ranh giới "đang chạy" giờ là **một transaction**. Khoảng trống giữa các request (đọc → sửa → lưu) là thời gian suy nghĩ của người dùng, không khoá nào đóng được; `expectedRevision` và việc kiểm quyền lại ở đầu mỗi request là cách xử. Chi tiết ở cuối `agents-board.md`.
 
+**Đường vào production và preview:** mục "Đường vào" ở đầu `docs/production-launch.md`. Production hiện **chưa có shop nào**, nên `/gov` là đường vào duy nhất.
+
 ### Việc còn treo của Tài
 
 - Bật bảo vệ nhánh `main` sau khi CI xanh (F5 trong `roadmap-slices.md`).
@@ -612,7 +614,7 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 3. **`docs/operations-gotchas.md`** (mọi bẫy đã dính, lệnh **7 bộ test**)
 4. Khối này
 5. **`docs/google-policy.md`** (luật cứng) và **`docs/roadmap-slices.md`** (61 mục, xếp theo mức sẵn sàng)
-6. `docs/production-launch.md`, `docs/redesign-v2.md` (các lát B1 → F5), `docs/r2-uploads.md`
+6. **`docs/production-launch.md`** — mục **"Đường vào"** ở đầu tệp là bản đồ mọi URL của production và preview, đăng nhập bằng gì, cái nào đã có cái nào chưa. Tra ở đó, đừng hỏi Tài. Rồi `docs/redesign-v2.md` (các lát B1 → F5), `docs/r2-uploads.md`
 7. `docs/commercial-model.md` (giá mục 3, quyền và công tắc mục 8); `docs/story.md`, `docs/ideas-curiosity.md` khi cần bối cảnh sản phẩm
 8. Bảng chọn skill ở đầu `docs/agent-skills.md`; chỉ nạp skill cần tới
 
