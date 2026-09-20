@@ -36,6 +36,19 @@ async function copyApp(name) {
   await symlink(await realpath(join(root, 'node_modules')), join(dest, 'node_modules'));
   return dest;
 }
+/**
+ * `next dev` compiles a route the first time it is asked for, and then tells every open page to reload; a test that
+ * opens such a page mid-compile loses what it had typed (docs/operations-gotchas.md). Asking for the routes once,
+ * before any browser is open, moves that compile out of the test run. It matters most on a slow CI runner, where the
+ * admin suite failed on and off (lát A4).
+ */
+async function warm(origin) {
+  const paths = ['/one', '/t/demo', '/owner/login?next=%2FZZZ%2Fone', '/ZZZ/one', '/gov', '/gov/login', '/preview',
+    '/api/owner/v2/one', '/api/owner/v2/one/summary', '/api/owner/v2/one/team', '/api/owner/v2/one/activity', '/api/owner/v2/one/cards',
+    '/api/owner/v2/one/comments?session=x', '/api/owner/v2/profile', '/api/owner/v2/notifications', '/api/v2/pages/visits'];
+  await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
+}
+
 async function startApp(name, port, flag, builtApp) {
   const cwd = builtApp ?? await copyApp(name), log = await open(join(temp, `${name}.log`), 'w'); logs.push(log);
   // The built app deliberately leaves NFC_ENV unset: the production gate test proves feature flags alone
@@ -47,7 +60,7 @@ async function startApp(name, port, flag, builtApp) {
   children.push(child);
   for (let n = 0; n < 120; n++) {
     if (child.exitCode !== null) throw Error(`${name} exited`);
-    try { if ((await fetch(`${env.APP_ORIGIN}/one`)).ok) return cwd; } catch { /* Wait for local server. */ }
+    try { if ((await fetch(`${env.APP_ORIGIN}/one`)).ok) { await warm(env.APP_ORIGIN); return cwd; } } catch { /* Wait for local server. */ }
     await new Promise(r => setTimeout(r, 250));
   }
   throw Error(`${name} did not start`);
