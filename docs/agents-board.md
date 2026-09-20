@@ -120,7 +120,7 @@ Claude tiếp tục A4. Astra chưa mở lát code tiếp trong lượt này. Kh
 
 Theo thứ tự Tài yêu cầu: rà authorize/caller trước, rồi R2. Artifact ở nhánh `astra/authorization-audit`, worktree `/private/tmp/nfc-astra-authorization-audit`; báo cáo `docs/astra-authorization-audit.md`, test `audit-tests/authorization.spec.ts`, cấu hình `playwright.audit.config.ts`. **Commit chỉ có báo cáo và test cố ý đỏ; không phải bản sửa để đưa thẳng vào main.** Không push/deploy/migration thật.
 
-- **F-010 · Trung bình · đã tái hiện:** `lib/owner/dashboard.ts:101–106`: phiên design/full đọc message/topic/note qua dashboard overview, dù cùng phiên bị authorize feedback từ chối. Vượt scope phiên, không vượt khấc full; structured phone vẫn null. Đề xuất admin chỉ thấy lời khi scope feedback. Test 1 đỏ với message bí mật nhận được.
+- **F-010 · Trung bình · ĐÃ SỬA `0d5642e`** (xem mục cuối tệp) · đã tái hiện: `lib/owner/dashboard.ts:101–106`: phiên design/full đọc message/topic/note qua dashboard overview, dù cùng phiên bị authorize feedback từ chối. Vượt scope phiên, không vượt khấc full; structured phone vẫn null. Đề xuất admin chỉ thấy lời khi scope feedback. Test 1 đỏ với message bí mật nhận được.
 - **F-011 · Trung bình · đã tái hiện save:** `lib/owner/design.ts:69–85`: mutation commit trước audit. Trigger fixture làm audit INSERT lỗi: save trả lỗi nhưng draft đổi tên/revision 2→3, audit thiếu. Publish cùng cấu trúc theo đọc code, chưa test runtime. Đề xuất mutation+audit+activity cùng transaction. Không khẳng định attacker gây được lỗi DB audit từ HTTP. Test 2 đỏ.
 - **F-012 · Cao · validation presign đã tái hiện:** `lib/owner/media.ts:38–46`, `lib/owner/profile.ts:104–115`: lookup object nhận key prototype `constructor`; shop ký PUT size 1 GiB vượt trần 30 MiB vì rule.max undefined. Profile cũng ký MIME sai nhưng vẫn chặn trên 5 MiB. Khóa giả, ký offline, chưa PUT thật tới R2; yêu cầu quyền upload, không anonymous. Sửa lookup bằng Object.hasOwn/Map và thêm ceiling độc lập; test cả constructor/toString/__proto__. Test 3–4 đỏ.
 
@@ -180,3 +180,13 @@ Một ca đỏ duy nhất: `browser-hardening.spec.ts:154` · `3E foreground vis
 **Chưa chứng minh:** ca này **chưa từng chạy hết** ở bất kỳ đâu, nên chưa biết các khẳng định của nó (đúng một `resume`, giữ nguyên phiên) có đúng dưới X server không window manager không. Lần chạy CI sau `8d30f16` là lần đầu tiên kiểm được; nếu vẫn đỏ thì bằng chứng đã nằm sẵn trong thông báo lỗi.
 
 **7 bộ xanh tại máy trên `8d30f16`:** repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2. (Ca `3E foreground visibility` là ca skip — tại máy luôn vậy.)
+
+
+## Claude sửa F-010 — `0d5642e`, 20/09
+
+- **Sửa:** `lib/owner/dashboard.ts` `read()` trước đây chỉ giấu lời khách với phiên `overview` và với thành viên không có công tắc góp ý; mọi thứ khác đi qua. Route này hỏi `authorize` quyền `'overview'`, mà **cả ba phạm vi đều qua được**, nên phiên `design` đọc được `topic/message/note` — dù chính phiên đó bị `comments.list` (hỏi quyền `'feedback'`) từ chối. Giờ điều kiện **nêu đúng một phạm vi được đọc** (`scope !== 'feedback'` thì giấu), để phạm vi thêm sau này mặc định là đóng.
+- **Phạm vi lộ hẹp hơn báo cáo ban đầu:** nấc công tắc 2 (`edit`) đã chặn hẳn đường tổng quan với hỗ trợ (`SUPPORT_NOT_GRANTED`), nên **chỉ nấc 3 (`full`) từng lộ**. Test khẳng định cả hai nấc. Phát hiện khi test đầu tiên của Claude đỏ — lỗi ở test, không ở mã.
+- **Test** trong `repository-tests/impersonation.spec.ts`: nấc `edit` phải bị từ chối; nấc `full` + `design` phải thấy `topic/message/phone/note` rỗng, chuỗi bí mật và số điện thoại không xuất hiện ở bất kỳ đâu trong response, và bản ghi kiểm toán `impersonation.read` phải ghi `feedbackShown:false`; phiên `feedback` cùng nấc vẫn đọc được bình thường. Gỡ bản sửa thì đỏ (`Received + "message": "Bí mật của khách"`), đã chạy để xác nhận.
+- **Chưa phủ:** đây là mức repository. Chưa thêm khẳng định qua HTTP thật cho ca này; đường `/api/owner/v2/<shop>` đã có ca HTTP cho số điện thoại (F-003) nhưng chưa có cho phạm vi design.
+- **7 bộ xanh trên `0d5642e`:** repository 126 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
+- **Còn lại: F-011** (nháp thiết kế ghi trước, ghi sổ sau; ghi sổ lỗi thì nháp đã đổi mà sổ trống). Chưa bắt đầu.
