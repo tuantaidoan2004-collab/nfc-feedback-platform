@@ -70,6 +70,10 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Chrome thật trong test không còn trỏ cứng đường dẫn macOS.** `playwright.chrome.ts` chọn: `CHROME_PATH` nếu có, `channel: 'chrome'` khi `CI=1`, còn lại là app trên máy Tài. Harness chuyển tiếp đúng hai biến `CI` và `CHROME_PATH` vào tiến trình con (danh sách cho phép, không đổ cả môi trường).
 
+**Thêm một biến môi trường mới thì có bốn chỗ phải nhớ, không phải một.** `NFC_TOTP_KEY` ở lát A2 cần: (1) Vercel Production, (2) Vercel Preview, (3) **danh sách môi trường của harness** trong `run-local.mjs` (cả tiến trình app lẫn tiến trình Playwright), (4) **nơi bộ test chạy không qua harness** — ở đây là `playwright.repository.config.ts`. Claude nhớ ba chỗ đầu, quên chỗ thứ tư, chạy local bằng cách **tự gõ biến vào dòng lệnh**, báo "7 bộ xanh", và CI đỏ 21 test với `TOTP_KEY_MISSING`. Vercel không liên quan gì tới GitHub Actions.
+
+**Kiểm bằng cách xoá biến, đừng bằng cách nhớ.** Chạy lại bộ test bằng `env -u TEN_BIEN …` là tái hiện đúng điều kiện CI. Nếu một lần chạy local chỉ xanh nhờ thứ gì đó gõ tay, thì nó **không** chứng minh được CI sẽ xanh — và đừng báo "xanh" như thể có. Tốt hơn nữa: đặt giá trị fixture ngay trong config của bộ test, để không ai phải nhớ lần sau.
+
 **Bật một luật bảo mật mới thì mọi fixture có tài khoản liên quan phải theo.** Lát A2 bắt admin phải có 2FA ở **`authorizeAdmin`**, nên 17 test ở 6 tệp đỏ cùng lúc với `TWO_FACTOR_REQUIRED`. Đó là dấu hiệu **đúng** — nó cho thấy luật chặn ở đâu — nhưng phải sửa fixture, không phải nới luật. Cách làm: fixture đăng nhập bằng mật khẩu **trước**, rồi bật 2FA bằng SQL (`enrolAdmin` trong `owner-fixture.ts`); test nào đăng nhập lại sau đó phải kèm mã thật. Và fixture nào **không** áp migration 005 thì đừng thêm 019 vào (nó `ALTER TABLE platform_admins`).
 
 **Có 7 bộ test, không phải 5.** Ngoài repository và bốn lệnh harness còn hai bộ không cần database, rất dễ quên:
