@@ -557,67 +557,55 @@ Phiên brainstorm, **không viết code**. Chi tiết đầy đủ: [commercial-
 - Bản vá **`3b664a3`** xử lý F-001/F-002; **chưa tích hợp/chưa deploy**, không migration/dependency. 122 repository, 73 contracts, 75 client passed; type/lint/diff-check xanh. PG riêng 55449 đã tắt, 0 fixture schema còn lại. Không dùng harness Claude.
 - Phát hiện F-007/F-008 về quyền cấp link thành viên đã tái hiện, **chưa sửa**. Chi tiết, repro, giới hạn kiểm ở `security-review-20260920.md`; nhận việc tiếp qua bảng agents.
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-18 (cuối phiên, sau đổi mật khẩu)
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-20 (cuối phiên Claude, sau lát F1–F6 và A4)
 
-Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước. Chi tiết từng lát nằm ở các mục phía trên và trong `redesign-v2.md`.
+Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 
 ### Cách làm (Tài chốt, bắt buộc)
 
-- **Xong nhanh, test nhanh, sửa nhanh.** Việc của agent là mã đúng; bảo mật và back-end sâu để Astra rà sau. Nguyên tắc sản phẩm vẫn bắt buộc: nút Google giống hệt nhau với mọi khách, không điền sẵn sao, không dẫn khách chấm thấp rời trang.
-- Trả lời tiếng Việt, ngắn. Trước mỗi lát nói **effort high/medium** và lý do. Tài bảo "làm đi" thì làm luôn, không chờ duyệt phạm vi.
-- Khi đang làm chỉ chạy bộ test liên quan; **cuối lát chạy đủ 7 bộ trên commit trong worktree tạm** (lệnh trong `operations-gotchas.md`), đưa Tài kết quả nguyên văn, ghi vào mục của lát.
-- **Có migration thì không push**: đưa Tài lệnh migrate (bắt đầu bằng `cd` tới worktree, đọc chuỗi kết nối bằng `read -rs`), chạy cho branch production rồi preview, Tài báo xong mới push.
-- Ghi **mọi lỗi, kể cả của agent**, vào `operations-gotchas.md` và mục của lát. Tắt Postgres, xoá worktree tạm khi xong.
-- Tài tự làm mọi bước có credential (Neon, Vercel, Cloudflare, Google). Đưa hướng dẫn từng bước, không xin giá trị bí mật.
+- **Xong nhanh, test nhanh, sửa nhanh.** Bảo mật sâu để Astra rà sau, nhưng nguyên tắc sản phẩm vẫn bắt buộc: nút Google giống hệt nhau với mọi khách, không điền sẵn sao, không dẫn khách chấm thấp rời trang. **`docs/google-policy.md` thắng mọi yêu cầu khác.**
+- Trả lời tiếng Việt, ngắn. Trước mỗi lát nói **effort high/medium** và lý do. Tài bảo "làm đi" thì làm luôn.
+- **Cuối lát chạy đủ 7 bộ trên commit trong worktree tạm** (lệnh ở `operations-gotchas.md`), đưa Tài kết quả nguyên văn, ghi vào docs. Tắt Postgres, xoá worktree tạm.
+- **Có migration thì không push**: đưa Tài lệnh migrate (bắt đầu bằng `cd`, đọc chuỗi kết nối bằng `read -rs`), Neon production rồi preview, Tài báo xong mới push.
+- Ghi **mọi lỗi, kể cả của agent**, vào `operations-gotchas.md` và mục của lát.
+- Tài tự làm mọi bước có credential (Neon, Vercel, Cloudflare, GitHub, Google).
+- **Ba bên:** Claude (làm tính năng, tích hợp, đẩy `main`), Codex Astra (rà độc lập trên nhánh riêng), Tài điều phối. Kênh chung là **`docs/agents-board.md`** — đọc ngay sau `AGENTS.md`.
 
-### Đang ở đâu
+### Đang ở đâu (20/09/2026)
 
-Branch `feat/local-app-foundation`, đã push tới `e4c6869`. Preview Vercel chạy thật với Neon: `https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`. **Migration 001–017 đã có trên Neon production và preview.** **Production mở từ 19/09** ở `https://quitesensational-review-bio.vercel.app`, deploy từ `main`; admin `tai` đã có trên database production.
+- **Production đã mở:** `https://quitesensational-review-bio.vercel.app`, deploy từ `main` (`33711f0`). Preview vẫn chạy từ nhánh `feat/local-app-foundation`.
+- **Neon: migration 001–017** đã có ở cả production lẫn preview. Admin `tai` đã có trên production (huy hiệu `@Quitesensational · Admin Tài`).
+- **Nhánh `feat/local-app-foundation` đang đi trước `main` 7 commit**, toàn phần CI và test, **chưa đẩy** vì CI còn một job đỏ.
+- Đã làm trong phiên: Trang bio (F1), hồ sơ tài khoản (F2, migration 014), đội ngũ và vai kiểu Discord + lịch sử hoạt động (F3, 015), luồng bình luận kiểu YouTube (F4, 016), thông báo @ + ảnh tĩnh video + cảnh báo bộ gõ (F5, 017), mở production (F6), CI đủ 7 bộ (A4, chưa xanh hết).
+- Đã sửa cùng Astra: F-001 → F-009 (link đặt mật khẩu, tranh chấp, leo quyền giữa shop, ẩn số điện thoại với quản trị).
 
-Preview bật `NFC_PUBLISHING_ENABLED` (+ `NFC_RENDER_SIGNING_KEY`), `NFC_OWNER_V2_ENABLED`, `NFC_ADMIN_ENABLED`, `NFC_VISITS_V2_ENABLED`, và 5 biến R2 cho branch (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET=nfc-media`, `MEDIA_PUBLIC_ORIGIN=https://pub-fc28….r2.dev`).
+### Việc tiếp theo, đúng thứ tự
 
-**Đã xong trong phiên 17–18/09** (chi tiết: `redesign-v2.md`, các mục Lát B1 → Lát E1, `r2-uploads.md`):
-- **Trang khách:** không hỏi sao trước nút Google; nút máy bay nổi mở thẻ góp ý spotlight (sao thành emoji, chỉ lưu khi Gửi, số gọi lại tuỳ chọn, cảm ơn kèm pháo giấy); nền video/ảnh, watermark, poster, logo, nút Instagram/Zalo/TikTok/Facebook/gọi; hai bố cục.
-- **Dashboard** menu trái: Tổng quan (số nhẹ, ô ☰ đổi khoảng, biểu đồ 7 ngày), Dữ liệu (chỉ tải khi chọn khoảng; bảng phản hồi, lời khách ở dòng phụ), Thiết kế & Link (trình chỉnh lưu nháp/xem trước/phát hành, tải lên R2, Thẻ NFC), Cài đặt (tài khoản, **đổi mật khẩu**, công tắc hỗ trợ **4 vị trí**, lượt truy cập của quản trị).
-- **Thẻ NFC:** "Nhân bản thẻ", mã 5 ký tự (lên 6 khi trùng), kích hoạt báo phí theo bảng giá, tạm tắt/bật lại; chỉ chủ shop kích hoạt.
-- **`/gov`:** cột mức hỗ trợ, phạm vi mạo danh "Sửa giao diện", "Đưa khuôn về mặc định mới", "Tạo/Đặt lại tài khoản test (yourshop / 1)".
-- **R2 chạy thật trên preview:** Tài tải poster, logo cho khuôn và phát hành, trang khách hiện đúng.
-
-**Shop trên preview:** khuôn "YOUR SHOP" (`pripi01r8e9u`, tài khoản `yourshop`, mật khẩu `1` trừ khi Tài đã đổi); `cà phê Dê` (`8irrsv53fiva`, chủ `dedede`); `caphe-demo` bỏ.
-
-### Lát tiếp theo — xem `roadmap-slices.md` (chốt 20/09)
-
-Tài biến báo cáo tổng quan 19/09 thành **61 mục** xếp theo mức sẵn sàng (A sẵn sàng · B cần Tài · C chờ bên ngoài · D chờ quy mô · E lặt vặt · F việc của Tài). **P0 trước khi bán: A1–A7, B1–B4.** Mọi lát chạm Google/marketing phải qua `google-policy.md`. Ý "nền tảng của sự tò mò" ở `ideas-curiosity.md`; lịch sử hình thành ở `story.md`.
-
-### Các lựa chọn cũ (trước 20/09, giữ để tra)
-
-- **Nhỏ, effort medium:** ảnh tĩnh cho video nền tải lên (khi iPhone tiết kiệm pin); âm thanh popup cảm ơn; dọn tệp R2 không còn dùng.
-- **Effort high:** tài khoản phụ (quản lý, nhân viên; nhân viên chỉ thấy góp ý khi chủ shop cho phép — `commercial-model.md` mục 8). **Tài chốt 18/09:** mỗi người **ID riêng** (không phải một két nhiều chìa), **lịch sử hoạt động** không sửa được, tìm/lọc theo người, ô tìm kiểu Spotlight; ghi chú lưu ID + tên tác giả.
-- **Lát F1 Trang bio xong 18/09**. **Lát F2 hồ sơ tài khoản xong 18/09, migration 014**: chỉ push sau khi Tài migrate Neon production rồi preview; Tài đặt `NFC_SUPPORT_CONTACT` trên Vercel. **Lát F3 đội ngũ + vai kiểu Discord + lịch sử hoạt động xong 18/09, migration 015**: chỉ push sau khi Tài migrate. **Lát F4 luồng bình luận kiểu YouTube xong 19/09, migration 016** (chỉ push sau khi Tài migrate); gợi ý `@` trong ô tìm ⌘K cũng xong. **Lát F5 xong 19/09, migration 017:** thông báo `@` có chuông, ảnh tĩnh cho video (iPhone và Android), cảnh báo bộ gõ tiếng Việt khi đăng nhập. **Tiếp theo: Tài chọn.**
-- **Tài chốt 18/09 (lượt sau): làm hệ thống tài khoản trước** — hồ sơ kiểu mạng xã hội, tab Hồ sơ, vương miện cho quản lý; thứ tự lát và các đề xuất chờ duyệt ở `commercial-model.md` mục 8, "Hệ thống tài khoản". Danh sách Review Landing Page (nhỏ) ở `redesign-v2.md`.
-- **Effort high, đi sau hoặc cùng tài khoản phụ:** Dữ liệu thành **luồng bình luận kiểu YouTube** (emoji làm ảnh đại diện, Loại thay tên, `⭐⭐⭐⭐ GG Review`, thời gian tương đối, ⓘ chứa chi tiết, bỏ trạng thái xử lý, nhiều ghi chú mỗi phản hồi). Thiết kế và 4 câu còn phải hỏi: `redesign-v2.md` mục "Dữ liệu dạng luồng bình luận".
-- **Nhớ cho Tài — cải cách big data (về sau, chưa lên lịch):** lưu dữ liệu hiện tại là đủ. Khi làm, mô phỏng cách các doanh nghiệp lớn lưu dữ liệu của họ (sổ sự kiện chỉ ghi thêm, tách kho phân tích khỏi database phục vụ). Chỉ ghi nhớ, chưa thiết kế.
-- **Bị chặn:** Google Business Profile (lát E2) — Google chỉ duyệt quyền API khi hồ sơ doanh nghiệp đã xác minh và hoạt động đủ 60 ngày; hồ sơ của Tài đang chờ xác minh. Không bật billing.
-- **Về sau:** thanh toán (`paid_until` chỉ là một ngày, `commercial-model.md` mục 2); email; production.
+1. **CI: `integration public` còn đỏ.** Lấy nội dung mục **"why it failed"** của job đó ở lần chạy mới nhất trên GitHub (Tài chụp; repo riêng tư nên agent không đọc được). 7 bộ chạy tại máy đều xanh. Chi tiết ở cuối `agents-board.md`.
+2. **F-012 (Cao, lỗi của Claude)** rồi **F-010**, **F-011** — ba phát hiện của Astra, mô tả và test đỏ ở `agents-board.md` và nhánh `astra/authorization-audit` (`c4ddde7`).
+3. Đẩy `main` khi CI xanh; Tài bật bảo vệ nhánh `main`.
+4. Rồi tiếp **A1** (chặn bot cho API trang khách) theo `roadmap-slices.md`.
 
 ### Việc còn treo của Tài
 
-- **Tên miền: `quitesensational-review-bio.vercel.app` (miễn phí) cho Production trước**, `.com` mua ở Cloudflare sau (Tài chốt 19/09). **Production đã mở 19/09** (lát F6, `main` = `c56cb7b`): `https://quitesensational-review-bio.vercel.app`, chi tiết `production-launch.md`. — phải có **trước khi ghi thẻ cho khách**, vì link trong chip gồm cả tên miền. Có tên miền thì gắn custom domain cho bucket R2 (r2.dev bị giới hạn tốc độ) và thêm 5 biến R2 cho Production.
-- Xác minh hồ sơ Google Business Profile, chờ 60 ngày, rồi xin quyền API.
-- Trả lời agent có cài plugin Cloudflare cho Claude Code không (hướng dẫn `developers.cloudflare.com/agent-setup/prompt.md`; agent chưa chạy vì đổi cấu hình toàn máy và cho agent quyền trên tài khoản Cloudflare).
-- Khi siết mật khẩu đồng loạt: xoay mật khẩu `neondb_owner` và admin `tai` (đã xuất hiện trong hội thoại), đổi `yourshop`.
-- Hai biến R2 có bản trùng (một cho mọi Preview, một cho branch): không hại, xoá bản chung khi muốn gọn.
+- Bật bảo vệ nhánh `main` sau khi CI xanh (F5 trong `roadmap-slices.md`).
+- Xoay mật khẩu đã lộ trong hội thoại: `neondb_owner` mọi branch, admin preview, `yourshop` preview.
+- Nâng Neon lên gói trả phí (B1), mua `.com` ở Cloudflare (B4), tạo tài khoản giám sát lỗi (B3).
+- Gặp luật sư dữ liệu và luật sư sở hữu trí tuệ; nộp nhãn hiệu (F1, F2).
+- Thử dashboard trên điện thoại bằng tên miền production; tải một ảnh lên để kiểm CORS R2.
+- Kiểm CORS bucket `nfc-media` đã thêm origin production chưa (bước 2 của `production-launch.md`).
 
 ### Thứ tự đọc cho phiên mới
 
 1. `AGENTS.md`
-2. **`docs/operations-gotchas.md`**: mọi bẫy đã dính và lệnh **7 bộ test**
-3. Khối này
-4. **`docs/google-policy.md`** (luật cứng, thắng mọi yêu cầu khác) và **`docs/roadmap-slices.md`** (lát tiếp theo)
-5. `docs/redesign-v2.md` (đọc các mục Lát B1 → Lát E1 khi cần chi tiết), `docs/r2-uploads.md`
-6. `docs/commercial-model.md` (giá mục 3, quyền và công tắc mục 8)
-7. Bảng chọn skill ở đầu `docs/agent-skills.md`; chỉ nạp skill cần tới
+2. **`docs/agents-board.md`** (ba bên, phát hiện đang mở)
+3. **`docs/operations-gotchas.md`** (mọi bẫy đã dính, lệnh **7 bộ test**)
+4. Khối này
+5. **`docs/google-policy.md`** (luật cứng) và **`docs/roadmap-slices.md`** (61 mục, xếp theo mức sẵn sàng)
+6. `docs/production-launch.md`, `docs/redesign-v2.md` (các lát B1 → F5), `docs/r2-uploads.md`
+7. `docs/commercial-model.md` (giá mục 3, quyền và công tắc mục 8); `docs/story.md`, `docs/ideas-curiosity.md` khi cần bối cảnh sản phẩm
+8. Bảng chọn skill ở đầu `docs/agent-skills.md`; chỉ nạp skill cần tới
 
 ### Dựng môi trường
 
-Node 24 qua nvm. PostgreSQL: binary Postgres.app, **cluster riêng cổng 55439** trong thư mục scratchpad (`initdb -U nfc_test --auth=trust`, `pg_ctl … -o "-p 55439 -h 127.0.0.1" start`, `createdb … nfc_repo_test`); mất sau mỗi phiên là bình thường; **tắt khi xong**. **Không dùng `pnpm <script>`**, gọi thẳng `node node_modules/…`. Harness chạy `next dev` và dùng chung cổng 3317–3319 và database: không chạy hai bộ harness cùng lúc.
+Node 24 qua nvm. PostgreSQL: binary Postgres.app, **cluster riêng cổng 55439** trong thư mục scratchpad, **bắt buộc** `initdb -U nfc_test --auth=trust -E UTF8 --locale=en_US.UTF-8`; `createdb … nfc_repo_test`; tắt khi xong. **Không dùng `pnpm <script>`**, gọi thẳng `node node_modules/…`. Harness dùng cổng 3317–3319 và database chung: không chạy hai bộ harness cùng lúc. Astra dùng cổng 55449 và không chạy harness.
