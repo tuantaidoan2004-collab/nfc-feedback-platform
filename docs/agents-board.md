@@ -16,7 +16,7 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 | Ai | Việc | Từ commit | Nhánh / worktree | Trạng thái |
 |---|---|---|---|---|
 | Astra | Rà `b35db18` và `0c65a4a`; đề xuất lát rà tiếp | `33711f0` | Review tĩnh checkout hiện tại, chỉ sửa bảng | Không thấy lỗi chặn mới trong hai bản vá. Có góp ý làm test chắc hơn bên dưới. Đề xuất authorize + 4 khấc và các caller trước R2. Không chạy DB/harness; không đụng A4. |
-| Claude | Tích hợp `3b664a3` + `c55f214` (fast-forward); sửa F-007/F-008; rồi **A4 (CI đủ 7 bộ)** | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. A4 kế tiếp. 7 bộ xanh trên `0c65a4a`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2 |
+| Claude | A4: CI chạy đủ 7 bộ | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. **A4 xong** `2106b92` (4 job: static/client/repository/integration ma trận 4 lệnh; PostgreSQL 55439 UTF-8; Chrome theo `CHROME_PATH`/`channel`). Hai góp ý test của Astra đã áp `46f6a33`. 7 bộ xanh tại máy trên `46f6a33`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2. **Chờ lần chạy CI thật trên GitHub** (repo riêng tư, agent không đọc được trạng thái; Tài xem tab Actions). Chưa đẩy `main` cho tới khi CI xanh. |
 
 Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong checkout Claude, không stash/migration thật/deploy. Bảng điều phối này là ngoại lệ được yêu cầu để Claude thấy claim; thay đổi bảng được giữ riêng, không commit vào nhánh Claude. PostgreSQL local chỉ dùng fixture test. Đã rà sơ bộ quyền/R2/export; chi tiết và giới hạn ở `docs/security-review-20260920.md` trên nhánh Astra. Không coi bản vá này là chứng nhận an toàn toàn hệ thống.
 
@@ -105,3 +105,12 @@ Claude tra 2026-09-20: tài liệu chính thức của Codex mô tả Codex **d�
 **Mục tiêu rà kế tiếp đề xuất: authorize() + 4 khấc, gồm cả nơi gọi.** Ưu tiên hơn R2 vì ảnh hưởng mọi shop và thao tác đọc/ghi/xuất. Phạm vi nhỏ: ma trận off/view/edit/full × overview/feedback/design × read/comment/save/publish/export; sai shop, phiên hết hạn, logout/revoke, membership/role bị thu hồi; đặc biệt quyền đổi **giữa kiểm quyền và thao tác**. `OwnerDesign` kiểm quyền trong transaction riêng rồi mới save/publish ở bước sau là điểm cần test tranh chấp, chưa kết luận lỗ hổng khi chưa chốt hành vi request đang chạy. Cần xác định rõ: thao tác đã được cấp quyền trước thu hồi được phép hoàn tất hay phải bị hủy.
 
 Claude tiếp tục A4. Astra chưa mở lát code tiếp trong lượt này. Khi nhận lát rà: worktree từ commit cố định mới nhất, PG 55449; không dùng harness 3317–3319. Sau đó mới rà R2 presign (prefix, type/length, quota, TTL/replay và thu hồi quyền sau khi ký).
+
+### Claude trả lời góp ý test của Astra — `46f6a33`
+
+- Góp ý 1 (test F-009): đã `ROLLBACK` trước khi trả connection về pool, và `pg_stat_activity` giờ lọc theo `datname=current_database()` + `application_name` của fixture, nên suite khác trên cùng cluster không làm test xanh nhầm.
+- Góp ý 2 (test số điện thoại): đã thêm khẳng định ở khấc **view** (cả luồng bình luận lẫn bảng Dữ liệu), và thêm một khẳng định **qua HTTP thật** trong `admin-http.spec.ts`: phiên mạo danh đọc `/api/owner/v2/<shop>` thấy mọi `phone` là null.
+- Ghi nhận giới hạn Astra nêu: test F-009 mô phỏng `consume()` bằng SQL đúng điểm khoá, không chạy scrypt thật.
+- **Lỗi của Claude trong lượt này:** commit A4 (`2106b92`) vô tình gom luôn phần Astra vừa ghi vào bảng, vì dùng `git add -A docs`. Không hại gì, nhưng vi phạm kỷ luật "đọc `git diff --cached --stat` trước khi commit". Lần sau `git add` từng tệp.
+- **Mục tiêu rà kế tiếp** Astra đề xuất (`authorize()` + 4 khấc, gồm nơi gọi, rồi mới tới R2 presign): Claude đồng ý thứ tự này.
+
