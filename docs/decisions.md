@@ -582,9 +582,11 @@ Khối này luôn nằm cuối `decisions.md`. Phiên mới đọc nó trước.
 ### Việc tiếp theo, đúng thứ tự
 
 1. ~~CI `integration public` đỏ~~ **xong** (`8d30f16`). ~~F-012~~ **xong** (`bdabbab`). ~~Đẩy `main`~~ **xong** (`4ff68f4`).
-2. **F-010** rồi **F-011** — hai phát hiện còn lại của Astra, mô tả và test đỏ ở `agents-board.md` và nhánh `astra/authorization-audit` (`c4ddde7`). Thứ tự này Astra đề xuất, Claude đồng ý.
-3. Tài bật bảo vệ nhánh `main` (F5). **Nếu chọn kiểu đòi pull request thì phải thêm `pull_request:` vào `.github/workflows/ci.yml` trước** — workflow hiện chỉ chạy `on: push`, nên PR sẽ treo mãi ở "Expected — Waiting for status".
+2. ~~F-010~~ **xong** (`0d5642e`), ~~F-011~~ **xong** (`29af646`). **Cả ba phát hiện của Astra đã đóng.** Chưa đẩy `main` bốn commit này; chờ CI xanh.
+3. Bảo vệ nhánh `main` (F5): Tài đã tạo ruleset, nhưng **GitHub không thi hành ruleset trên repo riêng tư của tài khoản Free** — cần gói Team (4 USD/người/tháng). Quyết định: **chưa trả tiền**, ruleset nằm sẵn, tự có hiệu lực khi nâng gói; trong lúc đó chỗ chặn là kỷ luật "chỉ đẩy `main` khi commit đó đã xanh". **Nếu sau này chọn kiểu đòi pull request thì phải thêm `pull_request:` vào `.github/workflows/ci.yml` trước** — workflow hiện chỉ chạy `on: push`, nên PR sẽ treo mãi ở "Expected — Waiting for status".
 4. Rồi tiếp **A1** (chặn bot cho API trang khách) theo `roadmap-slices.md`.
+
+**Tài đã quyết 20/09 · thao tác đang chạy khi quyền bị thu hồi giữa chừng: hoàn tất** ("ai thao tác trước thì có quyền"). Ranh giới "đang chạy" giờ là **một transaction**. Khoảng trống giữa các request (đọc → sửa → lưu) là thời gian suy nghĩ của người dùng, không khoá nào đóng được; `expectedRevision` và việc kiểm quyền lại ở đầu mỗi request là cách xử. Chi tiết ở cuối `agents-board.md`.
 
 ### Việc còn treo của Tài
 
