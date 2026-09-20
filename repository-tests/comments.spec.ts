@@ -76,6 +76,7 @@ test('who may see and reply: the feedback switch for members; support reads at 1
  expect((await rows(f,an.token))[0].comment_count).toBe(0);
  await new OwnerTeam(f.db).change(owner,'one',{op:'feedback',userId:an.id,value:true});
  await c.create(an.token,'one',{sessionId:session,body:'Em đọc rồi'});
+ // The call-back number is for the shop only: support never gets it, at any switch position (Tài, 2026-09-20).
  const admins=new AdminAuth(f.db);await admins.bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
  await f.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
  const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token,dashboard=new OwnerDashboard(f.db);
@@ -90,6 +91,16 @@ test('who may see and reply: the feedback switch for members; support reads at 1
  await c.change({impersonation:s1.token},'one',{id:reply.id,op:'edit',value:'Chào shop!'});
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action LIKE 'impersonation.comment%'")).rows[0].n).toBeGreaterThanOrEqual(3);
  expect((await f.db.query("SELECT actor_kind,actor_handle FROM shop_activity WHERE action='comment.edit'")).rows).toEqual([{actor_kind:'admin',actor_handle:'Quitesensational'}]);
+ // Support reads the feedback but never the number, in the thread or in the Data list; the shop's own people do.
+ const withPhone=await addExperience(f.db,'one',1,'Gọi lại giúp em',undefined,'0901234567');
+ const forSupport=await c.list({impersonation:s1.token},'one',withPhone.session.sessionId);
+ expect(forSupport.experience).toMatchObject({message:'Gọi lại giúp em',phone:null});
+ const supportRows=(await new OwnerDashboard(f.db).read({impersonation:s1.token},'one',parseFilters(new URLSearchParams()))).records;
+ expect(supportRows.every(r=>r.phone===null)).toBe(true);
+ expect(supportRows.some(r=>r.message==='Gọi lại giúp em')).toBe(true);
+ const forOwner=(await new OwnerDashboard(f.db).read(owner,'one',parseFilters(new URLSearchParams()))).records;
+ expect(forOwner.find(r=>r.session_id===withPhone.session.sessionId)!.phone).toBe('0901234567');
+ expect((await c.list(owner,'one',withPhone.session.sessionId)).experience.phone).toBe('0901234567');
 });
 
 test('migration 016 carries every note over as a first reply by its author; rollback refuses once people have replied',async()=>{

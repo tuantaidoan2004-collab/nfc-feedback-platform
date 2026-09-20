@@ -87,6 +87,8 @@ export class OwnerComments {
             WHERE v.session_id=e.session_id ORDER BY v.opened_at DESC LIMIT 1),'Chưa rõ nguồn') source_label
         FROM rating_experiences e WHERE e.shop_id=$1 AND e.session_id=$2 AND e.scope='live'`, [access.shopId, sessionId])).rows[0];
       if (!experience) throw new OwnerError(404, 'NOT_FOUND');
+      // Same rule as the Data list: support never sees the call-back number.
+      if (access.actor.kind === 'admin') (experience as ThreadExperience).phone = null;
       const owner = access.actor.kind === 'owner' && access.role === 'owner';
       return { experience: experience as ThreadExperience, comments: rows.map(r => ({ id: r.id, body: r.body, createdAt: r.createdAt, editedAt: r.editedAt, pinned: r.pinned, likes: r.likes, liked: r.liked,
         mine: r.mine, canDelete: r.mine || owner,

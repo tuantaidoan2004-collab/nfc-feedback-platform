@@ -100,7 +100,10 @@ export class OwnerDashboard {
       // Support in an overview session, and a member without the feedback switch, get the rows without the words.
       const actor=access.actor, hidden=(actor.kind==='admin'&&actor.scope==='overview')||(actor.kind==='owner'&&!access.permissions.includes('feedback'));
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
-      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:'',comment_count:0}:row);
+      // The call-back number never reaches support, at any switch position (Tài, 2026-09-20): the customer left it for
+      // the shop. Numbers the customer typed into the message itself are not filtered; the privacy notice says so.
+      const records=rows.slice(0,50).map(row=>hidden?{...row,topic:null,message:null,phone:null,note:'',comment_count:0}
+        :actor.kind==='admin'?{...row,phone:null}:row);
       if(actor.kind==='admin')await recordAdminAction(db,actor.adminId,{action:'impersonation.read',shopId:access.shopId,onBehalfOf:access.userId,
         detail:{session:actor.sessionId,scope:actor.scope,rows:records.length,feedbackShown:records.some(row=>row.message!==null)}});
       return {shop:{slug:access.slug,name:access.name},sources,viewer:viewer(access),tags,releases,metrics:result,records,nextCursor:rows.length>50?encodeCursor(records[49]):null};

@@ -53,11 +53,11 @@ type MessageKey = keyof typeof messages.vi;
 const pageCopy = {
   vi: { google: 'Đánh giá trên Google', poster: 'POSTER SỰ KIỆN', links: 'Kết nối với shop', close: 'Đóng',
     hint: 'Có điều gì muốn nhắn riêng cho quán?', title: 'Gửi góp ý riêng cho quản lý', feeling: 'Bạn cảm thấy thế nào?',
-    phone: 'Số điện thoại, nếu muốn quản lý gọi lại', phoneHint: 'Chỉ quản lý của quán thấy số này',
+    phone: 'Số điện thoại, nếu muốn quản lý gọi lại', phoneHint: 'Chỉ người của quán được cấp quyền mới thấy số này',
     thanks: 'Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn' },
   en: { google: 'Review us on Google', poster: 'EVENT POSTER', links: 'Connect with the shop', close: 'Close',
     hint: 'Anything to tell us privately?', title: 'Send private feedback to the manager', feeling: 'How do you feel?',
-    phone: 'Phone, if you would like the manager to call back', phoneHint: 'Only the shop’s managers see this number',
+    phone: 'Phone, if you would like the manager to call back', phoneHint: 'Only the shop’s own people with permission see this number',
     thanks: 'Thank you — we are grateful for your feedback' },
 } as const;
 const HINT_DELAY_MS = 2000;

@@ -192,7 +192,7 @@ test('v2: the card takes an optional call-back number that needs a few words wit
   await release(f, b2(), 2);
   await page.goto('/one'); await loaded(page); await openCard(page);
   const phone = page.getByLabel('Số điện thoại, nếu muốn quản lý gọi lại');
-  await expect(phone).toHaveAttribute('placeholder', 'Chỉ quản lý của quán thấy số này');
+  await expect(phone).toHaveAttribute('placeholder', 'Chỉ người của quán được cấp quyền mới thấy số này');
   await expect(phone).toHaveAttribute('type', 'tel');
   await phone.fill('0961 036 265'); await sendButton(page).click();
   await expect(page.getByRole('status')).toContainText('Hãy viết vài dòng để quản lý biết cần gọi lại');
