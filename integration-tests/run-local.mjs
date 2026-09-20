@@ -20,7 +20,9 @@ const publishing = owner || process.argv.includes('--publishing');
 const signingFixture = randomBytes(32).toString('hex');
 // Still an allowlist: only these names cross into the children. CI and CHROME_PATH tell Playwright which real
 // Chrome to launch (playwright.chrome.ts); without them a GitHub runner would look for Tài's Mac app (lát A4).
-const passed = Object.fromEntries(['CI', 'CHROME_PATH'].filter(name => process.env[name]).map(name => [name, process.env[name]]));
+// DISPLAY and XAUTHORITY are what `xvfb-run` puts in this process's environment: the one case that opens a headed
+// Chrome launches it from the child, and without them that Chrome answers "Missing X server or $DISPLAY" (lát A4).
+const passed = Object.fromEntries(['CI', 'CHROME_PATH', 'DISPLAY', 'XAUTHORITY'].filter(name => process.env[name]).map(name => [name, process.env[name]]));
 const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1', ...passed };
 async function run(args, cwd, env) {
   return new Promise((yes, no) => {

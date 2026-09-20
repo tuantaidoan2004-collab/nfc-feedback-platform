@@ -176,11 +176,16 @@ test.describe('3E foreground visibility', () => {
     await browserCdp.send('Target.activateTarget', { targetId: targetInfo.targetId });
     await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible');
     await other.close();
-    await expect.poll(async () => (await counts(db)).opens).toBe(2);
-    expect((await counts(db)).sessions).toBe(1);
-    expect(states).toEqual(['hidden', 'visible']);
-    expect((await db.query('SELECT navigation_kind FROM page_visits ORDER BY opened_at')).rows.map(row => row.navigation_kind)).toEqual(['load', 'resume']);
-    await info.attach('visibility-evidence', { body: JSON.stringify(states), contentType: 'application/json' });
+    // One poll for the whole picture, so a failure prints everything the run saw side by side with what was
+    // expected. Four separate assertions named only the first thing that differed, which is thin evidence when the
+    // only machine that runs this case is a CI runner nobody can attach a debugger to (lát A4).
+    const observed = async () => ({ ...await counts(db), states: [...states],
+      kinds: (await db.query('SELECT navigation_kind FROM page_visits ORDER BY opened_at')).rows.map(row => row.navigation_kind) });
+    try {
+      await expect.poll(observed).toEqual({ sessions: 1, opens: 2, experiences: 1, states: ['hidden', 'visible'], kinds: ['load', 'resume'] });
+    } finally {
+      await info.attach('visibility-evidence', { body: JSON.stringify(await observed()), contentType: 'application/json' });
+    }
     } finally { await browser.close(); }
   });
 });
