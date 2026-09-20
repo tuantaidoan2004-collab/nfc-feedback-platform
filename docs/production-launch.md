@@ -10,7 +10,7 @@ Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pr
 
 | Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (20/09) |
 |---|---|---|---|
-| `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu, số liệu nền tảng | admin **`tai`** (huy hiệu `@Quitesensational · Admin Tài`) | **Dùng được.** Đây là đường vào duy nhất hiện có |
+| `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu, số liệu nền tảng | admin **`tai`** (huy hiệu `@Quitesensational · Admin Tài`) + **mã 6 số** từ ứng dụng xác thực (lát A2) | **Dùng được.** Đây là đường vào duy nhất hiện có |
 | `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Chưa có** — phải tạo shop ở `/gov` trước |
 | `/<slug>` | Trang khách (thứ khách nhìn thấy) | không cần | **Chưa có** — sinh ra cùng shop |
 | `/t/<mã>` | Link ghi vào thẻ NFC, dẫn tới trang khách | không cần | **Chưa có thẻ nào** |
@@ -56,6 +56,7 @@ Chép từ biến Preview (loại Config nên xem được): `R2_ACCOUNT_ID`, `M
 
 Bí mật (loại **Secret/Sensitive**, chỉ Production):
 - `NFC_RENDER_SIGNING_KEY`: khoá **mới**, khác preview, sinh và thêm thẳng bằng CLI để không hiện ra màn hình.
+- `NFC_TOTP_KEY` (thêm ở lát A2, 20/09): 32 byte hex, **khác nhau giữa Production và Preview**. Mã hoá bí mật 2FA của admin khi lưu. Thiếu biến này thì đường đăng ký 2FA **từ chối chạy** (`TOTP_KEY_MISSING`) chứ không lưu bí mật trần. **Đổi khoá này là mọi admin mất 2FA và phải đăng ký lại** — nếu buộc phải đổi, xoá `totp_secret`/`totp_enrolled_at` của họ trong cùng một lần.
 - `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`: biến preview là Secret nên không đọc lại được. Nếu còn giữ khoá cũ thì dùng lại; không thì tạo token R2 mới (Cloudflare → R2 → Manage API tokens → Create: Object Read & Write, chỉ bucket `nfc-media`).
 
 `DATABASE_URL`, `DATABASE_URL_UNPOOLED` do tích hợp Neon đặt sẵn cho Production. `NFC_SUPPORT_CONTACT` đã có cho Production.

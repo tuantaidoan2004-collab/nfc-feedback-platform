@@ -70,6 +70,8 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Chrome thật trong test không còn trỏ cứng đường dẫn macOS.** `playwright.chrome.ts` chọn: `CHROME_PATH` nếu có, `channel: 'chrome'` khi `CI=1`, còn lại là app trên máy Tài. Harness chuyển tiếp đúng hai biến `CI` và `CHROME_PATH` vào tiến trình con (danh sách cho phép, không đổ cả môi trường).
 
+**Bật một luật bảo mật mới thì mọi fixture có tài khoản liên quan phải theo.** Lát A2 bắt admin phải có 2FA ở **`authorizeAdmin`**, nên 17 test ở 6 tệp đỏ cùng lúc với `TWO_FACTOR_REQUIRED`. Đó là dấu hiệu **đúng** — nó cho thấy luật chặn ở đâu — nhưng phải sửa fixture, không phải nới luật. Cách làm: fixture đăng nhập bằng mật khẩu **trước**, rồi bật 2FA bằng SQL (`enrolAdmin` trong `owner-fixture.ts`); test nào đăng nhập lại sau đó phải kèm mã thật. Và fixture nào **không** áp migration 005 thì đừng thêm 019 vào (nó `ALTER TABLE platform_admins`).
+
 **Có 7 bộ test, không phải 5.** Ngoài repository và bốn lệnh harness còn hai bộ không cần database, rất dễ quên:
 
 ```
@@ -101,6 +103,8 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 **`pg` trả `timestamptz` về thành đối tượng `Date`, không phải chuỗi.** `Date.parse(row.when)` ra `NaN`, mọi phép so sánh với `NaN` đều `false`, nên cả một tín hiệu an toàn **im lặng tắt** mà không có lỗi nào. Dùng `new Date(value).getTime()` (nhận cả hai), hoặc lấy chuỗi bằng helper `utc()` sẵn có. Lỗi của Claude ở lát A1; chỉ có test bắt được.
 
 **Script sửa hàng loạt dừng giữa chừng thì phần sau không chạy.** Một script Python sửa 11 tệp danh sách migration ném `AssertionError` ở tệp thứ 9, nên `integration-tests/run-local.mjs` — nằm ở cuối script — **không được cập nhật**, đúng cái bẫy "thêm migration phải sửa hai chỗ" ngay bên dưới. Sau khi chạy script sửa nhiều tệp, **`grep` lại từng tệp trong danh sách** thay vì tin là nó chạy hết.
+
+**PostgreSQL từ chối số lặp regex lớn hơn 255.** `CHECK (col ~ '^...{16,512}$')` báo `invalid regular expression: invalid repetition count(s)` — và lỗi hiện ra ở **câu `UPDATE` đầu tiên chạm cột đó**, không phải ở lúc chạy migration, nên rất dễ tìm nhầm chỗ. Giới hạn độ dài bằng `length(col) BETWEEN a AND b`, để regex chỉ lo hình dạng. Lỗi của Claude ở lát A2.
 
 **`day` là từ khoá của PostgreSQL.** `SELECT to_char(d.day,'…') day` báo `syntax error at or near "day"`; phải viết `AS day`. Lỗi hiện ra ở dòng gọi `db.query`, không phải ở chuỗi SQL, nên dễ tìm nhầm chỗ.
 
