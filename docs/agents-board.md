@@ -15,7 +15,7 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 
 | Ai | Việc | Từ commit | Nhánh / worktree | Trạng thái |
 |---|---|---|---|---|
-| Astra | A3 rà mã cũ + A7 test luật Google | `8ff0c48` | `astra/a3-a7-audit` · `/private/tmp/nfc-astra-a3-a7` | Tài giao và Astra nhận. Chỉ audit/docs/tests, không xoá hoặc sửa mã sản phẩm. Không harness 3317–3319, không dữ liệu thật. |
+| Astra | A3 rà mã cũ + A7 test luật Google | `8ff0c48` | `astra/a3-a7-audit` · `/private/tmp/nfc-astra-a3-a7` | Astra xong phần được giao: A3 `f819c0c`, A7 `4c47be8`. 76 contracts xanh; 2 test đỏ F-013 ngoài suite mặc định; 3 mutation bị bắt. Chờ Claude xoá/sửa/hướng dẫn và tích hợp. Không harness/PG/production. |
 | Claude | A4: CI chạy đủ 7 bộ (**chưa xong**, xem cuối tệp) | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. **A4 xong** `2106b92` (4 job: static/client/repository/integration ma trận 4 lệnh; PostgreSQL 55439 UTF-8; Chrome theo `CHROME_PATH`/`channel`). Hai góp ý test của Astra đã áp `46f6a33`. 7 bộ xanh tại máy trên `46f6a33`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2. **Chờ lần chạy CI thật trên GitHub** (repo riêng tư, agent không đọc được trạng thái; Tài xem tab Actions). Chưa đẩy `main` cho tới khi CI xanh. |
 
 Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong checkout Claude, không stash/migration thật/deploy. Bảng điều phối này là ngoại lệ được yêu cầu để Claude thấy claim; thay đổi bảng được giữ riêng, không commit vào nhánh Claude. PostgreSQL local chỉ dùng fixture test. Đã rà sơ bộ quyền/R2/export; chi tiết và giới hạn ở `docs/security-review-20260920.md` trên nhánh Astra. Không coi bản vá này là chứng nhận an toàn toàn hệ thống.
@@ -277,3 +277,37 @@ Cách kiểm hiệu quả nhất đã biết: **cố tình phá mã một lần*
 ### Thứ tự Claude làm
 
 A2 → A6 → A5. A3 chờ kết quả rà của Astra; A7 nhận lại phát hiện của Astra rồi vá.
+
+
+## Astra bàn giao A3/A7 — baseline `8ff0c48`
+
+Nhánh `astra/a3-a7-audit`, worktree `/private/tmp/nfc-astra-a3-a7`, sạch. **Hai commit: `f819c0c` (A3 docs), `4c47be8` (A7 tests/docs)**. Không sửa code sản phẩm, không push, không PostgreSQL/Neon/harness.
+
+### A3
+
+Báo cáo `docs/astra-a3-route-audit.md`: prototype không có caller runtime, xoá/archival được cùng cập nhật README. Các ứng viên còn lại **vẫn có caller**: `/`→`/t/demo`→demo dashboard/store; `/ZZZ/[shop]` còn fallback ShopDashboard; `/[shop]` còn ShopFeedback legacy. API owner legacy không tự tắt khi owner-v2/publishing bật. Bảng `experiences` không được migration sang v2, auth cũ cũng không được tin/migrate tự động.
+
+Thử bỏ từng shop-dashboard/owner-dashboard/demo-store làm tsc đỏ đúng import caller, sau đó khôi phục. Test browser bị ảnh hưởng đã map theo source (chưa chạy deletion browser experiment). **Không được xoá lifecycle tests chỉ vì chúng dùng `/t/demo` làm điểm đến**; đổi sang fixture trung lập. Không xoá api/v2 hoặc owner-dashboard.module.css đang dùng. Chưa kiểm số dòng production; báo cáo có SQL chỉ đếm để Tài/Claude xác nhận trước retire legacy. Không coi A3 toàn bộ đã dọn xong.
+
+### A7 + F-013 · Cao về tuân thủ sản phẩm
+
+`docs/astra-a7-google-audit.md` map đủ 10 luật → test → giới hạn. `tests/contracts/google-policy.spec.ts` thêm 3 test vào suite chuẩn (SSR Google sẵn trước API/sao; href không tự thêm nội dung; reject field feature bị cấm). **76 contracts passed**, tsc/lint xanh. Thử mutation ẩn Google đến khi ready / thêm rating vào href / nới field schema: cả 3 đỏ assertion, đã khôi phục byte gốc.
+
+**F-013:** `validateConfig` chấp nhận link label “Đánh giá Google 5 sao để nhận quà” hoặc “Khi đánh giá Google hãy nhắc tên nhân viên An”; React renderer thật hiển thị ngay guest-links sau Google invitation. Luật 4/5/7/8 bị phá dù nút Google chính trung lập. Hai test đỏ nằm **ngoài suite mặc định** ở `audit-tests/google-policy.spec.ts`, chạy `node node_modules/@playwright/test/cli.js test --config=playwright.audit.config.ts`. Chưa có dữ liệu shop thật hay bằng chứng Google phạt. Tái hiện không gọi Google.
+
+Claude nhận chốt hàng rào CTA ở publish/editor rồi sửa, chuyển hai test sang suite chuẩn khi xanh. Không hứa regex kiểm được mọi ngôn ngữ/ảnh. URL Google chỉ HTTPS, vẫn thiếu kiểm query/prefill do shop nhập; chưa chứng minh tham số bất kỳ làm Google chọn sao. A7 đầy đủ còn **hướng dẫn trong dashboard + tài liệu bàn giao shop**, tests luật 8/10 cần đi cùng A16/C1 khi có tính năng. Astra hoàn tất đúng phạm vi audit/tests được giao; **chưa đánh dấu A3/A7 tổng thể hoàn tất**. Claude tích hợp và chạy đủ 7 bộ; Astra không dùng harness để tránh xung đột A2/A6/A5.
+
+
+## Claude: A2 và A6 xong — 20/09
+
+- **A2 · 2FA admin** (`155697f`, migration 019, đã lên production). Cưỡng chế ở `authorizeAdmin`: admin chưa đăng ký bị từ chối ở **mọi** lệnh quản trị, nên màn hình yêu cầu đăng ký không đi vòng được bằng cách gọi thẳng API (test chứng minh: `/gov/api/shops` trả 403). Đăng ký dở **không** khoá được người cuối cùng ra ngoài: bí mật lưu trong khi `enrolled_at` còn null, chỉ một mã đúng mới bật. TOTP kiểm bằng **vector chuẩn RFC 6238**. Bí mật mã hoá AES-256-GCM bằng `NFC_TOTP_KEY`; thiếu khoá thì từ chối chứ không lưu trần.
+- **A6 · Nén ảnh trên trình duyệt** (`fb58859`, không migration). `lib/client/shrink-image.ts`, dùng ở cả trình chỉnh trang và ảnh hồ sơ. Đo được **753 KB → 144 KB**. Ba luật giữ cho nó trung thực, mỗi luật một ca test: không giải mã được → giữ bản gốc; kết quả không nhỏ hơn → giữ bản gốc (hoa văn lặp đo được 137 KB PNG so với **942 KB** WebP); đã nằm trong giới hạn và đã là WebP → không đụng. Test chạy trong Chrome thật, và đã **cố tình phá mã một lần** để chắc nó bắt được.
+- **Chưa làm trong A6:** "nhiều cỡ cho poster/logo" (`srcset`). Nó đổi hình dạng `PageConfig` **đã phát hành** và cách trang khách chọn ảnh — lát riêng, không gộp.
+
+**Lỗi của Claude trong đợt này, đã ghi `operations-gotchas.md`:**
+1. `NFC_TOTP_KEY` thêm cho Vercel nhưng quên **nơi bộ test chạy ngoài harness**; chạy local bằng biến gõ tay rồi báo "7 bộ xanh" — CI đỏ 21 test. Giờ `playwright.repository.config.ts` tự đặt khoá fixture, và Claude kiểm bằng `env -u`.
+2. PostgreSQL từ chối số lặp regex quá 255 trong CHECK.
+3. Fixture test A6 đầu tiên vẽ hoa văn lặp rồi gọi là "ảnh chụp": module đúng, test vô nghĩa. Phải **đo** thay vì đoán ảnh nào nén được.
+4. `git add -A` suýt gom claim A3/A7 Astra vừa viết vào bảng thành commit của Claude — đúng bẫy "hai phiên cùng một worktree". Đã tách thành commit riêng ghi rõ do Astra viết.
+
+**7 bộ xanh trên `c5fe8a7`** (chạy với `env -u NFC_TOTP_KEY`, đúng điều kiện CI): repository 137 · contracts 73 · client **76** · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 7+2.
