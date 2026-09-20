@@ -16,7 +16,8 @@ export type Profile = {
   /** Each shop with the person's role there: the owner, or a role with its icon and colour (migration 015). */
   shops: { slug: string; name: string; role: 'owner' | 'manager'; roleName: string | null; roleIcon: string | null; roleColor: string | null; showBadge: boolean }[];
 };
-const IMAGES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+/** A Map for the same reason as the shop uploads in media.ts: a plain object answers to 'constructor' (F-012). */
+const IMAGES = new Map<string, string>([['image/jpeg', 'jpg'], ['image/png', 'png'], ['image/webp', 'webp']]);
 const MAX_IMAGE = 5 * 1024 * 1024;
 const FIELDS = ['avatarUrl', 'bio', 'coverUrl', 'displayName', 'handle'];
 
@@ -90,7 +91,7 @@ export class OwnerProfiles {
   async presign(credential: OwnerCredential, body: unknown) {
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join() !== 'size,type') throw new OwnerError(400, 'INVALID_UPLOAD');
     const { type, size } = body as Record<string, unknown>;
-    const ext = typeof type === 'string' ? IMAGES[type] : undefined;
+    const ext = typeof type === 'string' ? IMAGES.get(type) : undefined;
     if (!ext) throw new OwnerError(415, 'UNSUPPORTED_MEDIA');
     if (!Number.isSafeInteger(size) || Number(size) < 1) throw new OwnerError(400, 'INVALID_UPLOAD');
     if (Number(size) > MAX_IMAGE) throw new OwnerError(413, 'MEDIA_TOO_LARGE');

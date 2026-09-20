@@ -368,6 +368,10 @@ test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s fold
  expect(upload.searchParams.get('X-Amz-SignedHeaders')).toBe('content-length;content-type;host');
  expect(upload.searchParams.get('X-Amz-Expires')).toBe('300');expect(signed.upload).not.toContain('secret-fixture');
  await expect(media.presign(f.users[0].token,'one',{type:'image/gif',size:10})).rejects.toThrow('UNSUPPORTED_MEDIA');
+ // F-012 (Astra, 20/09): the type table was a plain object, so these names answered with something inherited and the
+ // rule that came back had no `max` — a gigabyte passed the ceiling. Fails on 415 if the lookup goes back to an object.
+ for(const name of ['constructor','toString','__proto__','valueOf','hasOwnProperty'])
+  await expect(media.presign(f.users[0].token,'one',{type:name,size:1024*1024*1024})).rejects.toThrow('UNSUPPORTED_MEDIA');
  await expect(media.presign(f.users[0].token,'one',{type:'image/jpeg',size:5*1024*1024+1})).rejects.toThrow('MEDIA_TOO_LARGE');
  await expect(media.presign(f.users[0].token,'one',{type:'video/mp4',size:30*1024*1024})).resolves.toMatchObject({kind:'video'});
  for(const bad of [{type:'image/png'},{type:'image/png',size:0},{type:'image/png',size:1,name:'x'},null])await expect(media.presign(f.users[0].token,'one',bad)).rejects.toThrow('INVALID_UPLOAD');

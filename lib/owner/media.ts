@@ -12,12 +12,19 @@ import { recordActivity } from './activity';
  * design session (recorded on the owner's behalf).
  */
 export type R2Settings = { accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string; publicOrigin: string };
-const TYPES: Record<string, { kind: 'image' | 'video'; ext: string; max: number }> = {
-  'image/jpeg': { kind: 'image', ext: 'jpg', max: 5 * 1024 * 1024 },
-  'image/png': { kind: 'image', ext: 'png', max: 5 * 1024 * 1024 },
-  'image/webp': { kind: 'image', ext: 'webp', max: 5 * 1024 * 1024 },
-  'video/mp4': { kind: 'video', ext: 'mp4', max: 30 * 1024 * 1024 },
-};
+/**
+ * A Map, not an object: `TYPES['constructor']` on a plain object answers with something inherited from
+ * Object.prototype, so a made-up type name passed the "is this allowed" test and then carried `max: undefined`,
+ * which no size can exceed — a signed PUT for a gigabyte (F-012, Astra, 2026-09-20). A Map has no such keys.
+ */
+const TYPES = new Map<string, { kind: 'image' | 'video'; ext: string; max: number }>([
+  ['image/jpeg', { kind: 'image', ext: 'jpg', max: 5 * 1024 * 1024 }],
+  ['image/png', { kind: 'image', ext: 'png', max: 5 * 1024 * 1024 }],
+  ['image/webp', { kind: 'image', ext: 'webp', max: 5 * 1024 * 1024 }],
+  ['video/mp4', { kind: 'video', ext: 'mp4', max: 30 * 1024 * 1024 }],
+]);
+/** Second lock on the same door: whatever a rule says, nothing above this is ever signed. */
+const MAX_UPLOAD = 30 * 1024 * 1024;
 export const UPLOAD_EXPIRES_SECONDS = 300;
 
 /** All five settings or none: a half-configured bucket answers "not configured" instead of failing mid-upload. */
@@ -36,10 +43,10 @@ export class OwnerMedia {
   async presign(credential: OwnerCredential, slug: string, body: unknown) {
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join() !== 'size,type') throw new OwnerError(400, 'INVALID_UPLOAD');
     const { type, size } = body as Record<string, unknown>;
-    const rule = typeof type === 'string' ? TYPES[type] : undefined;
+    const rule = typeof type === 'string' ? TYPES.get(type) : undefined;
     if (!rule) throw new OwnerError(415, 'UNSUPPORTED_MEDIA');
     if (!Number.isSafeInteger(size) || Number(size) < 1) throw new OwnerError(400, 'INVALID_UPLOAD');
-    if (Number(size) > rule.max) throw new OwnerError(413, 'MEDIA_TOO_LARGE');
+    if (Number(size) > MAX_UPLOAD || Number(size) > rule.max) throw new OwnerError(413, 'MEDIA_TOO_LARGE');
     const access = await transaction(this.pool, db => authorize(db, credential, slug, 'design'));
     if (!this.settings) throw new OwnerError(503, 'UPLOADS_NOT_CONFIGURED');
     const key = `shops/${access.shopId}/${randomUUID()}.${rule.ext}`;

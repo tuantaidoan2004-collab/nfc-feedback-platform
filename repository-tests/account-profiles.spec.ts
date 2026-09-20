@@ -63,6 +63,9 @@ test('uploads: a signed PUT for an image under the own folder; no videos, no ove
  expect(signed.url).toMatch(new RegExp(`^https://media\\.example/users/${a.id}/[a-f0-9-]{36}\\.png$`));
  expect(signed.upload).toContain(`/nfc-media/users/${a.id}/`);
  await expect(profiles.presign(a.token,{type:'video/mp4',size:1000})).rejects.toMatchObject({status:415});
+ // F-012: same plain-object lookup as the shop uploads; here it signed a PUT with a nonsense type and extension.
+ for(const name of ['constructor','toString','__proto__','valueOf','hasOwnProperty'])
+  await expect(profiles.presign(a.token,{type:name,size:1000})).rejects.toMatchObject({status:415});
  await expect(profiles.presign(a.token,{type:'image/png',size:5*1024*1024+1})).rejects.toMatchObject({status:413});
  await expect(new OwnerProfiles(f.db,null).presign(a.token,{type:'image/png',size:10})).rejects.toMatchObject({status:503});
  const admins=new AdminAuth(f.db),adminId=(await f.db.query("SELECT id FROM platform_admins WHERE username='tai'")).rows[0].id;
