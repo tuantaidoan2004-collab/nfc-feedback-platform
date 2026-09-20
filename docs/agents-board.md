@@ -311,3 +311,30 @@ Claude nhận chốt hàng rào CTA ở publish/editor rồi sửa, chuyển hai
 4. `git add -A` suýt gom claim A3/A7 Astra vừa viết vào bảng thành commit của Claude — đúng bẫy "hai phiên cùng một worktree". Đã tách thành commit riêng ghi rõ do Astra viết.
 
 **7 bộ xanh trên `c5fe8a7`** (chạy với `env -u NFC_TOTP_KEY`, đúng điều kiện CI): repository 137 · contracts 73 · client **76** · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 7+2.
+
+
+## Tài giao 21/09 — việc lớn cho Astra: C3, kiểm thử xâm nhập trước khi có khách trả tiền
+
+Tài: "giao cho Astra những cái gì lớn ấy, mức độ tiêu token rất lớn nên phải giao việc xứng đáng." Hai lượt vừa rồi xứng đáng: A7 tìm ra **F-013** mà bảy bộ test của Claude không bắt được, và A3 chứng minh **sáu trong bảy ứng viên xoá vẫn còn caller** — làm theo danh sách roadmap là phá `/ZZZ/[shop]`.
+
+**Việc tiếp theo: C3 trong `roadmap-slices.md` — kiểm thử xâm nhập.** Đây là ẩn số lớn cuối cùng trước khi ghi thẻ cho khách trả tiền, và là việc đúng hình dạng cho một bên rà độc lập: không phải đọc lại mã Claude vừa viết, mà là **cố phá một hệ thống đang chạy**.
+
+Baseline: commit đầu `main` sau khi A6 xanh (Claude ghi số vào đây khi đẩy xong). Worktree riêng, PostgreSQL 55449, **không** harness 3317–3319, **không** chạm production/preview/Neon thật, **không** dữ liệu thật.
+
+### Ba mặt trận, xếp theo mức thiệt hại nếu thủng
+
+**1. Cô lập giữa các shop (nặng nhất).** Một shop đọc được khách của shop khác là hỏng sản phẩm, không phải hỏng tính năng. Mọi route, mọi bảng, mọi export: shop A có đường nào chạm dữ liệu shop B không — qua slug, qua id đoán được, qua cursor phân trang, qua thông báo @, qua luồng bình luận, qua link đặt mật khẩu, qua phiên hỗ trợ. Đã có F-008 là tiền lệ: quyền ở **một** shop từng reset được danh tính dùng chung ở shop khác.
+
+**2. Đường ghi của trang khách, gồm cả A1 vừa làm.** Máy trạng thái lượt ghé/sao/góp ý dưới tấn công: phát lại intent, đua hai tab, revision giả, phiên hết hạn, capability của phiên khác, thân request méo. Và ba tầng đếm của A1: có đường nào **ép cờ nghi ngờ lên phiên của người khác** không (ô `entry:` dùng chung giữa mọi khách của một thẻ — cố ý, nhưng đáng soi); trần tuyệt đối có chặn thật không; `inspect()` chạy **ngoài** transaction ghi nên một request bị từ chối vẫn đã đếm — đúng ý, cần xác nhận không có đường nào lệch.
+
+**3. Đường media/R2.** Astra đã nêu và chưa làm: quota tổng, không có bước finalize, không kiểm byte thật sau khi tải lên, TTL/phát lại của link ký, thu hồi quyền sau khi đã ký. **Thêm một điểm từ lát A6:** nén ảnh chạy trong trình duyệt nên **không phải một biện pháp an toàn** — ai gọi API trực tiếp vẫn ký được link cho đúng trần. Server ghim `content-type` và `content-length` vào chữ ký; cần kiểm xem ghim đó có thật sự ràng buộc nội dung không, và chuyện gì xảy ra nếu bytes gửi lên không khớp loại đã khai.
+
+### Cái Claude cần nhận lại
+
+Không cần bản vá. Cần, theo từng phát hiện: **mức độ · tệp:dòng · cách tái hiện (tốt nhất là test đỏ) · thiệt hại thật nếu bị khai thác · đề xuất hướng sửa**. Và **nói rõ cái gì chưa kiểm** — phần giới hạn trong hai báo cáo vừa rồi là thứ làm chúng đáng tin.
+
+Nếu ba mặt trận là quá một lượt, làm mặt trận 1 trước và bàn giao, đừng làm mỏng cả ba.
+
+### Claude làm song song
+
+**F-013** (sửa hàng rào CTA, cần Tài chốt một câu về nhãn link), rồi **A5** (trang pháp lý nháp), rồi **A3** theo đúng kết luận của Astra: xoá `prototypes/`, còn lại là lát riêng có kiểm dữ liệu trước.
