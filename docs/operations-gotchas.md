@@ -198,3 +198,16 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 - Client tests cũng cần localhost/Chrome: lần sandbox 4 failed + 5 did not run do EPERM, chạy có quyền 75 passed. Không ghi lỗi môi trường thành lỗi sản phẩm.
 - Fixture repository cũ hardcode 55439. Lượt này dùng script ngoài repo tạm đổi cổng trong worktree Astra rồi phục hồi byte-for-byte trong finally; không đụng cổng Claude. Spec owner-setup mới chỉ chấp nhận hai URL localhost test chính xác 55439/55449.
 - Chờ callback audit để giữ giao dịch cấp link thứ nhất; đợi giao dịch thứ hai thật sự có wait_event_type=Lock rồi mới nhả. Tránh dùng sleep để đoán tranh chấp F-001.
+
+- Client tests cũng cần localhost/Chrome: lần sandbox 4 failed + 5 did not run do EPERM, chạy có quyền 75 passed. Không ghi lỗi môi trường thành lỗi sản phẩm.
+- Fixture repository cũ hardcode 55439. Lượt này dùng script ngoài repo tạm đổi cổng trong worktree Astra rồi phục hồi byte-for-byte trong finally; không đụng cổng Claude. Spec owner-setup mới chỉ chấp nhận hai URL localhost test chính xác 55439/55449.
+- Chờ callback audit để giữ giao dịch cấp link thứ nhất; đợi giao dịch thứ hai thật sự có wait_event_type=Lock rồi mới nhả. Tránh dùng sleep để đoán tranh chấp F-001.
+
+### Astra A7 — SSR test khác JSX của Playwright (20/09/2026)
+
+- Playwright test ở dự án chạy CommonJS: `import.meta` gây lỗi trước discovery. Dùng cwd khi cần resolve helper.
+- Import TSX qua Playwright transform cho object `__pw_type`, React SSR không render được. Helper `tests/fixtures/render-guest.cjs` chạy Node riêng, transpile bằng TypeScript JSX runtime thật; chỉ bỏ CSS trong môi trường SSR, không mock component/hook.
+- React SSR serialize boolean data attribute thành `data-google="true"`, không phải chuỗi rỗng như test ban đầu đoán. Tách lỗi fixture này khỏi phát hiện sản phẩm.
+- ESLint cấm require mặc định; chỉ helper CommonJS có exemption kèm lý do. Không nới rule toàn app.
+- A3 đã thử bỏ từng component/store trong worktree riêng, luôn khôi phục byte gốc bằng finally; lỗi import là bằng chứng caller còn sống, không phải lý do xoá luôn caller/test.
+- Lệnh commit của Astra ban đầu vẫn chạy sau diff-check báo dòng trắng cuối file vì các lệnh không nối điều kiện; đã bỏ dòng trắng và kiểm lại trước amend. Luôn dừng khi check lỗi.

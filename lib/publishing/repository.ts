@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { PublishingError, TEMPLATE_V1, validateConfig } from './config';
+import { assertPublishable } from './policy';
 import type { RenderContext } from './proof';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
@@ -32,11 +33,13 @@ export class PublishingAdmin {
       [templateKey, version, JSON.stringify(TEMPLATE_V1.capabilities)])).rows[0].id as string;
   }
   async createDraft(shopId: string, templateId: string, input: unknown) {
-    await this.actor('draft:create', shopId); const config = validateConfig(input);
+    await this.actor('draft:create', shopId); const config = validateConfig(input); assertPublishable(config);
     await this.pool.query('INSERT INTO page_drafts(shop_id,template_version_id,config) VALUES($1,$2,$3)', [shopId, templateId, config]); return 1;
   }
   async saveDraft(shopId: string, expected: number, input: unknown) {
-    await this.actor('draft:save', shopId); revision(expected); const config = validateConfig(input);
+    // The product's Google rules are checked where a shop writes, never where a page is read: a rule added today
+    // must not take a page published yesterday off the air (lát F-013).
+    await this.actor('draft:save', shopId); revision(expected); const config = validateConfig(input); assertPublishable(config);
     const result = await this.pool.query('UPDATE page_drafts SET config=$3,revision=revision+1 WHERE shop_id=$1 AND revision=$2 RETURNING revision', [shopId, expected, config]);
     if (!result.rowCount) error('DRAFT_CONFLICT'); return Number(result.rows[0].revision);
   }
@@ -47,7 +50,8 @@ export class PublishingAdmin {
       if (!shop) error('SHOP_NOT_FOUND'); if (shop.publishing_state === 'suspended') error('SHOP_SUSPENDED');
       const draft = (await db.query('SELECT * FROM page_drafts WHERE shop_id=$1 FOR UPDATE', [shopId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
-      const config = validateConfig(draft.config);
+      // Checked again on the way out: a draft written before this rule existed cannot be published under it.
+      const config = validateConfig(draft.config); assertPublishable(config);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id`, [shopId, draft.template_version_id, config, expected, actor])).rows[0].id;
       await db.query("UPDATE shops SET active_release_id=$2,publishing_state='active' WHERE id=$1", [shopId, release]);
       await db.query('UPDATE page_drafts SET revision=revision+1 WHERE shop_id=$1', [shopId]);

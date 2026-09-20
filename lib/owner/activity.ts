@@ -1,4 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
+import { fold } from '../text-fold';
+export { fold };
 import { authorize, requirePermission, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 
 /**
@@ -32,10 +34,6 @@ export const ACTIONS: Record<string, string> = {
 export type ActivityRow = { id: string; actor_kind: 'member' | 'admin'; actor_id: string; actor_handle: string; action: string; target: string | null;
   detail: Record<string, unknown>; at: string };
 
-/** Lowercase, no marks, đ as d, spaces collapsed: "Bàn 3" and "ban 3" find each other. */
-export function fold(text: string) {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s+/g, ' ').trim();
-}
 
 /** Written inside the transaction that made the change, so a change never exists without its line. */
 export async function recordActivity(db: PoolClient | Pool, access: OwnerAccess, action: keyof typeof ACTIONS, target: string | null, detail: Record<string, unknown> = {}) {

@@ -104,3 +104,31 @@ test('session source and first-rating origin may be different releases',async({f
  expect((await f.db.query('SELECT c.release_id FROM experience_origin_contexts o JOIN published_visit_contexts c ON c.visit_id=o.visit_id')).rows[0].release_id).toBe(c2.releaseId);
  await expect(f.db.query("INSERT INTO shops(slug,name)VALUES('preview','Reserved')")).rejects.toThrow('shops_preview_reserved');
 });
+
+/**
+ * F-013 (Astra, 20/09): the product's Google rules are enforced where a shop writes, and that is the whole point
+ * of where they sit. A page already live keeps rendering; a page being written cannot carry an offer.
+ */
+test('the Google rules stop a page being written, and never stop one already published',async({fixture:f})=>{
+ const {SERVICE_LABELS}=await import('../lib/publishing/policy');
+ const template=await f.admin.createTemplate('policy',1);
+ const offer={icon:'link' as const,url:'https://maps.google.com/?cid=42',
+   label:{vi:'Đánh giá Google 5 sao để nhận quà',en:'Leave a 5-star Google review to get a gift'}};
+ // A new page cannot be created with it, and an existing draft cannot be saved with it.
+ await expect(f.admin.createDraft(f.shop,template,{...defaultConfig(),links:[offer]})).rejects.toThrow('POLICY_LINK_LABEL');
+ await f.admin.createDraft(f.shop,template,defaultConfig());
+ await expect(f.admin.saveDraft(f.shop,1,{...defaultConfig(),links:[offer]})).rejects.toThrow('POLICY_LINK_LABEL');
+ await expect(f.admin.saveDraft(f.shop,1,{...defaultConfig(),name:'Quán 5 sao tặng quà'})).rejects.toThrow('POLICY_GOOGLE_EXCHANGE');
+ // Nothing was written by a refused save: the draft is still at revision 1 with what it had.
+ expect((await f.db.query('SELECT revision::int FROM page_drafts')).rows[0].revision).toBe(1);
+ // A label from the list saves and publishes normally.
+ await f.admin.saveDraft(f.shop,1,{...defaultConfig(),links:[{...offer,label:SERVICE_LABELS[0]}]});
+ await expect(f.admin.publish(f.shop,2)).resolves.toMatchObject({draftRevision:3});
+
+ // A draft written before the rule existed cannot be published under it -- checked again on the way out.
+ await f.db.query(`UPDATE page_drafts SET config=jsonb_set(config,'{links}',$1::jsonb),revision=9`,[JSON.stringify([offer])]);
+ await expect(f.admin.publish(f.shop,9)).rejects.toThrow('POLICY_LINK_LABEL');
+ // And the page that is already live still renders: the rule never runs on a stored snapshot.
+ const live=await new PublishingResolver(f.db).live({slug:'one'});
+ expect(live.config.links[0].label).toEqual(SERVICE_LABELS[0]);
+});

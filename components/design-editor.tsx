@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
+import { SERVICE_LABELS } from '@/lib/publishing/policy';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
 import { STEM_BACKGROUND } from '@/lib/publishing/config';
 import styles from './owner-app.module.css';
@@ -18,6 +19,9 @@ const ERRORS: Record<string, string> = {
   SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện (cần khấc 2 hoặc 3).',
   IMPERSONATION_SCOPE: 'Phiên này chỉ để xem. Mở phiên "Sửa giao diện" để chỉnh.',
   SHOP_SUSPENDED: 'Shop đang bị tạm khoá nên chưa phát hành được.',
+  // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
+  POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
+  POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
 };
 const mediaOf = (value: string, kind: MediaRef['kind']): MediaRef | null => value.trim() ? { kind, url: value.trim() } : null;
 const UPLOAD_ERRORS: Record<string, string> = {
@@ -217,10 +221,20 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
     </div></fieldset>
 
     <fieldset className={styles.panel}><legend>Nút link ({config.links.length}/6)</legend>
+      {/* Said before the shop writes, not only after it is refused: most shops break this rule without knowing. */}
+      <p className={styles.hint} data-policy-hint>Chữ trên nút chọn từ danh sách có sẵn. Google <strong>cấm</strong> đổi quà,
+        giảm giá hay ưu đãi lấy đánh giá, và cấm nhờ khách nhắc tên nhân viên — hồ sơ Google bị phạt là hồ sơ của quán,
+        không phải của nền tảng. Muốn mời khách thì dùng câu trung lập như “Cảm nhận của bạn giúp quán tốt hơn”.</p>
       <ol className={styles.linkList}>{config.links.map((link, index) => <li key={index} data-link-row={index}>
         <label>Loại<select value={link.icon} onChange={e => setLink(index, { icon: e.target.value as LinkIcon })}>{ICONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>Chữ trên nút<input value={link.label.vi} maxLength={180} onChange={e => setLink(index, { label: { ...link.label, vi: e.target.value } })} /></label>
-        <label>Chữ tiếng Anh<input value={link.label.en} maxLength={180} onChange={e => setLink(index, { label: { ...link.label, en: e.target.value } })} /></label>
+        {/* A chosen label, not typed text. A button that names an action cannot also carry an offer, which is
+            how "Đánh giá Google 5 sao để nhận quà" was publishable before (F-013, google-policy rules 4/5/7/8). */}
+        <label>Chữ trên nút<select data-link-label value={SERVICE_LABELS.findIndex(l => l.vi === link.label.vi && l.en === link.label.en)}
+          onChange={e => setLink(index, { label: { ...SERVICE_LABELS[Number(e.target.value)] } })}>
+          {!SERVICE_LABELS.some(l => l.vi === link.label.vi && l.en === link.label.en) &&
+            <option value={-1}>{link.label.vi} — chữ cũ, chọn lại để lưu được</option>}
+          {SERVICE_LABELS.map((option, i) => <option key={option.en} value={i}>{option.vi} · {option.en}</option>)}
+        </select></label>
         <label>{link.icon === 'phone' ? 'Số điện thoại (tel:…)' : 'Link'}<input value={link.url} onChange={e => setLink(index, { url: e.target.value.trim() })} placeholder={link.icon === 'phone' ? 'tel:0901234567' : 'https://…'} /></label>
         <div className={styles.rowButtons}>
           <button type="button" aria-label={`Đưa nút ${index + 1} lên`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button>

@@ -31,6 +31,8 @@ const translate = (error: unknown): never => {
     if (error.code === 'INVALID_CONFIG') throw new OwnerError(400, 'INVALID_CONFIG');
     if (error.code === 'DRAFT_CONFLICT' || error.code === 'PREVIEW_SOURCE_CONFLICT') throw new OwnerError(409, 'DRAFT_CONFLICT');
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
+    // Two separate answers, because the shop can fix them in two different ways (lát F-013).
+    if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE') throw new OwnerError(400, error.code);
   }
   throw error;
 };
