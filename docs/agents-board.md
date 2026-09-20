@@ -15,8 +15,8 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 
 | Ai | Việc | Từ commit | Nhánh / worktree | Trạng thái |
 |---|---|---|---|---|
-| Astra | Rà `b35db18` và `0c65a4a`; đề xuất lát rà tiếp | `33711f0` | Review tĩnh checkout hiện tại, chỉ sửa bảng | Không thấy lỗi chặn mới trong hai bản vá. Có góp ý làm test chắc hơn bên dưới. Đề xuất authorize + 4 khấc và các caller trước R2. Không chạy DB/harness; không đụng A4. |
-| Claude | A4: CI chạy đủ 7 bộ | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. **A4 xong** `2106b92` (4 job: static/client/repository/integration ma trận 4 lệnh; PostgreSQL 55439 UTF-8; Chrome theo `CHROME_PATH`/`channel`). Hai góp ý test của Astra đã áp `46f6a33`. 7 bộ xanh tại máy trên `46f6a33`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2. **Chờ lần chạy CI thật trên GitHub** (repo riêng tư, agent không đọc được trạng thái; Tài xem tab Actions). Chưa đẩy `main` cho tới khi CI xanh. |
+| Astra | Rà authorize + 4 khấc/caller, sau đó R2 presign | `17bb34e` | `astra/authorization-audit` · `/private/tmp/nfc-astra-authorization-audit` | Rà xong, artifact `c4ddde7` (test đỏ + báo cáo, không bản sửa). 41 regression xanh, 4 test mới đỏ xác nhận F-010/011/012. PG 55449 đã dừng, 0 schema dư; không dùng harness. Chờ Claude nhận sửa. |
+| Claude | A4: CI chạy đủ 7 bộ (**chưa xong**, xem cuối tệp) | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. **A4 xong** `2106b92` (4 job: static/client/repository/integration ma trận 4 lệnh; PostgreSQL 55439 UTF-8; Chrome theo `CHROME_PATH`/`channel`). Hai góp ý test của Astra đã áp `46f6a33`. 7 bộ xanh tại máy trên `46f6a33`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2. **Chờ lần chạy CI thật trên GitHub** (repo riêng tư, agent không đọc được trạng thái; Tài xem tab Actions). Chưa đẩy `main` cho tới khi CI xanh. |
 
 Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong checkout Claude, không stash/migration thật/deploy. Bảng điều phối này là ngoại lệ được yêu cầu để Claude thấy claim; thay đổi bảng được giữ riêng, không commit vào nhánh Claude. PostgreSQL local chỉ dùng fixture test. Đã rà sơ bộ quyền/R2/export; chi tiết và giới hạn ở `docs/security-review-20260920.md` trên nhánh Astra. Không coi bản vá này là chứng nhận an toàn toàn hệ thống.
 
@@ -113,4 +113,35 @@ Claude tiếp tục A4. Astra chưa mở lát code tiếp trong lượt này. Kh
 - Ghi nhận giới hạn Astra nêu: test F-009 mô phỏng `consume()` bằng SQL đúng điểm khoá, không chạy scrypt thật.
 - **Lỗi của Claude trong lượt này:** commit A4 (`2106b92`) vô tình gom luôn phần Astra vừa ghi vào bảng, vì dùng `git add -A docs`. Không hại gì, nhưng vi phạm kỷ luật "đọc `git diff --cached --stat` trước khi commit". Lần sau `git add` từng tệp.
 - **Mục tiêu rà kế tiếp** Astra đề xuất (`authorize()` + 4 khấc, gồm nơi gọi, rồi mới tới R2 presign): Claude đồng ý thứ tự này.
+
+
+
+### Astra rà authorize + bốn khấc + R2 — `17bb34e` → artifact `c4ddde7`
+
+Theo thứ tự Tài yêu cầu: rà authorize/caller trước, rồi R2. Artifact ở nhánh `astra/authorization-audit`, worktree `/private/tmp/nfc-astra-authorization-audit`; báo cáo `docs/astra-authorization-audit.md`, test `audit-tests/authorization.spec.ts`, cấu hình `playwright.audit.config.ts`. **Commit chỉ có báo cáo và test cố ý đỏ; không phải bản sửa để đưa thẳng vào main.** Không push/deploy/migration thật.
+
+- **F-010 · Trung bình · đã tái hiện:** `lib/owner/dashboard.ts:101–106`: phiên design/full đọc message/topic/note qua dashboard overview, dù cùng phiên bị authorize feedback từ chối. Vượt scope phiên, không vượt khấc full; structured phone vẫn null. Đề xuất admin chỉ thấy lời khi scope feedback. Test 1 đỏ với message bí mật nhận được.
+- **F-011 · Trung bình · đã tái hiện save:** `lib/owner/design.ts:69–85`: mutation commit trước audit. Trigger fixture làm audit INSERT lỗi: save trả lỗi nhưng draft đổi tên/revision 2→3, audit thiếu. Publish cùng cấu trúc theo đọc code, chưa test runtime. Đề xuất mutation+audit+activity cùng transaction. Không khẳng định attacker gây được lỗi DB audit từ HTTP. Test 2 đỏ.
+- **F-012 · Cao · validation presign đã tái hiện:** `lib/owner/media.ts:38–46`, `lib/owner/profile.ts:104–115`: lookup object nhận key prototype `constructor`; shop ký PUT size 1 GiB vượt trần 30 MiB vì rule.max undefined. Profile cũng ký MIME sai nhưng vẫn chặn trên 5 MiB. Khóa giả, ký offline, chưa PUT thật tới R2; yêu cầu quyền upload, không anonymous. Sửa lookup bằng Object.hasOwn/Map và thêm ceiling độc lập; test cả constructor/toString/__proto__. Test 3–4 đỏ.
+
+**Kiểm chứng:** 12 impersonation + 29 caller regression = **41 xanh** trên PostgreSQL 18 local 55449. Bốn test mới **đỏ**, đúng các kỳ vọng an toàn nêu trên. ESLint cho test/config xanh. Không chạy HTTP/browser hoặc toàn bộ bảy bộ. File test đổi cổng tạm đã khôi phục, cluster đã dừng, không schema fixture dư.
+
+**Chưa kết luận lỗi:** khoảng cách auth→mutation của Design/Cards.create/Media, role row không khóa và support switch không chia sẻ khóa với authorize cần chốt semantics request đang chạy; chưa thêm test tranh chấp mới cho nhóm này. Không đồng nhất "request mới bị chặn sau revoke" với "request đang chạy bị hủy". R2 chưa có quota tổng/finalize/kiểm byte thật; prefix do server sinh và TTL 300s đã đọc/test offline, không chứng nhận bucket/CORS/PUT production.
+
+**Đề xuất Claude nhận tiếp:** F-012 nhỏ trước → F-010 → F-011 riêng, kết hợp thiết kế transaction/revoke. Giữ bốn regression đỏ làm đầu bài, chuyển vào suite chuẩn khi sửa, chạy đủ bảy bộ trên commit tích hợp. Astra không sửa các file production để tránh đụng việc Claude.
+
+## Tình trạng cuối phiên Claude — 2026-09-20, commit `657a8d0`
+
+**CI trên GitHub (`.github/workflows/ci.yml`):** 5/7 bộ **xanh ổn định** (static, client, repository, integration publishing, integration owner). Lịch sử: `#88` public+admin đỏ · `#90` chỉ public đỏ · `#91` public+admin đỏ · `#93` (`657a8d0`) **chỉ còn public đỏ**.
+
+- **Đã sửa và có tác dụng:** `browser-hardening.spec.ts` trỏ cứng Chrome macOS ở ba chỗ (đã chuyển sang `playwright.chrome.ts`, `173091d`); CI cài `xvfb` cho ca mở Chrome có cửa sổ; harness làm nóng mọi trang và API trước khi mở trình duyệt (`657a8d0`) — sau bản này **integration admin xanh**.
+- **Còn đỏ: `integration public`.** Chưa biết lý do: ảnh chụp của Tài chỉ tới dòng `Command exited 1`, chưa mở mục **"why it failed"** (bước in `test-results/*/error-context.md`, đã thêm ở `173091d`). Nếu mục đó rỗng thì lỗi không phải ca test mà là chính harness (ví dụ không mở được Chrome có cửa sổ dưới `xvfb`).
+- **Việc đầu tiên của phiên sau:** lấy tên các ca đỏ và nội dung "why it failed" của job `integration public` ở lần chạy mới nhất, rồi sửa. 7 bộ chạy tại máy trên `657a8d0` đều xanh, nên đây là khác biệt môi trường Linux, không phải lỗi sản phẩm.
+- Chưa đẩy `main` kể từ `33711f0`: nhánh đang đi trước 6 commit, toàn phần CI và test. Đẩy khi CI xanh, rồi Tài bật bảo vệ nhánh `main` (F5).
+
+**Ba phát hiện mới của Astra (`c4ddde7` trên `astra/authorization-audit`), Claude nhận sửa, chưa bắt đầu:**
+- **F-012 · Cao:** `lib/owner/media.ts` và `lib/owner/profile.ts` tra `TYPES[type]` bằng tra cứu đối tượng thô, nên `type: 'constructor'` (hoặc `toString`, `__proto__`) trả về thứ không phải quy tắc; `rule.max` thành `undefined` và trần dung lượng mất tác dụng — ký được PUT 1 GiB. **Lỗi của Claude.** Sửa: `Object.hasOwn` hoặc `Map`, cộng trần tuyệt đối độc lập; test cả ba tên đặc biệt.
+- **F-011 · Trung bình:** `lib/owner/design.ts` ghi nháp xong mới ghi sổ; nếu ghi sổ lỗi thì nháp đã đổi mà sổ trống. Sửa: gộp một transaction.
+- **F-010 · Trung bình:** `lib/owner/dashboard.ts` cho phiên hỗ trợ ở phạm vi "Sửa giao diện" đọc lời khách qua đường tổng quan. Sửa: chỉ trả lời khách khi phạm vi là "Kèm góp ý riêng tư".
+- Thứ tự Astra đề xuất và Claude đồng ý: **F-012 → F-010 → F-011**. Bốn test đỏ của Astra là đầu bài; chuyển vào bộ chuẩn khi sửa.
 
