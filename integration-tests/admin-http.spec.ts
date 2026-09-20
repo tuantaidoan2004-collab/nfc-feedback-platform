@@ -1,6 +1,7 @@
 import {test as base,expect,type Page} from '@playwright/test';
 import {Pool} from 'pg';
 import {AdminAuth} from '../lib/admin/auth';
+import {code,fromBase32,newSecret,seal,stepAt} from '../lib/admin/totp';
 import {ShopProvisioning} from '../lib/admin/provisioning';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {addExperience} from '../repository-tests/owner-fixture';
@@ -8,11 +9,15 @@ const uri=process.env.NFC_TEST_DATABASE_URL,schema=process.env.NFC_TEST_SCHEMA;
 if(uri!=='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test'||!/^nfc_ui_test_[a-f0-9]{32}$/.test(schema??''))throw Error('Isolated harness required');
 const secret='a-sufficiently-long-admin-secret';
 const origin='http://127.0.0.1:3317';
-const test=base.extend<{admin:{db:Pool;username:string}}>({admin:async({},provide)=>{
+const test=base.extend<{admin:{db:Pool;username:string;app:Buffer}}>({admin:async({},provide)=>{
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`});
  try{await db.query('TRUNCATE platform_admins,admin_login_limits CASCADE');
   await new AdminAuth(db).bootstrap('boss',secret,async()=>{});
-  await provide({db,username:'boss'});}finally{await db.end();}
+  // The second factor is on for every case except the one that walks the enrolment itself: otherwise each test
+  // would have to enrol before it could reach the work it is actually about (lát A2).
+  const app=newSecret();
+  await db.query('UPDATE platform_admins SET totp_secret=$1,totp_enrolled_at=clock_timestamp()',[seal(app)]);
+  await provide({db,username:'boss',app});}finally{await db.end();}
 }});
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
 // next dev compiles an API the first time it is called and then reloads every open page (operations-gotchas.md).
@@ -33,6 +38,7 @@ test('sign in, session cookie stays inside /gov, sign out',async({page,context,a
  expect((await context.cookies()).filter(c=>c.name==='nfc_admin_v1')).toEqual([]);
 
  await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
  await expect(page).toHaveURL(`${origin}/gov`);
@@ -58,7 +64,7 @@ test('sign in, session cookie stays inside /gov, sign out',async({page,context,a
 
 test('the administrative API refuses cross origin, bad media type and unexpected fields',async({request,admin})=>{
  const url=`${origin}/gov/api/login`;
- const body={username:'boss',password:secret};
+ const body={username:'boss',password:secret,code:code(admin.app,stepAt(new Date()))};
  expect((await request.post(url,{data:body})).status()).toBe(403);
  expect((await request.post(url,{headers:{origin:'http://127.0.0.1:9999'},data:body})).status()).toBe(403);
  expect((await request.post(url,{headers:{origin,'content-type':'text/plain'},data:JSON.stringify(body)})).status()).toBe(400);
@@ -88,6 +94,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.goto('/gov/login');
  await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
  await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
 
@@ -180,7 +187,7 @@ test('a reissued link is only issued for the owner of the named shop, and always
  const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,shops=new ShopProvisioning(admin.db);
  const one=await shops.create(actor,{name:'Quán Một',ownerUsername:'quan-mot',ownerEmail:'mot@example.com',googleUrl:''});
  const two=await shops.create(actor,{name:'Quán Hai',ownerUsername:'quan-hai',ownerEmail:'hai@example.com',googleUrl:''});
- await signIn(page,admin.username);
+ await signIn(page,admin.username,admin.app);
  const post=(data:unknown)=>page.request.post(`${origin}/gov/api/setup-links`,{headers:{origin},data});
  const trail=async()=>(await admin.db.query("SELECT shop_id,on_behalf_of FROM admin_audit WHERE action='owner.link.reissue'")).rows;
  const resets=async()=>(await admin.db.query("SELECT count(*)::int n FROM owner_setup_tokens WHERE purpose='reset'")).rows[0].n;
@@ -196,10 +203,11 @@ test('a reissued link is only issued for the owner of the named shop, and always
  expect(await resets()).toBe(1);
 });
 
-async function signIn(page:Page,username:string){
+async function signIn(page:Page,username:string,app:Buffer){
  await page.goto('/gov/login');
  await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
  await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(app,stepAt(new Date())));
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByRole('heading',{name:`Xin chào, ${username}`})).toBeVisible();
 }
@@ -231,7 +239,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  const overviewReason='Kiểm tra <b>số liệu</b> giúp shop, theo yêu cầu qua Zalo';
  // How support appears to shops (migration 014): the handle beside the neon tick, and a label.
  await admin.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
- await signIn(page,admin.username);
+ await signIn(page,admin.username,admin.app);
  await standIn(page,shopName,'overview',overviewReason);
  await expect(page).toHaveURL(`${origin}/ZZZ/${made.slug}`);
  await expect(page.locator('[data-impersonation] [data-admin-badge="Quitesensational"]')).toContainText('@QuitesensationalAdmin Tài');
@@ -356,7 +364,7 @@ test('position 2: support edits and publishes the page in a design session, sees
   await ownerPage.getByRole('radio',{name:/^Khấc 2 · Sửa/}).check();
   await expect(ownerPage.locator('[data-support="edit"]')).toBeVisible();
 
-  await signIn(page,admin.username);
+  await signIn(page,admin.username,admin.app);
   await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-support-level="edit"]')).toBeVisible();
   await page.getByRole('row').filter({hasText:shopName}).getByRole('button',{name:'Mạo danh',exact:true}).click();
   // toBeDisabled does not read <option disabled>; the attribute is what the browser honours.
@@ -382,4 +390,46 @@ test('position 2: support edits and publishes the page in a design session, sees
   await expect(ownerPage.locator('[data-admin-visit]')).toContainText('Sửa giao diện');
   await expect(ownerPage.locator('[data-reason]')).toHaveText('Shop nhờ đổi tên hiển thị và thêm nút gọi');
  }finally{await owner.close();}
+});
+
+/**
+ * The enrolment itself, through the screens a person actually sees (lát A2). Every other case here starts with the
+ * second factor already on, so without this one the three screens would ship untested.
+ */
+test('enrolment: administration is unreachable until the second factor is on, and the codes are shown once',async({page,admin})=>{
+ // Back to an administrator who has not enrolled, which is how bootstrap leaves one.
+ await admin.db.query('UPDATE platform_admins SET totp_secret=NULL,totp_enrolled_at=NULL');
+ await page.goto('/gov/login');
+ await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ // Signed in, but the work is not there: the enrolment screen is, and nothing else.
+ await expect(page.locator('[data-two-factor="start"]')).toBeVisible();
+ await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toHaveCount(0);
+ // And not reachable by calling the API directly either, which is the half a page alone would leave open.
+ expect((await page.request.get(`${origin}/gov/api/shops`)).status()).toBe(403);
+
+ await page.getByRole('button',{name:'Bắt đầu',exact:true}).click();
+ const shown=await page.locator('[data-totp-secret]').innerText();
+ expect(shown).toMatch(/^[A-Z2-7]{32}$/);
+ // A wrong code changes nothing: the administrator is still able to sign in with the password alone.
+ await page.getByLabel('Mã 6 số đang hiện trong ứng dụng',{exact:true}).fill('000000');
+ await page.getByRole('button',{name:'Bật xác thực hai bước',exact:true}).click();
+ // Narrowed to main: Next renders __next-route-announcer__ with role=alert on every page (operations-gotchas.md).
+ await expect(page.getByRole('main').getByRole('alert')).toContainText('Mã không đúng');
+ expect((await admin.db.query('SELECT totp_enrolled_at FROM platform_admins')).rows[0].totp_enrolled_at).toBeNull();
+
+ await page.getByLabel('Mã 6 số đang hiện trong ứng dụng',{exact:true}).fill(code(fromBase32(shown),stepAt(new Date())));
+ await page.getByRole('button',{name:'Bật xác thực hai bước',exact:true}).click();
+ await expect(page.locator('[data-two-factor="codes"]')).toBeVisible();
+ const codes=await page.locator('[data-backup-codes] code').allInnerTexts();
+ expect(codes).toHaveLength(10);
+ // The way on is closed until the person says they kept the codes; there is no second chance to read them.
+ const enter=page.getByRole('button',{name:'Vào quản trị',exact:true});
+ await expect(enter).toBeDisabled();
+ await page.getByRole('checkbox',{name:'Tôi đã lưu mười mã này'}).check();
+ await enter.click();
+ await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
+ await page.reload();
+ await expect(page.locator('[data-backup-codes]')).toHaveCount(0);
 });

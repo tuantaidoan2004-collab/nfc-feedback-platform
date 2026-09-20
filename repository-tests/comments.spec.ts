@@ -2,7 +2,7 @@ import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
-import {ownerFixture,addExperience} from './owner-fixture';
+import {ownerFixture,addExperience,enrolAdmin} from './owner-fixture';
 import {OwnerComments} from '../lib/owner/comments';
 import {OwnerTeam} from '../lib/owner/team';
 import {OwnerDashboard} from '../lib/owner/dashboard';
@@ -12,7 +12,7 @@ import {AdminImpersonation} from '../lib/admin/impersonation';
 import {parseFilters} from '../lib/owner/filters';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const BEFORE=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql'];
+const BEFORE=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql'];
 type Fixture=Awaited<ReturnType<typeof ownerFixture>>;
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_comment_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
@@ -79,7 +79,7 @@ test('who may see and reply: the feedback switch for members; support reads at 1
  // The call-back number is for the shop only: support never gets it, at any switch position (Tài, 2026-09-20).
  const admins=new AdminAuth(f.db);await admins.bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
  await f.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
- const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token,dashboard=new OwnerDashboard(f.db);
+ const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token;await enrolAdmin(f.db);const dashboard=new OwnerDashboard(f.db);
  await dashboard.setSupport(owner,'one',{level:'view'});
  const s1=await new AdminImpersonation(f.db).start(adminToken,{shopId:f.shops[0],ownerUserId:f.users[0].id,scope:'feedback',reason:'Shop nhờ đọc góp ý khách'});
  expect((await c.list({impersonation:s1.token},'one',session)).comments).toHaveLength(2);

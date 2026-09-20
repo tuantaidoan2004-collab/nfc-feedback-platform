@@ -24,3 +24,15 @@ export async function addExperience(db:Pool,slug='one',score:number|null=2,messa
  if(message)await repo.recordPrivateFeedback({...c,visitId:v.visit.visitId},{intentId:randomUUID(),expectedRevision:score===null?0:1,topic:'other',message,...(phone?{phone}:{})},hash);
  return {...v,context:c,hash,repo};
 }
+
+/**
+ * Turns the second factor on for an administrator the way a real enrolment leaves the row, so fixtures can get past
+ * the check that every administrative call now makes (lát A2). Tests that exercise the second factor itself go
+ * through `AdminAuth` instead; this is for the many tests whose subject is something else entirely.
+ */
+export async function enrolAdmin(db: Pool, username = 'tai') {
+  const { seal, newSecret } = await import('../lib/admin/totp');
+  const secret = newSecret();
+  await db.query('UPDATE platform_admins SET totp_secret=$2,totp_enrolled_at=clock_timestamp() WHERE username=$1', [username, seal(secret)]);
+  return secret;
+}

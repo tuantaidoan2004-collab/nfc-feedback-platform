@@ -2,7 +2,7 @@ import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
-import {ownerFixture,addExperience} from './owner-fixture';
+import {ownerFixture,addExperience,enrolAdmin} from './owner-fixture';
 import {OwnerComments} from '../lib/owner/comments';
 import {OwnerNotifications,mentions} from '../lib/owner/notifications';
 import {OwnerTeam} from '../lib/owner/team';
@@ -12,7 +12,7 @@ import {AdminAuth} from '../lib/admin/auth';
 import {AdminImpersonation} from '../lib/admin/impersonation';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const MIGRATIONS=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'];
+const MIGRATIONS=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'];
 type Fixture=Awaited<ReturnType<typeof ownerFixture>>;
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_notify_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
@@ -71,7 +71,8 @@ test('support at position 3 can mention; the bell names it; the route name is no
  const admins=new AdminAuth(f.db);await admins.bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
  await f.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
  await new OwnerDashboard(f.db).setSupport(owner.token,'one',{level:'full'});
- const s=await new AdminImpersonation(f.db).start((await admins.login('tai','a-sufficiently-long-admin-secret')).token,{shopId:f.shops[0],ownerUserId:owner.id,scope:'feedback',reason:'Ghé chơi với shop một chút'});
+ const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token;await enrolAdmin(f.db);
+ const s=await new AdminImpersonation(f.db).start(adminToken,{shopId:f.shops[0],ownerUserId:owner.id,scope:'feedback',reason:'Ghé chơi với shop một chút'});
  await new OwnerComments(f.db).create({impersonation:s.token},'one',{sessionId:session,body:'Chào @mai.ql 👋'});
  expect((await new OwnerNotifications(f.db).list(mai.token)).items[0]).toMatchObject({actorKind:'admin',actorHandle:'Quitesensational'});
  await expect(f.db.query("UPDATE shops SET slug='notifications' WHERE id=$1",[f.shops[0]])).rejects.toThrow('shops_account_routes_reserved');

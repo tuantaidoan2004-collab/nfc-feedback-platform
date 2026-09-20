@@ -2,7 +2,7 @@ import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
-import {ownerFixture,addExperience} from './owner-fixture';
+import {ownerFixture,addExperience,enrolAdmin} from './owner-fixture';
 import {OwnerTeam} from '../lib/owner/team';
 import {OwnerActivity,parseActivityQuery,fold} from '../lib/owner/activity';
 import {OwnerDashboard} from '../lib/owner/dashboard';
@@ -14,7 +14,7 @@ import {AdminImpersonation} from '../lib/admin/impersonation';
 import {parseFilters} from '../lib/owner/filters';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const MIGRATIONS=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'];
+const MIGRATIONS=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'];
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provide)=>{
  const schema=`nfc_team_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of MIGRATIONS)await db.query(await readFile(`db/migrations/${file}`,'utf8'));await provide(await ownerFixture(db));}
@@ -126,7 +126,7 @@ test('history: every change leaves a line, search ignores accents, filters narro
 test('support: never reads or changes the team or its history; its design work is recorded under its badge',async({f})=>{
  const admins=new AdminAuth(f.db);await admins.bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
  await f.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
- const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token;
+ const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token;await enrolAdmin(f.db);
  await new OwnerDashboard(f.db).setSupport(f.users[0].token,'one',{level:'full'});
  const s=await new AdminImpersonation(f.db).start(adminToken,{shopId:f.shops[0],ownerUserId:f.users[0].id,scope:'design',reason:'Shop nhờ sửa tên hiển thị'});
  const credential={impersonation:s.token};

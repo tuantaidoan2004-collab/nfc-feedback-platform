@@ -1,8 +1,10 @@
 import {test as base,expect} from '@playwright/test';
+import {enrolAdmin} from './owner-fixture';
+import {base32,code,fromBase32,newSecret,open,seal,stepAt,stepOf} from '../lib/admin/totp';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
-import {AdminAuth,adminSessionHash,authorizeAdmin} from '../lib/admin/auth';
+import {AdminAuth,adminSessionHash,authorizeAdmin,backupCodeHash} from '../lib/admin/auth';
 import {recordAdminAction} from '../lib/admin/audit';
 import {OwnerAuth} from '../lib/owner/auth';
 import {execFile,execFileSync} from 'node:child_process';
@@ -14,7 +16,7 @@ const password=()=>`admin-${randomBytes(12).toString('hex')}`;
 const test=base.extend<{f:{db:Pool;auth:AdminAuth;owner:OwnerAuth;shopId:string;schema:string}}>({f:async({},provideFixture)=>{
  const schema=`nfc_admin_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','018_guest_flood_control.sql','019_admin_two_factor.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const shopId=(await db.query("INSERT INTO shops(slug,name)VALUES($1,'Fixture shop')RETURNING id",[`s${randomUUID().slice(0,8)}`])).rows[0].id;
   await provideFixture({db,auth:new AdminAuth(db),owner:new OwnerAuth(db),shopId,schema});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -32,6 +34,9 @@ test('bootstrap needs authority and refuses weak credentials',async({f})=>{
 test('login stores only a hash, rotates, revokes and expires',async({f})=>{
  const secret=password(),id=await f.auth.bootstrap('Boss',secret,async()=>{});
  const first=await f.auth.login('boss',secret);
+ // Session mechanics are the subject here; the second factor has its own test below. Without it every call that
+ // asks `authorizeAdmin` would stop at TWO_FACTOR_REQUIRED (lát A2).
+ const app=await enrolAdmin(f.db,'boss');
  expect(first.token).toMatch(/^[a-f0-9]{64}$/);
  // Four hours, not the owner's eight: this token reaches every shop.
  const hours=(first.expiresAt.getTime()-Date.now())/3_600_000;
@@ -41,9 +46,10 @@ test('login stores only a hash, rotates, revokes and expires',async({f})=>{
  expect(stored.rows.some(r=>r.token_hash===first.token)).toBe(false);
 
  const client=await f.db.connect();
- try{expect(await authorizeAdmin(client,first.token)).toEqual({adminId:id,username:'boss'});}finally{client.release();}
+ try{expect(await authorizeAdmin(client,first.token)).toEqual({adminId:id,username:'boss',twoFactor:true});}finally{client.release();}
 
- const second=await f.auth.login('boss',secret,first.token);
+ // Enrolled now, so rotating the session needs a code from the app as well.
+ const second=await f.auth.login('boss',secret,first.token,code(app,stepAt(new Date())));
  const after=await f.db.connect();
  try{await expect(authorizeAdmin(after,first.token)).rejects.toThrow('ADMIN_LOGIN_REQUIRED');
   expect((await authorizeAdmin(after,second.token)).adminId).toBe(id);}finally{after.release();}
@@ -170,4 +176,110 @@ test('a piped password is read to end of stream, with or without a trailing newl
  execFileSync(process.execPath,['scripts/bootstrap-admin.mjs','piped','--reset'],{env,input:`${withNewline}\n`});
  await expect(f.auth.login('piped',withNewline)).resolves.toBeTruthy();
  await expect(f.auth.login('piped',bare)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+});
+
+/**
+ * The second factor (lát A2). One administrator reaches every shop, so a stolen password must not be enough.
+ */
+const env={NFC_TOTP_KEY:'ab'.repeat(32)};
+test('enrolment cannot switch itself on, and cannot lock the only administrator out halfway',async({f})=>{
+ const secret=password();await f.auth.bootstrap('boss',secret,async()=>{});
+ const session=(await f.auth.login('boss',secret)).token;
+ // Nothing administrative works before the second factor is on -- checked where the work happens, not in a page.
+ const client=await f.db.connect();
+ try{await expect(authorizeAdmin(client,session)).rejects.toThrow('TWO_FACTOR_REQUIRED');}finally{client.release();}
+
+ const started=await f.auth.beginEnrolment(session);
+ expect(started.secret).toMatch(/^[A-Z2-7]{32}$/);
+ expect(started.uri).toContain(`secret=${started.secret}`);
+ // Started but not confirmed: the password alone still signs in, or walking away here would lock the platform.
+ expect((await f.db.query('SELECT totp_enrolled_at FROM platform_admins')).rows[0].totp_enrolled_at).toBeNull();
+ await expect(f.auth.login('boss',secret)).resolves.toBeTruthy();
+ await expect(f.auth.confirmEnrolment(session,'000000')).rejects.toThrow('TWO_FACTOR_CODE_WRONG');
+ expect((await f.db.query('SELECT totp_enrolled_at FROM platform_admins')).rows[0].totp_enrolled_at).toBeNull();
+
+ const app=fromBase32(started.secret);
+ const {codes}=await f.auth.confirmEnrolment(session,code(app,stepAt(new Date())));
+ expect(codes).toHaveLength(10);
+ expect(new Set(codes).size).toBe(10);
+ // Only hashes are kept, so nothing can print these a second time.
+ const stored=(await f.db.query('SELECT code_hash FROM admin_backup_codes')).rows.map(r=>r.code_hash);
+ expect(stored).toHaveLength(10);
+ for(const backup of codes)expect(stored).toContain(backupCodeHash(backup.replace('-','')));
+ expect(JSON.stringify(stored)).not.toContain(codes[0].split('-')[0]);
+ // The secret is never stored in the clear: reading this table must not be enough to produce codes.
+ const row=(await f.db.query('SELECT totp_secret FROM platform_admins')).rows[0].totp_secret as string;
+ expect(row).not.toContain(started.secret);
+ expect(row).toMatch(/^[a-f0-9]{24}:[a-f0-9]{32}:[a-f0-9]+$/);
+ await expect(f.auth.beginEnrolment(session)).rejects.toThrow('TWO_FACTOR_ALREADY_ON');
+});
+
+test('once on: the password alone is refused, a code is spent by using it, and a backup code works once',async({f})=>{
+ const secret=password();await f.auth.bootstrap('boss',secret,async()=>{});
+ const first=(await f.auth.login('boss',secret)).token;
+ const started=await f.auth.beginEnrolment(first),app=fromBase32(started.secret);
+ const {codes}=await f.auth.confirmEnrolment(first,code(app,stepAt(new Date())));
+
+ // Administrative login allows five attempts per name per fifteen minutes, and this case deliberately makes more
+ // than five. That lane has its own case above; clearing it between phases keeps this one about the second factor.
+ const freshLane=()=>f.db.query('DELETE FROM admin_login_limits');
+
+ // The password on its own, and a wrong code, answer exactly what a wrong password answers.
+ await expect(f.auth.login('boss',secret)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('boss',secret,undefined,'000000')).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('boss','wrong-password-entirely',undefined,code(app,stepAt(new Date())))).rejects.toThrow('ADMIN_LOGIN_FAILED');
+
+ await freshLane();
+ const now=new Date(),digits=code(app,stepAt(now));
+ await expect(f.auth.login('boss',secret,undefined,digits)).resolves.toBeTruthy();
+ // The same code inside its own thirty seconds is already spent: reading it over a shoulder buys nothing.
+ await expect(f.auth.login('boss',secret,undefined,digits)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ expect((await f.db.query('SELECT count(*)::int n FROM admin_totp_steps')).rows[0].n).toBe(1);
+
+ // A phone thirty seconds out of step still works; a minute and a half out does not.
+ await freshLane();
+ await expect(f.auth.login('boss',secret,undefined,code(app,stepAt(now)-1))).resolves.toBeTruthy();
+ await expect(f.auth.login('boss',secret,undefined,code(app,stepAt(now)-3))).rejects.toThrow('ADMIN_LOGIN_FAILED');
+
+ // A printed code, once. The dashes are decoration; typing them or not makes no difference.
+ await freshLane();
+ await expect(f.auth.login('boss',secret,undefined,codes[0])).resolves.toBeTruthy();
+ await expect(f.auth.login('boss',secret,undefined,codes[0])).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('boss',secret,undefined,codes[1].replace('-',''))).resolves.toBeTruthy();
+ expect(await f.auth.backupCodesLeft(first)).toBe(8);
+ // Someone else's printed code is not a way in.
+ await freshLane();
+ const other=password();await f.auth.bootstrap('second',other,async()=>{});
+ const theirs=(await f.auth.login('second',other)).token;
+ const theirStart=await f.auth.beginEnrolment(theirs);
+ await f.auth.confirmEnrolment(theirs,code(fromBase32(theirStart.secret),stepAt(new Date())));
+ await expect(f.auth.login('second',other,undefined,codes[2])).rejects.toThrow('ADMIN_LOGIN_FAILED');
+});
+
+test('the stored secret is unusable without the key, and a missing key refuses rather than storing it bare',async()=>{
+ const secret=newSecret(),sealed=seal(secret,env);
+ expect(open(sealed,env).equals(secret)).toBe(true);
+ // Another environment's key must not open it, and a tampered row must not either.
+ expect(()=>open(sealed,{NFC_TOTP_KEY:'cd'.repeat(32)})).toThrow('TOTP_SECRET_UNREADABLE');
+ const [iv,tag,body]=sealed.split(':');
+ expect(()=>open(`${iv}:${tag}:${body.replace(/^../,'00')}`,env)).toThrow('TOTP_SECRET_UNREADABLE');
+ // No key at all is refused outright. A second factor that quietly stores its secret in the clear is worse than
+ // none, because everyone believes it is working.
+ expect(()=>seal(secret,{})).toThrow('TOTP_KEY_MISSING');
+ expect(()=>seal(secret,{NFC_TOTP_KEY:'too-short'})).toThrow('TOTP_KEY_MISSING');
+});
+
+test('the codes match a known RFC 6238 vector, so the app and the server agree',async()=>{
+ // RFC 6238 appendix B, SHA-1, seed "12345678901234567890" as ASCII.
+ const seed=Buffer.from('12345678901234567890');
+ expect(code(seed,Math.floor(59/30))).toBe('287082');
+ expect(code(seed,Math.floor(1111111109/30))).toBe('081804');
+ expect(code(seed,Math.floor(1234567890/30))).toBe('005924');
+ expect(code(seed,Math.floor(2000000000/30))).toBe('279037');
+ // base32 round-trips, which is what the person types into their app.
+ expect(fromBase32(base32(seed)).equals(seed)).toBe(true);
+ expect(stepOf(seed,'287082',new Date(59_000))).toBe(1);
+ expect(stepOf(seed,'000000',new Date(59_000))).toBeNull();
+ expect(stepOf(seed,'28708',new Date(59_000))).toBeNull();
+ expect(stepOf(seed,'abcdef',new Date(59_000))).toBeNull();
 });
