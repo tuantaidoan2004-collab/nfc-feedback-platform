@@ -26,9 +26,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '24', cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # tsc needs the types Next generates for routes; `pnpm typecheck` does this locally, where .next already exists.
+      - run: node node_modules/next/dist/bin/next typegen
       - run: node node_modules/typescript/bin/tsc --noEmit -p .
       - run: node node_modules/eslint/bin/eslint.js .
+      # The same three the previous workflow gave the build; a page that reads configuration at build time needs them.
       - run: node node_modules/next/dist/bin/next build --webpack
+        env:
+          SERVER_DATA_ENABLED: 'true'
+          APP_ORIGIN: http://127.0.0.1:3000
+          NFC_BUILD_TARGET: vercel
       - run: node node_modules/@playwright/test/cli.js test --config=playwright.contracts.config.ts
 
   client:
