@@ -1,48 +1,120 @@
 name: App checks
+
+# The same seven suites the project runs by hand before every push (docs/operations-gotchas.md). They are split into
+# four jobs so the wall clock stays short and so a failure names the area. Each job that needs a database brings its
+# own PostgreSQL on port 55439, the port the fixtures and the harness expect, with UTF-8: an SQL_ASCII cluster makes
+# the Vietnamese CHECK constraints fail and looks like a product bug (lát A4, 2026-09-20).
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, 'feat/**', 'astra/**']
   pull_request:
 permissions:
   contents: read
+
+env:
+  NFC_TEST_DATABASE_URL: postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test
+
 jobs:
-  check:
+  static:
+    name: types, lint, build, contracts
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: nfc_test
-          POSTGRES_PASSWORD: test_only
-          POSTGRES_DB: nfc_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U nfc_test"
-          --health-interval 10s --health-timeout 5s --health-retries 5
-    env:
-      DATABASE_URL: postgresql://nfc_test:test_only@127.0.0.1:5432/nfc_test
-      SERVER_DATA_ENABLED: 'true'
-      APP_ORIGIN: http://127.0.0.1:3000
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.19.0
+        with: { version: 11.19.0 }
       - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
+        with: { node-version: '24', cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: node scripts/migrate.mjs
-      - run: pnpm test
+      - run: node node_modules/typescript/bin/tsc --noEmit -p .
+      - run: node node_modules/eslint/bin/eslint.js .
+      - run: node node_modules/next/dist/bin/next build --webpack
+      - run: node node_modules/@playwright/test/cli.js test --config=playwright.contracts.config.ts
+
+  client:
+    name: client (real Chrome)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.19.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: node node_modules/@playwright/test/cli.js install --with-deps chrome
+      - run: node node_modules/@playwright/test/cli.js test --config=playwright.client.config.ts
+
+  repository:
+    name: repository (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nfc_test
+          POSTGRES_DB: nfc_repo_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C.UTF-8
+        ports: ['55439:5432']
+        options: >-
+          --health-cmd "pg_isready -U nfc_test -d nfc_repo_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.19.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: the cluster must be UTF-8
+        run: node .github/scripts/check-encoding.mjs
+      - run: node node_modules/@playwright/test/cli.js test --config=playwright.repository.config.ts
+
+  integration:
+    name: integration ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: public
+            command: node integration-tests/run-local.mjs public-v2.spec.ts browser-hardening.spec.ts --build
+          - name: publishing
+            command: node integration-tests/run-local.mjs --publishing publishing.spec.ts --build
+          - name: owner
+            command: node integration-tests/run-local.mjs --owner owner-dashboard.spec.ts --build
+          - name: admin
+            command: node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nfc_test
+          POSTGRES_DB: nfc_repo_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C.UTF-8
+        ports: ['55439:5432']
+        options: >-
+          --health-cmd "pg_isready -U nfc_test -d nfc_repo_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.19.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: node node_modules/@playwright/test/cli.js install --with-deps chrome
+      - name: the cluster must be UTF-8
+        run: node .github/scripts/check-encoding.mjs
+      # The harness builds and runs the app itself; the three modes exclude each other, hence one per matrix entry.
+      - run: ${{ matrix.command }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: browser-test-results
+          name: integration-${{ matrix.name }}-results
           path: test-results/
           retention-days: 7

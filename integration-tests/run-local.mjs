@@ -18,7 +18,10 @@ const platformAdmin = process.argv.includes('--admin');
 const owner = platformAdmin || process.argv.includes('--owner');
 const publishing = owner || process.argv.includes('--publishing');
 const signingFixture = randomBytes(32).toString('hex');
-const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1' };
+// Still an allowlist: only these names cross into the children. CI and CHROME_PATH tell Playwright which real
+// Chrome to launch (playwright.chrome.ts); without them a GitHub runner would look for Tài's Mac app (lát A4).
+const passed = Object.fromEntries(['CI', 'CHROME_PATH'].filter(name => process.env[name]).map(name => [name, process.env[name]]));
+const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1', ...passed };
 async function run(args, cwd, env) {
   return new Promise((yes, no) => {
     const child = spawn(process.execPath, args, { cwd, env, stdio: 'inherit' });

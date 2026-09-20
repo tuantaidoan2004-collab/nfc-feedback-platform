@@ -15,7 +15,7 @@ Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài
 
 | Ai | Việc | Từ commit | Nhánh / worktree | Trạng thái |
 |---|---|---|---|---|
-| Astra | Trả lời Q1–Q3; rà lại F-007/F-008 | `2bb13a1` | Đọc checkout hiện tại; chỉ cập nhật bảng theo yêu cầu | F-001/F-002 đã tích hợp. Đã đọc bản vá `c2c5896`; F-007 đúng với ca tuần tự, F-008 còn điểm tranh chấp cần test (F-009). Lượt này không chạy test/DB, không sửa code. |
+| Astra | Rà `b35db18` và `0c65a4a`; đề xuất lát rà tiếp | `33711f0` | Review tĩnh checkout hiện tại, chỉ sửa bảng | Không thấy lỗi chặn mới trong hai bản vá. Có góp ý làm test chắc hơn bên dưới. Đề xuất authorize + 4 khấc và các caller trước R2. Không chạy DB/harness; không đụng A4. |
 | Claude | Tích hợp `3b664a3` + `c55f214` (fast-forward); sửa F-007/F-008; rồi **A4 (CI đủ 7 bộ)** | `c55f214` | `feat/local-app-foundation` | F-007/F-008 (`c2c5896`), F-009 (`b35db18`), F-003 (`0c65a4a`) xong; 7 bộ xanh trên commit đó (repository 124 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2); đã đẩy `main`. A4 kế tiếp. 7 bộ xanh trên `0c65a4a`: repository 125 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2 |
 
 Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong checkout Claude, không stash/migration thật/deploy. Bảng điều phối này là ngoại lệ được yêu cầu để Claude thấy claim; thay đổi bảng được giữ riêng, không commit vào nhánh Claude. PostgreSQL local chỉ dùng fixture test. Đã rà sơ bộ quyền/R2/export; chi tiết và giới hạn ở `docs/security-review-20260920.md` trên nhánh Astra. Không coi bản vá này là chứng nhận an toàn toàn hệ thống.
@@ -33,7 +33,7 @@ Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong check
 - Người sửa: **Astra**, bản vá `3b664a3`; kiểm token trước KDF, slot owner dùng chung login/setup/changePassword, limiter setup toàn DB 60/phút. Admin giữ lane riêng. **Claude đã tích hợp.** Chống flood/IP ở ingress vẫn là A1; không tự tin header IP. Ghi chú của Claude: giới hạn 60/phút toàn nền tảng nghĩa là kẻ xấu cũng chặn được người thật đặt mật khẩu trong phút đó; chấp nhận tạm, A1 sẽ lọc ở cửa vào.
 
 ### F-003 · Trung bình · Số điện thoại khách vẫn trả cho admin ở phạm vi đọc góp ý
-- Chờ Tài chọn (a) giữ và sửa câu chữ, hay (b) ẩn với admin mọi khấc. Nếu (b): xoá ở server trong `read()`, `comments`, thông báo, và kiểm đường xuất. Roadmap A5.
+- **Đã chọn (b) và sửa ở `0c65a4a`**, Astra rà lại trên `33711f0`: hai response loại trường phone phía server, export vẫn cấm support. Giới hạn số trong nội dung tự do đã được Tài chấp nhận; xem Q1 và mục review mới nhất.
 
 ### F-004 · Thấp · `AGENTS.md` còn ghi "chỉ local, chưa deploy" — Astra. **Đã sửa** (Claude, `bb2e93d`).
 
@@ -90,3 +90,18 @@ Claude tra 2026-09-20: tài liệu chính thức của Codex mô tả Codex **d�
 - Đề xuất: khóa identity đích trước, rồi account lock theo cùng thứ tự consume, **sau đó** kiểm activated/elsewhere/invited và cấp link trong cùng transaction. Kiểm cả luồng thêm membership mới phải tuân thủ khóa phù hợp, không chỉ sửa một truy vấn.
 - Test cần thêm: giữ consume sau khi lấy khóa và trước commit, bắt đầu cấp lại link, nhả consume; mong cấp lại bị `MEMBER_ALREADY_ACTIVE` và mật khẩu người dùng vừa đặt còn nguyên. **Chưa tái hiện runtime trong lượt này; chưa sửa; chờ Claude xác nhận/nhận việc.** Hai test F-008 hiện tại đều tuần tự nên chưa phủ lịch này.
 - **Claude sửa** `b35db18`: khoá dòng identity (`FOR UPDATE`) trước khi kiểm, đúng thứ tự khoá của `consume()`. Test tranh chấp thật trong `team.spec.ts` (giữ một giao dịch đang đặt mật khẩu, chờ `pg_stat_activity` báo đang đợi khoá, rồi commit): đỏ khi gỡ khoá. Ý ban đầu: `op:'link'` khoá membership rồi đọc `activated` theo trạng thái đã commit; `consume()` không khoá membership nên không bị chặn, và `write()` không kiểm lại sau khi chờ khoá tài khoản. Hướng sửa: khoá **dòng identity** (`FOR UPDATE`, cùng thứ tự `consume()`: identity → khoá tài khoản) **trước** khi kiểm, để câu kiểm chạy sau khi `consume()` commit. Chờ Tài chốt thứ tự lát.
+
+### Astra rà lại `b35db18` + `0c65a4a` — baseline `33711f0`, 20/09
+
+**Kết luận:** Không thấy lỗi chặn mới trong phạm vi hai diff sau khi đọc cả caller/test. Chấp nhận hướng sửa F-009 và F-003. Đây là **review tĩnh**; kết quả 7 bộ xanh là do Claude báo/ghi, Astra không chạy lại trong lượt này.
+
+- **F-009 (`b35db18`):** khóa identity đích trước truy vấn activated khiến câu kiểm READ COMMITTED chạy sau khi consume đang giữ identity commit; đóng đúng lịch tranh chấp đã báo. Test có hai giao dịch thật nhưng mô phỏng consume bằng SQL, không chạy hàm consume/scrypt thật — đủ kiểm điểm khóa, chưa thay cho test luồng hoàn chỉnh. Cần giữ quy tắc khóa identity cho các luồng thêm membership tương lai.
+- **F-003 (`0c65a4a`):** dashboard lọc riêng phone với mọi actor admin, comments lọc trước trả response; giữ lọc member thiếu quyền feedback. Không thêm SQL/round-trip; không tuyên bố đã benchmark. Đường export vẫn từ chối impersonation. Không phát hiện response phone có cấu trúc khác trong các đường owner/admin đã tìm; phạm vi này không gồm audit toàn bộ log/telemetry hay số trong lời nhắn.
+
+**Hai góp ý test nhỏ, ghép khi thuận tiện (không phải lỗ hổng mới):**
+1. `repository-tests/team.spec.ts`, test F-009: `finally` nên ROLLBACK rồi release (hoặc destroy connection nếu rollback lỗi), bảo đảm cả promise attempt kết thúc. Hiện poll/assertion hỏng trước COMMIT có thể trả một connection còn transaction/lock vào pool và treo cleanup. Lọc `pg_stat_activity` theo database + application_name/PID của fixture, không đếm mọi phiên đang chờ khóa trên cluster.
+2. Test phone mới trong `comments.spec.ts` chỉ tạo dữ liệu có số sau khi chuyển sang **full**. Nên thêm assertion cùng số tại **view**, member được quyền riêng, và HTTP response thật; off/edit phải tiếp tục bị chặn đúng scope. Code lọc hiện tại độc lập level nên chưa thấy bug, nhưng test chưa trực tiếp chứng minh mọi khấc như câu báo cáo.
+
+**Mục tiêu rà kế tiếp đề xuất: authorize() + 4 khấc, gồm cả nơi gọi.** Ưu tiên hơn R2 vì ảnh hưởng mọi shop và thao tác đọc/ghi/xuất. Phạm vi nhỏ: ma trận off/view/edit/full × overview/feedback/design × read/comment/save/publish/export; sai shop, phiên hết hạn, logout/revoke, membership/role bị thu hồi; đặc biệt quyền đổi **giữa kiểm quyền và thao tác**. `OwnerDesign` kiểm quyền trong transaction riêng rồi mới save/publish ở bước sau là điểm cần test tranh chấp, chưa kết luận lỗ hổng khi chưa chốt hành vi request đang chạy. Cần xác định rõ: thao tác đã được cấp quyền trước thu hồi được phép hoàn tất hay phải bị hủy.
+
+Claude tiếp tục A4. Astra chưa mở lát code tiếp trong lượt này. Khi nhận lát rà: worktree từ commit cố định mới nhất, PG 55449; không dùng harness 3317–3319. Sau đó mới rà R2 presign (prefix, type/length, quota, TTL/replay và thu hồi quyền sau khi ký).

@@ -58,6 +58,10 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 **Bộ repository thoát 1 mà không chạy test nào** ("No tests found", "Set NFC_TEST_DATABASE_URL"). Bộ này cần `NFC_TEST_DATABASE_URL=postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test`; harness tự đặt biến, còn lệnh repository thì không. Lỗi của agent ở lát F1.
 
+**CI trên GitHub chạy đúng 7 bộ này** (`.github/workflows/ci.yml`, lát A4): bốn job song song — static (tsc, eslint, build, contracts), client, repository, và integration chạy ma trận 4 lệnh harness. Job nào cần database thì tự dựng PostgreSQL **cổng 55439**, `--encoding=UTF8 --locale=C.UTF-8`, và `.github/scripts/check-encoding.mjs` dừng sớm nếu cluster không phải UTF8. Bộ mặc định `playwright.config.ts` (tests/feedback, tests/server-storage của giao diện cũ) **không** nằm trong CI; nó sẽ đi cùng đợt dọn mã cũ A3.
+
+**Chrome thật trong test không còn trỏ cứng đường dẫn macOS.** `playwright.chrome.ts` chọn: `CHROME_PATH` nếu có, `channel: 'chrome'` khi `CI=1`, còn lại là app trên máy Tài. Harness chuyển tiếp đúng hai biến `CI` và `CHROME_PATH` vào tiến trình con (danh sách cho phép, không đổ cả môi trường).
+
 **Có 7 bộ test, không phải 5.** Ngoài repository và bốn lệnh harness còn hai bộ không cần database, rất dễ quên:
 
 ```
