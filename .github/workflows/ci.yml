@@ -115,10 +115,22 @@ jobs:
         with: { node-version: '24', cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: node node_modules/@playwright/test/cli.js install --with-deps chrome
+      # One hardening case opens Chrome with a window to watch a real tab switch; a runner has no display of its own.
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: the cluster must be UTF-8
         run: node .github/scripts/check-encoding.mjs
       # The harness builds and runs the app itself; the three modes exclude each other, hence one per matrix entry.
-      - run: ${{ matrix.command }}
+      - run: xvfb-run -a ${{ matrix.command }}
+      # The list reporter names the failing cases; this prints why, so a red run can be read from the log alone.
+      - name: why it failed
+        if: failure()
+        run: |
+          for file in test-results/*/error-context.md; do
+            [ -e "$file" ] || continue
+            echo "::group::$file"
+            sed -n '1,80p' "$file"
+            echo "::endgroup::"
+          done
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

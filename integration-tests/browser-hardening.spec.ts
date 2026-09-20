@@ -1,14 +1,16 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { writeFile } from 'node:fs/promises';
+import { realChrome, realChromeLaunch } from '../playwright.chrome';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const test = base.extend<{ db: Pool }>({ db: async ({}, provideFixture) => {
   const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
   try { await db.query('TRUNCATE visit_sessions, experiences CASCADE'); await provideFixture(db); } finally { await db.end(); }
 } });
-test.use({ launchOptions: { executablePath: chrome, ignoreDefaultArgs: ['--disable-back-forward-cache'] } });
+// A real Chrome with its back/forward cache left on; where that Chrome lives differs between Tài's Mac and CI, so it
+// comes from playwright.chrome.ts. Hardcoding the macOS path here made all seven of these cases fail on GitHub (A4).
+test.use(realChrome({ ignoreDefaultArgs: ['--disable-back-forward-cache'] }));
 const star = (page: Page, n: number) => page.getByRole('button', { name: `${n} sao`, exact: true });
 // Guest page v2: stars live in the private card and are saved only by Send.
 const loaded = (page: Page) => expect(page.locator('main[data-ready]')).toBeVisible();
@@ -101,7 +103,7 @@ test('3E deleting storage pins active document identity, reload creates a separa
 
 test.describe('3E actual browser storage disabled', () => {
   test('memory fallback works within document and does not pretend to survive reload', async ({ playwright, db }) => {
-    const browser = await playwright.chromium.launch({ executablePath: chrome, args: ['--disable-local-storage'] });
+    const browser = await playwright.chromium.launch(realChromeLaunch({ args: ['--disable-local-storage'] }));
     const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3317' }); const page = await context.newPage();
     try {
     await ready(page);
@@ -150,7 +152,7 @@ test('3E lost rating response after server commit retries original across expire
 
 test.describe('3E foreground visibility', () => {
   test('actual same-window tab switch creates exactly one resume and preserves session', async ({ playwright, db }, info) => {
-    const browser = await playwright.chromium.launch({ executablePath: chrome, headless: false, ignoreDefaultArgs: ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'] });
+    const browser = await playwright.chromium.launch(realChromeLaunch({ headless: false, ignoreDefaultArgs: ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'] }));
     const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3317' }); const page = await context.newPage();
     try {
     await ready(page); await rate(page, 5);
