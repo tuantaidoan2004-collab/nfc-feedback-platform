@@ -10,7 +10,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 
 | # | Lát | Cỡ | Học từ | Ghi chú |
 |---|---|---|---|---|
-| A1 | **Chặn bot và giới hạn tần suất** cho API trang khách (lượt chạm, sao, góp ý): giới hạn theo IP, theo thẻ, theo phiên; chặn tăng đột biến | V | AWS WAF, Telegram | P0. Hiện bot bơm được dữ liệu giả không giới hạn |
+| A1 | ~~**Chặn bot và giới hạn tần suất** cho API trang khách~~ **xong 20/09** (`94c825e`, migration 018): ba tầng đếm (phiên · thẻ · địa chỉ) cộng tín hiệu thời gian, gắn cờ và loại khỏi số liệu thay vì từ chối khách; trần tuyệt đối gấp 10 lần mới từ chối | V | AWS WAF, Telegram | P0. Còn lại: dọn dữ liệu bot đã lọt, và chặn ở tầng CDN khi có Cloudflare (B4) |
 | A2 | **2FA bắt buộc cho admin**: mã 6 số từ ứng dụng xác thực, mã dự phòng dùng một lần | V | Telegram | P0. Một admin chạm được mọi shop |
 | A3 | **Dọn mã cũ**, xác minh **từng route** trước khi xoá: ứng viên `app/api/owner/[shop]`, `app/api/shops`, `app/demo`, `shop-dashboard.tsx`, `owner-dashboard.tsx`, `lib/demo-store.ts`, `prototypes/`. **Không xoá `app/api/v2`**: đó là API trang khách đang chạy (`lib/client/visit-fetch-transport.ts`) | V | — | P0. Tách riêng, không gộp với A1/A2. Bản 20/09 ghi nhầm `app/api/v2` vào danh sách xoá; Astra bắt được |
 | A4 | ~~**CI chạy đủ 7 bộ** trên GitHub Actions~~ **xong 20/09** (`.github/workflows/ci.yml`: 4 job, Postgres 55439 UTF-8, ma trận harness) | V | AWS Well-Architected | P0. Còn lại: **Tài bật bảo vệ nhánh `main`** (mục F5) sau khi thấy CI xanh |

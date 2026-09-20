@@ -98,6 +98,10 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Khi bỏ một hành vi giao diện, tìm mọi test dùng nó bằng `grep` trên cả thư mục, đừng dựa vào danh sách nhớ.** Lát F1 có `grep` và thấy `admin-http.spec.ts` dùng `data-customer-link`, nhưng chỉ đọc đúng dòng khớp, bỏ sót **dòng ngay sau** kiểm link luôn hiện; bộ admin đỏ. Đọc cả đoạn quanh chỗ khớp. Lát B3 sửa test của public-v2, browser-hardening và publishing nhưng quên `owner-dashboard.spec.ts` (nó cũng bấm sao trên trang khách). Và một fixture chỉ áp 001–003 vẫn đỏ khi repository bắt đầu ghi cột của 011: fixture nào gọi `VisitRatingRepository` đều cần mọi migration đụng tới bảng của 002.
 
+**`pg` trả `timestamptz` về thành đối tượng `Date`, không phải chuỗi.** `Date.parse(row.when)` ra `NaN`, mọi phép so sánh với `NaN` đều `false`, nên cả một tín hiệu an toàn **im lặng tắt** mà không có lỗi nào. Dùng `new Date(value).getTime()` (nhận cả hai), hoặc lấy chuỗi bằng helper `utc()` sẵn có. Lỗi của Claude ở lát A1; chỉ có test bắt được.
+
+**Script sửa hàng loạt dừng giữa chừng thì phần sau không chạy.** Một script Python sửa 11 tệp danh sách migration ném `AssertionError` ở tệp thứ 9, nên `integration-tests/run-local.mjs` — nằm ở cuối script — **không được cập nhật**, đúng cái bẫy "thêm migration phải sửa hai chỗ" ngay bên dưới. Sau khi chạy script sửa nhiều tệp, **`grep` lại từng tệp trong danh sách** thay vì tin là nó chạy hết.
+
 **`day` là từ khoá của PostgreSQL.** `SELECT to_char(d.day,'…') day` báo `syntax error at or near "day"`; phải viết `AS day`. Lỗi hiện ra ở dòng gọi `db.query`, không phải ở chuỗi SQL, nên dễ tìm nhầm chỗ.
 
 **Hai lần `clock_timestamp()` trong một câu lệnh cho hai giá trị khác nhau.** Test đặt `created_at=clock_timestamp()-31 phút, expires_at=clock_timestamp()-1 phút` lúc xanh lúc đỏ: lần gọi sau muộn hơn vài micro giây nên khoảng cách vượt CHECK 30 phút. Lấy **một** mốc (`WITH t AS (SELECT clock_timestamp() n)`) và để khoảng cách cách xa giới hạn.

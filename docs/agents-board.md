@@ -211,3 +211,33 @@ Tài nêu một điểm đúng mà Claude đã nói ẩu: khoảng trống giữ
 Kết luận cho Astra: câu hỏi "request đang chạy bị huỷ hay hoàn tất" đã được Tài chốt là **hoàn tất**, và ranh giới "đang chạy" giờ là **một transaction**, không phải một chuỗi kết nối rời. Nhóm `Cards.create`/`Media` chưa được rà lại theo chuẩn này trong lát này — đề nghị Astra soi tiếp nếu thấy đáng.
 
 **7 bộ xanh trên `29af646`:** repository 127 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
+
+
+## Lát A1 — chặn bot cho API trang khách, `94c825e`, migration 018, 20/09
+
+**Bài toán Tài đặt ra khiến cách làm thông thường không dùng được:** Tài ước một phút cao điểm của quán đông là **trên 30 lượt chạm một thẻ**. Ở mức đó, **đếm số không phân biệt được** quán đông với bot: ngưỡng đủ chặt để bắt script sẽ chặn nhầm một chiều thứ Bảy. Nên lát này có **hai tín hiệu hỏng theo hai kiểu khác nhau**:
+
+1. **Ba tầng đếm**, cửa sổ một phút, dùng lại khuôn của `owner_login_limits` nhưng **bảng riêng** `public_request_limits` (lụt ở trang khách không được làm cạn ô đếm của đăng nhập chủ shop — lý do 005 đã tách ô của admin): một lượt tải trang (20/phút) · một thẻ (120/phút) · một địa chỉ (600/phút).
+2. **Thời gian từ lúc trang mở lần đầu tới lúc có câu trả lời.** Người thật chạm thẻ, chờ trang, đọc, chọn sao: hàng giây. Ba mươi người vẫn là ba mươi người mỗi người mất vài giây. Script trả lời trong vài chục mili giây và **không giả được độ trễ mà không tự làm mình vô hại**. Ngưỡng đặt ở **400ms (sao) / 800ms (lời nhắn)** — thấp hơn hẳn mọi khách có thể, vì một lần gắn cờ nhầm là một khách thật bị ẩn khỏi shop của họ.
+
+**Tài quyết (20/09):** vượt ngưỡng thì **vẫn nhận, gắn cờ**, không từ chối ai và không xoá gì. Cờ nằm trên **phiên** (`visit_sessions.suspected_at/suspected_reason`) chứ không trên lượt chấm, vì một phiên bot thổi phồng cả lượt chạm, cả điểm trung bình, cả số lời nhắn — một cờ phải kéo cả ba ra khỏi số liệu cùng lúc.
+
+**Claude thêm một điều Tài chưa hỏi, nêu rõ ở đây:** một **trần tuyệt đối gấp 10 lần ngưỡng** vẫn **từ chối** (429). Đó không phải đảo lại lựa chọn của Tài về hành vi với khách — đó là câu hỏi khác: giữ cho dịch vụ sống, để một máy không bơm đầy database. Đám đông thật không bao giờ chạm tới mức đó.
+
+**Địa chỉ IP:** tầng này **chỉ chạy khi có header tin được**. [Tài liệu Vercel](https://vercel.com/docs/headers/request-headers) ghi rõ Vercel **ghi đè** `x-forwarded-for` và **không chuyển tiếp IP ngoài**, *"to prevent IP spoofing"*. Không có header thì tầng này **không chạy**, chứ **không** gom mọi người vào một ô `unknown` — đó chính là cách giới hạn toàn nền tảng của F-002 trở thành đường khoá người thật ra ngoài.
+
+**Trang khách và nút Google không bị đụng ở bất kỳ nhánh nào** (`google-policy.md` luật 1). Cờ không nhìn thấy được từ phía khách; chỉ đường ghi mới có thể bị từ chối, và 429 rơi vào nhánh "thử lại" sẵn có của transport, không làm vỡ trang.
+
+**Bằng chứng không phải suy đoán:** test integration `owner-dashboard` lái **trình duyệt thật** qua trang khách (`goto /one` → bấm sao → gõ chữ → gửi) rồi khẳng định dashboard hiện `opens/sessions/rated/feedback` = 1. Vì các số đó đã loại phiên bị gắn cờ, một lượt khách thật qua trình duyệt **không** bị gắn cờ.
+
+**Hai lỗi của Claude trong lát này, đã ghi vào `operations-gotchas.md`:**
+1. `pg` trả `timestamptz` thành `Date`, nên `Date.parse` ra `NaN` và **cả tín hiệu thời gian im lặng tắt**. Không có lỗi nào; chỉ test bắt được.
+2. Script Python sửa 11 danh sách migration ném lỗi ở tệp thứ 9, nên `run-local.mjs` ở cuối script **không được cập nhật** — đúng bẫy "thêm migration phải sửa hai chỗ". Bắt được nhờ `grep` lại.
+
+**Chưa làm, để lát sau:** dọn dữ liệu bot đã lọt vào trước lát này; bảng thống kê cho chủ shop; chặn ở tầng CDN (cần Cloudflare, tức chờ B4). Cũng chưa đo chi phí hai truy vấn thêm mỗi request trên pool 3 kết nối của production — đáng đo ở E6.
+
+**Đề nghị Astra rà:** ngưỡng và cách chọn ô đếm có chỗ nào một bên thứ ba ép được cờ lên phiên của người khác không (ô `entry:` dùng chung giữa mọi khách của một thẻ — cố ý, nhưng đáng soi); và `inspect()` chạy **ngoài** transaction ghi, nên một request bị từ chối ở trần vẫn đã đếm — đúng ý, nhưng cần xác nhận không có đường nào lệch.
+
+**7 bộ xanh trên `94c825e`:** repository 133 · contracts 73 · client 75 · public 16+1 skip+2 · publishing 10+2 · owner 10+2 · admin 6+2.
+
+**Chưa đẩy** (kể cả nhánh): có migration, chờ Tài chạy trên Neon production rồi preview.
