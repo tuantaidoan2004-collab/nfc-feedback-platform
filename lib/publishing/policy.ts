@@ -23,7 +23,15 @@ import { fold } from '../text-fold';
  * added today cannot take a live page down.
  */
 
-/** Every label a service button may carry. Neutral by construction: each one names an action or a place. */
+/**
+ * Every label a service button may carry. Neutral by construction: each one names an action or a place, and none
+ * of them can be bent into an offer.
+ *
+ * Meant to grow. Blocking a shop from labelling a button it legitimately needs is a real cost, and the first
+ * version of this list was already missing "Đặt lịch" -- which a salon or a spa needs and which a test caught.
+ * Adding an entry is a one-line change; the only rule is that the entry must read as neutral on its own, which
+ * the test for this list checks against the same tripwire the free text goes through.
+ */
 export const SERVICE_LABELS: Localized[] = [
   { vi: 'Zalo', en: 'Zalo' },
   { vi: 'Instagram', en: 'Instagram' },
@@ -32,7 +40,9 @@ export const SERVICE_LABELS: Localized[] = [
   { vi: 'Website', en: 'Website' },
   { vi: 'Thực đơn', en: 'Menu' },
   { vi: 'Đặt chỗ', en: 'Book a table' },
+  { vi: 'Đặt lịch', en: 'Book' },
   { vi: 'Đặt hàng', en: 'Order' },
+  { vi: 'Gọi', en: 'Call' },
   { vi: 'Gọi cho quán', en: 'Call us' },
   { vi: 'Chỉ đường', en: 'Directions' },
   { vi: 'Giờ mở cửa', en: 'Opening hours' },
