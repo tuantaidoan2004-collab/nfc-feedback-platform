@@ -203,7 +203,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   const [periods, setPeriods] = useState<Record<string, Period>>({ visits: 'today', google: 'today', private: 'today' });
   const [range, setRange] = useState<Range | null>(null);
   const [custom, setCustom] = useState({ from: hcmDate(6), to: hcmDate() });
-  const [extra, setExtra] = useState({ source: '', release: '', rating: '' });
+  const [extra, setExtra] = useState({ source: '', release: '', rating: '', suspected: '' });
   const [cursor, setCursor] = useState(''), [dataset, setDataset] = useState('experiences');
   const latest = useRef(0);
 
@@ -339,7 +339,13 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
             <label>Nguồn<select value={extra.source} onChange={e => setExtra({ ...extra, source: e.target.value })}><option value="">Tất cả</option><option value="direct">Trực tiếp</option><option value="unknown">Chưa rõ</option>{data.tags.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
             <label>Bản phát hành<select value={extra.release} onChange={e => setExtra({ ...extra, release: e.target.value })}><option value="">Tất cả</option><option value="unknown">Chưa rõ</option>{data.releases.map(r => <option key={r.id} value={r.id}>{time(r.created_at)} · {r.id.slice(0, 8)}</option>)}</select></label>
             <label>Cảm xúc<select value={extra.rating} onChange={e => setExtra({ ...extra, rating: e.target.value })}><option value="">Tất cả</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{faceFor(n)} {n}</option>)}</select></label>
+            {/* Marked automatically as unlikely to be a customer, and left out of the numbers until asked for (lát A1). */}
+            <label>Lượt nghi ngờ<select value={extra.suspected} data-suspected-filter onChange={e => setExtra({ ...extra, suspected: e.target.value })}>
+              <option value="">Đã lọc bỏ</option><option value="show">Hiện cùng</option><option value="only">Chỉ xem lượt này</option></select></label>
           </form>}
+          {data && !extra.suspected && Number(data.metrics.suspected) > 0 && <p className={styles.hint} data-suspected-notice>
+            Đã lọc bỏ {data.metrics.suspected} lượt trông không giống khách thật (gửi quá nhanh, hoặc một thẻ bị bấm dồn dập).
+            Không có gì bị xoá — chọn &ldquo;Chỉ xem lượt này&rdquo; để xem.</p>}
           {!range && <p className={styles.hint}>Chọn khoảng thời gian để xem dữ liệu. Dữ liệu chỉ tải khi bạn chọn, để dashboard luôn nhẹ.</p>}
         </div>
         {loading && <p className={styles.hint}>Đang tải dữ liệu…</p>}

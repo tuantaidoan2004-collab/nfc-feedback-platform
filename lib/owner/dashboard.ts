@@ -10,20 +10,25 @@ import { cohort, effectiveStatus, encodeCursor, uuid, type Filters } from './fil
 // `day` is a keyword, so the alias needs AS.
 const daySeries = `SELECT to_char(d.day,'YYYY-MM-DD') AS day,
     count(v.id)::int opens, count(DISTINCT v.session_id)::int sessions,
-    (SELECT count(DISTINCT r.session_id)::int FROM rating_intent_receipts r WHERE r.shop_id=$1 AND r.scope='live'
+    (SELECT count(DISTINCT r.session_id)::int FROM rating_intent_receipts r
+      JOIN visit_sessions vs ON vs.id=r.session_id AND vs.suspected_at IS NULL WHERE r.shop_id=$1 AND r.scope='live'
       AND (timezone('Asia/Ho_Chi_Minh',r.applied_at))::date=d.day) private
   FROM generate_series((timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date-6,(timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date,interval '1 day') d(day)
   LEFT JOIN page_visits v ON v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date=d.day
+    AND EXISTS(SELECT 1 FROM visit_sessions vs WHERE vs.id=v.session_id AND vs.suspected_at IS NULL)
   GROUP BY d.day`;
 /**
  * Today, the last 7 and the last 30 Ho Chi Minh days. "private" counts sessions that sent the feedback card at least
  * once (stars, words or both) in the period; "messages" counts sessions whose written feedback was last sent in it.
  */
+// `clean` is the join every count makes: a session the guest-page flood control marked is out of all four numbers
+// (lát A1). The shop reads these to answer "how has the week gone", so they show its customers, not a script.
+const clean = 'JOIN visit_sessions vs ON vs.id=%.session_id AND vs.suspected_at IS NULL';
 const periodTotals = `SELECT p.key,
-  (SELECT count(*)::int FROM page_visits v WHERE v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date>=b.today-p.back) opens,
-  (SELECT count(DISTINCT v.session_id)::int FROM page_visits v WHERE v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date>=b.today-p.back) sessions,
-  (SELECT count(DISTINCT r.session_id)::int FROM rating_intent_receipts r WHERE r.shop_id=$1 AND r.scope='live' AND (timezone('Asia/Ho_Chi_Minh',r.applied_at))::date>=b.today-p.back) private,
-  (SELECT count(*)::int FROM rating_experiences e WHERE e.shop_id=$1 AND e.scope='live' AND e.feedback_message IS NOT NULL AND (timezone('Asia/Ho_Chi_Minh',e.feedback_updated_at))::date>=b.today-p.back) messages
+  (SELECT count(*)::int FROM page_visits v ${clean.replace('%','v')} WHERE v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date>=b.today-p.back) opens,
+  (SELECT count(DISTINCT v.session_id)::int FROM page_visits v ${clean.replace('%','v')} WHERE v.shop_id=$1 AND v.scope='live' AND (timezone('Asia/Ho_Chi_Minh',v.opened_at))::date>=b.today-p.back) sessions,
+  (SELECT count(DISTINCT r.session_id)::int FROM rating_intent_receipts r ${clean.replace('%','r')} WHERE r.shop_id=$1 AND r.scope='live' AND (timezone('Asia/Ho_Chi_Minh',r.applied_at))::date>=b.today-p.back) private,
+  (SELECT count(*)::int FROM rating_experiences e ${clean.replace('%','e')} WHERE e.shop_id=$1 AND e.scope='live' AND e.feedback_message IS NOT NULL AND (timezone('Asia/Ho_Chi_Minh',e.feedback_updated_at))::date>=b.today-p.back) messages
   FROM (SELECT (timezone('Asia/Ho_Chi_Minh',clock_timestamp()))::date today) b, (VALUES ('today',0),('week',6),('month',29)) p(key,back)`;
 export type Period = 'today' | 'week' | 'month';
 export type PeriodTotals = { opens: number; sessions: number; private: number; messages: number };
@@ -35,13 +40,14 @@ export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_
  ${effectiveStatus} status,COALESCE(c.note,'') note,COALESCE(c.revision,0) case_revision,
  ${utc('c.updated_at')} case_updated_at,s.tag_id,COALESCE(NULLIF(t.location_label,''),CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) source_label,
  s.release_id,origin.release_id origin_release_id,
- (SELECT count(*)::int FROM feedback_comments fc WHERE fc.session_id=e.session_id AND fc.deleted_at IS NULL) comment_count
+ (SELECT count(*)::int FROM feedback_comments fc WHERE fc.session_id=e.session_id AND fc.deleted_at IS NULL) comment_count,
+ s.suspected_reason suspected
  FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id
  LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id
  LEFT JOIN tags t ON t.id=s.tag_id
  LEFT JOIN experience_origin_contexts o ON o.session_id=e.session_id
  LEFT JOIN published_visit_contexts origin ON origin.visit_id=o.visit_id`;
-export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null;comment_count:number};
+export type ExperienceRow = {session_id:string;first_rated_at:string;updated_at:string;rating:number|null;experience_revision:string;topic:string|null;message:string|null;phone:string|null;status:string|null;note:string;case_revision:number;case_updated_at:string|null;tag_id:string|null;source_label:string;release_id:string|null;origin_release_id:string|null;comment_count:number;suspected:string|null};
 export type AdminVisit = {id:string;admin:string;admin_title:string|null;scope:'overview'|'feedback';reason:string;started_at:string;expires_at:string;ended_at:string|null;end_reason:string|null;reads:number};
 export type SupportChange = {level:SupportLevel;by:string;at:string};
 /**
@@ -88,6 +94,11 @@ export class OwnerDashboard {
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id WHERE e.rating IS NOT NULL) rated,
         (SELECT round(avg(e.rating),2)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id) average,
         (SELECT count(*)::text FROM selected s JOIN rating_experiences e ON e.session_id=s.session_id WHERE e.feedback_message IS NOT NULL) feedback,
+        -- How much the flood control took out of the period, so the shop knows there is a switch worth flipping.
+        -- Deliberately outside the other filters: it answers "is anything hidden", not "how many match these".
+        (SELECT count(DISTINCT v.session_id)::text FROM page_visits v JOIN visit_sessions vs ON vs.id=v.session_id
+          WHERE v.shop_id=$1 AND v.scope='live' AND v.opened_at>=$2::timestamptz AND v.opened_at<$3::timestamptz
+          AND vs.suspected_at IS NOT NULL) suspected,
         COALESCE((SELECT jsonb_agg(tags) FROM (SELECT id,COALESCE(NULLIF(location_label,''),public_code) label FROM tags WHERE shop_id=$1 ORDER BY public_code LIMIT 100) tags),'[]') tags,
         COALESCE((SELECT jsonb_agg(releases) FROM (SELECT id,created_at FROM page_releases WHERE shop_id=$1 ORDER BY created_at DESC,id LIMIT 100) releases),'[]') releases,
         COALESCE((SELECT jsonb_agg(sources ORDER BY sessions DESC,label) FROM (SELECT COALESCE(NULLIF(t.location_label,''),

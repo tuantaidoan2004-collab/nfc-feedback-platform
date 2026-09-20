@@ -32,6 +32,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query(await readFile('db/migrations/002_visit_ratings.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/011_feedback_phone.sql', 'utf8'));
+      await pool.query(await readFile('db/migrations/018_guest_flood_control.sql', 'utf8'));
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
       await pool.query(`INSERT INTO experiences(shop_id,token_hash,note,message)
@@ -291,4 +292,88 @@ test('feedback takes an optional call-back number, rejects a malformed one and n
   // Look for the whole number: a random intent id or timestamp can contain any short run of digits.
   const text = await saved.text(); expect(text).not.toContain('961036265'); expect(text).not.toContain('phone');
   expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: '+84961036265' }]);
+});
+
+/**
+ * Flood control on the guest page (lát A1). Nothing a customer sends is refused at the marking threshold: the
+ * session is marked and the answer is kept, and the shop's numbers leave it out until the shop asks to see it.
+ * Only a machine past the ceiling is turned away, so that one script cannot fill the database.
+ */
+const marks = async (db: Fixture) =>
+  (await db.pool.query('SELECT suspected_reason FROM visit_sessions ORDER BY sequence')).rows.map(r => r.suspected_reason);
+/** Put a bucket at a chosen count. Registering already touched some of them, so this has to overwrite. */
+const seed = (db: Fixture, bucket: string, attempts: number) =>
+  db.pool.query(`INSERT INTO public_request_limits(bucket,window_start,attempts)VALUES($1,clock_timestamp(),$2)
+    ON CONFLICT(bucket) DO UPDATE SET attempts=$2,window_start=clock_timestamp()`, [bucket, attempts]);
+/** Move the whole session back in time, the way a person who actually read the page would look. */
+async function unhurried(db: Fixture, seconds = 10) {
+  // One statement per query: pg refuses several commands in a prepared statement.
+  await db.pool.query('UPDATE page_visits SET opened_at=opened_at-make_interval(secs=>$1)', [seconds]);
+  await db.pool.query(`UPDATE visit_sessions SET started_at=started_at-make_interval(secs=>$1),
+    last_activity=last_activity-make_interval(secs=>$1)`, [seconds]);
+}
+
+test('an answer no person could have given that fast is marked, and kept', async ({ db }) => {
+  const token = secret(), visit = await register(db, token);
+  expect(await marks(db)).toEqual([null]);
+  const reply = await db.api(request(token, command()), { shop: 'one', visitId: visit.id }, 'rating');
+  // The customer is answered exactly as before: marking is never visible on the guest page.
+  expect(reply.status).toBe(200);
+  expect((await reply.json()).experience).toMatchObject({ rating: 5, revision: 1 });
+  expect(await marks(db)).toEqual(['too_fast']);
+  expect((await db.pool.query('SELECT rating FROM rating_experiences')).rows).toEqual([{ rating: 5 }]);
+});
+
+test('a person who took a few seconds is not marked, on stars or on words', async ({ db }) => {
+  const token = secret(), visit = await register(db, token);
+  await unhurried(db);
+  expect((await db.api(request(token, command()), { shop: 'one', visitId: visit.id }, 'rating')).status).toBe(200);
+  expect(await marks(db)).toEqual([null]);
+  const words = { intentId: randomUUID(), expectedRevision: 1, topic: 'other', message: 'Quán phục vụ tốt' };
+  expect((await db.api(request(token, words), { shop: 'one', visitId: visit.id }, 'feedback')).status).toBe(200);
+  expect(await marks(db)).toEqual([null]);
+});
+
+test('past the marking threshold the answer is still taken; past the ceiling it is refused', async ({ db }) => {
+  const token = secret(), visit = await register(db, token);
+  await unhurried(db);
+  // One page load answering faster than any person could tap: over the threshold, nowhere near the ceiling.
+  await seed(db, `visit:${visit.id}`, 20);
+  expect((await db.api(request(token, command()), { shop: 'one', visitId: visit.id }, 'rating')).status).toBe(200);
+  expect(await marks(db)).toEqual(['visit_rate']);
+  // The mark keeps the first reason: it records what was seen first, it is not a running commentary.
+  await db.pool.query("UPDATE public_request_limits SET attempts=200 WHERE bucket=$1", [`visit:${visit.id}`]);
+  await expectError(await db.api(request(token, { ...command(), expectedRevision: 1 }), { shop: 'one', visitId: visit.id }, 'rating'), 429, 'TOO_MANY_REQUESTS');
+  expect(await marks(db)).toEqual(['visit_rate']);
+  // Refused means refused before the write: the star the customer already gave is untouched.
+  expect((await db.pool.query('SELECT rating,revision::int FROM rating_experiences')).rows).toEqual([{ rating: 5, revision: 1 }]);
+});
+
+test('one entry point being pumped leaves another shop alone', async ({ db }) => {
+  const a = secret(), b = secret();
+  const first = await register(db, a);
+  const opened = await db.api(request(b, { loadKey: randomUUID() }), { shop: 'two' }, 'register');
+  expect(opened.status).toBe(200);
+  const second = (await opened.json()).visit as { id: string };
+  await unhurried(db);
+  // Shop one's entry point is at its threshold; shop two's is untouched and must stay that way.
+  await seed(db, `entry:${db.shopId}:live:direct:shop`, 120);
+  expect((await db.api(request(a, command()), { shop: 'one', visitId: first.id }, 'rating')).status).toBe(200);
+  expect((await db.api(request(b, command()), { shop: 'two', visitId: second.id }, 'rating')).status).toBe(200);
+  expect(await marks(db)).toEqual(['entry_rate', null]);
+  // The bucket name carries shop, scope and entry key, which is why the two never met.
+  expect((await db.pool.query("SELECT bucket FROM public_request_limits WHERE bucket LIKE 'entry:%' ORDER BY bucket")).rowCount).toBe(2);
+});
+
+test('the address tier runs only behind a proxy that sets the header, never on one shared unknown bucket', async ({ db }) => {
+  const token = secret(), visit = await register(db, token);
+  await unhurried(db);
+  // No header locally: counting by address must simply not happen. Falling back to one bucket for everyone is how
+  // F-002's platform-wide limit became a way to lock real people out.
+  expect((await db.pool.query("SELECT count(*)::int n FROM public_request_limits WHERE bucket LIKE 'address:%'")).rows[0].n).toBe(0);
+  const address = '203.0.113.9';
+  await seed(db, `address:${db.shopId}:${address}`, 600);
+  const reply = await db.api(request(token, command(), { 'x-vercel-forwarded-for': `${address}, 10.0.0.1` }), { shop: 'one', visitId: visit.id }, 'rating');
+  expect(reply.status).toBe(200);
+  expect(await marks(db)).toEqual(['address_rate']);
 });

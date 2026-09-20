@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import type { NavigationKind } from '../lib/domain/visit-rating';
 import { VisitCapabilityConflict, VisitAccessDenied, VisitRatingRepository, type ResolvedShopContext, type VisitPolicy } from '../lib/repositories/visit-ratings';
+import { GuestFlood, inspect, mark } from './guest-limits';
 
 type Dependencies = { enabled: boolean; origin: string | undefined; pool: () => Pool; resolve?: (request: Request, pool: Pool) => Promise<{ context: ResolvedShopContext; policy: VisitPolicy }> };
 type Context = { shop: string; visitId?: string };
@@ -82,11 +83,18 @@ export function createVisitV2Api(dependencies: Dependencies) {
         resolved = { shopId: shops.rows[0].id, scope: 'live', entryKey: 'direct:shop' };
       }
       const hash = capabilityHash(resolved, bearer[1]);
+      // Counted before the write, so a machine past the ceiling is turned away before it costs a row; at the
+      // marking threshold the answer is taken as it always was and the session is marked once it exists (lát A1).
+      const verdict = await inspect(pool, request, resolved, operation, context.visitId);
+      const remember = async (sessionId: string | null) => {
+        if (verdict.suspected && sessionId) await mark(pool, sessionId, verdict.reason);
+      };
       const repository = new VisitRatingRepository(pool, undefined, policy);
       if (operation === 'register') {
         const opened = await repository.registerVisit(resolved,
           input.loadKey as string, input.navigationKind as NavigationKind, hash);
         const { visit, session, experience } = opened;
+        await remember(session.sessionId);
         return response({ visit: { id: visit.visitId, sessionId: visit.sessionId, openedAt: visit.openedAt, navigationKind: visit.navigationKind },
           session: { id: session.sessionId, lastActivity: session.lastActivity, active: opened.active },
           experience: experience ? { rating: experience.rating, revision: experience.revision,
@@ -101,6 +109,7 @@ export function createVisitV2Api(dependencies: Dependencies) {
           if (result.code === 'CONTEXT_MISMATCH') throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');
           throw new ApiError(result.code === 'INVALID_INPUT' ? 400 : 409, result.code);
         }
+        await remember(verdict.sessionId);
         // Acknowledge only; do not echo private content, even through the original receipt.
         return response({ outcome: result.kind,
           experience: { rating: result.experience.rating, revision: result.experience.revision,
@@ -116,6 +125,7 @@ export function createVisitV2Api(dependencies: Dependencies) {
         if (result.code === 'CONTEXT_MISMATCH') throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');
         throw new ApiError(result.code === 'INVALID_INPUT' ? 400 : 409, result.code);
       }
+      await remember(verdict.sessionId);
       const { experience, receipt } = result;
       return response({ outcome: result.kind,
         experience: { rating: experience.rating, revision: experience.revision,
@@ -125,6 +135,8 @@ export function createVisitV2Api(dependencies: Dependencies) {
           updatedAt: receipt.experience.updatedAt },
       });
     } catch (error) {
+      // The shop's page and its Google button never depend on this; only the write path can be refused.
+      if (error instanceof GuestFlood) return response({ error: 'TOO_MANY_REQUESTS' }, 429);
       if (error instanceof VisitAccessDenied) return response({ error: error.code }, 403);
       if (error instanceof VisitCapabilityConflict) return response({ error: 'VISIT_CONFLICT' }, 409);
       if (error instanceof ApiError) return response({ error: error.code }, error.status);

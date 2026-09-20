@@ -11,7 +11,7 @@ const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provideFixture)=>{
  const schema=`nfc_owner_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  await provideFixture(await ownerFixture(db));}finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const filters=()=>parseFilters(new URLSearchParams());
@@ -172,4 +172,35 @@ test('two slow export cursors cannot consume the separate authorization pool',as
  const readers=[first.getReader(),second.getReader()];const chunks=await Promise.all(readers.map(r=>r.read()));expect(chunks.every(c=>!!c.value)).toBe(true);
  await Promise.all(readers.map(r=>r.cancel()));
  }finally{await cursors.end();}
+});
+
+/**
+ * Flood control on the guest page marks a session; the shop's numbers leave it out until the shop asks to see it
+ * (lát A1, Tài 2026-09-20 chose keeping the answer over turning the customer away). One mark has to take the
+ * session's touches, its star and its words out together, which is why the mark sits on the session.
+ */
+test('a marked session is out of every number until the shop asks for it, and says why when it comes back',async({f})=>{
+ const real=await addExperience(f.db,'one',5,'Khách thật viết');
+ const bot=await addExperience(f.db,'one',1,'Bot viết');
+ await f.db.query("UPDATE visit_sessions SET suspected_at=clock_timestamp(),suspected_reason='too_fast' WHERE id=$1",[bot.session.sessionId]);
+ const dashboard=new OwnerDashboard(f.db),token=f.users[0].token;
+ const hidden=await dashboard.read(token,'one',filters());
+ expect(hidden.records.map(r=>r.message)).toEqual(['Khách thật viết']);
+ // Touches, sessions, stars and words: the marked one is out of all of them, and the star average is not dragged down.
+ expect(hidden.metrics).toMatchObject({opens:'1',sessions:'1',rated:'1',average:'5.00',feedback:'1',suspected:'1'});
+ // The light summary answers "how has the week gone", so it is always the shop's real customers.
+ const summary=await dashboard.summary(token,'one');
+ expect(summary.totals.today).toMatchObject({opens:1,sessions:1,private:1,messages:1});
+ expect(summary.daily.at(-1)).toMatchObject({opens:1,sessions:1,private:1});
+
+ const shown=await dashboard.read(token,'one',parseFilters(new URLSearchParams('suspected=show')));
+ expect(shown.records.map(r=>[r.message,r.suspected]).sort()).toEqual([['Bot viết','too_fast'],['Khách thật viết',null]]);
+ const only=await dashboard.read(token,'one',parseFilters(new URLSearchParams('suspected=only')));
+ expect(only.records.map(r=>[r.message,r.suspected])).toEqual([['Bot viết','too_fast']]);
+ expect(only.metrics).toMatchObject({opens:'1',sessions:'1',average:'1.00'});
+ // Nothing was deleted: the shop can still reach what was filtered, and the real session was never touched.
+ expect((await f.db.query('SELECT count(*)::int n FROM rating_experiences')).rows[0].n).toBe(2);
+ expect((await f.db.query('SELECT suspected_at FROM visit_sessions WHERE id=$1',[real.session.sessionId])).rows[0].suspected_at).toBeNull();
+ // parseFilters throws before read is ever called, so this is a synchronous expectation, not a rejected promise.
+ expect(()=>parseFilters(new URLSearchParams('suspected=maybe'))).toThrow('INVALID_FILTER');
 });
