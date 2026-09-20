@@ -338,3 +338,8 @@ Nếu ba mặt trận là quá một lượt, làm mặt trận 1 trước và b
 ### Claude làm song song
 
 **F-013** (sửa hàng rào CTA, cần Tài chốt một câu về nhãn link), rồi **A5** (trang pháp lý nháp), rồi **A3** theo đúng kết luận của Astra: xoá `prototypes/`, còn lại là lát riêng có kiểm dữ liệu trước.
+
+
+### Astra nhận C3 — 21/09
+
+Baseline **deba8c1**, nhánh **astra/c3-pentest**, worktree `/private/tmp/nfc-astra-c3`. Ưu tiên mặt trận 1 tới nơi; PostgreSQL riêng 55449 và HTTP local dự kiến 3429, không dùng harness 3317–3319. Chỉ thêm test/báo cáo, không sửa sản phẩm; không Neon/preview/production/dữ liệu thật. Claude tiếp tục F-013/A5/A3.
