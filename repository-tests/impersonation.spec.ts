@@ -34,6 +34,30 @@ const allow=(f:Fixture,enabled:boolean,shop=0)=>new OwnerDashboard(f.db).setSupp
 const position=(f:Fixture,level:string,shop=0)=>new OwnerDashboard(f.db).setSupport(f.users[shop].token,['one','two'][shop],{level});
 const exports=['experiences','page_visits','receipts'] as const;
 
+test('design: a session for editing the page never reads the customer\'s words through the overview route',async({f})=>{
+ // F-010 (Astra, 20/09): `read` asks authorize for 'overview', which a design session passes, so the words came back
+ // although the very same session is refused at the feedback door. Both switch positions that open a design session.
+ await addExperience(f.db,'one',2,'Bí mật của khách',undefined,'0961036265');
+ const dashboard=new OwnerDashboard(f.db);
+ // Position 2 ('edit') closes the overview route to support outright, so only position 3 ever reached the rows.
+ await position(f,'edit');
+ const editing=await open(f,'design');
+ await expect(dashboard.read(editing.credential,'one',filters())).rejects.toThrow('SUPPORT_NOT_GRANTED');
+
+ await position(f,'full');
+ const s=await open(f,'design');
+ await expect(f.auth.access(s.credential,'one','feedback')).rejects.toThrow('IMPERSONATION_SCOPE');
+ const read=await dashboard.read(s.credential,'one',filters());
+ expect(read.records[0]).toMatchObject({topic:null,message:null,phone:null,note:'',rating:2});
+ expect(JSON.stringify(read)).not.toMatch(/Bí mật|0961036265/);
+ // The record of the visit must not claim words were shown when they were not.
+ expect((await audit(f,'impersonation.read')).at(-1)).toMatchObject({detail:{scope:'design',feedbackShown:false}});
+
+ // The feedback session, at the same switch position, is the one scope that may read; it still does.
+ const reading=await open(f,'feedback');
+ expect((await dashboard.read(reading.credential,'one',filters())).records[0]).toMatchObject({message:'Bí mật của khách',phone:null});
+});
+
 test('overview: needs no permission, feedback text is removed on the server, every export and every write is refused',async({f})=>{
  const x=await addExperience(f.db,'one',2,'Bí mật của khách',undefined,'0961036265');
  const dashboard=new OwnerDashboard(f.db);

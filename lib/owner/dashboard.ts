@@ -97,8 +97,12 @@ export class OwnerDashboard {
       const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];
       const sources=result.sources as SourceCount[];
       delete result.records;delete result.tags;delete result.releases;delete result.sources;
-      // Support in an overview session, and a member without the feedback switch, get the rows without the words.
-      const actor=access.actor, hidden=(actor.kind==='admin'&&actor.scope==='overview')||(actor.kind==='owner'&&!access.permissions.includes('feedback'));
+      // Support sees the customer's words only in a feedback session, and a member only with the feedback switch.
+      // This route asks authorize for 'overview', which every scope passes, so the scope has to be read again here:
+      // naming the one scope that may read (not the one that may not) keeps a scope added later closed by default.
+      // A design session used to read the words through this route although the same session was refused at
+      // `comments.list` (F-010, Astra, 2026-09-20).
+      const actor=access.actor, hidden=(actor.kind==='admin'&&actor.scope!=='feedback')||(actor.kind==='owner'&&!access.permissions.includes('feedback'));
       // Removed here, before the response exists, so an overview session never carries feedback text to the browser.
       // The call-back number never reaches support, at any switch position (Tài, 2026-09-20): the customer left it for
       // the shop. Numbers the customer typed into the message itself are not filtered; the privacy notice says so.
