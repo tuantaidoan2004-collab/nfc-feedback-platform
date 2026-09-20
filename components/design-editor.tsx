@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
 import { STEM_BACKGROUND } from '@/lib/publishing/config';
 import styles from './owner-app.module.css';
@@ -63,15 +64,21 @@ function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string
     <input type="file" accept={accept} onChange={async e => {
       const file = e.target.files?.[0]; e.target.value = '';
       if (!file) return;
-      setState('Đang tải lên…');
+      setState('Đang chuẩn bị ảnh…');
       try {
-        const uploaded = await put(endpoint, file, file.type);
+        // A phone camera's picture is re-drawn to a size the guest page can actually use before it goes anywhere
+        // (lát A6). A video is untouched: shrinking one in a browser tab is a different problem.
+        const shrunk = await shrinkImage(file, POSTER);
+        setState(shrinkNotice(shrunk) || 'Đang tải lên…');
+        const uploaded = await put(endpoint, shrunk.blob, shrunk.type);
         if ('error' in uploaded) { setState(uploaded.error ?? 'Chưa tải lên được.'); return; }
         // A video also gets its first frame as a still, for phones that will not play it.
         let still: string | undefined;
         if (uploaded.kind === 'video') {
           setState('Đang tạo ảnh tĩnh từ video…');
-          const frame = await firstFrame(file), frameUpload = frame ? await put(endpoint, frame, 'image/jpeg') : null;
+          const frame = await firstFrame(file);
+          const shrunkFrame = frame ? await shrinkImage(frame, POSTER) : null;
+          const frameUpload = shrunkFrame ? await put(endpoint, shrunkFrame.blob, shrunkFrame.type) : null;
           if (frameUpload && 'url' in frameUpload) still = frameUpload.url;
         }
         onDone(still ? { kind: 'video', url: uploaded.url, still } : { kind: uploaded.kind, url: uploaded.url });

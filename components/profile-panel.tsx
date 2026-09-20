@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { PORTRAIT, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import type { Profile } from '@/lib/owner/profile';
 import styles from './owner-app.module.css';
 import RoleBadge from './role-badge';
@@ -57,12 +58,15 @@ function Picture({ label, field, profile, onSaved }: { label: string; field: 'av
     <input type="file" accept="image/jpeg,image/png,image/webp" onChange={async e => {
       const file = e.target.files?.[0]; e.target.value = '';
       if (!file) return;
-      setState('Đang tải lên…');
+      setState('Đang chuẩn bị ảnh…');
       try {
-        const signed = await fetch('/api/owner/v2/profile/media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: file.type, size: file.size }) });
+        // An avatar is shown small and often, so it is bounded harder than a page poster (lát A6).
+        const shrunk = await shrinkImage(file, PORTRAIT);
+        setState(shrinkNotice(shrunk) || 'Đang tải lên…');
+        const signed = await fetch('/api/owner/v2/profile/media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: shrunk.type, size: shrunk.blob.size }) });
         const data = await signed.json().catch(() => ({}));
         if (!signed.ok) { setState(ERRORS[data.error] ?? 'Chưa tải lên được.'); return; }
-        const sent = await fetch(data.upload, { method: 'PUT', headers: data.headers, body: file });
+        const sent = await fetch(data.upload, { method: 'PUT', headers: data.headers, body: shrunk.blob });
         if (!sent.ok) { setState('Kho lưu trữ từ chối tệp. Thử lại.'); return; }
         const result = await save({ ...profile, [field]: data.url });
         if (result.error) { setState(result.error); return; }
