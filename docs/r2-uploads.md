@@ -37,6 +37,6 @@ Project → Settings → Environment Variables, môi trường **Preview** (và 
 | `R2_ACCESS_KEY_ID` | Access Key ID |
 | `R2_SECRET_ACCESS_KEY` | Secret Access Key, đánh dấu **Sensitive** |
 | `R2_BUCKET` | `nfc-media` |
-| `MEDIA_PUBLIC_ORIGIN` | `https://pub-….r2.dev` |
+| `MEDIA_PUBLIC_ORIGIN` | `https://media.quitesensational-review-bio.com` (từ 21/09; trước đó `https://pub-….r2.dev`) |
 
 Vercel chụp biến môi trường lúc tạo deployment (gotchas), nên sau khi thêm biến phải **deploy lại bằng một commit**. Tài báo xong, agent push commit rỗng.

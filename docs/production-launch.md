@@ -29,7 +29,7 @@ Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đ�
 - [x] ~~Đăng nhập `/gov`, tạo shop khuôn~~ — xong 21/09.
 - [ ] **Tạo shop thật đầu tiên** và ghi thẻ NFC cho nó. Kiểm đường dẫn trong dashboard là `.com` trước khi ghi.
 - [ ] **Thử tải một ảnh lên** từ dashboard — phép kiểm CORS bucket R2 và hai khoá R2 của production.
-- [ ] Cân nhắc `media.quitesensational-review-bio.com` làm tên miền riêng cho R2 (thay `r2.dev`) và đổi `MEDIA_PUBLIC_ORIGIN`. **Làm sớm**: đường dẫn ảnh lưu tuyệt đối trong cấu hình trang, đổi sau thì ảnh cũ vẫn trỏ `r2.dev` vĩnh viễn.
+- [x] **21/09: `MEDIA_PUBLIC_ORIGIN` = `https://media.quitesensational-review-bio.com`** (custom domain của bucket `nfc-media`, Production và Preview). Tài tải lên thử, link ra đúng `media.…`. **r2.dev vẫn bật** cho ảnh đã lưu trước đó; tắt khi không còn cấu hình nào trỏ `pub-….r2.dev`. Ảnh đại diện cũ trên `r2.dev` phải tải lại, vì `lib/owner/profile.ts` chỉ nhận ảnh dưới `MEDIA_PUBLIC_ORIGIN`. Bản ghi DNS `media` **để đám mây cam** (R2 bắt buộc); luật "không bật cam" chỉ áp cho bản ghi trỏ Vercel.
 - [ ] Thử dashboard trên **điện thoại** bằng tên miền production.
 
 ## Checklist mở production (19/09, đã xong bước 1–4)

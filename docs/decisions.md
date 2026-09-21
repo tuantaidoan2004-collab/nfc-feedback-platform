@@ -193,8 +193,9 @@ Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên 
 - **Production: `https://quitesensational-review-bio.com`**. Tên miền cũ `.vercel.app` **308 về đây**.
   Hàm chạy ở **Singapore**, cùng vùng Neon. Bản đồ đầy đủ ở đầu `production-launch.md`.
 - **Neon 001–021** trên cả production lẫn preview. **A5 không có migration.**
-- **Có shop khuôn `urr6ud`** và một shop nháp `caphe-demo`. **Chưa ghi thẻ NFC nào.**
+- **Có shop khuôn `urr6ud`** và một shop nháp `caphe-demo`. **Tài báo 21/09 đã tạo shop thật đầu tiên và ghi thẻ.**
 - Admin `tai` **đã bật 2FA**; 10 mã dự phòng Tài giữ.
+- **Ảnh đi qua `media.quitesensational-review-bio.com`** (21/09). Tải ảnh lên chạy trên production (CORS R2 đúng). `r2.dev` vẫn bật cho ảnh cũ.
 - **`main` đã đẩy tới A5** (21/09, sau khi Tài thấy CI xanh).
 
 ### Xong trong phiên 20–21/09
@@ -240,9 +241,6 @@ xong A3 (`f819c0c`) và A7 (`4c47be8`); A7 là nơi tìm ra F-013. Chi tiết v�
 
 ### Việc còn treo của Tài
 
-- **Tạo shop thật đầu tiên và ghi thẻ NFC** — kiểm đường dẫn trong dashboard là `.com` **trước khi** ghi.
-- Thử tải một ảnh lên (kiểm CORS R2); cân nhắc `media.<tên-miền>` thay `r2.dev` — **làm sớm**, đường dẫn ảnh lưu
-  tuyệt đối nên đổi sau thì ảnh cũ trỏ `r2.dev` vĩnh viễn.
 - Bảo vệ nhánh `main`: ruleset đã tạo nhưng **Free không thi hành trên repo riêng tư**, cần GitHub Team. Chưa trả tiền.
 - Nâng Neon trả phí (B1), tài khoản giám sát lỗi (B3), Zalo OA (B7).
 - Luật sư duyệt bản nháp A5 (C2).
