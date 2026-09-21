@@ -1,6 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- media URLs are shop-configured https or built-in paths; next/image would need every host listed in advance. */
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
 import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
@@ -54,11 +55,19 @@ const pageCopy = {
   vi: { google: 'Đánh giá trên Google', poster: 'POSTER SỰ KIỆN', links: 'Kết nối với shop', close: 'Đóng',
     hint: 'Có điều gì muốn nhắn riêng cho quán?', title: 'Gửi góp ý riêng cho quản lý', feeling: 'Bạn cảm thấy thế nào?',
     phone: 'Số điện thoại, nếu muốn quản lý gọi lại', phoneHint: 'Chỉ người của quán được cấp quyền mới thấy số này',
-    thanks: 'Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn' },
+    thanks: 'Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn',
+    phonePolicy: 'Cách số này được giữ và xoá', privacy: 'Quyền riêng tư', terms: 'Điều khoản', erase: 'Xoá dữ liệu của tôi',
+    eraseAsk: 'Xoá lời nhắn, số điện thoại và thao tác của bạn trên trang này? Số sao vẫn được giữ, không kèm tên.',
+    eraseYes: 'Xoá', eraseNo: 'Thôi', erasing: 'Đang xoá…', erased: 'Đã xoá.', eraseNothing: 'Không có gì để xoá.',
+    eraseFailed: 'Chưa xoá được. Thử lại sau nhé.' },
   en: { google: 'Review us on Google', poster: 'EVENT POSTER', links: 'Connect with the shop', close: 'Close',
     hint: 'Anything to tell us privately?', title: 'Send private feedback to the manager', feeling: 'How do you feel?',
     phone: 'Phone, if you would like the manager to call back', phoneHint: 'Only the shop’s own people with permission see this number',
-    thanks: 'Thank you — we are grateful for your feedback' },
+    thanks: 'Thank you — we are grateful for your feedback',
+    phonePolicy: 'How this number is kept and erased', privacy: 'Privacy', terms: 'Terms', erase: 'Erase my data',
+    eraseAsk: 'Erase your words, phone number and what you did on this page? Your star stays, with no name attached.',
+    eraseYes: 'Erase', eraseNo: 'Cancel', erasing: 'Erasing…', erased: 'Erased.', eraseNothing: 'Nothing to erase.',
+    eraseFailed: 'Could not erase yet. Please try again later.' },
 } as const;
 const HINT_DELAY_MS = 2000;
 
@@ -198,6 +207,27 @@ function useBottomHint() {
     return () => { window.removeEventListener('scroll', check); window.removeEventListener('resize', check); window.clearTimeout(timer); };
   }, [shown]);
   return shown;
+}
+
+/**
+ * One small line at the foot of the page (A5, Tài chốt 21/09): no banner, no popup, nothing over the Google button.
+ * The page sets no cookie, so a consent banner would be saying something untrue. Erasing asks once, inline.
+ */
+function LegalFooter({ p, ready, erase }: { p: (typeof pageCopy)[Language]; ready: boolean; erase: () => Promise<{ kind: 'erased' | 'nothing' | 'error' }> }) {
+  const [step, setStep] = useState<'idle' | 'ask' | 'erasing' | 'erased' | 'nothing' | 'error'>('idle');
+  async function confirm() {
+    setStep('erasing');
+    const result = await erase();
+    setStep(result.kind === 'erased' ? 'erased' : result.kind === 'nothing' ? 'nothing' : 'error');
+  }
+  return <footer className="guest-legal" data-legal>
+    <p><Link href="/quyen-rieng-tu">{p.privacy}</Link> · <Link href="/dieu-khoan">{p.terms}</Link>
+      {step === 'idle' && <> · <button type="button" disabled={!ready} onClick={() => setStep('ask')}>{p.erase}</button></>}</p>
+    {step === 'ask' && <p role="alertdialog" aria-label={p.erase}>{p.eraseAsk}{' '}
+      <button type="button" data-erase-confirm onClick={() => void confirm()}>{p.eraseYes}</button> · <button type="button" onClick={() => setStep('idle')}>{p.eraseNo}</button></p>}
+    {step !== 'idle' && step !== 'ask' && <p role="status" data-erase-result={step}>{
+      step === 'erasing' ? p.erasing : step === 'erased' ? p.erased : step === 'nothing' ? p.eraseNothing : p.eraseFailed}</p>}
+  </footer>;
 }
 
 export default function ShopFeedbackV2(shop: Props) {
@@ -364,6 +394,7 @@ export default function ShopFeedbackV2(shop: Props) {
         {config.links.length > 0 && <nav className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
           {...(link.url.startsWith('https:') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><LinkGlyph icon={link.icon} /><span>{link.label[lang]}</span></a>)}</nav>}
         {!open && connectionProblem && <div className="guest-connection">{statusLine}{retryButtons}</div>}
+        <LegalFooter p={p} ready={!!snapshot} erase={client.erase} />
       </div>
     </article>
 
@@ -399,6 +430,7 @@ export default function ShopFeedbackV2(shop: Props) {
               <label htmlFor="phone">{p.phone}</label>
               <input id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={24} disabled={locked} value={phone} placeholder={p.phoneHint}
                 onChange={e => { setPhone(e.target.value); setValidation(null); }} />
+              <p className="guest-fineprint"><Link href="/quyen-rieng-tu#so-dien-thoai">{p.phonePolicy}</Link></p>
               <button className="guest-send" disabled={!canSend}>{t.send}</button>
               {statusLine}{retryButtons}
             </form>}

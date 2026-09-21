@@ -80,3 +80,13 @@ test('a clock that jumps cannot make the server refuse the whole batch', () => {
   expect(sinceOpen(1_000, 999_000_000)).toBe(86_400_000);
   expect(sinceOpen(1_000, 5_200)).toBe(4_200);
 });
+
+test('after an erasure nothing already queued, and nothing sent later, goes out', () => {
+  const h = harness();
+  h.sink.send('card_opened', 100);
+  h.sink.drop();
+  h.sink.send('card_abandoned', 900);
+  h.fire('pagehide');
+  // Otherwise the log would start refilling the moment the customer emptied it.
+  expect(h.calls).toHaveLength(0);
+});

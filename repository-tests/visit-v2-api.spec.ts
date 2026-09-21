@@ -510,3 +510,23 @@ test('erasure is the one edit a receipt allows, and only for the person who owns
   // And the erasure the trigger does allow is exactly the one the application performs.
   await expect(db.pool.query("UPDATE rating_intent_receipts SET feedback_message='(đã xoá theo yêu cầu)',feedback_phone=NULL")).resolves.toBeTruthy();
 });
+
+test('a customer who comes back later erases what they wrote in an earlier session too', async ({ db }) => {
+  const mine = secret(), theirs = secret();
+  const first = await register(db, mine);
+  await db.api(request(mine, { intentId: randomUUID(), expectedRevision: 0, topic: 'other', message: 'Lần trước', phone: '0961036265' }),
+    { shop: 'one', visitId: first.id }, 'feedback');
+  const other = await register(db, theirs);
+  await db.api(request(theirs, { intentId: randomUUID(), expectedRevision: 0, topic: 'other', message: 'Của người khác' }),
+    { shop: 'one', visitId: other.id }, 'feedback');
+  // Fifteen idle minutes close a session; closing it directly is the same state without the wait.
+  await db.pool.query('UPDATE visit_sessions SET closed_at=last_activity WHERE id=(SELECT session_id FROM page_visits WHERE id=$1)', [first.id]);
+  const later = await register(db, mine);
+  expect((await db.pool.query('SELECT session_id FROM page_visits WHERE id=$1', [later.id])).rows[0].session_id)
+    .not.toBe((await db.pool.query('SELECT session_id FROM page_visits WHERE id=$1', [first.id])).rows[0].session_id);
+
+  expect(await (await eraseCall(db, mine, later.id)).json()).toEqual({ erased: true });
+  const left = (await db.pool.query('SELECT feedback_message,feedback_phone FROM rating_experiences WHERE feedback_message IS NOT NULL ORDER BY feedback_message')).rows;
+  // Mine is gone from the old session; the other customer's words are untouched.
+  expect(left).toEqual([{ feedback_message: '(đã xoá theo yêu cầu)', feedback_phone: null }, { feedback_message: 'Của người khác', feedback_phone: null }]);
+});

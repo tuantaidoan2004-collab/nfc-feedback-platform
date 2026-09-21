@@ -103,7 +103,7 @@ export function createVisitV2Api(dependencies: Dependencies) {
         const owned = await pool.query('SELECT v.session_id FROM page_visits v JOIN visit_sessions s ON s.id=v.session_id AND s.browser_hash=$2 WHERE v.id=$1',
           [context.visitId, hash]);
         if (!owned.rows[0]) throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');
-        if (operation === 'erase') return response(await erase(pool, owned.rows[0].session_id));
+        if (operation === 'erase') return response(await erase(pool, { ...resolved, browserHash: hash }));
         await record(pool, resolved, { sessionId: owned.rows[0].session_id, visitId: context.visitId }, readBatch(input.events)!);
         await remember(owned.rows[0].session_id);
         // Measurement is answered and forgotten: nothing to read back, so nothing to wait for.

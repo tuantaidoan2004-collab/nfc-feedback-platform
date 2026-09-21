@@ -26,7 +26,13 @@ export type DocumentFeedbackService = Readonly<{
   retryOpen: (loadKey: string) => Promise<CoordinatorResult>;
   /** Fire-and-forget behaviour. Returns nothing, throws nothing, and is never awaited (lát mục 7). */
   event: (name: GuestEventName, detail?: Record<string, string | number | boolean>) => void;
+  /**
+   * Erases what this browser wrote to this shop (A5): words, call-back number, behaviour log. After it, the page
+   * records no more behaviour, or the log would start refilling the moment it was emptied.
+   */
+  erase: () => Promise<EraseResult>;
 }>;
+export type EraseResult = { kind: 'erased' } | { kind: 'nothing' } | { kind: 'error' };
 function shopConfig(config: FeedbackServiceConfig): string {
   if (!config || Object.keys(config).some(key => !['shop', 'render'].includes(key)) || typeof config.shop !== 'string' ||
       !/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(config.shop) || ['api', 'zzz', 't', 'demo'].includes(config.shop.toLowerCase())) throw Error('INVALID_SERVICE_CONFIG');
@@ -59,10 +65,10 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
      * the React tree (lát mục 7). Bound lazily to whichever visit is current, rebuilt when that changes, and
      * entirely fire-and-forget: the caller gets nothing back and never waits.
      */
-    let sink: Promise<EventSink> = Promise.resolve(NO_EVENTS), sinkVisit = '', openedAt = 0;
+    let sink: Promise<EventSink> = Promise.resolve(NO_EVENTS), sinkVisit = '', openedAt = 0, silenced = false;
     function event(name: GuestEventName, eventDetail?: Record<string, string | number | boolean>) {
       const visitId = queue.state().coordinator.current?.snapshot?.visit.id;
-      if (!visitId) return;
+      if (!visitId || silenced) return;
       // The visit is claimed before the first await, or two events arriving together each build their own sink
       // and the first one's queue is lost. The moment is taken here too, for the same reason: later is wrong.
       if (sinkVisit !== visitId) {
@@ -73,6 +79,16 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       const at = sinceOpen(openedAt, Date.now());
       // One promise, so `then` runs the sends in the order they were called. Never awaited by the caller.
       void sink.then(ready => ready.send(name, at, eventDetail)).catch(() => {});
+    }
+    async function erase(): Promise<EraseResult> {
+      const visitId = queue.state().coordinator.current?.snapshot?.visit.id;
+      if (disposed || !visitId) return { kind: 'error' };
+      // Silenced before the call, not after: a beacon leaving while the erase is in flight would land after it.
+      silenced = true;
+      await sink.then(ready => ready.drop()).catch(() => {});
+      const reply = await transport.erase((await ports.identity()).secret, visitId).catch(() => null);
+      if (reply?.kind !== 'ok') return { kind: 'error' };
+      return reply.data.erased ? { kind: 'erased' } : { kind: 'nothing' };
     }
     function notify() { for (const listener of [...listeners]) { try { listener(state()); } catch { /* Observer isolation. */ } } }
     const stopQueueObservation = queue.subscribe(notify);
@@ -104,6 +120,7 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       retry: () => action(() => queue.retry()),
       retryOpen: key => action(() => queue.retryOpen(key)),
       event,
+      erase,
     });
     registry.set(win.document, { win, shop, binding, service, settled: queue.settled,
       dispose() { disposed = true; void sink.then(ready => ready.flush()).catch(() => {}); queue.stop(); stopLifecycle(); stopQueueObservation(); listeners.clear(); },

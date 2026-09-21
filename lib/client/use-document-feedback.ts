@@ -31,6 +31,7 @@ const disabledStore = { getSnapshot: serverSnapshot, subscribe: () => () => {} }
 const disabledAction = async (): Promise<CoordinatorResult> => ({ kind: 'error', code: 'FEEDBACK_DISABLED' });
 /** Module-level, so it is the same function every render: an effect depending on it must not re-run for nothing. */
 const disabledEvent = () => {};
+const disabledErase = async () => ({ kind: 'error' } as const);
 
 /** Pass a document-owned service explicitly after the development gate. Null is off by default. */
 export function useDocumentFeedback(service: DocumentFeedbackService | null = null) {
@@ -51,5 +52,6 @@ export function useDocumentFeedback(service: DocumentFeedbackService | null = nu
     retryOpen: service?.retryOpen ?? disabledAction,
     // Does nothing when feedback is off, so the page never branches on whether it is being measured.
     event: service?.event ?? disabledEvent,
+    erase: service?.erase ?? disabledErase,
   };
 }

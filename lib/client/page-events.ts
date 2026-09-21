@@ -25,9 +25,11 @@ export type EventSink = {
    */
   send: (name: GuestEventName, sinceOpenMs: number, detail?: Record<string, string | number | boolean>) => void;
   flush: () => void;
+  /** Throws away what has not gone out yet, and everything sent after. Called when the customer erases (A5). */
+  drop: () => void;
 };
 /** Does nothing, for a page with no visit yet. Callers never branch on whether recording is available. */
-export const NO_EVENTS: EventSink = { send: () => {}, flush: () => {} };
+export const NO_EVENTS: EventSink = { send: () => {}, flush: () => {}, drop: () => {} };
 /** Clamped to the day the server accepts, so a clock that jumps cannot make a whole batch be refused. */
 export const sinceOpen = (openedAt: number, at: number) => Math.min(86_400_000, Math.max(0, Math.round(at - openedAt)));
 
@@ -44,7 +46,7 @@ export function createEventSink(shop: string, visitId: string, secret: string, r
   });
   if (!send || !/^[0-9a-f-]{36}$/.test(visitId)) return NO_EVENTS;
   const post = send;
-  let queue: Queued[] = [];
+  let queue: Queued[] = [], dropped = false;
 
   function flush() {
     if (!queue.length) return;
@@ -65,9 +67,11 @@ export function createEventSink(shop: string, visitId: string, secret: string, r
 
   return {
     send(name, sinceOpenMs, detail) {
+      if (dropped) return;
       queue.push(detail ? { name, sinceOpenMs, detail } : { name, sinceOpenMs });
       if (queue.length >= MAX_BATCH) flush();
     },
     flush,
+    drop() { dropped = true; queue = []; },
   };
 }

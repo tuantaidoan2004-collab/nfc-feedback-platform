@@ -192,3 +192,14 @@ test('feedback sends the call-back number only when there is one', async () => {
   expect(JSON.parse(String(h.requests[0].init.body))).toEqual({ ...feedbackCommand, phone: '0961036265' });
   expect(JSON.parse(String(h.requests[1].init.body))).toEqual(feedbackCommand);
 });
+
+test('erase sends an empty body with the capability, and accepts only the exact reply', async () => {
+  const h = harness(async () => Response.json({ erased: true }));
+  expect(await h.transport.erase(secret, id)).toEqual({ kind: 'ok', data: { erased: true } });
+  expect(h.requests[0].url).toBe(`/api/v2/shops/shop-A/visits/${id}/erase`);
+  expect(JSON.parse(String(h.requests[0].init.body))).toEqual({});
+  expect((h.requests[0].init.headers as Record<string, string>).Authorization).toBe(`Bearer ${secret}`);
+  expect((await harness(async () => Response.json({ erased: 'yes' })).transport.erase(secret, id)).kind).toBe('unknown');
+  expect((await harness(async () => Response.json({ erased: true, extra: 1 })).transport.erase(secret, id)).kind).toBe('unknown');
+  expect(await h.transport.erase(secret, 'not-a-uuid')).toEqual({ kind: 'rejected', code: 'INVALID_INPUT' });
+});

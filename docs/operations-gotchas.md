@@ -207,6 +207,20 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 **Đo trước khi tối ưu — nhưng đo xong phải hỏi từng con số có bình thường không.** Login mất 2,5s trên preview. Đo ra: 0,41s nền, 0,25s database, **1,9s scrypt**. Kết luận lúc đó: 1,9s là **cố ý** (đúng mức OWASP), không phải lỗi hiệu năng — đúng. Nhưng **0,25s cho database bị bỏ qua như thể bình thường**, và nó không bình thường: hàm Vercel chạy ở `iad1` (Washington DC) còn Neon ở `ap-southeast-1` (Singapore), nên mỗi truy vấn là một vòng Thái Bình Dương ~250ms. Tìm ra 21/09 bằng `curl -D - | grep x-vercel-id` → `hkg1::iad1::…`. **Một phép đo chỉ có ích khi từng thành phần của nó bị chất vấn**; "phần còn lại nhỏ nên bỏ qua" là cách một lỗi hạ tầng sống sót một tuần. Máy local nhanh gấp 10 lần vì CPU mạnh hơn **và** vì database nằm cùng máy.
 
 
+**Hỏi Tài một thông tin đã có trong repo.** Ở đầu lát A5, Claude hỏi email và số điện thoại liên hệ, trong khi số
+nằm sẵn ở `redesign-v2.md` và `lib/publishing/config.ts`, còn email ở `decisions-archive.md`. Trước khi hỏi Tài một
+dữ kiện, `grep -rn` cả `docs/` lẫn mã. Lỗi của Claude, 21/09.
+
+**Một lời hứa xoá theo "phiên" không giữ được khi khách quay lại sau.** Lát B xoá theo `session_id` của lượt ghé
+hiện tại. Nhưng phiên đóng sau **15 phút rảnh** (`IDLE_WINDOW_MS`), nên khách quay lại sau một tuần cầm một phiên
+mới, và nút "Xoá" để nguyên lời nhắn cũ họ muốn xoá. Tìm ra khi viết trang chính sách ở A5: câu chữ phải đúng với mã,
+và câu "xoá những gì bạn đã viết" không đúng. Sửa: `erase()` xoá mọi phiên có cùng `shop_id, scope, entry_key,
+browser_hash`, đúng bốn cột mà mã băm năng lực đã ràng buộc. Có test đỏ trước bản sửa. **Viết chính sách trước khi
+coi một tính năng về quyền riêng tư là xong**: đó là lúc lời hứa bị đọc từng chữ.
+
+**Postgres báo `Unix-domain socket path … is too long (maximum 103 bytes)`** khi `-k` trỏ vào thư mục scratchpad
+(đường dẫn dài). Harness dùng TCP nên không cần socket: khởi động bằng `pg_ctl -o "-p 55439 -k ''"`.
+
 ## Astra worktree riêng — 20/09/2026
 
 - Git common-dir nằm ngoài worktree: tạo branch/worktree cần quyền ghi Git common-dir. Không đổi branch Claude hoặc dùng stash.

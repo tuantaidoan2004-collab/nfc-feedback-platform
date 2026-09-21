@@ -14,7 +14,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | A2 | ~~**2FA bắt buộc cho admin**~~ **xong 20/09** (`155697f`, migration 019): cưỡng chế ở `authorizeAdmin` chứ không ở trang, 10 mã dự phòng dùng một lần, bí mật mã hoá bằng `NFC_TOTP_KEY` | V | Telegram | P0 |
 | A3 | **Dọn mã cũ** — **một phần xong 21/09**: `prototypes/` đã xoá, đó là ứng viên **duy nhất** không còn caller runtime (Astra rà, `f819c0c`). Sáu ứng viên còn lại **chưa xoá được**: `app/api/owner/[shop]`, `app/api/shops`, `shop-dashboard.tsx`, `owner-dashboard.tsx`, `lib/demo-store.ts`, `app/demo` đều còn caller thật — thử bỏ thì `tsc` đỏ ở ba tệp. Chúng đi cùng **nhánh fallback** khi cờ v2 tắt, và cần **đếm dữ liệu đời cũ trên từng môi trường trước khi xoá**. **Không xoá `app/api/v2`** | V | — | P0. Phần còn lại là lát riêng: bỏ fallback → kiểm dữ liệu → retire route → xoá bảng (từng bước một) |
 | A4 | ~~**CI chạy đủ 7 bộ** trên GitHub Actions~~ **xong 20/09** (`.github/workflows/ci.yml`: 4 job, Postgres 55439 UTF-8, ma trận harness) | V | AWS Well-Architected | P0. Còn lại: **Tài bật bảo vệ nhánh `main`** (mục F5) sau khi thấy CI xanh |
-| A5 | **Trang pháp lý bản nháp** + **nút để khách tự xoá dữ liệu** trên trang khách. Tài chốt 21/09: **không banner, không popup** — chân trang một dòng chữ nhỏ, một câu cạnh ô số điện thoại, hai trang tĩnh. API xoá đã xong ở lát B (021) | V | — | **P0 cuối cùng.** Luật sư duyệt ở C2 |
+| A5 | ~~**Trang pháp lý bản nháp** + **nút để khách tự xoá dữ liệu** trên trang khách~~ **xong 21/09**: `/quyen-rieng-tu`, `/dieu-khoan`, dòng chân trang, câu cạnh ô số điện thoại; xoá giờ phủ mọi phiên của cùng trình duyệt trên cùng thẻ. Tài chốt 21/09: **không banner, không popup** — chân trang một dòng chữ nhỏ, một câu cạnh ô số điện thoại, hai trang tĩnh. API xoá đã xong ở lát B (021) | V | — | **P0 cuối cùng.** Luật sư duyệt ở C2 |
 | A6 | ~~**Nén ảnh ngay trên trình duyệt** trước khi tải lên~~ **xong 20/09** (`fb58859`): `lib/client/shrink-image.ts`, poster ≤1600px, ảnh đại diện ≤512px, WebP; đo được 753 KB → 144 KB. **Phần "nhiều cỡ cho poster/logo" chưa làm** — nó đổi hình dạng `PageConfig` đã phát hành và cách trang khách chọn ảnh, nên là lát riêng | V | Canva | P0 |
 | A7 | **Hướng dẫn tuân thủ Google cho shop** trong dashboard + khi bàn giao shop; **test bảo vệ luật cứng** của `google-policy.md` | V | — | P0 |
 | A8–A10 | **Đọc dòng sự kiện hành vi** — gộp một: bộ số liệu chuẩn, bảng tổng hợp theo ngày, so sánh bản phát hành. Nền đã có (migration 020, lát mục 7). **Chỉ làm khi đã có khách thật**; xây bảng phân tích trên giếng rỗng là đúng cái sai Tài đã chỉ ra | V | Netflix | Sau A5 và sau khi ghi thẻ |
@@ -83,7 +83,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | E5 | Chế độ tối |
 | E6 | Đo Core Web Vitals trang khách trên 4G; nén video nền mặc định (3 MB) |
 | E7 | Nhấn nút ⓘ, "Phản hồi" đủ cỡ chạm 44px trên điện thoại |
-| E8 | Hỏi Tài lại câu "Chỉ quản lý của quán thấy số này" khi làm A5 |
+| E8 | ~~Hỏi Tài lại câu "Chỉ quản lý của quán thấy số này"~~ Tài giữ nguyên câu hiện tại (21/09) |
 
 ## F. Việc của Tài (không phải code)
 

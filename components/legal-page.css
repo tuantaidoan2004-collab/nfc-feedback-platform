@@ -1,0 +1,10 @@
+.legal { min-height: 100dvh; padding: 32px 16px 48px; background: #fbfcf7; color: #1d2f28; font-size: 15px; line-height: 1.6; }
+.legal article { max-width: 640px; margin: 0 auto; }
+.legal-draft { margin: 0 0 24px; padding: 10px 14px; border-radius: 10px; background: #fff4dc; color: #6b4a0f; font-size: 13px; }
+.legal h1 { margin: 0 0 4px; font-size: 26px; line-height: 1.2; color: #17302a; }
+.legal h2 { margin: 28px 0 8px; font-size: 17px; color: #17302a; }
+.legal p, .legal ul { margin: 8px 0; }
+.legal ul { padding-left: 20px; }
+.legal-meta { color: #5d6b63; font-size: 13px; }
+.legal a { color: #214034; }
+.legal footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #d6dccb; color: #5d6b63; font-size: 13px; }

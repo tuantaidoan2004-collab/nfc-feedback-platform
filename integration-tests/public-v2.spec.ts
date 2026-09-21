@@ -262,3 +262,49 @@ test('production gate stays closed even with flag true', async ({ page, request,
   expect(await count(db, 'experiences')).toBeGreaterThan(0);
   for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
 });
+
+test('A5: the customer erases what they wrote from one quiet line at the foot, and Google never moves', async ({ page, db }) => {
+  await ready(page);
+  const google = page.locator('[data-google]');
+  const before = await google.boundingBox();
+  // Legal links are there, small, and nothing covers the page: no banner, no dialog.
+  const legal = page.locator('[data-legal]');
+  await expect(legal.getByRole('link', { name: 'Quyền riêng tư' })).toHaveAttribute('href', '/quyen-rieng-tu');
+  await expect(legal.getByRole('link', { name: 'Điều khoản' })).toHaveAttribute('href', '/dieu-khoan');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await openCard(page);
+  await expect(page.locator('#private-card').getByRole('link', { name: 'Cách số này được giữ và xoá' })).toHaveAttribute('href', '/quyen-rieng-tu#so-dien-thoai');
+  await star(page, 2).click();
+  await page.locator('#message').fill('Xin gọi lại giúp tôi');
+  await page.locator('#phone').fill('0961036265');
+  await sendButton(page).click(); await thanked(page);
+  expect(await experience(db)).toEqual([expect.objectContaining({ rating: 2, feedback_message: 'Xin gọi lại giúp tôi' })]);
+
+  await legal.getByRole('button', { name: 'Xoá dữ liệu của tôi' }).click();
+  await expect(legal).toContainText('Số sao vẫn được giữ');
+  await legal.locator('[data-erase-confirm]').click();
+  await expect(legal.locator('[data-erase-result]')).toHaveText('Đã xoá.');
+  expect(await experience(db)).toEqual([expect.objectContaining({ rating: 2, feedback_message: '(đã xoá theo yêu cầu)' })]);
+  expect((await db.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: null }]);
+  // The Google button is exactly where it was.
+  await expect(google).toBeVisible();
+  expect(await google.boundingBox()).toEqual(before);
+  // Leaving the page is when behaviour would normally be sent. After an erasure nothing may refill the log.
+  await legal.getByRole('link', { name: 'Quyền riêng tư' }).click();
+  await expect(page).toHaveURL(/\/quyen-rieng-tu$/);
+  await page.waitForTimeout(500);
+  expect((await db.query('SELECT count(*)::int n FROM page_events WHERE session_id IN (SELECT session_id FROM rating_experiences)')).rows[0].n).toBe(0);
+});
+
+test('A5: the two legal pages render, say they are drafts, and carry the contact', async ({ page }) => {
+  for (const [path, title] of [['/quyen-rieng-tu', 'Quyền riêng tư'], ['/dieu-khoan', 'Điều khoản sử dụng']]) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
+    await expect(page.getByRole('note')).toContainText('Bản nháp');
+    await expect(page.getByRole('link', { name: 'tuantaidoan2004@gmail.com' }).first()).toBeVisible();
+  }
+  await page.goto('/quyen-rieng-tu');
+  await expect(page.locator('#so-dien-thoai')).toBeVisible();
+  await expect(page.locator('main')).toContainText('12 tháng');
+});

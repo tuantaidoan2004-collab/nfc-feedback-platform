@@ -156,3 +156,12 @@
 /* A refused autoplay must not show iOS's ▶ button over the still (lát F5). */
 .guest-bg-media::-webkit-media-controls-start-playback-button, .guest-poster::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }
 .guest-bg-media::-webkit-media-controls, .guest-poster::-webkit-media-controls { display: none !important; }
+
+/* A5: the legal line. Small and quiet on purpose -- nothing here may compete with the Google button. */
+.guest-legal { margin-top: 28px; font-size: 11px; line-height: 1.5; color: var(--muted); text-align: center; }
+.guest-legal p { margin: 4px auto 0; max-width: 320px; }
+.guest-legal a, .guest-legal button, .guest-fineprint a {
+  padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.guest-legal button:disabled { opacity: .5; cursor: default; }
+.guest-fineprint { margin: 4px 0 0; font-size: 11px; color: var(--muted); }

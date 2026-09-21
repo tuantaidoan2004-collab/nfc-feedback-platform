@@ -5,7 +5,12 @@ export type FeedbackCommand = Readonly<{ intentId: string; expectedRevision: num
 export type FeedbackReply = Readonly<{ outcome: 'applied' | 'replayed';
   experience: { rating: number | null; revision: number; firstInteractionAt: string; updatedAt: string };
   receipt: { intentId: string; revision: number; updatedAt: string } }>;
-type FeedbackTransport = { feedback: (secret: string, visitId: string, command: FeedbackCommand) => Promise<TransportReply<FeedbackReply>> };
+export type EraseReply = Readonly<{ erased: boolean }>;
+type FeedbackTransport = {
+  feedback: (secret: string, visitId: string, command: FeedbackCommand) => Promise<TransportReply<FeedbackReply>>;
+  /** The customer's own erasure (A5). The secret is the whole proof, exactly as the server checks it. */
+  erase: (secret: string, visitId: string) => Promise<TransportReply<EraseReply>>;
+};
 type Timer = { set: (callback: () => void, milliseconds: number) => unknown; clear: (handle: unknown) => void };
 type Ports = { fetch: typeof fetch; timer: Timer; timeoutMs?: number };
 const unknownReply = { kind: 'unknown' } as const;
@@ -86,6 +91,11 @@ export function createVisitFetchTransport(shop: string, ports: Ports, render?: R
         { intentId: command.intentId, expectedRevision: command.expectedRevision, topic: command.topic, message: command.message,
           ...(command.phone ? { phone: command.phone } : {}) },
         (v): v is FeedbackReply => feedbackReply(v, command));
+    },
+    erase: (secret, visitId) => {
+      if (!uuid(visitId)) return Promise.resolve({ kind: 'rejected', code: 'INVALID_INPUT' });
+      return post(`${base}/${visitId}/erase`, secret, {},
+        (v): v is EraseReply => object(v) && exactKeys(v, ['erased']) && typeof v.erased === 'boolean');
     },
     register: (secret, event) => post(base, secret, { loadKey: event.loadKey, navigationKind: event.navigationKind },
       (v): v is OpenSnapshot => openSnapshot(v) && object(v) && object(v.visit) && v.visit.navigationKind === event.navigationKind),

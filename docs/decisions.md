@@ -47,7 +47,7 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 
 | Nền móng | Cấp hiện tại | Cấp tiếp theo nghĩa là gì | Chặn cái gì phía sau |
 |---|---|---|---|
-| **Trang khách** | Chạy thật, đúng luật Google (có hàng rào CTA), chặn bot, nén ảnh, phát sự kiện hành vi | Trang pháp lý + nút tự xoá dữ liệu (A5); rồi tốc độ và nhiều cỡ ảnh | **A5 chặn việc ghi thẻ cho khách trả tiền** |
+| **Trang khách** | Chạy thật, đúng luật Google (có hàng rào CTA), chặn bot, nén ảnh, phát sự kiện hành vi | Tốc độ trang khách và nhiều cỡ ảnh. (Trang pháp lý + nút tự xoá: **xong ở A5**, 21/09) | Không còn P0 nào chặn việc ghi thẻ |
 | **Dữ liệu** | **Cấp 2 — dòng sự kiện đã thu** (21/09, migration 020) | Đọc nó: bộ số liệu chuẩn, bảng tổng hợp, so sánh bản phát hành (A8/A9/A10 gộp làm một) | Chặn engine và mọi số liệu so sánh. **Chưa đáng đọc khi chưa có khách thật** |
 | **Quản trị `/gov`** | Sơ sài: tạo shop, cấp link. Có 2FA bắt buộc | Điều hành thật: tìm, xem, số liệu nền tảng | Chờ **dữ liệu thật** chảy vào, không chỉ chờ bảng có sẵn |
 | **Vận hành** | CI 7 bộ, production chạy từ `main` | Sao lưu thật, giám sát lỗi | Cần Tài mở tài khoản dịch vụ |
@@ -188,45 +188,47 @@ production chưa có shop nào. Lát mục 7 sẽ tự mang theo phép đo đó.
 
 Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên trước, rồi khối này.
 
-### Đang ở đâu (21/09/2026)
+### Đang ở đâu (21/09/2026, cuối phiên A5)
 
-- **Production: `https://quitesensational-review-bio.com`** (đổi hôm nay). Tên miền cũ `.vercel.app` **308 về đây**.
+- **Production: `https://quitesensational-review-bio.com`**. Tên miền cũ `.vercel.app` **308 về đây**.
   Hàm chạy ở **Singapore**, cùng vùng Neon. Bản đồ đầy đủ ở đầu `production-launch.md`.
-- **Neon 001–021** trên cả production lẫn preview.
+- **Neon 001–021** trên cả production lẫn preview. **A5 không có migration.**
 - **Có shop khuôn `urr6ud`** và một shop nháp `caphe-demo`. **Chưa ghi thẻ NFC nào.**
-- Admin `tai` **đã bật 2FA**; 10 mã dự phòng Tài giữ. Cờ "Nguy hiểm" của Chrome đã hết sau khi sang `.com`.
-- **Nhánh `feat/local-app-foundation` đi trước `main` 9 commit**, chờ CI rồi đẩy.
+- Admin `tai` **đã bật 2FA**; 10 mã dự phòng Tài giữ.
+- **`main` còn ở `d502e0f`.** Nhánh đi trước, gồm cả A5; đẩy `main` khi Tài thấy CI xanh.
 
 ### Xong trong phiên 20–21/09
 
 A1 chặn bot trang khách (018) · A2 2FA admin (019) · A4 CI đủ 7 bộ · A6 nén ảnh trình duyệt ·
 F-010, F-011, F-012, F-013 (hàng rào CTA theo `google-policy.md`) · A3 phần xoá được (`prototypes/`) ·
-**mục 7 dòng sự kiện hành vi** (020, cả giếng lẫn bơm) · **lát B cho khách tự xoá dữ liệu** (021) ·
-chuyển tên miền `.com` + đổi vùng chạy sang Singapore · tái cấu trúc `decisions.md`.
+**mục 7 dòng sự kiện hành vi** (020) · **lát B cho khách tự xoá dữ liệu** (021) · chuyển `.com` + Singapore ·
+**A5 trang pháp lý**.
 
-### Việc tiếp theo — A5, và nó là P0 cuối cùng
+### A5 — đã làm gì (21/09)
 
-**A5 — trang pháp lý.** Tài đã chốt: giữ **12 tháng** làm mốc trong văn bản · **Tài đứng tên** bên chịu trách
-nhiệm · kênh liên hệ là **email + số điện thoại của Tài** · **ưu tiên tự phục vụ**. **Không** làm lát xoá dữ liệu
-quá hạn (mục 3).
+- Chân trang khách một dòng nhỏ: `Quyền riêng tư · Điều khoản · Xoá dữ liệu của tôi`. Bấm xoá thì hỏi lại **ngay trên
+  dòng đó** (không popup), rồi báo "Đã xoá." / "Không có gì để xoá." / lỗi. Nút Google **không dịch một điểm ảnh**, có
+  test đo vị trí trước và sau.
+- Dưới ô số điện thoại: link `Cách số này được giữ và xoá` → `/quyen-rieng-tu#so-dien-thoai`. Câu giữ chỗ trong ô
+  giữ nguyên (Tài chốt, E8).
+- `/quyen-rieng-tu` và `/dieu-khoan` (`components/legal-page.tsx`), tiếng Việt, ghi **"Bản nháp, đang chờ luật sư
+  duyệt"** ở đầu. Liên hệ: `tuantaidoan2004@gmail.com` · `0961 036 265`. Mỗi câu khớp một chỗ trong mã (chú thích đầu
+  `app/quyen-rieng-tu/page.tsx` chỉ chỗ).
+- **Sửa một lời hứa sai của lát B:** xoá trước đây chỉ phủ phiên hiện tại, mà phiên đóng sau 15 phút rảnh. Giờ phủ
+  mọi phiên của cùng trình duyệt trên cùng thẻ (`server/erase.ts`). Chi tiết ở `operations-gotchas.md`.
+- Sau khi xoá, trang **ngừng ghi hành vi** và bỏ lô chưa gửi, để nhật ký không tự đầy lại (`EventSink.drop`).
 
-Tài chốt cách thể hiện 21/09: **không banner, không popup, không nút "Đồng ý"**. Lý do: trang khách **không dùng
-cookie** (chỉ `localStorage`), một banner sẽ là nói sai; và bất cứ tấm che nào phủ lên nút Google đều đi ngược
-`google-policy.md` luật 1. Thay vào đó:
+**Cần Tài xác nhận:** tên người vận hành trên hai trang đang ghi **"Đoàn Tài"**, lấy từ tên Git `Doan Tai`. Tên đầy
+đủ khác thì sửa một chỗ: `CONTACT.operator` trong `components/legal-page.tsx`.
 
-- chân trang khách một dòng chữ nhỏ, mờ: `Quyền riêng tư · Điều khoản` — và **một đường để khách tự xoá dữ liệu**;
-- một câu ngắn cạnh ô số điện thoại, có link tới chính sách;
-- hai trang tĩnh `/quyen-rieng-tu` và `/dieu-khoan`.
+**Nợ phải trả trước 09/2027:** chính sách hứa **giữ tối đa 12 tháng**, nhưng lát xoá tự động theo mốc đang **hoãn
+có chủ ý** (mục 3). Nó phải chạy trước khi dữ liệu đầu tiên đủ 12 tháng tuổi, tức 12 tháng sau tấm thẻ đầu tiên.
+Chưa có bản tiếng Anh cho hai trang; làm sau khi luật sư duyệt bản tiếng Việt.
 
-**Nền đã sạch để viết:** lát B làm cho câu *"bạn yêu cầu, chúng tôi xoá"* thành sự thật có test chứng minh. API
-xoá đã có và đã kiểm (`POST /api/v2/pages/visits/<visitId>/erase`, chứng minh bằng chính bí mật trình duyệt của
-khách). **Còn thiếu đúng một mảnh: nút bấm trên trang khách.** Làm cùng A5.
+### Việc tiếp theo
 
-Chính sách phải nói đúng những gì mã làm: đi là **lời nhắn, số điện thoại, nhật ký hành vi của phiên**; ở lại là
-**đã có một lượt ghé và số sao ẩn danh**. Bản Claude viết là **nháp cho luật sư đọc** (C2), ghi rõ ngay đầu trang.
-
-Sau A5: **đọc dòng sự kiện** (A8/A9/A10 gộp một) — nhưng **chỉ khi đã có khách thật**, đừng xây bảng phân tích
-trên giếng rỗng. Rồi `/gov` đúng nghĩa.
+Không còn P0 nào chặn việc ghi thẻ. Việc kế là của Tài: **tạo shop thật đầu tiên và ghi thẻ**. Sau đó mới **đọc dòng
+sự kiện** (A8/A9/A10 gộp một) — chỉ khi đã có khách thật. Rồi `/gov` đúng nghĩa.
 
 ### Astra
 
