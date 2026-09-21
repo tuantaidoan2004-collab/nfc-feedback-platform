@@ -301,7 +301,11 @@ test('v2: background video, still, watermark, poster frame and logo come from th
  * test here proves what the customer gets; this one proves the shop finds out what the customer did.
  */
 test('what the customer did reaches the log, through the published page, without holding anything up', async ({ page, fixture: f }) => {
-  const rows = async () => (await f.db.query('SELECT name,since_open_ms,detail FROM page_events ORDER BY id')).rows;
+  // Scoped to this test's own visit. Beacons are fire-and-forget, so one from an earlier test can still be in
+  // flight; a test that assumed an empty table would be reading someone else's page.
+  const rows = async () => (await f.db.query(
+    'SELECT e.name,e.since_open_ms,e.detail FROM page_events e JOIN page_visits v ON v.id=e.visit_id WHERE v.shop_id=$1 ORDER BY e.id',
+    [f.shop])).rows;
   // Counting the calls, not guessing when they happen: the promise is that measurement is batched, not that it
   // flushes at one particular moment. An earlier version asserted "nothing sent yet" and was testing timing.
   let beacons = 0;
@@ -330,7 +334,7 @@ test('what the customer did reaches the log, through the published page, without
   expect(logged[3].detail).toMatchObject({ stars: 4, words: false, calledBack: false });
   expect(JSON.stringify(logged)).not.toContain('Private publishing fixture');
   // Recorded against the visit the server knows about, not one the browser claimed.
-  const visits = (await f.db.query('SELECT DISTINCT visit_id FROM page_events')).rows;
+  const visits = (await f.db.query('SELECT DISTINCT e.visit_id FROM page_events e JOIN page_visits v ON v.id=e.visit_id WHERE v.shop_id=$1', [f.shop])).rows;
   expect(visits).toHaveLength(1);
   expect((await f.db.query('SELECT 1 FROM page_visits WHERE id=$1', [visits[0].visit_id])).rowCount).toBe(1);
 });

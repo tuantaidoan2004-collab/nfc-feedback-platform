@@ -148,6 +148,8 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **`toBeDisabled` không đọc `<option disabled>`.** Kiểm bằng `toHaveAttribute('disabled','')`.
 
+**Ghi "bắn rồi quên" sống lâu hơn test sinh ra nó.** Beacon đo hành vi của lát mục 7 vẫn đang `INSERT` khi test kế tiếp chạy `TRUNCATE shops … CASCADE`, và vì bảng sự kiện có khoá ngoại tới `shops` nên nó bị kéo vào cuộc: **`deadlock detected`**, ở một ca chẳng liên quan, mỗi lần một ca khác nhau. Hai bài học: **bảng ghi nhật ký đừng có khoá ngoại vào bảng biến đổi** (giá trị đã do server tự phân giải, khoá ngoại không mua thêm gì), và **test đọc bảng đó phải lọc theo dữ liệu của chính nó**, đừng giả định bảng rỗng.
+
 **Thêm một route mới thì phải thêm vào danh sách làm nóng của harness.** Lát mục 7 thêm route beacon; beacon bắn từ trang khách khi một test khác đang có form đăng nhập điền dở, `next dev` biên dịch route lần đầu rồi **tải lại mọi trang đang mở**, và test admin hỏng ở một dòng không liên quan gì tới sự kiện (`locator.click: Test ended` chờ `[data-view="settings"]`), chạy 1,5 phút thay vì 33 giây. Thêm vào `warm()` trong `run-local.mjs` là hết. Triệu chứng đặc trưng: **một test đỏ ở chỗ chẳng dính gì tới thay đổi, và cả bộ chạy chậm bất thường.**
 
 **Biên dịch lần đầu một API cũng làm trang đang mở tải lại.** Test đặt mật khẩu qua giao diện: trang `/owner/setup/<link>` gọi `POST /api/owner/v2/setup` lần đầu; `next dev` biên dịch API rồi tải lại trang, lúc đó link đã dùng nên hiện "Liên kết không dùng được". Làm nóng bằng một request tới đúng API **trước khi** mở trang (lát F3).

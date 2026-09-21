@@ -9,7 +9,11 @@
 -- starts to earn its place. Raising it is a later, separate step along the same branch.
 CREATE TABLE page_events (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
- shop_id uuid NOT NULL REFERENCES shops(id),
+ -- No foreign key here either, and for a reason that showed up the first time a beacon outlived the page that
+ -- sent it: a reference to `shops` puts this table inside `TRUNCATE shops CASCADE`, so a late write and a reset
+ -- deadlock. The value is resolved by the server from the request, never taken from the browser, so the
+ -- reference was buying nothing it could not already guarantee.
+ shop_id uuid NOT NULL,
  scope text NOT NULL CHECK (scope IN ('live','test')),
  entry_key text NOT NULL CHECK (length(btrim(entry_key)) BETWEEN 1 AND 128),
  -- No foreign key on purpose: a log records what was true when it was written, and must not stop a session being
