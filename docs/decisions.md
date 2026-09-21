@@ -195,7 +195,7 @@ Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên 
 - **Neon 001–021** trên cả production lẫn preview. **A5 không có migration.**
 - **Có shop khuôn `urr6ud`** và một shop nháp `caphe-demo`. **Chưa ghi thẻ NFC nào.**
 - Admin `tai` **đã bật 2FA**; 10 mã dự phòng Tài giữ.
-- **`main` còn ở `d502e0f`.** Nhánh đi trước, gồm cả A5; đẩy `main` khi Tài thấy CI xanh.
+- **`main` đã đẩy tới A5** (21/09, sau khi Tài thấy CI xanh).
 
 ### Xong trong phiên 20–21/09
 
@@ -218,8 +218,8 @@ F-010, F-011, F-012, F-013 (hàng rào CTA theo `google-policy.md`) · A3 phần
   mọi phiên của cùng trình duyệt trên cùng thẻ (`server/erase.ts`). Chi tiết ở `operations-gotchas.md`.
 - Sau khi xoá, trang **ngừng ghi hành vi** và bỏ lô chưa gửi, để nhật ký không tự đầy lại (`EventSink.drop`).
 
-**Cần Tài xác nhận:** tên người vận hành trên hai trang đang ghi **"Đoàn Tài"**, lấy từ tên Git `Doan Tai`. Tên đầy
-đủ khác thì sửa một chỗ: `CONTACT.operator` trong `components/legal-page.tsx`.
+Người vận hành đứng tên trên hai trang: **Đoàn Tuấn Tài** (Tài xác nhận 21/09), sửa ở `CONTACT.operator` trong
+`components/legal-page.tsx`.
 
 **Nợ phải trả trước 09/2027:** chính sách hứa **giữ tối đa 12 tháng**, nhưng lát xoá tự động theo mốc đang **hoãn
 có chủ ý** (mục 3). Nó phải chạy trước khi dữ liệu đầu tiên đủ 12 tháng tuổi, tức 12 tháng sau tấm thẻ đầu tiên.
