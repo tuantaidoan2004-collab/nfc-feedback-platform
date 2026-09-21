@@ -47,9 +47,9 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 
 | Nền móng | Cấp hiện tại | Cấp tiếp theo nghĩa là gì | Chặn cái gì phía sau |
 |---|---|---|---|
-| **Trang khách** | Chạy thật, đúng luật Google, có chặn bot | Nén ảnh xong; còn tốc độ tải và nhiều cỡ ảnh | Không chặn gì |
-| **Dữ liệu** | **Cấp 1 — bề nổi** | **Cấp 2 — dòng sự kiện hành vi** | **Chặn engine, chặn /gov, chặn mọi số liệu so sánh** |
-| **Quản trị `/gov`** | Sơ sài: tạo shop, cấp link | Điều hành thật: tìm, xem, số liệu nền tảng | Chờ dữ liệu cấp 2 mới có gì để hiện |
+| **Trang khách** | Chạy thật, đúng luật Google (có hàng rào CTA), chặn bot, nén ảnh, phát sự kiện hành vi | Trang pháp lý + nút tự xoá dữ liệu (A5); rồi tốc độ và nhiều cỡ ảnh | **A5 chặn việc ghi thẻ cho khách trả tiền** |
+| **Dữ liệu** | **Cấp 2 — dòng sự kiện đã thu** (21/09, migration 020) | Đọc nó: bộ số liệu chuẩn, bảng tổng hợp, so sánh bản phát hành (A8/A9/A10 gộp làm một) | Chặn engine và mọi số liệu so sánh. **Chưa đáng đọc khi chưa có khách thật** |
+| **Quản trị `/gov`** | Sơ sài: tạo shop, cấp link. Có 2FA bắt buộc | Điều hành thật: tìm, xem, số liệu nền tảng | Chờ **dữ liệu thật** chảy vào, không chỉ chờ bảng có sẵn |
 | **Vận hành** | CI 7 bộ, production chạy từ `main` | Sao lưu thật, giám sát lỗi | Cần Tài mở tài khoản dịch vụ |
 
 ## 5. Luật cứng — không lát nào phá
@@ -67,6 +67,7 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 
 - **Dòng sự kiện hành vi trông như thế nào** — bảng gì, ghi lúc nào, giữ bao lâu, ai đọc được. Đây là quyết định
   tiếp theo, mục 7 nói rõ.
+- **Ai đọc dòng sự kiện, và đọc ra cái gì** — A8/A9/A10 gộp lại. Chưa đáng làm khi chưa có khách thật.
 - **Số điện thoại có hai mục đích khác nhau** (gọi lại vì khiếu nại · sau này có thể là sự kiện/quay thưởng). Hai
   loại **không được** nằm chung một cột, nếu không nền tảng vĩnh viễn không tôn trọng được "tôi chỉ muốn được gọi
   lại". Cần một cột `purpose` ngay từ khi còn một loại. Chưa làm.
@@ -185,31 +186,63 @@ production chưa có shop nào. Lát mục 7 sẽ tự mang theo phép đo đó.
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-21
 
-Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–7 ở trên trước, rồi khối này.
+Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên trước, rồi khối này.
 
 ### Đang ở đâu (21/09/2026)
 
-- **Production:** `https://quitesensational-review-bio.vercel.app`, deploy từ `main`. **Chưa có shop nào, chưa có
-  thẻ nào** — đường vào duy nhất là `/gov`. Bản đồ URL ở đầu `production-launch.md`.
-- **Neon 001–019** ở cả production lẫn preview. Mật khẩu `neondb_owner` đã xoay 20/09 trên cả hai branch.
-- **Xong gần đây:** A1 chặn bot trang khách (018) · A2 2FA admin (019) · A4 CI đủ 7 bộ · A6 nén ảnh trình duyệt ·
-  F-010, F-011, F-012, F-013 · A3 phần xoá được (`prototypes/`).
-- **Nhánh `feat/local-app-foundation`** đi trước `main` vài commit; đẩy khi CI xanh.
+- **Production: `https://quitesensational-review-bio.com`** (đổi hôm nay). Tên miền cũ `.vercel.app` **308 về đây**.
+  Hàm chạy ở **Singapore**, cùng vùng Neon. Bản đồ đầy đủ ở đầu `production-launch.md`.
+- **Neon 001–021** trên cả production lẫn preview.
+- **Có shop khuôn `urr6ud`** và một shop nháp `caphe-demo`. **Chưa ghi thẻ NFC nào.**
+- Admin `tai` **đã bật 2FA**; 10 mã dự phòng Tài giữ. Cờ "Nguy hiểm" của Chrome đã hết sau khi sang `.com`.
+- **Nhánh `feat/local-app-foundation` đi trước `main` 9 commit**, chờ CI rồi đẩy.
 
-### Việc tiếp theo
+### Xong trong phiên 20–21/09
 
-1. **Chốt mục 7** — dòng sự kiện hành vi. Chờ Tài.
-2. **A5 trang pháp lý nháp.** Tài đã chốt: giữ **12 tháng** làm mốc trong văn bản, **Tài đứng tên** bên chịu trách
-   nhiệm, kênh liên hệ là **email + số điện thoại của Tài**, và **ưu tiên tự phục vụ** — khách tự làm được thì để
-   khách tự làm. **Không** làm lát xoá dữ liệu quá hạn (mục 3).
-3. **`/gov` đúng nghĩa** — sau mục 7, khi đã có gì để hiện.
-4. Astra: C3 mặt trận 1, cô lập dữ liệu giữa các shop.
+A1 chặn bot trang khách (018) · A2 2FA admin (019) · A4 CI đủ 7 bộ · A6 nén ảnh trình duyệt ·
+F-010, F-011, F-012, F-013 (hàng rào CTA theo `google-policy.md`) · A3 phần xoá được (`prototypes/`) ·
+**mục 7 dòng sự kiện hành vi** (020, cả giếng lẫn bơm) · **lát B cho khách tự xoá dữ liệu** (021) ·
+chuyển tên miền `.com` + đổi vùng chạy sang Singapore · tái cấu trúc `decisions.md`.
+
+### Việc tiếp theo — A5, và nó là P0 cuối cùng
+
+**A5 — trang pháp lý.** Tài đã chốt: giữ **12 tháng** làm mốc trong văn bản · **Tài đứng tên** bên chịu trách
+nhiệm · kênh liên hệ là **email + số điện thoại của Tài** · **ưu tiên tự phục vụ**. **Không** làm lát xoá dữ liệu
+quá hạn (mục 3).
+
+Tài chốt cách thể hiện 21/09: **không banner, không popup, không nút "Đồng ý"**. Lý do: trang khách **không dùng
+cookie** (chỉ `localStorage`), một banner sẽ là nói sai; và bất cứ tấm che nào phủ lên nút Google đều đi ngược
+`google-policy.md` luật 1. Thay vào đó:
+
+- chân trang khách một dòng chữ nhỏ, mờ: `Quyền riêng tư · Điều khoản` — và **một đường để khách tự xoá dữ liệu**;
+- một câu ngắn cạnh ô số điện thoại, có link tới chính sách;
+- hai trang tĩnh `/quyen-rieng-tu` và `/dieu-khoan`.
+
+**Nền đã sạch để viết:** lát B làm cho câu *"bạn yêu cầu, chúng tôi xoá"* thành sự thật có test chứng minh. API
+xoá đã có và đã kiểm (`POST /api/v2/pages/visits/<visitId>/erase`, chứng minh bằng chính bí mật trình duyệt của
+khách). **Còn thiếu đúng một mảnh: nút bấm trên trang khách.** Làm cùng A5.
+
+Chính sách phải nói đúng những gì mã làm: đi là **lời nhắn, số điện thoại, nhật ký hành vi của phiên**; ở lại là
+**đã có một lượt ghé và số sao ẩn danh**. Bản Claude viết là **nháp cho luật sư đọc** (C2), ghi rõ ngay đầu trang.
+
+Sau A5: **đọc dòng sự kiện** (A8/A9/A10 gộp một) — nhưng **chỉ khi đã có khách thật**, đừng xây bảng phân tích
+trên giếng rỗng. Rồi `/gov` đúng nghĩa.
+
+### Astra
+
+Đang làm **C3 mặt trận 1** — cô lập dữ liệu giữa các shop — trên `astra/c3-pentest`, baseline `deba8c1`. Đã giao
+xong A3 (`f819c0c`) và A7 (`4c47be8`); A7 là nơi tìm ra F-013. Chi tiết và đầu bài ở `agents-board.md`.
+
+**Lưu ý khi viết prompt cho Astra:** mô tả kiểu "tấn công" làm ChatGPT chặn vì chính sách an ninh mạng. Viết rõ
+**đây là rà soát phòng thủ trên hệ thống của chính chủ sở hữu, có cho phép, chạy local với dữ liệu giả**.
 
 ### Việc còn treo của Tài
 
-- Tạo shop khuôn và shop thật trên `/gov` production; thử tải một ảnh lên để kiểm CORS R2.
-- Ruleset bảo vệ `main` đã tạo nhưng **Free không thi hành trên repo riêng tư** — cần GitHub Team. Chưa trả tiền.
-- Nâng Neon trả phí (B1), mua `.com` (B4), tài khoản giám sát lỗi (B3).
+- **Tạo shop thật đầu tiên và ghi thẻ NFC** — kiểm đường dẫn trong dashboard là `.com` **trước khi** ghi.
+- Thử tải một ảnh lên (kiểm CORS R2); cân nhắc `media.<tên-miền>` thay `r2.dev` — **làm sớm**, đường dẫn ảnh lưu
+  tuyệt đối nên đổi sau thì ảnh cũ trỏ `r2.dev` vĩnh viễn.
+- Bảo vệ nhánh `main`: ruleset đã tạo nhưng **Free không thi hành trên repo riêng tư**, cần GitHub Team. Chưa trả tiền.
+- Nâng Neon trả phí (B1), tài khoản giám sát lỗi (B3), Zalo OA (B7).
 - Luật sư duyệt bản nháp A5 (C2).
 
 ### Thứ tự đọc cho phiên mới
@@ -217,9 +250,9 @@ Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–7 ở trên 
 1. `AGENTS.md`
 2. **`docs/agents-board.md`** — ba bên, phát hiện đang mở
 3. **`docs/operations-gotchas.md`** — mọi bẫy đã dính, lệnh **7 bộ test**
-4. **`decisions.md` mục 1–7** rồi khối này
-5. `docs/google-policy.md` (luật cứng) · `docs/roadmap-slices.md` (danh sách lát, **đọc sau mục 4** ở trên)
-6. `docs/production-launch.md` mục "Đường vào"
+4. **`decisions.md` mục 1–8** rồi khối này
+5. `docs/google-policy.md` (luật cứng) · `docs/roadmap-slices.md`
+6. `docs/production-launch.md` mục **"Đường vào"**
 7. Bảng chọn skill ở đầu `docs/agent-skills.md`; chỉ nạp skill cần tới
 
 Lịch sử theo ngày: [`decisions-archive.md`](decisions-archive.md).
@@ -228,5 +261,5 @@ Lịch sử theo ngày: [`decisions-archive.md`](decisions-archive.md).
 
 Node 24 qua nvm. PostgreSQL: binary Postgres.app, **cluster riêng cổng 55439** trong thư mục scratchpad, **bắt
 buộc** `initdb -U nfc_test --auth=trust -E UTF8 --locale=en_US.UTF-8`; `createdb … nfc_repo_test`; tắt khi xong.
-**Không dùng `pnpm <script>`**, gọi thẳng `node node_modules/…`. Harness dùng cổng 3317–3319 và database chung:
-không chạy hai bộ harness cùng lúc. Astra dùng 55449 và không chạy harness.
+**Không dùng `pnpm <script>`**, gọi thẳng `node node_modules/…`. Harness dùng cổng 3317–3319: không chạy hai bộ
+cùng lúc. Astra dùng 55449 và không chạy harness. Chạy 7 bộ bằng `env -u NFC_TOTP_KEY` để giống CI.

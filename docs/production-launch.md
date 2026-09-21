@@ -4,27 +4,32 @@ Phần đầu tệp là **bản đồ dùng hằng ngày**: vào đâu, đăng n
 
 ## Đường vào
 
-Production: **`https://quitesensational-review-bio.vercel.app`** (tên miền miễn phí của Vercel; `.com` mua ở Cloudflare sau, xem "Khi có `.com`"). Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–018**.
+Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–021**.
 
-Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`**, deploy từ nhánh `feat/local-app-foundation`, database là branch Neon preview (cũng đã 001–018). Alias này chỉ di chuyển theo **deployment do Git kích hoạt**; `vercel deploy` từ CLI không di chuyển nó (bẫy ở `platform-admin.md`).
+**Hàm chạy ở `sin1` (Singapore)**, cùng vùng với Neon. Trước 21/09 nó chạy ở `iad1` (Washington DC) nên mỗi truy vấn là một vòng Thái Bình Dương ~250ms; xem `decisions.md` mục 8. Kiểm bằng `curl -s -D - -o /dev/null <url> | grep x-vercel-id` → phải thấy `::sin1::`.
 
-| Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (20/09) |
+**Đừng bật proxy Cloudflare (đám mây cam)** cho các bản ghi DNS này: nó thay IP khách bằng IP Cloudflare và làm tầng chặn bot của lát A1 đếm mọi khách của mọi quán như một địa chỉ.
+
+Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`**, deploy từ nhánh `feat/local-app-foundation`, database là branch Neon preview (cũng đã 001–021). Alias này chỉ di chuyển theo **deployment do Git kích hoạt**; `vercel deploy` từ CLI không di chuyển nó (bẫy ở `platform-admin.md`).
+
+| Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (21/09) |
 |---|---|---|---|
-| `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu, số liệu nền tảng | admin **`tai`** (huy hiệu `@Quitesensational · Admin Tài`) + **mã 6 số** từ ứng dụng xác thực (lát A2) | **Dùng được.** Đây là đường vào duy nhất hiện có |
-| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Chưa có** — phải tạo shop ở `/gov` trước |
-| `/<slug>` | Trang khách (thứ khách nhìn thấy) | không cần | **Chưa có** — sinh ra cùng shop |
-| `/t/<mã>` | Link ghi vào thẻ NFC, dẫn tới trang khách | không cần | **Chưa có thẻ nào** |
+| `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu | admin **`tai`** + **mã 6 số** từ ứng dụng xác thực (đã đăng ký 21/09; 10 mã dự phòng Tài giữ) | **Dùng được** |
+| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Có**: shop khuôn `urr6ud` (`@yourshop`) và `caphe-demo` (nháp) |
+| `/<slug>` | Trang khách | không cần | **Có**: `/urr6ud`. Cảnh báo "Nguy hiểm" của Chrome trên tên miền cũ **đã hết** sau khi chuyển `.com` |
+| `/t/<mã>` | Link ghi vào thẻ NFC | không cần | **Chưa ghi thẻ nào.** Lô thẻ đầu **phải** mang `.com`; mã thẻ chứa cả tên miền và không sửa được sau khi ghi |
 | `/owner/login` | Trang đăng nhập chủ shop | — | Không có `?next=` thì chỉ hiện dòng "Mở đường dẫn dashboard của shop để đăng nhập". **Cố ý, không phải lỗi**: nó cần biết đăng nhập để vào đâu. Vào thẳng `/ZZZ/<slug>`, nó tự đẩy sang đây kèm đích |
 
 Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đổi `r` thành dấu hỏi, `s` thành dấu sắc, nên mật khẩu đúng vẫn báo sai (bẫy ở `operations-gotchas.md`).
 
 **Muốn biết database production có sống không:** đăng nhập `/gov`. Trang đó đọc database để xác thực; `/gov/login` và `/owner/login` trả 200 **không** chứng minh gì vì chúng không đọc database. Đây là cách kiểm sau mỗi lần xoay credential hoặc chạy migration.
 
-## Còn phải làm trên production (tính tới 20/09)
+## Còn phải làm trên production (tính tới 21/09)
 
-- [ ] Đăng nhập `/gov`, **tạo shop khuôn** rồi **tạo shop thật**. Cho tới khi làm, production chưa có slug nào và mọi đường ở bảng trên trừ `/gov` đều chưa tồn tại.
-- [ ] **Thử tải một ảnh lên** từ dashboard — đây là phép kiểm CORS bucket R2 và hai khoá R2 của production.
-- [ ] Kiểm CORS bucket `nfc-media` đã có origin production chưa (bước 2 trong checklist dưới).
+- [x] ~~Đăng nhập `/gov`, tạo shop khuôn~~ — xong 21/09.
+- [ ] **Tạo shop thật đầu tiên** và ghi thẻ NFC cho nó. Kiểm đường dẫn trong dashboard là `.com` trước khi ghi.
+- [ ] **Thử tải một ảnh lên** từ dashboard — phép kiểm CORS bucket R2 và hai khoá R2 của production.
+- [ ] Cân nhắc `media.quitesensational-review-bio.com` làm tên miền riêng cho R2 (thay `r2.dev`) và đổi `MEDIA_PUBLIC_ORIGIN`. **Làm sớm**: đường dẫn ảnh lưu tuyệt đối trong cấu hình trang, đổi sau thì ảnh cũ vẫn trỏ `r2.dev` vĩnh viễn.
 - [ ] Thử dashboard trên **điện thoại** bằng tên miền production.
 
 ## Checklist mở production (19/09, đã xong bước 1–4)

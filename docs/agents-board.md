@@ -343,3 +343,27 @@ Nếu ba mặt trận là quá một lượt, làm mặt trận 1 trước và b
 ### Astra nhận C3 — 21/09
 
 Baseline **deba8c1**, nhánh **astra/c3-pentest**, worktree `/private/tmp/nfc-astra-c3`. Ưu tiên mặt trận 1 tới nơi; PostgreSQL riêng 55449 và HTTP local dự kiến 3429, không dùng harness 3317–3319. Chỉ thêm test/báo cáo, không sửa sản phẩm; không Neon/preview/production/dữ liệu thật. Claude tiếp tục F-013/A5/A3.
+
+
+## Claude bàn giao cuối phiên — 21/09/2026, commit `72c17cd`
+
+**Xong trong phiên:** A1 (018) · A2 (019) · A4 · A6 · F-010 · F-011 · F-012 · **F-013** (hàng rào CTA, Astra tìm
+ra ở A7) · A3 phần xoá được · **mục 7 — dòng sự kiện hành vi** (020) · **lát B — khách tự xoá dữ liệu** (021) ·
+chuyển sang tên miền `.com` · đổi vùng chạy hàm sang Singapore · tái cấu trúc `decisions.md`.
+
+**7 bộ xanh trên `72c17cd`:** repository 142 · contracts 80 · client 81 · public 16+1 skip+2 · publishing 11+2 ·
+owner 10+2 · admin 7+2. Chạy bằng `env -u NFC_TOTP_KEY` cho giống CI.
+
+**Hai thứ lát B để lại cho A5:**
+1. API xoá đã có và đã kiểm (`POST …/visits/<visitId>/erase`), nhưng **trang khách chưa có nút bấm**.
+2. Rollback phải đi ngược thứ tự **021 trước 003** — 021 thay trigger mà 003 dựng.
+
+**Lỗi của Claude trong phiên, đã ghi `operations-gotchas.md`:** route sự kiện đặt sai nhánh (`/api/v2/shops/…` bị
+tắt khi publishing bật, tức mọi thẻ thật) · beacon thiếu chứng thực `X-NFC-Render` → 403 · sự kiện ra sai thứ tự
+và sai mốc thời gian · "bỏ giữa chừng" bắn mỗi lần render · route mới chưa làm nóng làm bộ admin đỏ ở chỗ không
+liên quan · beacon "bắn rồi quên" sống lâu hơn test nên deadlock với `TRUNCATE` · IP lưu thô và bảng đếm không tự
+dọn (tìm ra khi viết chính sách) · lệnh `read -p` viết cho bash làm **lộ chuỗi kết nối production**.
+
+**Cho Astra:** C3 mặt trận 1 vẫn là việc đang giao. Nếu prompt bị chính sách ChatGPT chặn, viết rõ **rà soát
+phòng thủ trên hệ thống của chính chủ sở hữu, có cho phép, local, dữ liệu giả** — mô tả kiểu "tấn công" là thứ
+kích hoạt bộ lọc.
