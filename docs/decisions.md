@@ -109,6 +109,80 @@ sản phẩm. Nếu đo ra nó làm chậm trang khách thì phải lùi về gh
 **Sau lát này thì `/gov` mới đáng làm** — lúc đó nó có số liệu nền tảng thật để hiện, chứ không phải một trang
 tạo shop.
 
+## 8. Kiến trúc dữ liệu — tính từ gốc, 21/09/2026
+
+Tài nêu mục tiêu: **1000 trang bio đang chạy, dữ liệu trôi mượt, khách không thấy giao diện đơ, mọi thao tác dưới
+ba chữ số mili giây** — và hỏi về Spark, Presto, ThingsBoard, hàng đợi tin nhắn, kho dữ liệu lớn.
+
+### Làm phép tính trước, chọn công cụ sau
+
+Rộng rãi: 1000 shop × 200 lượt khách/ngày × 6 sự kiện = **1,2 triệu sự kiện/ngày**.
+
+| | Con số thật | Ngưỡng công cụ bắt đầu có lý |
+|---|---|---|
+| Ghi trung bình | **14/giây** | |
+| Ghi lúc đỉnh (×10) | **139/giây** | Kafka/hàng đợi: **~20.000/giây** |
+| Dung lượng | **240 MB/ngày · 88 GB/năm** | Spark: **vài TB** |
+| Số kho dữ liệu | **một** (Neon) | Presto: **nhiều kho phải join** |
+
+Cách hai tới ba bậc. Một PostgreSQL nuốt 139 ghi/giây mà không đổ mồ hôi. Thêm Kafka vào lúc này **làm tăng độ
+trễ và chi phí vận hành**, không giảm. ThingsBoard là nền tảng IoT — sản phẩm khác, không phải lớp của mình.
+
+**Chốt: chưa dùng Spark, Presto, Kafka, ThingsBoard.** Không phải vì chúng dở, mà vì chúng giải bài toán mình
+chưa có. Mục "khi nào dùng" ở cuối.
+
+### Độ trễ không phải bài toán throughput — và thủ phạm đã tìm ra
+
+Đo production 21/09: `x-vercel-id: hkg1::iad1::…` — request vào edge **Hong Kong**, nhưng **hàm chạy ở `iad1`,
+Washington DC**. Neon ở **`ap-southeast-1`, Singapore**.
+
+Mỗi lần chạm database là một vòng **Washington → Singapore → Washington, khoảng 250ms**. Một lượt gửi góp ý có
+vài truy vấn là mất nửa giây thuần đường truyền.
+
+Điều này **đã đo rồi mà đọc nhầm**: `operations-gotchas.md` ghi login "0,41s nền, **0,25s database**, 1,9s scrypt"
+rồi kết luận không phải lỗi hiệu năng. Cái 0,25s đó chính là vòng Thái Bình Dương.
+
+**Việc Tài phải làm, một lần, miễn phí:** Vercel → Project → Settings → Functions → **Function Region → Singapore
+(`sin1`)**. Rồi deploy lại. Dự kiến mỗi truy vấn từ ~250ms xuống **vài mili giây**. Đây là thứ đáng giá hơn cả
+bốn công cụ trên cộng lại, và không viết một dòng mã nào.
+
+### Hai loại thao tác, hai luật khác nhau
+
+Gộp chung là sai lầm về phân loại:
+
+- **Thao tác có ý nghĩa** (chấm sao, gửi góp ý): **phải chờ xác nhận**. Khách cần biết lời khiếu nại đã được ghi.
+  Không được bắn rồi quên. Đường này nhanh lên bằng cách ở gần database, không bằng hàng đợi.
+- **Đo đạc hành vi** (mục 7): **không bao giờ được chờ**. `sendBeacon`, gộp lô, mất cũng được. Một sự kiện đo đạc
+  rơi mất không ảnh hưởng ai; một lời khiếu nại rơi mất thì có.
+
+### Kiến trúc Kappa bằng đúng thứ đang trả tiền
+
+Một dòng ghi thêm, mọi thứ khác dẫn xuất từ nó — đó **là** Kappa, không cần thêm nhà cung cấp nào:
+
+| Tầng | Dùng gì | Có sẵn chưa |
+|---|---|---|
+| **Nóng** — ghi | `sendBeacon` gộp lô → một API → một INSERT vào Neon, bảng chia theo tháng | Có |
+| **Ấm** — đọc | Bảng tổng hợp theo ngày trong Neon, dashboard đọc bảng này | Có |
+| **Lạnh** — kho lớn | Mỗi tháng xuất sự kiện thô ra **R2** dạng nén; Neon chỉ giữ vài tháng gần | **R2 đã trả tiền rồi** |
+| **Truy vấn lớn** | DuckDB đọc thẳng Parquet trên R2 khi cần — không cụm, không Spark | Khi cần |
+
+"Lớp lưu trữ dữ liệu lớn" Tài thấy thiếu chính là **R2**, đã có. "Hàng đợi tin nhắn" ở quy mô này là
+`sendBeacon` + gộp lô phía trình duyệt. "Công cụ đồng bộ" là một truy vấn tổng hợp chạy định kỳ.
+
+### Khi nào bốn công cụ kia thật sự tới lượt
+
+Ghi số để sau này không tranh cãi bằng cảm giác:
+
+- **Hàng đợi thật (Kafka/Cloudflare Queues):** khi ghi đỉnh vượt **~5.000/giây**, tức khoảng **35.000 shop**.
+- **Spark:** khi một truy vấn phân tích không chạy nổi trên một máy — khoảng **vài TB**, tức **20–30 năm** ở tốc
+  độ hiện tại.
+- **Presto:** khi có **nhiều kho dữ liệu khác nhau** phải join. Mình có một.
+- **ThingsBoard:** nếu sản phẩm chuyển sang quản lý thiết bị IoT thật. Thẻ NFC không phải thiết bị — nó là một
+  đường link.
+
+**Không cần cài thêm skill nào.** Thứ thiếu không phải kiến thức công cụ mà là **số đo từ production thật**, và
+production chưa có shop nào. Lát mục 7 sẽ tự mang theo phép đo đó.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-21
 
 Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–7 ở trên trước, rồi khối này.

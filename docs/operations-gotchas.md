@@ -196,7 +196,7 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Thứ tự các bước là thứ giữ cho lỗi vô hại.** Khi một chuỗi thao tác không thể nằm trong một transaction, xếp sao cho hỏng giữa chừng là vô hại: kiểm điều kiện dễ sai nhất **trước khi ghi gì**, và để bước làm-cho-công-khai **cuối cùng**. Bản đầu của `ShopProvisioning` làm ngược và để lại một trang công khai không có chủ.
 
-**Đo trước khi tối ưu.** Login mất 2,5s trên preview. Đo ra: 0,41s nền, 0,25s database, **1,9s scrypt** — và 1,9s đó là **cố ý**, đúng mức OWASP. Không phải lỗi hiệu năng. Máy local nhanh gấp 10 lần chỉ vì CPU mạnh hơn.
+**Đo trước khi tối ưu — nhưng đo xong phải hỏi từng con số có bình thường không.** Login mất 2,5s trên preview. Đo ra: 0,41s nền, 0,25s database, **1,9s scrypt**. Kết luận lúc đó: 1,9s là **cố ý** (đúng mức OWASP), không phải lỗi hiệu năng — đúng. Nhưng **0,25s cho database bị bỏ qua như thể bình thường**, và nó không bình thường: hàm Vercel chạy ở `iad1` (Washington DC) còn Neon ở `ap-southeast-1` (Singapore), nên mỗi truy vấn là một vòng Thái Bình Dương ~250ms. Tìm ra 21/09 bằng `curl -D - | grep x-vercel-id` → `hkg1::iad1::…`. **Một phép đo chỉ có ích khi từng thành phần của nó bị chất vấn**; "phần còn lại nhỏ nên bỏ qua" là cách một lỗi hạ tầng sống sót một tuần. Máy local nhanh gấp 10 lần vì CPU mạnh hơn **và** vì database nằm cùng máy.
 
 
 ## Astra worktree riêng — 20/09/2026
