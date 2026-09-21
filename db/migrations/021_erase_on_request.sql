@@ -19,6 +19,8 @@ BEGIN
   THEN RETURN NEW; END IF;
   RAISE EXCEPTION 'IMMUTABLE_PUBLISHING_RECORD' USING ERRCODE='23514';
 END $$;
+-- Rolling back: 021 comes off before 003, because this replaces the trigger 003 installed. Out of order, 003's
+-- rollback looks for a trigger that is no longer there.
 -- IF EXISTS because the stricter trigger is created by migration 003, and the guest-page fixtures build the
 -- ratings tables without publishing. What this migration states is where the table ends up, not what preceded it.
 DROP TRIGGER IF EXISTS receipt_immutable ON rating_intent_receipts;

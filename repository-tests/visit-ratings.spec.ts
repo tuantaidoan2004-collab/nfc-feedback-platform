@@ -235,7 +235,8 @@ test('database keeps a star on every rating receipt; rollback 010 refuses while 
   const down = await readFile('db/rollback/010_feedback_without_rating.sql', 'utf8'), client = await db.pool.connect();
   try {
     await client.query('BEGIN'); await expect(client.query(down)).rejects.toThrow('UNRATED_FEEDBACK_PRESENT'); await client.query('ROLLBACK');
-    await client.query('BEGIN'); await client.query('DELETE FROM rating_intent_receipts'); await client.query('DELETE FROM rating_experiences');
+    // TRUNCATE for the same reason as the 011 case below: since 021 a receipt refuses every row edit but an erasure.
+    await client.query('BEGIN'); await client.query('TRUNCATE rating_intent_receipts, rating_experiences');
     await client.query(down);
     await expect(client.query("INSERT INTO rating_experiences(session_id,shop_id,scope,entry_key,rating,revision,first_interaction_at,updated_at) VALUES($1,$2,'live','direct:shop',NULL,1,now(),now())",
       [first.session.sessionId, db.context.shopId])).rejects.toMatchObject({ code: '23502' });
@@ -366,7 +367,10 @@ test('a call-back number is stored with its feedback, checked by the database, a
   } finally { client.release(); }
   const empty = await db.pool.connect();
   try {
-    await empty.query('BEGIN'); await empty.query('DELETE FROM rating_intent_receipts'); await empty.query('DELETE FROM rating_experiences');
+    // TRUNCATE, not DELETE: since migration 021 the receipt refuses every row-level edit except an erasure, and
+    // that guarantee no longer depends on whether publishing is switched on. Emptying the table is incidental to
+    // what this case is about, which is that rollback 011 succeeds once no call-back number is left.
+    await empty.query('BEGIN'); await empty.query('TRUNCATE rating_intent_receipts, rating_experiences');
     await empty.query(down);
     expect((await empty.query("SELECT count(*)::int n FROM information_schema.columns WHERE column_name='feedback_phone' AND table_schema=current_schema()")).rows[0].n).toBe(0);
   } finally { await empty.query('ROLLBACK'); empty.release(); }

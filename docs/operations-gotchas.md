@@ -96,6 +96,10 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Một test không bao giờ pass được.** Nó gọi cổng 3319 (bản build production) nhưng harness dựng cổng đó **sau** pha test chính — `ECONNREFUSED` kể cả có `--build`. Trước khi sửa một test đỏ, hỏi: **nó có từng chạy được bao giờ chưa?**
 
+**Migration thay trigger của migration cũ thì rollback phải đi ngược thứ tự — và test rollback sẽ nói cho biết.** 021 thay trigger mà 003 dựng; rollback 003 chạy khi 021 còn đó thì báo `trigger "receipt_immutable" ... does not exist`. Ghi thứ tự ngay trong tệp migration, và **đừng áp migration sau vào fixture đang test rollback của migration trước**.
+
+**Trigger cấm `DELETE` thì test dọn bảng phải dùng `TRUNCATE`.** `TRUNCATE` không kích hoạt trigger theo hàng, nên nó vẫn dọn được bảng bất biến; `DELETE` thì không. Hai test rollback cũ dùng `DELETE FROM rating_intent_receipts` và đỏ ngay khi lát B đặt trigger vào cấu hình không bật publishing — **một bảo đảm an toàn không nên phụ thuộc vào cờ tính năng**, nên sửa test chứ không nới luật.
+
 **Thêm migration thì phải sửa hai chỗ.** Danh sách trong fixture `repository-tests/*.spec.ts` **và** trong `integration-tests/run-local.mjs`. Quên chỗ thứ hai thì cột thiếu và trang hiện "Dịch vụ đang gián đoạn" — trông hệt lỗi hạ tầng. Kể cả khi mã **cũ** bắt đầu đọc bảng mới: dashboard owner giờ đọc `admin_impersonation_sessions`, nên `owner-dashboard.spec.ts` và chế độ `--owner` của harness đều phải áp 005–007, dù chúng không phải test admin.
 
 **Migration chạm bảng của 002 thì thêm vào mọi fixture dùng 002, không chỉ fixture có 009.** Migration 010 đổi `rating_experiences`, nên `visit-ratings.spec.ts` và `visit-v2-api.spec.ts` (chỉ áp 001–002) cũng phải áp nó. Trong `run-local.mjs`, 010 nằm ngay sau 002 và **ngoài** nhánh `publishing`/`owner`, vì chế độ public-v2 cũng ghi góp ý không sao.
