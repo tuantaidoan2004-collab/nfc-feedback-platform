@@ -295,3 +295,42 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   await expect(page.locator('#private-feedback')).toHaveAttribute('data-icon', 'plane');
   expect(errors).toEqual([]);
 });
+
+/**
+ * The behaviour log, end to end through a real browser on the path a real card leads to (lát mục 7). Every other
+ * test here proves what the customer gets; this one proves the shop finds out what the customer did.
+ */
+test('what the customer did reaches the log, through the published page, without holding anything up', async ({ page, fixture: f }) => {
+  const rows = async () => (await f.db.query('SELECT name,since_open_ms,detail FROM page_events ORDER BY id')).rows;
+  // Counting the calls, not guessing when they happen: the promise is that measurement is batched, not that it
+  // flushes at one particular moment. An earlier version asserted "nothing sent yet" and was testing timing.
+  let beacons = 0;
+  page.on('request', request => { if (request.url().includes('/events')) beacons++; });
+  await page.goto('/one'); await loaded(page);
+  await openCard(page);
+  await star(page, 4).click();
+  await sendButton(page).click();
+  await thanked(page);
+
+  // Leaving is what flushes whatever is still queued.
+  await page.evaluate(() => document.dispatchEvent(new Event('pagehide')));
+  await expect.poll(async () => (await rows()).map(r => r.name).join(),
+    { timeout: 10_000 }).toContain('feedback_sent');
+
+  const logged = await rows();
+  // Four taps, a handful of requests at most: a beacon per tap would be a request on the hot path.
+  expect(beacons).toBeLessThanOrEqual(2);
+  expect(logged.map(r => r.name).slice(0, 4)).toEqual(['page_opened', 'card_opened', 'star_chosen', 'feedback_sent']);
+  // The intervals are the QoE signal, and they only mean anything if they actually move.
+  expect(logged[0].since_open_ms).toBe(0);
+  expect(logged.at(-1)!.since_open_ms).toBeGreaterThan(0);
+  expect(logged.map(r => r.since_open_ms)).toEqual([...logged.map(r => r.since_open_ms)].sort((a, b) => a - b));
+  // Shape, never content: the stars are there, the words the customer typed are not, anywhere in the log.
+  expect(logged[2].detail).toMatchObject({ stars: 4 });
+  expect(logged[3].detail).toMatchObject({ stars: 4, words: false, calledBack: false });
+  expect(JSON.stringify(logged)).not.toContain('Private publishing fixture');
+  // Recorded against the visit the server knows about, not one the browser claimed.
+  const visits = (await f.db.query('SELECT DISTINCT visit_id FROM page_events')).rows;
+  expect(visits).toHaveLength(1);
+  expect((await f.db.query('SELECT 1 FROM page_visits WHERE id=$1', [visits[0].visit_id])).rowCount).toBe(1);
+});

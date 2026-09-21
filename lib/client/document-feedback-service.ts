@@ -1,5 +1,6 @@
 import { browserIdentity, type BrowserIdentity } from './browser-identity';
 import { documentLifecycle, type OpenEvent } from './open-lifecycle';
+import { createEventSink, NO_EVENTS, sinceOpen, type EventSink, type GuestEventName } from './page-events';
 import { createVisitCoordinator, type CoordinatorResult } from './visit-coordinator';
 import { createLifecycleQueue, type QueueState } from './lifecycle-queue';
 import { createVisitFetchTransport, type RenderBinding } from './visit-fetch-transport';
@@ -23,6 +24,8 @@ export type DocumentFeedbackService = Readonly<{
   feedback: (topic: string, message: string, phone?: string) => Promise<CoordinatorResult>;
   retry: () => Promise<CoordinatorResult>;
   retryOpen: (loadKey: string) => Promise<CoordinatorResult>;
+  /** Fire-and-forget behaviour. Returns nothing, throws nothing, and is never awaited (lát mục 7). */
+  event: (name: GuestEventName, detail?: Record<string, string | number | boolean>) => void;
 }>;
 function shopConfig(config: FeedbackServiceConfig): string {
   if (!config || Object.keys(config).some(key => !['shop', 'render'].includes(key)) || typeof config.shop !== 'string' ||
@@ -51,6 +54,26 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
     let disposed = false;
     let actionSequence = 0;
     const state = (): FeedbackServiceState => structuredClone({ queue: queue.state(), actionsRunning, lastAction });
+    /**
+     * Behaviour goes out from here, not from the page, because the capability lives here and has no business in
+     * the React tree (lát mục 7). Bound lazily to whichever visit is current, rebuilt when that changes, and
+     * entirely fire-and-forget: the caller gets nothing back and never waits.
+     */
+    let sink: Promise<EventSink> = Promise.resolve(NO_EVENTS), sinkVisit = '', openedAt = 0;
+    function event(name: GuestEventName, eventDetail?: Record<string, string | number | boolean>) {
+      const visitId = queue.state().coordinator.current?.snapshot?.visit.id;
+      if (!visitId) return;
+      // The visit is claimed before the first await, or two events arriving together each build their own sink
+      // and the first one's queue is lost. The moment is taken here too, for the same reason: later is wrong.
+      if (sinkVisit !== visitId) {
+        sinkVisit = visitId; openedAt = Date.now();
+        sink = (async () => createEventSink(shop, visitId, (await ports.identity()).secret, config.render, { fetch: ports.fetch }))()
+          .catch(() => NO_EVENTS);
+      }
+      const at = sinceOpen(openedAt, Date.now());
+      // One promise, so `then` runs the sends in the order they were called. Never awaited by the caller.
+      void sink.then(ready => ready.send(name, at, eventDetail)).catch(() => {});
+    }
     function notify() { for (const listener of [...listeners]) { try { listener(state()); } catch { /* Observer isolation. */ } } }
     const stopQueueObservation = queue.subscribe(notify);
     // Stay subscribed while stopped: preserve every event, not merely latest current on restart.
@@ -80,9 +103,10 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       feedback: (topic, message, phone) => action(() => queue.feedback(topic, message, phone)),
       retry: () => action(() => queue.retry()),
       retryOpen: key => action(() => queue.retryOpen(key)),
+      event,
     });
     registry.set(win.document, { win, shop, binding, service, settled: queue.settled,
-      dispose() { disposed = true; queue.stop(); stopLifecycle(); stopQueueObservation(); listeners.clear(); },
+      dispose() { disposed = true; void sink.then(ready => ready.flush()).catch(() => {}); queue.stop(); stopLifecycle(); stopQueueObservation(); listeners.clear(); },
     });
     return service;
   }

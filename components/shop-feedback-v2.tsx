@@ -256,7 +256,10 @@ export default function ShopFeedbackV2(shop: Props) {
   const connectionProblem = unavailable || (!snapshot && !!opening && !opening.running);
 
   // Reopening keeps whatever the customer chose or typed and has not sent yet.
-  function openCard() { setPhase('form'); setValidation(null); setOpen(true); }
+  function openCard() {
+    setPhase('form'); setValidation(null); setOpen(true);
+    client.event('card_opened', { layout: config.layout });
+  }
   function closeCard() {
     setOpen(false); setPhase('form');
     planeRef.current?.focus({ preventScroll: true });
@@ -287,12 +290,40 @@ export default function ShopFeedbackV2(shop: Props) {
     if (!choice && !text) { setValidation('empty'); return; }
     if (text && !normalizeFeedback(topic, message)) { setValidation('invalid'); return; }
     submitted.current = true; setSending(true); setValidation(null);
+    // Shape, never content: whether there were stars, whether there were words, whether a number was left --
+    // never the words themselves and never the number (lát mục 7).
+    client.event('feedback_sent', { stars: choice ?? 0, words: !!text, calledBack: !!number, layout: config.layout });
     const note = text ? { topic, message, ...(number ? { phone: number } : {}) } : null;
     if (choice) {
       queued.current = note;
       void client.rate(choice).then(finish);
     } else void client.feedback(topic, message, note?.phone).then(finish);
   }
+
+  // The page is open for real once the visit exists; before that there is nothing to record it against, and the
+  // sink would drop it. Once per visit, and a resumed tab is a new visit with its own row (lát mục 7).
+  // Through a ref, because the hook hands back a fresh object every render: an effect that depended on it would
+  // re-run on every render, and its cleanup would fire "abandoned" while the customer was still typing.
+  const emit = useRef(client.event); emit.current = client.event;
+  const shape = useRef({ layout: config.layout, schema: config.schemaVersion });
+  shape.current = { layout: config.layout, schema: config.schemaVersion };
+
+  const announced = useRef('');
+  useEffect(() => {
+    const id = snapshot?.visit.id;
+    if (!id || announced.current === id) return;
+    announced.current = id;
+    emit.current('page_opened', shape.current);
+  }, [snapshot?.visit.id]);
+
+  // A customer who opened the card and left without sending is the most useful thing the log can hold: it is the
+  // only signal that the shop nearly heard something and did not.
+  const sent = useRef(false);
+  useEffect(() => { if (phase === 'thanks') sent.current = true; }, [phase]);
+  useEffect(() => {
+    if (!open) return;
+    return () => { if (!sent.current) emit.current('card_abandoned', { layout: shape.current.layout }); };
+  }, [open]);
 
   // Spotlight: the page behind stops scrolling, Escape closes, focus moves into the card.
   useEffect(() => {
@@ -326,7 +357,8 @@ export default function ShopFeedbackV2(shop: Props) {
         <h1>{shop.name}</h1>
         <section className="google-invitation"><p>{t.invite}</p>
           {shop.googleUrl
-            ? <a className="google-button" data-google href={shop.googleUrl} target="_blank" rel="noopener noreferrer"><GoogleMark /><span>{p.google}</span></a>
+            ? <a className="google-button" data-google href={shop.googleUrl} target="_blank" rel="noopener noreferrer"
+                onClick={() => client.event('google_tapped', { layout: config.layout })}><GoogleMark /><span>{p.google}</span></a>
             : <button className="google-button" data-google disabled><GoogleMark /><span>{p.google}</span></button>}
           <p className="guest-note">{t.thanks}</p></section>
         {config.links.length > 0 && <nav className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
@@ -356,7 +388,7 @@ export default function ShopFeedbackV2(shop: Props) {
               <div className="guest-stars" role="group" aria-label={p.feeling}>{[1, 2, 3, 4, 5].map(n => {
                 const face = n <= choice ? FACES[choice - 1] : null;
                 return <button type="button" key={n} disabled={disabledStars} aria-label={`${n} ${t.stars}`} aria-pressed={choice === n}
-                  data-filled={!!face} onClick={() => { setValidation(null); setChoice(n); }}>
+                  data-filled={!!face} onClick={() => { setValidation(null); setChoice(n); client.event('star_chosen', { stars: n }); }}>
                   <span key={face ?? 'star'} className={face ? 'guest-face' : 'guest-star'} style={face && !reduced ? { animationDelay: `${(n - 1) * 40}ms` } : undefined}>{face ?? '★'}</span>
                 </button>;
               })}</div>

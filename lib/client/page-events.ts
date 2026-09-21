@@ -13,35 +13,49 @@
  */
 export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned';
 type Queued = { name: GuestEventName; sinceOpenMs: number; detail?: Record<string, string | number | boolean> };
-type Ports = { fetch?: typeof fetch; now?: () => number; listen?: (event: string, run: () => void) => void };
+type Ports = { fetch?: typeof fetch; listen?: (event: string, run: () => void) => void };
 /** The server refuses more than twenty in one call, so the queue flushes before it can build one. */
 const MAX_BATCH = 20;
 
 export type EventSink = {
-  send: (name: GuestEventName, detail?: Record<string, string | number | boolean>) => void;
+  /**
+   * `sinceOpenMs` is passed in, not measured here, because the sink is built lazily -- after the first thing the
+   * customer did. Measuring inside would date every event from whenever the sink happened to exist, which is the
+   * one number this whole log is for.
+   */
+  send: (name: GuestEventName, sinceOpenMs: number, detail?: Record<string, string | number | boolean>) => void;
   flush: () => void;
 };
 /** Does nothing, for a page with no visit yet. Callers never branch on whether recording is available. */
 export const NO_EVENTS: EventSink = { send: () => {}, flush: () => {} };
+/** Clamped to the day the server accepts, so a clock that jumps cannot make a whole batch be refused. */
+export const sinceOpen = (openedAt: number, at: number) => Math.min(86_400_000, Math.max(0, Math.round(at - openedAt)));
 
-export function createEventSink(shop: string, visitId: string, secret: string, ports: Ports = {}): EventSink {
+/**
+ * The same rule the transport uses: a published page talks to `/api/v2/pages/…`, and the per-slug routes are
+ * switched off whenever publishing is on. A sink that only knew the slug path would answer 404 to every real
+ * customer -- found by probing production rather than by a test, because the harness runs the two modes as two
+ * separate suites and neither crosses into the other (21/09).
+ */
+export function createEventSink(shop: string, visitId: string, secret: string, render: { proof: string } | undefined, ports: Ports = {}): EventSink {
   const send: typeof globalThis.fetch | undefined = ports.fetch ?? (typeof fetch === 'function' ? fetch : undefined);
-  const now = ports.now ?? (() => Date.now());
   const listen = ports.listen ?? ((event: string, run: () => void) => {
     if (typeof document !== 'undefined') document.addEventListener(event, run);
   });
   if (!send || !/^[0-9a-f-]{36}$/.test(visitId)) return NO_EVENTS;
   const post = send;
-  const opened = now();
   let queue: Queued[] = [];
 
   function flush() {
     if (!queue.length) return;
     const batch = queue; queue = [];
     try {
-      void post(`/api/v2/shops/${encodeURIComponent(shop)}/visits/${visitId}/events`, {
+      const base = render ? '/api/v2/pages/visits' : `/api/v2/shops/${encodeURIComponent(shop)}/visits`;
+      void post(`${base}/${visitId}/events`, {
         method: 'POST', keepalive: true, cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+        // The published path refuses anything without the render proof, exactly as the rating and feedback calls
+        // carry it. A sink that forgot it answered 403 to every beacon while every other test stayed green.
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}`, ...(render ? { 'X-NFC-Render': render.proof } : {}) },
         body: JSON.stringify({ events: batch }),
       }).catch(() => {});
     } catch { /* A page that cannot measure itself still works. */ }
@@ -50,9 +64,7 @@ export function createEventSink(shop: string, visitId: string, secret: string, p
   listen('pagehide', flush);
 
   return {
-    send(name, detail) {
-      // Clamped to the day the server accepts, so a clock that jumps cannot make the whole batch be refused.
-      const sinceOpenMs = Math.min(86_400_000, Math.max(0, Math.round(now() - opened)));
+    send(name, sinceOpenMs, detail) {
       queue.push(detail ? { name, sinceOpenMs, detail } : { name, sinceOpenMs });
       if (queue.length >= MAX_BATCH) flush();
     },

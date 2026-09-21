@@ -46,10 +46,14 @@ async function copyApp(name) {
  * before any browser is open, moves that compile out of the test run. It matters most on a slow CI runner, where the
  * admin suite failed on and off (lát A4).
  */
+const zero = '00000000-0000-4000-8000-000000000000';
 async function warm(origin) {
   const paths = ['/one', '/t/demo', '/owner/login?next=%2FZZZ%2Fone', '/ZZZ/one', '/gov', '/gov/login', '/preview',
     '/api/owner/v2/one', '/api/owner/v2/one/summary', '/api/owner/v2/one/team', '/api/owner/v2/one/activity', '/api/owner/v2/one/cards',
-    '/api/owner/v2/one/comments?session=x', '/api/owner/v2/profile', '/api/owner/v2/notifications', '/api/v2/pages/visits'];
+    '/api/owner/v2/one/comments?session=x', '/api/owner/v2/profile', '/api/owner/v2/notifications', '/api/v2/pages/visits',
+    // The behaviour beacon (lát mục 7). A route compiled on its first call makes `next dev` reload every open
+    // page, and a beacon fires while another test has a half-filled login form on screen.
+    `/api/v2/pages/visits/${zero}/events`, `/api/v2/shops/one/visits/${zero}/events`];
   await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
 }
 

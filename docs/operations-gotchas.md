@@ -148,6 +148,8 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **`toBeDisabled` không đọc `<option disabled>`.** Kiểm bằng `toHaveAttribute('disabled','')`.
 
+**Thêm một route mới thì phải thêm vào danh sách làm nóng của harness.** Lát mục 7 thêm route beacon; beacon bắn từ trang khách khi một test khác đang có form đăng nhập điền dở, `next dev` biên dịch route lần đầu rồi **tải lại mọi trang đang mở**, và test admin hỏng ở một dòng không liên quan gì tới sự kiện (`locator.click: Test ended` chờ `[data-view="settings"]`), chạy 1,5 phút thay vì 33 giây. Thêm vào `warm()` trong `run-local.mjs` là hết. Triệu chứng đặc trưng: **một test đỏ ở chỗ chẳng dính gì tới thay đổi, và cả bộ chạy chậm bất thường.**
+
 **Biên dịch lần đầu một API cũng làm trang đang mở tải lại.** Test đặt mật khẩu qua giao diện: trang `/owner/setup/<link>` gọi `POST /api/owner/v2/setup` lần đầu; `next dev` biên dịch API rồi tải lại trang, lúc đó link đã dùng nên hiện "Liên kết không dùng được". Làm nóng bằng một request tới đúng API **trước khi** mở trang (lát F3).
 
 **`getByLabel` không khớp `select` nằm trong `label`.** Tên truy cập của nó gồm cả chữ của lựa chọn đang chọn ("Vai Nhân viên"). Chọn bằng `locator('select')` trong khung đó. Ngược lại, chữ của mọi lựa chọn nằm trong nhãn, nên `getByLabel('X')` không `exact` còn khớp cả `select` có lựa chọn tên X (lát F5).
