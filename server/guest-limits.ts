@@ -17,7 +17,7 @@ import type { Pool } from 'pg';
  * Google button is untouched on every path -- `google-policy.md` rule 1.
  */
 export type GuestVerdict = ({ suspected: true; reason: string } | { suspected: false }) & { sessionId: string | null };
-export type GuestOperation = 'register' | 'rating' | 'feedback';
+export type GuestOperation = 'register' | 'rating' | 'feedback' | 'events';
 
 /**
  * Marking threshold per minute, then the hard ceiling where the request really is refused. The ceiling is ten times
@@ -34,7 +34,7 @@ const CEILING = 10;
  * default. A script answers in tens of milliseconds, an order of magnitude below these, so the gap is wide on both
  * sides and nothing has to be guessed about how fast a person "usually" is.
  */
-const TOO_FAST_MS = { rating: 400, feedback: 800 } as const;
+const TOO_FAST_MS = { rating: 400, feedback: 800 } as const satisfies Record<'rating' | 'feedback', number>;
 
 /**
  * Vercel overwrites `x-forwarded-for` and refuses to pass an external one through, stating plainly that this is to
@@ -115,7 +115,8 @@ export async function inspect(pool: Pool, request: Request, context: { shopId: s
     if (attempts > limit * CEILING) throw new GuestFlood(name.split(':')[0]);
     if (attempts > limit) return { suspected: true, reason: `${name.split(':')[0]}_rate`, sessionId };
   }
-  if (operation === 'register' || !visit?.started) return { suspected: false, sessionId };
+  // A beacon is not a human decision, so "too fast" says nothing about it; only the counters apply.
+  if (operation === 'register' || operation === 'events' || !visit?.started) return { suspected: false, sessionId };
   // Measured from the session's first open, so coming back to an open tab is not mistaken for haste.
   const elapsed = Date.now() - new Date(visit.started).getTime();
   return elapsed >= 0 && elapsed < TOO_FAST_MS[operation]

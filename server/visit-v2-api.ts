@@ -3,10 +3,11 @@ import type { Pool } from 'pg';
 import type { NavigationKind } from '../lib/domain/visit-rating';
 import { VisitCapabilityConflict, VisitAccessDenied, VisitRatingRepository, type ResolvedShopContext, type VisitPolicy } from '../lib/repositories/visit-ratings';
 import { GuestFlood, inspect, mark } from './guest-limits';
+import { readBatch, record } from './page-events';
 
 type Dependencies = { enabled: boolean; origin: string | undefined; pool: () => Pool; resolve?: (request: Request, pool: Pool) => Promise<{ context: ResolvedShopContext; policy: VisitPolicy }> };
 type Context = { shop: string; visitId?: string };
-type Operation = 'register' | 'rating' | 'feedback';
+type Operation = 'register' | 'rating' | 'feedback' | 'events';
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string) { super(code); }
 }
@@ -57,12 +58,15 @@ export function createVisitV2Api(dependencies: Dependencies) {
       if (!bearer) throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');
       const input = await readInput(request, operation === 'feedback' ? 16 * 1024 : 4096);
       // The call-back number is the one optional field; every other field is required.
-      const keys = operation === 'register' ? ['loadKey', 'navigationKind'] : operation === 'rating' ? ['intentId', 'expectedRevision', 'score']
+      const keys = operation === 'register' ? ['loadKey', 'navigationKind'] : operation === 'events' ? ['events']
+        : operation === 'rating' ? ['intentId', 'expectedRevision', 'score']
         : ['intentId', 'expectedRevision', 'topic', 'message', ...(Object.hasOwn(input, 'phone') ? ['phone'] : [])];
       if (Object.keys(input).length !== keys.length || Object.keys(input).some(k => !keys.includes(k))) {
         throw new ApiError(400, 'INVALID_INPUT');
       }
-      if (operation === 'register') {
+      if (operation === 'events') {
+        if (!context.visitId || !uuid4.test(context.visitId) || !readBatch(input.events)) throw new ApiError(400, 'INVALID_INPUT');
+      } else if (operation === 'register') {
         if (typeof input.loadKey !== 'string' || !uuid4.test(input.loadKey) ||
             typeof input.navigationKind !== 'string' || !['load','reload','back_forward','resume'].includes(input.navigationKind)) throw new ApiError(400, 'INVALID_INPUT');
       } else if (!context.visitId || !uuid4.test(context.visitId) || typeof input.intentId !== 'string' ||
@@ -89,6 +93,16 @@ export function createVisitV2Api(dependencies: Dependencies) {
       const remember = async (sessionId: string | null) => {
         if (verdict.suspected && sessionId) await mark(pool, sessionId, verdict.reason);
       };
+      if (operation === 'events') {
+        // The capability must belong to this visit, or one page could write another page's history.
+        const owned = await pool.query('SELECT v.session_id FROM page_visits v JOIN visit_sessions s ON s.id=v.session_id AND s.browser_hash=$2 WHERE v.id=$1',
+          [context.visitId, hash]);
+        if (!owned.rows[0]) throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');
+        await record(pool, resolved, { sessionId: owned.rows[0].session_id, visitId: context.visitId }, readBatch(input.events)!);
+        await remember(owned.rows[0].session_id);
+        // Measurement is answered and forgotten: nothing to read back, so nothing to wait for.
+        return new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
+      }
       const repository = new VisitRatingRepository(pool, undefined, policy);
       if (operation === 'register') {
         const opened = await repository.registerVisit(resolved,

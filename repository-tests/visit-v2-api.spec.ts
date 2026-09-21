@@ -33,6 +33,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/011_feedback_phone.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/018_guest_flood_control.sql', 'utf8'));
+      await pool.query(await readFile('db/migrations/020_page_events.sql', 'utf8'));
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
       await pool.query(`INSERT INTO experiences(shop_id,token_hash,note,message)
@@ -386,4 +387,64 @@ test('the address tier runs only behind a proxy that sets the header, never on o
   await db.pool.query("UPDATE public_request_limits SET window_start=clock_timestamp()-interval '2 hours'");
   await register(db, secret());
   expect((await db.pool.query('SELECT count(*)::int n FROM public_request_limits')).rows[0].n).toBe(1);
+});
+
+/**
+ * The behavioural event stream (lát mục 7). Measurement, so it is answered and forgotten; shape, so nothing a
+ * customer wrote can reach it.
+ */
+const events = (db: Fixture, token: string, visitId: string, body: unknown) =>
+  db.api(new Request(`${origin}/api/v2/shops/one/visits/${visitId}/events`, { method: 'POST',
+    headers: { origin, authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    { shop: 'one', visitId }, 'events');
+const logged = async (db: Fixture) =>
+  (await db.pool.query('SELECT name,since_open_ms,detail,session_id,visit_id FROM page_events ORDER BY id')).rows;
+
+test('a batch of behaviour is recorded against the visit, and answered with nothing', async ({ db }) => {
+  const token = secret(), visit = await register(db, token);
+  const reply = await events(db, token, visit.id, { events: [
+    { name: 'page_opened', sinceOpenMs: 0 },
+    { name: 'card_opened', sinceOpenMs: 4200 },
+    { name: 'star_chosen', sinceOpenMs: 6100, detail: { score: 5, layout: 'card' } },
+  ] });
+  // Nothing to read back: no body, no echo, nothing a caller could wait on.
+  expect(reply.status).toBe(204);
+  expect(await reply.text()).toBe('');
+  const rows = await logged(db);
+  expect(rows.map(r => [r.name, r.since_open_ms])).toEqual([['page_opened', 0], ['card_opened', 4200], ['star_chosen', 6100]]);
+  expect(rows[2].detail).toEqual({ score: 5, layout: 'card' });
+  // The visit and session come from the server's own record, never from the browser.
+  expect(rows.every(r => r.visit_id === visit.id)).toBe(true);
+  expect(new Set(rows.map(r => r.session_id)).size).toBe(1);
+  // Rewriting history is refused; forgetting it is not, or the log could never be archived.
+  await expect(db.pool.query("UPDATE page_events SET name='page_opened'")).rejects.toThrow('PAGE_EVENTS_APPEND_ONLY');
+  await expect(db.pool.query('DELETE FROM page_events')).resolves.toBeTruthy();
+});
+
+test('another page cannot write this one\'s history, and nothing a customer wrote can get in', async ({ db }) => {
+  const mine = secret(), theirs = secret();
+  const visit = await register(db, mine);
+  await register(db, theirs);
+  // A valid capability for a different session is still not this visit's capability.
+  await expectError(await events(db, theirs, visit.id, { events: [{ name: 'page_opened', sinceOpenMs: 0 }] }), 401, 'VISIT_NOT_AUTHORIZED');
+  expect(await logged(db)).toHaveLength(0);
+
+  // Shape only. Free prose, a phone number, a long string or an unknown name are all refused outright, because a
+  // permissive detail column is the hole a message eventually arrives through.
+  for (const bad of [
+    { events: [{ name: 'page_opened', sinceOpenMs: 0, detail: { note: 'Quán phục vụ rất tệ' } }] },
+    { events: [{ name: 'page_opened', sinceOpenMs: 0, detail: { phone: '0961036265' } }] },
+    { events: [{ name: 'page_opened', sinceOpenMs: 0, detail: { a: 1, b: 2, c: 3, d: 4, e: 5 } }] },
+    { events: [{ name: 'star_chosen', sinceOpenMs: -1 }] },
+    { events: [{ name: 'page_opened', sinceOpenMs: 86_400_001 }] },
+    { events: [{ name: 'message_typed', sinceOpenMs: 0 }] },
+    { events: [] },
+    { events: Array.from({ length: 21 }, () => ({ name: 'page_opened', sinceOpenMs: 0 })) },
+    { events: [{ name: 'page_opened' }] },
+    { events: 'page_opened' },
+  ]) await expectError(await events(db, mine, visit.id, bad), 400, 'INVALID_INPUT');
+  expect(await logged(db)).toHaveLength(0);
+  // A number and a short enumeration value are what the column is for, and they go through.
+  expect((await events(db, mine, visit.id, { events: [{ name: 'google_tapped', sinceOpenMs: 900, detail: { layout: 'full-bleed' } }] })).status).toBe(204);
+  expect((await logged(db))[0].detail).toEqual({ layout: 'full-bleed' });
 });

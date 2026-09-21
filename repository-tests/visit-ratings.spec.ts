@@ -30,6 +30,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql','utf8'));
       await pool.query(await readFile('db/migrations/011_feedback_phone.sql','utf8'));
       await pool.query(await readFile('db/migrations/018_guest_flood_control.sql','utf8'));
+      await pool.query(await readFile('db/migrations/020_page_events.sql','utf8'));
       let time = initial;
       await provideFixture({ pool, repo: new VisitRatingRepository(pool, () => new Date(time)),
         context: { shopId, scope:'live', entryKey:'direct:shop' }, otherShopId, hash: randomBytes(32).toString('hex'),
