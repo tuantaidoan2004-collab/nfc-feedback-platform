@@ -34,6 +34,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query(await readFile('db/migrations/011_feedback_phone.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/018_guest_flood_control.sql', 'utf8'));
       await pool.query(await readFile('db/migrations/020_page_events.sql', 'utf8'));
+      await pool.query(await readFile('db/migrations/021_erase_on_request.sql', 'utf8'));
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
       await pool.query(`INSERT INTO experiences(shop_id,token_hash,note,message)
@@ -447,4 +448,65 @@ test('another page cannot write this one\'s history, and nothing a customer wrot
   // A number and a short enumeration value are what the column is for, and they go through.
   expect((await events(db, mine, visit.id, { events: [{ name: 'google_tapped', sinceOpenMs: 900, detail: { layout: 'full-bleed' } }] })).status).toBe(204);
   expect((await logged(db))[0].detail).toEqual({ layout: 'full-bleed' });
+});
+
+/**
+ * Erasure at the customer's own request (lát B). The secret their browser holds is the proof; no account, no
+ * email, nobody to ask. What goes is what they wrote; what stays is that a visit happened and what star it gave.
+ */
+const eraseCall = (db: Fixture, token: string, visitId: string) =>
+  db.api(new Request(`${origin}/api/v2/shops/one/visits/${visitId}/erase`, { method: 'POST',
+    headers: { origin, authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}' }),
+    { shop: 'one', visitId }, 'erase');
+
+test('a customer erases their own words and number, and the star and the totals survive', async ({ db }) => {
+  const token = secret(), visit = await register(db, token);
+  const words = { intentId: randomUUID(), expectedRevision: 0, topic: 'other', message: 'Xin gọi lại giúp tôi', phone: '0961036265' };
+  expect((await db.api(request(token, words), { shop: 'one', visitId: visit.id }, 'feedback')).status).toBe(200);
+  expect((await db.api(request(token, { ...command(), expectedRevision: 1 }), { shop: 'one', visitId: visit.id }, 'rating')).status).toBe(200);
+  await events(db, token, visit.id, { events: [{ name: 'card_opened', sinceOpenMs: 10 }] });
+  expect((await db.pool.query('SELECT count(*)::int n FROM page_events')).rows[0].n).toBe(1);
+
+  const reply = await eraseCall(db, token, visit.id);
+  expect(reply.status).toBe(200);
+  expect(await reply.json()).toEqual({ erased: true });
+
+  // The words and the number are gone from both copies -- including the one the database used to refuse to touch.
+  for (const table of ['rating_experiences', 'rating_intent_receipts']) {
+    const rows = (await db.pool.query(`SELECT feedback_message,feedback_phone FROM ${table} WHERE feedback_message IS NOT NULL`)).rows;
+    expect(rows.length, table).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.feedback_message, table).toBe('(đã xoá theo yêu cầu)');
+      expect(row.feedback_phone, table).toBeNull();
+    }
+  }
+  expect(JSON.stringify((await db.pool.query('SELECT * FROM rating_intent_receipts')).rows)).not.toContain('0961036265');
+  // The behaviour log for this session goes with it: it holds no words, but it does say what this person did.
+  expect((await db.pool.query('SELECT count(*)::int n FROM page_events')).rows[0].n).toBe(0);
+  // The star stays. It names nobody, and the shop's totals must not quietly change when someone erases words.
+  expect((await db.pool.query('SELECT rating FROM rating_experiences')).rows).toEqual([{ rating: 5 }]);
+  expect((await db.pool.query('SELECT count(*)::int n FROM visit_sessions')).rows[0].n).toBe(1);
+  // Asking twice is not an error, and changes nothing further.
+  expect(await (await eraseCall(db, token, visit.id)).json()).toEqual({ erased: false });
+});
+
+test('erasure is the one edit a receipt allows, and only for the person who owns it', async ({ db }) => {
+  const mine = secret(), theirs = secret();
+  const visit = await register(db, mine);
+  await register(db, theirs);
+  await db.api(request(mine, { intentId: randomUUID(), expectedRevision: 0, topic: 'other', message: 'Lời của tôi' }),
+    { shop: 'one', visitId: visit.id }, 'feedback');
+  // Someone else's capability is not a way to erase this person's feedback -- nor to keep it.
+  await expectError(await eraseCall(db, theirs, visit.id), 401, 'VISIT_NOT_AUTHORIZED');
+  expect((await db.pool.query("SELECT count(*)::int n FROM rating_intent_receipts WHERE feedback_message='Lời của tôi'")).rows[0].n).toBe(1);
+
+  // Every other edit the receipt still refuses, which is what makes it a record.
+  await expect(db.pool.query("UPDATE rating_intent_receipts SET feedback_message='Chữ khác'")).rejects.toThrow('IMMUTABLE_PUBLISHING_RECORD');
+  await expect(db.pool.query('UPDATE rating_intent_receipts SET applied_revision=99')).rejects.toThrow('IMMUTABLE_PUBLISHING_RECORD');
+  // Including an erasure that quietly changes something else at the same time.
+  await expect(db.pool.query("UPDATE rating_intent_receipts SET feedback_message='(đã xoá theo yêu cầu)',feedback_phone=NULL,applied_revision=99"))
+    .rejects.toThrow('IMMUTABLE_PUBLISHING_RECORD');
+  await expect(db.pool.query('DELETE FROM rating_intent_receipts')).rejects.toThrow('IMMUTABLE_PUBLISHING_RECORD');
+  // And the erasure the trigger does allow is exactly the one the application performs.
+  await expect(db.pool.query("UPDATE rating_intent_receipts SET feedback_message='(đã xoá theo yêu cầu)',feedback_phone=NULL")).resolves.toBeTruthy();
 });
