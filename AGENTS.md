@@ -6,6 +6,10 @@ If context is missing, read the local decision checkpoint first, then the Obsidi
 
 Memory is on demand only. Do not create daily sync, reminders, or background project work. Refresh the decision checkpoint when needed for continuity or explicitly requested. Do not mirror full transcripts. Obsidian is the canonical durable product context; GitHub holds source and a concise decision checkpoint. Keep newer explicit owner instructions authoritative and flag conflicting records.
 
+Design work reads two files at the repo root before any CSS: **`PRODUCT.md`** (who uses this and for what) and
+**`DESIGN.md`** (how it must look — the coat contract, the four floors, the anchored layout, the Vietnamese
+diacritic rule, the trademark rules). They outrank any design skill or upstream style guide.
+
 Product invariants: identical Google review invitation at every rating; low scores may open private feedback without hiding Google; internal stars update the same experience; Vietnamese default plus manual English only; private tenant-isolated owner data. Every Google-related rule is in `docs/google-policy.md`; it overrides any other request. The slice backlog, ordered by readiness, is `docs/roadmap-slices.md`.
 
 Production is live since 2026-09-19 at `https://quitesensational-review-bio.com` (since 2026-09-21; the old `.vercel.app` redirects there) (Vercel, deployed from `main`; Neon production; R2), with a preview on the `feat/local-app-foundation` branch. **Every URL, what it is, how to sign in and whether it exists yet is in the "Đường vào" section at the top of `docs/production-launch.md`** — read it instead of asking Tài. As of 2026-09-21 production has only the template shop and a draft shop, and no NFC card has been written. Older demo code (browser-only storage, archived prototype) still exists and is scheduled for removal (roadmap A3). Never infer real customers, completed Google reviews or successful tests from the demo, and never claim a test passed without its output. Do not treat assistant-suggested technologies and dashboard details as accepted scope.
