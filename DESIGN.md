@@ -149,6 +149,35 @@ Chữ nút Google luôn **lớn hơn** chữ thân ít nhất 1px và đậm hơ
 
 ---
 
+## 6b. Nét tay — ngôn ngữ hình của dòng “không tranh” (Tài chốt 22/09)
+
+Mọi đường viền trang trí vẽ như **bút sáp**, không phải cạnh vector: viền khối, vòng logo, viền nút link, gạch
+chân dưới tên quán, dấu cộng rắc nền, con tam giác. Làm bằng một bộ lọc SVG nội tuyến —
+`feTurbulence` + `feDisplacementMap` làm lệch từng điểm của đường vẽ, nên cạnh run nhẹ như tay người. **0 KB tài
+nguyên**, không tải ảnh nào.
+
+Viết trong data URI thì `#` phải thành `%23`, và **tránh dấu `%`** — dùng `filterUnits="userSpaceOnUse"` thay cho
+phần trăm, vì Safari khó tính với percent-escape trong data URI. Khung kéo giãn thì stroke giữ bề dày nhờ
+`vector-effect="non-scaling-stroke"`.
+
+**Một ngoại lệ có chủ ý: nút Google giữ cạnh sắc, trắng đặc.** Nó là thứ duy nhất trên trang trông như một cái
+nút thật, vì nó là thứ duy nhất khách cần bấm. Mọi thứ quanh nó vẽ tay để nó nổi lên.
+
+## 6c. Đáy trang có hai hình dạng, cả hai đều phải tử tế
+
+`useBottomHint` chỉ hiện dòng mời góp ý **sau khi khách cuộn hết trang rồi đợi 2 giây** — cố ý, để không nài nỉ
+khi khách chưa xem xong. Nên áo phải vẽ cả hai trạng thái:
+
+| Trạng thái | Hình dạng |
+|---|---|
+| Chưa cuộn hết | một **nút tròn** góc dưới trái; con tam giác nhô lên từ mép dưới màn hình |
+| Đã cuộn hết | nút tròn **thu vào** trong dải ngang; con tam giác leo lên **bám mép dải** |
+
+Và một token bắt buộc: **`--c-floor`** là khoảng trống dưới cùng dành riêng cho dải và con tam giác. Khối nội
+dung không bao giờ được chạm vào nó. Thiếu nó thì thẻ và dải dính nhau ngay lúc trang vừa mở (Tài chỉ ra 22/09).
+
+---
+
 ## 7. Trang giới thiệu nền tảng (chưa dựng)
 
 Đây là chỗ **duy nhất** hiệu ứng nặng đáng tiền: WebGL, thư viện chuyển động, ảnh lớn. Nó chạy trên wifi, không
