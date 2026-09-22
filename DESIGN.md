@@ -51,7 +51,12 @@ Mỗi sàn có một test. Test chạy cho **từng áo**, không chỉ áo mặ
 | 1 | Nút Google trọn trong màn hình đầu, không cuộn | bố cục neo (mục 3) — bất biến, không phải kiểm sau |
 | 2 | Tương phản ≥ **4,5:1** cho: chữ trên nút Google · chữ thân trên nền khối · **chữ mờ** (ghi chú, dòng pháp lý) | tính từ token |
 | 3 | Nút Google nổi hơn mọi thứ quanh nó, đặc biệt là nút góp ý riêng | cỡ chữ · chiều cao · bề rộng |
-| 4 | Áo thêm **≤ 40 KB**, **không ảnh** | tổng woff2 của bộ chữ |
+| 4 | Áo thêm **≤ 40 KB** bộ chữ, **và ≤ 200 KB tranh** nếu là dòng có tranh | tổng woff2 + tranh sau khi nén |
+
+Sàn 4 được nâng 22/09 theo quyết định của Tài: dòng áo **có tranh** cần tài sản riêng. Tranh là **của nền
+tảng** — nằm trong repo, không qua cửa duyệt ở `docs/decisions.md` mục 10 (cửa đó chỉ dành cho ảnh shop tự tải).
+Bản kê ảnh ở [`docs/anh-can-cho-ao-khoac.md`](docs/anh-can-cho-ao-khoac.md). Nâng trần thì **phải đo lại trên
+điện thoại thật qua 4G** trước khi giao cho quán đầu tiên; mỗi 100 KB ≈ 0,27 giây ở 3 Mbps.
 
 Sàn 2 hay gãy nhất ở **chữ mờ trên áo tối**. Đó cũng là chỗ đặt dòng pháp lý — thứ bắt buộc phải đọc được.
 
@@ -167,4 +172,12 @@ khách áp vào đây, và **không lấy hiệu ứng của trang này đem san
 Mỗi áo có một mục ở đây khi nó vào `lib/publishing/coats.ts`. Ghi: id · tên · dòng · dùng cho ngành nào · bộ chữ
 và số KB · kết quả bốn sàn.
 
-*(chưa có áo nào được chốt vào mã — áo đầu tiên đang dựng, xem `docs/decisions.md` mục 9)*
+Tài chốt 22/09: **hai dòng**, mỗi dòng nhiều **biến thể**; mỗi biến thể là một tác phẩm riêng, gom dần thành
+thư viện. Biến thể không thay nhau về chức năng — chúng chỉ khác cách bày.
+
+| Dòng | Biến thể | Cần tranh | Trạng thái |
+|---|---|---|---|
+| **Nửa đêm — không tranh** | Thẻ tối · Kính · Xếp lớp | không | đang dựng |
+| **Nửa đêm — có tranh** | Hero · Chia đôi · Nhập vai | có | chờ ảnh của Tài |
+
+Mỗi biến thể phải qua **cả bốn sàn** riêng, không kế thừa kết quả của biến thể cùng dòng.
