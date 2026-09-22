@@ -37,35 +37,11 @@ export const COAT_FONT_KB: Record<CoatFont, number> = { system: 0, 'be-vietnam-p
 
 export const COATS: Coat[] = [
   {
-    id: 'kt-the-toi',
-    name: 'Thẻ tối',
+    id: 'ap-phich',
+    name: 'Áp phích',
     line: 'Không tranh',
-    blurb: 'Một khối duy nhất đặt giữa màn hình. Gọn, chắc, không trang trí thừa.',
-    suits: ['quán ăn', 'tiệm bánh', 'cửa hàng'],
-    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
-  },
-  {
-    id: 'kt-kinh',
-    name: 'Kính',
-    line: 'Không tranh',
-    blurb: 'Khối kính mờ, viền chuyển màu, hai quầng sáng thở phía sau.',
-    suits: ['spa', 'salon', 'phòng tập'],
-    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
-  },
-  {
-    id: 'kt-xep-lop',
-    name: 'Xếp lớp',
-    line: 'Không tranh',
-    blurb: 'Ba tấm thẻ chồng nghiêng, thẻ hồng thò ra sau lưng. Link thành từng dòng.',
-    suits: ['cà phê', 'quán trà', 'quán khuya'],
-    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
-  },
-  {
-    id: 'nua-dem',
-    name: 'Nửa đêm',
-    line: 'Có tranh',
-    blurb: 'Áp phích phim: ảnh tràn viền, tên quán rất lớn viết hoa. Đang chờ tranh thật.',
-    suits: ['bar', 'lounge', 'phòng thu'],
+    blurb: 'Bố cục biên tập lệch trái: tên quán cỡ đại làm vật thể đồ hoạ, bề mặt tương tác nằm lệch phải, tranh tràn khỏi mép màn hình.',
+    suits: ['cà phê', 'bar', 'quán khuya', 'tiệm bánh', 'phòng thu'],
     display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
   },
 ];

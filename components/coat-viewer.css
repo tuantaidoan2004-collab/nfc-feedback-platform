@@ -1,53 +1,54 @@
-/* Bàn xem áo khoác — công cụ nội bộ, chỉ ngoài production.
-   Nằm sát mép trên để không che thanh góp ý và con tam giác ở đáy. */
+/* Điều hướng bộ sưu tập — công cụ nội bộ, chỉ ngoài production.
+   Cố ý kín tiếng: nó không được tranh chỗ với tên quán hay nút Google. */
 .cv {
-  position: fixed; z-index: 35; /* dưới thẻ góp ý (z-40) để không che nó */
-  top: calc(56px + env(safe-area-inset-top, 0px));
-  left: 50%; translate: -50% 0;
-  width: min(300px, calc(100vw - 96px));
-  font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #F4F2F8;
+  position: fixed; z-index: 35;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  font: 400 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #8B80A8;
 }
 .cv-strip {
-  display: flex; align-items: stretch; gap: 2px; padding: 3px;
-  border-radius: 999px; background: #0B0813E0;
-  box-shadow: inset 0 0 0 1px #FFFFFF24, 0 10px 26px -14px #000;
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  display: flex; align-items: center; gap: 2px;
+  padding: 2px 4px; border-radius: 999px;
+  background: #0A0714CC; box-shadow: inset 0 0 0 1px #FFFFFF12;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
-.cv-nav {
-  flex: none; width: 34px; border: 0; border-radius: 999px; cursor: pointer;
-  background: transparent; color: #CFC7E4; font: inherit; font-size: 18px; line-height: 1;
+.cv-nav, .cv-now {
+  border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+  min-height: 30px; padding: 4px 8px; border-radius: 7px;
 }
-.cv-nav:active { background: #FFFFFF1A; }
-.cv-now {
-  flex: 1; min-width: 0; border: 0; border-radius: 999px; cursor: pointer;
-  background: transparent; color: inherit; font: inherit; padding: 5px 4px; text-align: center;
-}
-.cv-now-name { display: block; font-weight: 700; font-size: 13px; letter-spacing: -.01em; }
-.cv-now-line { display: block; font-size: 10.5px; opacity: .6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.cv-nav:focus-visible, .cv-now:focus-visible, .cv-act:focus-visible { outline: 2px solid #C9F24E; outline-offset: 2px; }
+.cv-nav { width: 26px; text-align: center; font-size: 15px; line-height: 1; }
+.cv-nav:hover, .cv-now:hover { color: #F5F1FF; background: #FFFFFF0F; }
+.cv-nav:focus-visible, .cv-now:focus-visible, .cv-act:focus-visible { outline: 1px solid #FF2D8F; outline-offset: 2px; }
+.cv-now { display: flex; align-items: baseline; gap: 7px; }
+.cv-now-name { font-family: system-ui, -apple-system, sans-serif; font-size: 12.5px; font-weight: 500; color: #B7ACD4; }
+.cv-now-line { font-size: 10px; opacity: .55; }
 
 .cv-panel {
-  margin-top: 6px; padding: 11px 12px; border-radius: 16px; background: #0B0813EB;
-  box-shadow: inset 0 0 0 1px #FFFFFF1F, 0 18px 40px -22px #000;
-  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  margin-bottom: 6px; padding: 10px 12px; border-radius: 12px; max-width: 280px;
+  background: #0D0918E0; box-shadow: inset 0 0 0 1px #FFFFFF14;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  order: -1;
 }
-.cv-blurb { margin: 0; font-size: 12.5px; line-height: 1.45; }
-.cv-meta { margin: 6px 0 0; font-size: 11px; opacity: .6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.cv-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cv { display: flex; flex-direction: column; align-items: flex-start; }
+.cv-blurb { margin: 0; font-family: system-ui, sans-serif; font-size: 12px; line-height: 1.45; color: #B7ACD4; }
+.cv-meta { margin: 6px 0 0; font-size: 10px; opacity: .55; }
+.cv-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .cv-act {
-  appearance: none; border: 0; border-radius: 9px; cursor: pointer;
-  background: #FFFFFF14; color: inherit; font: inherit; font-size: 12px;
-  min-height: 34px; padding: 6px 11px; display: inline-flex; align-items: center; gap: 7px;
+  appearance: none; border: 0; border-radius: 8px; cursor: pointer;
+  background: #FFFFFF0F; color: #B7ACD4; font: inherit; font-size: 11px;
+  min-height: 30px; padding: 5px 9px; display: inline-flex; align-items: center; gap: 6px;
 }
-.cv-check input { width: 15px; height: 15px; accent-color: #C9F24E; }
-.cv-hintline { margin: 9px 0 0; font-size: 10.5px; line-height: 1.45; opacity: .5; }
+.cv-check input { width: 14px; height: 14px; accent-color: #FF2D8F; }
+.cv-hintline { margin: 8px 0 0; font-size: 10px; line-height: 1.45; opacity: .45; }
 
-/* Bàn này chạy không có database nên trang khách báo "chưa kết nối". Đó là thật và đúng,
-   nhưng nó không phải thứ đang cần nhìn ở đây. Chỉ giấu trên bàn xem, không giấu ở nơi khác. */
+/* Bàn này chạy không có database nên trang khách báo "chưa kết nối". Đúng và thật,
+   nhưng không phải thứ đang cần nhìn ở đây. */
 .guest .guest-connection { display: none; }
 
-/* Bàn xem chiếm mép trên, nên đẩy nội dung trang xuống — chỉ trên bàn, không ở nơi khác. */
-.xem-host .guest[data-coat] .guest-sheet { padding-top: 118px; }
-.xem-host .guest[data-coat] .guest-language { top: 6px; }
+/* Điều hướng là lớp phủ cố định của bàn xem, nên nó che mất dòng cuối của chân trang khi
+   cuộn hết. Chừa chỗ — chỉ trên bàn xem, không đụng vào trang thật. */
+@media (max-width: 899px) {
+  .xem-host .guest[data-coat] .guest-legal { padding-bottom: 58px; }
+}
 
