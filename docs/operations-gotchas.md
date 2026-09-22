@@ -241,3 +241,5 @@ coi một tính năng về quyền riêng tư là xong**: đó là lúc lời h�
 - ESLint cấm require mặc định; chỉ helper CommonJS có exemption kèm lý do. Không nới rule toàn app.
 - A3 đã thử bỏ từng component/store trong worktree riêng, luôn khôi phục byte gốc bằng finally; lỗi import là bằng chứng caller còn sống, không phải lý do xoá luôn caller/test.
 - Lệnh commit của Astra ban đầu vẫn chạy sau diff-check báo dòng trắng cuối file vì các lệnh không nối điều kiện; đã bỏ dòng trắng và kiểm lại trước amend. Luôn dừng khi check lỗi.
+
+**Sổ quyết định chép lại một việc chưa kiểm được.** Bản ghi 21/09 viết "Tài báo đã tạo shop thật đầu tiên và ghi thẻ", đồng thời xoá việc đó khỏi danh sách còn treo của Tài — trong khi `production-launch.md` ngay cạnh vẫn để ô trống. Tài xác nhận 22/09: **chưa ghi thẻ**. Một câu như vậy làm cả lát sau đi sai hướng, vì "đã có khách thật" là điều kiện bật của A8/A9/A10. Luật: trạng thái production chỉ ghi khi **agent tự kiểm được**, hoặc kèm đúng chữ Tài nói và ngày; hai tệp nói khác nhau thì dừng lại hỏi, đừng chọn bên nghe xuôi hơn.
