@@ -1,7 +1,7 @@
 /* Bàn xem áo khoác — công cụ nội bộ, chỉ ngoài production.
    Nằm sát mép trên để không che thanh góp ý và con tam giác ở đáy. */
 .cv {
-  position: fixed; z-index: 70;
+  position: fixed; z-index: 35; /* dưới thẻ góp ý (z-40) để không che nó */
   top: calc(56px + env(safe-area-inset-top, 0px));
   left: 50%; translate: -50% 0;
   width: min(300px, calc(100vw - 96px));
