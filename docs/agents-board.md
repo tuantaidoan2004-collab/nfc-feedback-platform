@@ -367,3 +367,17 @@ dọn (tìm ra khi viết chính sách) · lệnh `read -p` viết cho bash làm
 **Cho Astra:** C3 mặt trận 1 vẫn là việc đang giao. Nếu prompt bị chính sách ChatGPT chặn, viết rõ **rà soát
 phòng thủ trên hệ thống của chính chủ sở hữu, có cho phép, local, dữ liệu giả** — mô tả kiểu "tấn công" là thứ
 kích hoạt bộ lọc.
+
+## C3 mất chủ — 22/09/2026
+
+Tài báo: **Astra không được OpenAI cho phép làm C3**. Mô tả công việc kiểu "kiểm thử xâm nhập" chạm chính sách an ninh mạng của ChatGPT, kể cả khi đã ghi rõ là rà soát phòng thủ trên hệ thống của chính chủ sở hữu.
+
+Hệ quả, ghi rõ để không ai tưởng C3 vẫn đang chạy:
+
+- **Nhánh `astra/c3-pentest` (baseline `deba8c1`) dừng ở đó.** Không có báo cáo, không có test đỏ, không có kết luận về cô lập dữ liệu giữa các shop.
+- **C3 chuyển sang Claude.** Không còn bên thứ hai rà độc lập, nên mất đúng thứ làm A3/A7 đáng tin: người rà không phải người viết. Claude rà mã Claude viết là một điểm yếu **đã biết**, không phải điểm yếu bị bỏ sót.
+- **Cách bù:** làm C3 mặt trận 1 bằng **test đỏ trước, sửa sau** — mỗi đường nghi ngờ phải có một test chứng minh nó thủng trước khi vá, để kết quả không phụ thuộc vào việc Claude tự tin hay không.
+- Nếu sau này có bên rà độc lập khác (người thật, hoặc một agent khác), mặt trận 1 vẫn nên được làm lại.
+
+**C3 không chặn việc thiết kế.** Nó chặn đúng một việc: **đưa thẻ cho một quán trả tiền.**
+
