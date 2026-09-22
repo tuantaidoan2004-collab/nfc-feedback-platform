@@ -37,6 +37,12 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | A25 | **Tài liệu cho đội ngũ**: ADR (mỗi quyết định một tệp), sổ tay vận hành, hướng dẫn người mới; giữ `operations-gotchas.md` | V | AWS | Để đội ngũ tiếp quản khi không còn agent |
 | A26 | **PWA + thông báo đẩy** trên điện thoại cho chuông | V | Salesforce Mobile | |
 
+| A27 | **`DESIGN.md` + `PRODUCT.md`** — sản phẩm phải trông và cư xử như thế nào, viết bằng markdown để cả agent lẫn công cụ thiết kế đọc được | N | Google Stitch | **Lát kế tiếp.** Không dependency, không migration |
+| A28 | **Hệ áo khoác trang khách**: `PageConfig` v3 lưu `coat: '<tên>'`, một bộ token cho mỗi áo, test giữ bốn sàn cho **từng** áo | L | — | `decisions.md` mục 9. Thay phần lớn A19 ở phía trang khách |
+| A29 | **Dựng trọn áo đầu tiên (dòng Sentry) trong repo**, đầy đủ tính năng, xem trên preview | V | — | Không clone logic; chỉ thay lớp trình bày |
+| A30 | **Cửa duyệt ảnh shop**: bảng ảnh có trạng thái, `validateConfig` chỉ nhận ảnh đã duyệt, hàng chờ duyệt trong `/gov` | V | — | **Có migration.** `decisions.md` mục 10. Rủi ro pháp lý nếu không làm |
+| A31 | **Trang giới thiệu nền tảng** + nhận diện — chỗ duy nhất hiệu ứng nặng của Componentry đáng tiền | L | Componentry | Cần F6. Không đụng trang khách |
+
 ## B. Cần Tài làm hoặc quyết trước
 
 | # | Lát | Cỡ | Điều kiện | Học từ |
@@ -97,7 +103,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | F6 | Thiết kế nhận diện nền tảng (logo, dấu trên thẻ) cho A16 |
 | F7 | Ghi `story.md` / Obsidian về lịch sử hình thành |
 
-**Tổng: 26 (A) + 7 (B) + 4 (C) + 9 (D) + 8 (E) + 7 (F) = 61 mục.** P0 gồm A1–A7 và B1–B4.
+**Tổng: 31 (A) + 7 (B) + 4 (C) + 9 (D) + 8 (E) + 7 (F) = 61 mục.** P0 gồm A1–A7 và B1–B4.
 
 ## Kiến trúc dữ liệu: vì sao không Cassandra → Hadoop/Hive/Pig → Spark
 

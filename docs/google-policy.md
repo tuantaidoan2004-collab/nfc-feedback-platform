@@ -43,6 +43,25 @@ Tài yêu cầu 2026-09-20: một tệp gom mọi thứ Google cấm, để **kh
 9. Không tự động đăng, không đăng hộ, không "giúp khách viết" đánh giá bằng AI.
 10. Không lấy chỉ số "số đánh giá Google tăng" làm mục tiêu hiển thị cho nhân viên. Số liệu Google (khi nối API) chỉ hiển thị cho chủ shop, ghi rõ là **ước đoán**.
 
+## 2b. Một sản phẩm thật đang bán đúng thứ mục 2 cấm (22/09/2026)
+
+Tài gửi một quảng cáo của tài khoản `gmb.vault` bán thẻ NFC cho quán. Nội dung quảng cáo, nguyên văn ba gạch đầu
+dòng: *"Branded page · **Filters bad reviews privately** · Owner sees every tap."* Ảnh chụp trang của một tiệm cắt
+tóc ở Lublin: hỏi **"Bạn chấm mấy sao?"** trước, ai chấm một sao thì được đẩy sang ô **"Gửi riêng cho ông chủ"**.
+
+Đây là **lọc đánh giá** — đúng nghĩa đen, và họ lấy nó làm câu bán hàng chính.
+
+Ghi vào đây vì ba lý do:
+
+1. **Nó phá luật 1 và luật 2 cùng lúc.** Hỏi sao trước, rồi dùng số sao để quyết định khách thấy gì tiếp theo.
+2. **Nó chứng minh thị trường đang làm như vậy**, nên sẽ có lúc một người bán cạnh tranh, hoặc chính một chủ quán,
+   hỏi Tài vì sao nền tảng mình không có tính năng đó. Câu trả lời đã có sẵn ở mục 1: Google cấm, và hình phạt rơi
+   xuống **hồ sơ doanh nghiệp của quán**, không phải xuống người bán thẻ. Người bán biến mất, quán ở lại chịu.
+3. **Nó là lợi thế bán hàng, không phải điểm yếu.** "Nền tảng của tôi không lọc đánh giá, vì lọc là thứ làm Google
+   phạt quán anh" là một câu bán hàng mạnh hơn "nền tảng của tôi cũng lọc được".
+
+Không lát nào được lấy sản phẩm này làm tham chiếu tính năng. Lấy làm tham chiếu **giao diện** thì được.
+
 ## 3. Việc shop phải làm và không làm (đưa vào hướng dẫn một trang khi bàn giao shop)
 
 **Nên:** đặt thẻ ở chỗ khách tự thấy (bàn, quầy); câu mời trung lập kiểu "Cảm nhận của bạn giúp quán tốt hơn"; trả lời mọi đánh giá, kể cả đánh giá chê, lịch sự; dùng phần góp ý riêng để xử lý vấn đề thật.

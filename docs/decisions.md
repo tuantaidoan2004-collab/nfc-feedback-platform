@@ -184,6 +184,108 @@ Ghi số để sau này không tranh cãi bằng cảm giác:
 **Không cần cài thêm skill nào.** Thứ thiếu không phải kiến thức công cụ mà là **số đo từ production thật**, và
 production chưa có shop nào. Lát mục 7 sẽ tự mang theo phép đo đó.
 
+## 9. Thiết kế trang khách — hướng đi chốt 22/09/2026
+
+### Thiết kế trước, tính năng sau
+
+Claude đề xuất, Tài giao quyền quyết và đồng ý. Lý do không phải "đẹp thì tốt", mà là **phép tính chi phí**:
+
+- Gần như toàn bộ tính năng chưa xây (A8–A26) là tính năng **cho nhiều shop**: số liệu tổng hợp, so sánh bản
+  phát hành, `/gov` tìm kiếm, 2FA thành viên, gán người phụ trách, quy tắc tự động, lưu bộ lọc, PWA. Production
+  đang có **0 shop thật**. Xây bây giờ là đoán, và một tính năng đoán sai đắt hơn một tính năng chưa có: nó phải
+  nuôi, phải nằm trong 7 bộ test, phải migrate theo.
+- Giao diện thì ngược: chủ quán quyết trong mười giây nhìn trang khách trên điện thoại. Trang khách **vừa là sản
+  phẩm vừa là lời chào hàng**, không có bề mặt thứ hai làm được việc đó.
+- Và hôm nay đổi giao diện **gần như miễn phí**: 2 shop, 0 thẻ đã in, 0 `PageConfig` của khách thật phải giữ. Sau
+  50 shop và 5.000 thẻ đã in thì mỗi lần đổi diện mạo là một cuộc di cư.
+
+Cổng chặn **không** nằm trước thiết kế; nó nằm trước **khách trả tiền**: C3 (cô lập dữ liệu) và sao lưu.
+
+### Kiến trúc Tài mô tả: xương · thịt · da · áo khoác
+
+| Lớp | Là gì | Được đổi không |
+|---|---|---|
+| **Xương** | DOM của trang khách: nút nào có, theo thứ tự nào, hiện lúc nào | **Không.** Đây là thứ `google-policy.spec.ts` khoá |
+| **Thịt** | Hành vi: máy trạng thái lượt ghé, beacon, nút xoá, thẻ góp ý | **Không.** Một bản cài đặt duy nhất |
+| **Da** | CSS nền: phần tử nào là cột, phần tử nào là CTA | Chung cho mọi áo |
+| **Áo khoác** | Một bó token: màu, bộ chữ, cỡ, tỉ lệ, bo góc, nhịp thở, kiểu nền | **Có.** Đây là chỗ khác nhau |
+
+**Hợp đồng của một áo khoác, một câu:** *áo khoác chỉ đặt token CSS; nó không được thêm, bớt, đổi thứ tự hay làm
+chậm bất kỳ nút DOM nào.*
+
+Vì sao câu đó là **toàn bộ cơ chế an toàn**: mọi test Google kiểm **cấu trúc**. Áo khoác không chạm được vào cấu
+trúc thì theo cấu tạo, không áo nào phá được các test đó — không nhờ cẩn thận, mà nhờ nó không có đường.
+
+Cái áo khoác **phá được** là phần nhìn. Bốn sàn, đo được, mỗi áo phải qua trước khi vào tủ:
+
+1. Nút Google trọn trong màn hình đầu (640px), không phải cuộn.
+2. Tương phản ≥ 4,5:1 cho chữ trên nút · chữ thân · chữ mờ (dòng pháp lý).
+3. Nút Google nổi hơn mọi thứ quanh nó — cụ thể là nổi hơn nút góp ý riêng.
+4. Áo thêm ≤ 40 KB, không ảnh.
+
+**Hệ quả lên schema, và nó tốt:** `PageConfig` v3 chỉ lưu **một chuỗi** `coat: '<tên-áo>'`, không phải 24 token.
+Thêm áo mới **không migrate gì**. Sửa một áo thì mọi shop dùng áo đó đẹp lên cùng lúc. Đi kèm một luật: **sửa áo
+chỉ được tinh chỉnh, không đổi căn tính** — muốn đổi hẳn thì đẻ áo mới, tên mới, để không sáng nào chủ quán mở
+trang lên thấy quán mình khác hẳn mà không ai hỏi.
+
+### Hình dạng bàn giao Tài cần (chỉnh lại 22/09)
+
+Claude làm sai hai lượt: dựng **công cụ chỉnh** trong artifact. Tài không muốn tự chỉnh — tự chỉnh thì chậm hơn và
+ra kém hơn. Tài muốn:
+
+> **Một bản dựng hoàn chỉnh của một phong cách cụ thể, đầy đủ tính năng, nằm trong repo, xem trên preview.**
+
+Nghĩa là: không artifact nữa; code vào dự án; Tài mở preview trên điện thoại và nhìn bản thật. Tài sẽ cấp cho
+Claude **quyền truy cập web và quyền đọc repo GitHub** để làm việc này.
+
+**Phong cách đầu tiên: dòng Sentry** (nền tím than, chanh điện, cá tính minh hoạ hơi nghịch). Kèm tập ảnh tham
+chiếu Tài gửi: chữ tiêu đề **rất lớn**, có chân, màu nổi đặt đè lên ảnh nền điện ảnh — ngôn ngữ áp phích phim.
+Hoạt ảnh nhẹ tính bằng KB, và **có thể thêm vật thể trang trí**.
+
+### Ba căng thẳng thật, phải giải trước khi code
+
+1. **Chữ tiêu đề rất lớn đẩy nút Google xuống.** Áp phích phim mở bằng một màn hình toàn chữ; trang khách thì nút
+   Google phải nằm trong màn hình đầu. Không thoả hiệp luật được. Hướng giải: phần điện ảnh chiếm **nền và khối
+   nhận diện quán**, còn chiều cao khối mở đầu tính bằng "màn hình trừ đi chỗ của CTA", không phải `100vh`.
+2. **Bộ chữ tiêu đề có dấu tiếng Việt.** Các mẫu điện ảnh kia dùng bộ chữ display gần như chắc chắn **không có
+   dấu tiếng Việt**, hoặc đặt dấu sai. Tên quán Việt in cỡ 60px mà dấu ngã lệch thì hỏng cả trang. Phải kiểm từng
+   bộ chữ bằng chuỗi `Nguyễn Đỗ Quỳnh ẫ ộ ự ỡ ặ ề ố ỷ` trước khi chọn.
+3. **"Clone toàn bộ giao diện" dễ đẻ ra nhánh song song.** Đúng cái bẫy A3: hai đường mã, hai chỗ sinh lỗi, không
+   ai dám xoá. **Luật: không clone logic.** Máy trạng thái, beacon, xoá dữ liệu, thẻ góp ý giữ **một** bản cài
+   đặt; chỉ lớp trình bày được thay. Và 7 bộ test phải chạy cho **mọi** áo, không chỉ áo mặc định.
+
+### Chưa quyết
+
+- Nền tảng dựng giao diện có dùng hay không (Tài nói xử lý sau).
+- Tủ áo chốt mấy áo. Claude đề xuất 4–5, phủ cà phê · quán ăn · spa · bar. Nhiều hơn thì chủ quán lại mệt — đúng
+  cái Tài vừa chỉ ra.
+- Có thêm hoạt ảnh của Componentry vào trang khách không, hay để dành cho trang giới thiệu.
+
+## 10. Ảnh và logo của shop phải qua duyệt trước khi lên trang (Tài, 22/09/2026)
+
+**Tài phát hiện và chốt:** chủ quán có thể tải lên logo của hãng khác đã đăng ký nhãn hiệu, và trang đó nằm trên
+tên miền của nền tảng. Nên **bỏ đường tự đăng thẳng**: chủ quán chỉnh poster, logo, vật thể xong thì **gửi admin
+duyệt**, duyệt rồi mới lên trang.
+
+**Lý do Tài nêu là đúng, và có một lý do mạnh hơn cần ghi cạnh nó:** nhãn hiệu mới là rủi ro hẹp. Rủi ro rộng là
+chủ quán tải lên **bất cứ thứ gì** — ảnh người khác, ảnh phản cảm, quảng cáo của bên thứ ba, nội dung chính trị —
+và nó hiện trên một URL công khai dưới tên miền của Tài, cạnh dòng chữ "Đánh giá trên Google". Cửa duyệt đóng cả
+hai rủi ro; chỉ nói nhãn hiệu thì sau này dễ nới.
+
+**Chặn ở đâu — quan trọng:** chặn ở **lúc phát hành**, không phải lúc tải lên. Cùng chỗ với hàng rào F-013, vì
+đó là nơi shop *ghi*: `validateConfig` chỉ nhận đường dẫn ảnh đã có trong bảng ảnh **đã duyệt**. Chặn ở lúc tải
+lên thì gọi thẳng API là đi vòng được.
+
+**Cái phải trả giá, nói trước:**
+
+- **Tài thành nút cổ chai.** Mỗi shop mới phải chờ một người duyệt. Cần nghĩ: trang lên được **ngay** với áo
+  khoác và chữ (chưa có ảnh), ảnh về sau — để shop không phải chờ mới có trang.
+- Trong lúc chờ duyệt, bản đã phát hành trước đó **vẫn sống**. Không bao giờ để trang khách trống vì một ảnh đang
+  chờ.
+- `/gov` từ đây có việc thật hằng ngày. Đây cũng là câu trả lời cho "`/gov` sơ sài": nó sơ sài vì chưa có việc gì
+  để làm; giờ có.
+- Cần migration: bảng ảnh có trạng thái `chờ · duyệt · từ chối` kèm lý do, người duyệt, thời điểm.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-21
 
 Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên trước, rồi khối này.
@@ -227,14 +329,26 @@ Người vận hành đứng tên trên hai trang: **Đoàn Tuấn Tài** (Tài 
 có chủ ý** (mục 3). Nó phải chạy trước khi dữ liệu đầu tiên đủ 12 tháng tuổi, tức 12 tháng sau tấm thẻ đầu tiên.
 Chưa có bản tiếng Anh cho hai trang; làm sau khi luật sư duyệt bản tiếng Việt.
 
-### Việc tiếp theo
+### Việc tiếp theo (đổi hướng 22/09)
+
+Phiên 22/09 chốt: **thiết kế trước, tính năng sau** (mục 9), và **ảnh shop phải qua duyệt** (mục 10). Thứ tự:
+
+1. `DESIGN.md` + `PRODUCT.md` — chưa có tệp nào nói sản phẩm **phải trông như thế nào**; mọi công cụ thiết kế
+   (Impeccable, Taste, awesome-design-md) đều đọc đúng hai tệp này. Markdown, 0 dependency.
+2. **Dựng trọn một áo khoác trong repo**, dòng Sentry, xem trên preview — không phải artifact.
+3. Cửa duyệt ảnh (mục 10) — có migration.
+4. C3 + sao lưu, trước khách trả tiền.
+5. `/gov` đúng nghĩa; tính năng theo lời shop thật.
 
 Không còn P0 nào chặn việc ghi thẻ. Việc kế là của Tài: **tạo shop thật đầu tiên và ghi thẻ**. Sau đó mới **đọc dòng
 sự kiện** (A8/A9/A10 gộp một) — chỉ khi đã có khách thật. Rồi `/gov` đúng nghĩa.
 
 ### Astra
 
-Đang làm **C3 mặt trận 1** — cô lập dữ liệu giữa các shop — trên `astra/c3-pentest`, baseline `deba8c1`. Đã giao
+**Dừng: OpenAI không cho phép Astra làm C3** (Tài báo 22/09). C3 chuyển sang Claude; chi tiết và điểm yếu của việc
+tự rà mã mình viết ở `agents-board.md`. Nhánh `astra/c3-pentest` (`deba8c1`) không có kết quả.
+
+Bối cảnh cũ, giữ lại để tra: Astra từng làm **C3 mặt trận 1** — cô lập dữ liệu giữa các shop — trên `astra/c3-pentest`, baseline `deba8c1`. Đã giao
 xong A3 (`f819c0c`) và A7 (`4c47be8`); A7 là nơi tìm ra F-013. Chi tiết và đầu bài ở `agents-board.md`.
 
 **Lưu ý khi viết prompt cho Astra:** mô tả kiểu "tấn công" làm ChatGPT chặn vì chính sách an ninh mạng. Viết rõ
