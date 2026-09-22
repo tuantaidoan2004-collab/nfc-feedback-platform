@@ -109,9 +109,15 @@ function useVideoPlays() {
   return [blocked, ref] as const;
 }
 
-function Background({ config, reduced }: { config: ReturnType<typeof defaultConfig>; reduced: boolean }) {
+/**
+ * Khi trang đang mặc áo khoác, **áo sở hữu cái nền**: không phát style nội tuyến từ
+ * `PageConfig`, vì style nội tuyến thắng mọi quy tắc CSS và sẽ đè lên nền của áo. Nền do
+ * shop chọn chỉ dùng khi trang không mặc áo nào.
+ */
+function Background({ config, reduced, coat }: { config: ReturnType<typeof defaultConfig>; reduced: boolean; coat?: string }) {
   const b = config.background;
-  const style = b.kind === 'solid' ? { background: b.color }
+  const style = coat ? undefined
+    : b.kind === 'solid' ? { background: b.color }
     : b.kind === 'gradient' ? { background: `linear-gradient(${b.angle}deg, ${b.colors[0]}, ${b.colors[1]})` } : undefined;
   const still = b.kind === 'media' ? stillFor(b.media) : null;
   const [blocked, plays] = useVideoPlays();
@@ -384,7 +390,7 @@ export default function ShopFeedbackV2(shop: Props) {
   </>;
 
   return <main className="guest" lang={lang} data-layout={config.layout} data-schema={config.schemaVersion} data-coat={shop.coat} data-ready={snapshot ? '' : undefined}>
-    <Background config={config} reduced={reduced} />
+    <Background config={config} reduced={reduced} coat={shop.coat} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
       <Poster poster={config.poster} label={p.poster} />

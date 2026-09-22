@@ -28,7 +28,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const query = await searchParams;
   const one = (key: string) => { const v = query[key]; return Array.isArray(v) ? v[0] : v; };
   return (
-    <div className={display.variable}>
+    <div className={`xem-host ${display.variable}`}>
       <CoatViewer shopSlug={one('shop') ?? 'urr6ud'} shopName={one('ten') ?? 'Cà Phê Sớm Mai'} />
     </div>
   );

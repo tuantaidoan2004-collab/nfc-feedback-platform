@@ -1,35 +1,53 @@
-/* Bàn xem áo khoác — chỉ ngoài production. Cố ý nằm sát đáy trái, đối diện nút góp ý
-   của trang khách ở đáy phải, để không che thứ đang cần xem. */
-.cv-dock {
-  position: fixed; left: 10px; bottom: 10px; z-index: 60;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+/* Bàn xem áo khoác — công cụ nội bộ, chỉ ngoài production.
+   Nằm sát mép trên để không che thanh góp ý và con tam giác ở đáy. */
+.cv {
+  position: fixed; z-index: 70;
+  top: calc(56px + env(safe-area-inset-top, 0px));
+  left: 50%; translate: -50% 0;
+  width: min(300px, calc(100vw - 96px));
   font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  max-width: min(320px, calc(100vw - 96px));
+  color: #F4F2F8;
 }
-.cv-toggle {
-  min-height: 34px; padding: 6px 12px; border: 0; border-radius: 999px; cursor: pointer;
-  background: #0D0F13F2; color: #F2F3F5; font: inherit; font-size: 12px;
-  box-shadow: 0 6px 18px -8px #000000B3, inset 0 0 0 1px #FFFFFF26;
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-}
-.cv-panel {
-  padding: 8px; border-radius: 14px; background: #0D0F13F2; color: #F2F3F5;
-  box-shadow: 0 16px 40px -20px #000000CC, inset 0 0 0 1px #FFFFFF1F;
+.cv-strip {
+  display: flex; align-items: stretch; gap: 2px; padding: 3px;
+  border-radius: 999px; background: #0B0813E0;
+  box-shadow: inset 0 0 0 1px #FFFFFF24, 0 10px 26px -14px #000;
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
 }
-.cv-row { display: flex; flex-direction: column; gap: 4px; }
-.cv-coat {
-  display: block; width: 100%; text-align: left; cursor: pointer;
-  padding: 7px 10px; min-height: 42px; border: 0; border-radius: 10px;
-  background: #FFFFFF14; color: inherit; font: inherit;
+.cv-nav {
+  flex: none; width: 34px; border: 0; border-radius: 999px; cursor: pointer;
+  background: transparent; color: #CFC7E4; font: inherit; font-size: 18px; line-height: 1;
 }
-.cv-coat[aria-pressed="true"] { background: #C2EF4E; color: #12141A; }
-.cv-coat:focus-visible { outline: 2px solid #C2EF4E; outline-offset: 2px; }
-.cv-name { display: block; font-weight: 600; font-size: 13px; }
-.cv-line { display: block; font-size: 11px; opacity: .72; }
-.cv-coat[aria-pressed="true"] .cv-line { opacity: .64; }
-.cv-foot { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 8px; padding: 0 2px; }
-.cv-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; min-height: 32px; cursor: pointer; }
-.cv-check input { width: 16px; height: 16px; accent-color: #C2EF4E; }
-.cv-kb { font-size: 11px; opacity: .66; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.cv-dock-shut .cv-panel { display: none; }
+.cv-nav:active { background: #FFFFFF1A; }
+.cv-now {
+  flex: 1; min-width: 0; border: 0; border-radius: 999px; cursor: pointer;
+  background: transparent; color: inherit; font: inherit; padding: 5px 4px; text-align: center;
+}
+.cv-now-name { display: block; font-weight: 700; font-size: 13px; letter-spacing: -.01em; }
+.cv-now-line { display: block; font-size: 10.5px; opacity: .6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cv-nav:focus-visible, .cv-now:focus-visible, .cv-act:focus-visible { outline: 2px solid #C9F24E; outline-offset: 2px; }
+
+.cv-panel {
+  margin-top: 6px; padding: 11px 12px; border-radius: 16px; background: #0B0813EB;
+  box-shadow: inset 0 0 0 1px #FFFFFF1F, 0 18px 40px -22px #000;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+.cv-blurb { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.cv-meta { margin: 6px 0 0; font-size: 11px; opacity: .6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cv-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cv-act {
+  appearance: none; border: 0; border-radius: 9px; cursor: pointer;
+  background: #FFFFFF14; color: inherit; font: inherit; font-size: 12px;
+  min-height: 34px; padding: 6px 11px; display: inline-flex; align-items: center; gap: 7px;
+}
+.cv-check input { width: 15px; height: 15px; accent-color: #C9F24E; }
+.cv-hintline { margin: 9px 0 0; font-size: 10.5px; line-height: 1.45; opacity: .5; }
+
+/* Bàn này chạy không có database nên trang khách báo "chưa kết nối". Đó là thật và đúng,
+   nhưng nó không phải thứ đang cần nhìn ở đây. Chỉ giấu trên bàn xem, không giấu ở nơi khác. */
+.guest .guest-connection { display: none; }
+
+/* Bàn xem chiếm mép trên, nên đẩy nội dung trang xuống — chỉ trên bàn, không ở nơi khác. */
+.xem-host .guest[data-coat] .guest-sheet { padding-top: 118px; }
+.xem-host .guest[data-coat] .guest-language { top: 6px; }
+

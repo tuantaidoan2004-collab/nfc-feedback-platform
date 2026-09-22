@@ -21,8 +21,10 @@ export type Coat = {
   id: string;
   /** Tên hiển thị cho chủ shop. Không bao giờ mang tên một hãng — `DESIGN.md` mục 8. */
   name: string;
-  /** Một dòng nói áo này thuộc dòng nào, để chủ shop chọn được mà không cần hiểu thiết kế. */
-  line: string;
+  /** Dòng áo: `Không tranh` chạy được ngay; `Có tranh` cần tài sản hình của nền tảng. */
+  line: 'Không tranh' | 'Có tranh';
+  /** Một câu cho chủ shop, mô tả cảm giác chứ không mô tả kỹ thuật. */
+  blurb: string;
   /** Ngành áo này hợp, dùng để gợi ý khi bàn giao shop. */
   suits: string[];
   display: CoatFont;
@@ -35,22 +37,36 @@ export const COAT_FONT_KB: Record<CoatFont, number> = { system: 0, 'be-vietnam-p
 
 export const COATS: Coat[] = [
   {
-    id: 'nua-dem',
-    name: 'Nửa đêm',
-    line: 'áp phích phim — ảnh tràn viền, tên quán rất lớn',
-    suits: ['bar', 'lounge', 'quán khuya', 'phòng thu', 'tiệm xăm'],
-    display: 'be-vietnam-pro',
-    body: 'system',
-    kb: COAT_FONT_KB['be-vietnam-pro'],
+    id: 'kt-the-toi',
+    name: 'Thẻ tối',
+    line: 'Không tranh',
+    blurb: 'Một khối duy nhất đặt giữa màn hình. Gọn, chắc, không trang trí thừa.',
+    suits: ['quán ăn', 'tiệm bánh', 'cửa hàng'],
+    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
   },
   {
-    id: 'rang-moc',
-    name: 'Rang mộc',
-    line: 'ấm và chín — xanh rừng trên kem',
-    suits: ['cà phê', 'quán ăn', 'tiệm bánh'],
-    display: 'system',
-    body: 'system',
-    kb: 0,
+    id: 'kt-kinh',
+    name: 'Kính',
+    line: 'Không tranh',
+    blurb: 'Khối kính mờ, viền chuyển màu, hai quầng sáng thở phía sau.',
+    suits: ['spa', 'salon', 'phòng tập'],
+    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
+  },
+  {
+    id: 'kt-xep-lop',
+    name: 'Xếp lớp',
+    line: 'Không tranh',
+    blurb: 'Ba tấm thẻ chồng nghiêng, thẻ hồng thò ra sau lưng. Link thành từng dòng.',
+    suits: ['cà phê', 'quán trà', 'quán khuya'],
+    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
+  },
+  {
+    id: 'nua-dem',
+    name: 'Nửa đêm',
+    line: 'Có tranh',
+    blurb: 'Áp phích phim: ảnh tràn viền, tên quán rất lớn viết hoa. Đang chờ tranh thật.',
+    suits: ['bar', 'lounge', 'phòng thu'],
+    display: 'be-vietnam-pro', body: 'system', kb: COAT_FONT_KB['be-vietnam-pro'],
   },
 ];
 
