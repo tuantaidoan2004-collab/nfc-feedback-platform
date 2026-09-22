@@ -1,0 +1,219 @@
+/* Áo khoác trang khách — lát A29, 22/09/2026. Hợp đồng ở DESIGN.md mục 1.
+ *
+ * Mọi thứ trong tệp này nằm trong phạm vi `.guest[data-coat="…"]`. Trang khách không mang
+ * thuộc tính đó thì tệp này KHÔNG chạm tới nó: diện mạo cũ giữ nguyên từng điểm ảnh.
+ *
+ * Tệp này được import SAU `guest-page.css`, nên các quy tắc cùng độ đặc hiệu ở đây thắng.
+ */
+
+/* =====================================================================
+   BỐ CỤC NEO — chung cho mọi áo. DESIGN.md mục 3.
+   Nút Google không có đường nào trôi xuống dưới màn hình đầu: poster ăn
+   phần thừa, khối nội dung nằm dưới cùng và cao theo nội dung của nó.
+   ===================================================================== */
+.guest[data-coat] .guest-sheet {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+/* Ảnh lấy phần thừa bằng một phép trừ, không bằng `flex: 1`.
+ * Vì sao: khung chỉ có `min-height`, nên nó nở theo nội dung và `flex-shrink` không bao giờ
+ * chạy — ảnh giữ nguyên chiều cao tự nhiên và đẩy nút Google xuống dưới màn hình. Đã dính
+ * đúng lỗi đó khi dựng, ghi ở `operations-gotchas.md`.
+ * `--c-reserve` là chỗ khối nội dung cần; mỗi áo tự khai theo cỡ chữ của mình. */
+.guest[data-coat] .guest-poster {
+  flex: 0 0 auto;
+  aspect-ratio: auto;
+  height: clamp(170px, calc(100dvh - var(--c-reserve, 420px)), 62dvh);
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+  object-fit: cover;
+}
+.guest[data-coat] .guest-body { flex: 1 0 auto; }
+
+/* Thanh ngôn ngữ rời khỏi dòng chảy để không ăn chiều cao của phần ảnh.
+   Nút vẫn nằm nguyên chỗ cũ trong DOM — áo khoác chỉ đổi cách vẽ. */
+.guest[data-coat] .guest-language {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+  padding: 10px 14px;
+}
+
+/* =====================================================================
+   NỬA ĐÊM — dòng áp phích phim.
+   Ảnh tràn viền, tên quán rất lớn viết hoa, khối nội dung tím than dâng
+   lên che chân ảnh. Nút Google là mảng chanh điện: thứ sáng nhất màn hình.
+   ===================================================================== */
+.guest[data-coat="nua-dem"] {
+  --c-reserve: 430px;
+  --c-night: #150F23;
+  --c-panel: #1F1633;
+  --c-panel-soft: #2A2046;
+  --c-lime: #C2EF4E;
+  --c-pink: #FA7FAA;
+  --c-hair: #3A2F5C;
+
+  --ink: #FFFFFF;
+  --muted: #B3ABC4;
+  --paper: var(--c-panel);
+  --forest-deep: #FFFFFF;
+  color: #FFFFFF;
+}
+
+/* Nền: hai quầng sáng trôi rất chậm. CSS thuần, 0 KB tài nguyên. */
+.guest[data-coat="nua-dem"] .guest-bg { background: var(--c-night); }
+.guest[data-coat="nua-dem"] .guest-bg::before {
+  content: ""; position: absolute; inset: -20%;
+  background:
+    radial-gradient(38% 30% at 20% 18%, #4B2E8A 0%, transparent 70%),
+    radial-gradient(34% 26% at 82% 34%, #7A3F6B 0%, transparent 72%);
+  filter: blur(8px);
+  animation: coat-drift 34s ease-in-out infinite alternate;
+}
+@keyframes coat-drift {
+  from { transform: scale(1.04) translate3d(-1.5%, -1%, 0); }
+  to   { transform: scale(1.12) translate3d(1.5%, 2%, 0); }
+}
+
+.guest[data-coat="nua-dem"] .guest-language { color: #CFC7DE; }
+.guest[data-coat="nua-dem"] .guest-language select {
+  border-color: #FFFFFF3D; background: #0D0916A6; color: #E9E4F2;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+
+/* Ảnh: viền tối bốn phía cho chữ nổi, và một lớp hạt phim rất mảnh. */
+.guest[data-coat="nua-dem"] .guest-poster { filter: saturate(.92) contrast(1.06); }
+.guest[data-coat="nua-dem"] .guest-poster-empty {
+  border: 0;
+  background:
+    radial-gradient(70% 55% at 50% 38%, #3A2A63 0%, transparent 72%),
+    linear-gradient(180deg, #241B3C, #150F23);
+  color: #8F86A8;
+}
+.guest[data-coat="nua-dem"] .guest-poster-empty span { letter-spacing: .26em; font-size: 10px; }
+
+/* Logo thành một dấu vuông nhỏ nằm lệch trái, như dấu hãng phim ở góc áp phích. */
+.guest[data-coat="nua-dem"] .guest-logo {
+  width: 54px; height: 54px; margin: -27px 0 0 20px; border-radius: 15px;
+  background: var(--c-night); color: var(--c-lime);
+  border: 2px solid var(--c-lime); box-shadow: 0 6px 22px -8px #C2EF4E66;
+  font-size: 19px; letter-spacing: .02em;
+}
+
+/* Khối nội dung dâng lên che chân ảnh bằng một dải chuyển màu, không phải một cạnh cứng. */
+.guest[data-coat="nua-dem"] .guest-body {
+  margin-top: -70px;
+  padding: 84px 22px 26px;
+  border-radius: 0;
+  text-align: center;
+  background: linear-gradient(180deg, #150F2300 0%, #150F2359 18%, #150F23F2 46%, var(--c-panel) 64%, var(--c-panel) 100%);
+}
+
+/* Tên quán: thứ to nhất trang, viết hoa, bó sát. Be Vietnam Pro 800 —
+   bộ chữ do người Việt vẽ, nên dấu đặt đúng ở cỡ này. DESIGN.md mục 5. */
+.guest[data-coat="nua-dem"] h1 {
+  font-family: var(--c-display, inherit);
+  font-size: clamp(34px, 11.5vw, 48px);
+  font-weight: 800;
+  line-height: .94;
+  letter-spacing: -.045em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: #FFFFFF;
+  margin: 0;
+  text-shadow: 0 2px 24px #150F2399;
+}
+
+.guest[data-coat="nua-dem"] .google-invitation { margin-top: 20px; }
+.guest[data-coat="nua-dem"] .google-invitation > p:first-child {
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--c-pink); font-weight: 600;
+}
+
+/* Nút Google: mảng chanh đặc, chữ đen. Sáng nhất màn hình — sàn 3 của DESIGN.md.
+   Tương phản chữ trên nút ≈ 15:1, vượt xa 4,5. */
+.guest[data-coat="nua-dem"] .google-button {
+  min-height: 60px; border-radius: 14px;
+  background: var(--c-lime);
+  color: #150F23;
+  text-shadow: none;
+  font-size: 17px; font-weight: 800; letter-spacing: -.01em;
+  box-shadow: 0 12px 30px -14px #C2EF4EAA, inset 0 -2px 0 #A3CC3C;
+}
+.guest[data-coat="nua-dem"] .google-button::after { display: none; }
+.guest[data-coat="nua-dem"] .google-button .google-mark {
+  background: #FFFFFF; box-shadow: none;
+}
+.guest[data-coat="nua-dem"] .google-button[disabled] { opacity: .55; }
+
+.guest[data-coat="nua-dem"] .guest-note { color: #A79FB8; }
+
+.guest[data-coat="nua-dem"] .guest-links a {
+  background: #2A2046;
+  color: #EDE8F7;
+  box-shadow: inset 0 0 0 1px var(--c-hair);
+  border-radius: 12px;
+}
+
+.guest[data-coat="nua-dem"] .guest-legal { color: #968DAB; }
+.guest[data-coat="nua-dem"] .guest-legal a,
+.guest[data-coat="nua-dem"] .guest-legal button,
+.guest[data-coat="nua-dem"] .guest-fineprint a { color: #B9B1C9; }
+
+.guest[data-coat="nua-dem"] .guest-hint {
+  background: #241B3CE6; color: #EDE8F7;
+  box-shadow: 0 0 0 1px var(--c-hair), 0 10px 26px -12px #000000CC;
+}
+.guest[data-coat="nua-dem"] .guest-card { background: var(--c-panel); }
+.guest[data-coat="nua-dem"] .guest-card textarea,
+.guest[data-coat="nua-dem"] .guest-card input {
+  background: #150F23; color: #FFFFFF; border-color: var(--c-hair);
+}
+.guest[data-coat="nua-dem"] .guest-send {
+  background: var(--c-lime); color: #150F23; border-radius: 12px;
+}
+
+/* =====================================================================
+   RANG MỘC — ấm và chín. Cùng bố cục neo, giọng hoàn toàn khác.
+   Để cạnh Nửa đêm cho thấy áo khoác đổi cả tỉ lệ, không chỉ đổi màu.
+   ===================================================================== */
+.guest[data-coat="rang-moc"] {
+  --c-reserve: 400px;
+  --ink: #16261F; --muted: #6B7A70; --paper: #F7F2E7;
+  --forest: #0F3B2E; --forest-deep: #0B2C22; --line: #E0D7C4; --gold: #C0873F;
+  color: #16261F;
+}
+.guest[data-coat="rang-moc"] .guest-bg {
+  background: linear-gradient(155deg, #0F3B2E 0%, #2E5B46 52%, #C9BCA1 100%);
+}
+.guest[data-coat="rang-moc"] .guest-poster { min-height: 26dvh; }
+.guest[data-coat="rang-moc"] .guest-poster-empty { border-color: #FFFFFF8A; }
+.guest[data-coat="rang-moc"] .guest-logo {
+  width: 84px; height: 84px; margin: -42px auto 0; border-radius: 50%;
+  background: #0F3B2E; color: #F7F2E7; border: 5px solid #F7F2E7;
+}
+.guest[data-coat="rang-moc"] .guest-body {
+  margin-top: -42px;
+  padding: 54px 24px 28px;
+  border-radius: 30px 30px 0 0;
+  background: #F7F2E7;
+}
+.guest[data-coat="rang-moc"] h1 {
+  font-size: clamp(27px, 7.4vw, 34px); font-weight: 700; letter-spacing: -.02em;
+  color: #0B2C22; text-transform: none;
+}
+.guest[data-coat="rang-moc"] .google-button {
+  min-height: 58px; border-radius: 13px;
+  background: linear-gradient(180deg, #1B5341 0%, #0F3B2E 52%, #0B2C22 100%);
+  color: #FFFFFF;
+  box-shadow: 0 12px 26px -15px #0B2C22CC;
+}
+.guest[data-coat="rang-moc"] .guest-links a {
+  background: #FFFFFF; color: #16261F; border-radius: 999px;
+  box-shadow: 0 0 0 1px #E0D7C4, 0 1px 2px #00000014;
+}
+
+/* Áo nào cũng phải tôn trọng người tắt hiệu ứng. DESIGN.md mục 6. */
+@media (prefers-reduced-motion: reduce) {
+  .guest[data-coat] .guest-bg::before { animation: none; }
+}
