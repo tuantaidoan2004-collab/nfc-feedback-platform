@@ -196,39 +196,15 @@ khách áp vào đây, và **không lấy hiệu ứng của trang này đem san
 
 ---
 
-## 9. Tủ áo
+## 9. Tủ khuôn
 
-### `ap-phich` — “Áp phích”. Bố cục biên tập, không phải thẻ giữa trang.
+**Sáu áo khoác dựng thử ngày 22–23/09 đã bị xoá** (Tài, 23/09): ba bản không tranh và ba bản có tranh chỉ là
+bản thử để tìm hướng, và chúng được thay bằng **lát sáu khuôn** — xem `docs/thiet-ke-va-khuon.md` mục 12.
 
-Tài bác bỏ bố cục thẻ-căn-giữa ngày 22/09 và yêu cầu dựng lại từ tầng bố cục. Tám quyết định,
-ghi lại để lát sau không lặng lẽ kéo nó về giữa trang:
+Cái **còn lại và vẫn có hiệu lực** là phần nguyên tắc ở mục 1–8 của tệp này: hợp đồng lớp trình bày, bốn sàn,
+bố cục neo, luật dấu tiếng Việt, luật nhãn hiệu, hai luật dùng chung (trang luôn dài hơn màn hình · nút máy bay
+giấy bất biến), và kỹ thuật nét tay bằng bộ lọc SVG. Sáu khuôn mới kế thừa toàn bộ những thứ đó.
 
-1. **Lưới lệch.** `.guest-body` là grid hai cột `1.06fr / .94fr`. Chữ trái, bề mặt tương tác phải. Không
-   phần tử nào căn giữa cả hai chiều.
-2. **Chữ là vật thể đồ hoạ.** Tên quán `clamp(54px, 7.4vw, 104px)`, `line-height: .84`, tràn sang trái ra
-   ngoài lưới bằng margin âm. `h1` là flex cột `space-between` trải suốt chiều cao: nhãn trên, tên giữa,
-   câu tuyên ngôn dưới — đó là cách lấp cột trái bằng **bố cục**, không bằng đồ trang trí.
-3. **Tranh là một lớp, không phải thẻ ảnh.** `clip-path` cắt nghiêng, xoay −3°, tràn khỏi mép trên phải,
-   `z-index` cao hơn thân nên nó **đè lên kính**. Mặt nạ làm nó tan trước vùng CTA.
-4. **Logo vắt qua hai lớp** — mép tranh và mép tấm tương tác. Không bao giờ lơ lửng một mình.
-5. **Tấm tương tác là bề mặt được thiết kế**: bo góc bất đối xứng (chỉ một phía), ánh sáng viền **chỉ ở
-   cạnh trên**, phản chiếu magenta hắt từ phía tranh, hạt nhiễu rất mảnh. Không phải công thức
-   `rgba + border 1px tím + radius 30px + blur 20px`.
-6. **Nền dựng bốn lớp**: mực → hai trường sáng lớn trôi lệch pha → lưới phối cảnh mảnh có mặt nạ → hạt.
-   Cộng một vòng cung khổng lồ bị mép màn hình cắt, quét qua góc dưới trái.
-7. **Hành động phụ lệch nhau**: ba capsule khác bề rộng, cái thứ ba rút thành nút tròn chỉ còn icon, lệch
-   đường chân 4–6px. Rõ ràng là hạng hai.
-8. **Điện thoại là một áp phích dọc riêng**, không phải bản thu nhỏ: tranh chiếm 42dvh trên cùng, tên quán
-   đè lên chân tranh, tấm tương tác dâng lên đè vào tranh với **một góc bo duy nhất**, logo vắt qua mép tấm
-   ở phía đối diện khối chữ.
+Mỗi khuôn khi vào mã ghi một mục ở đây: id · tên · dùng cho ngành nào · bộ chữ và số KB · kết quả bốn sàn.
 
-**Ranh giới không được vượt:** tranh đè lên kính thì được, đè lên nút Google thì **không**. Hàng lưới thứ hai
-co giãn (`minmax(clamp(150px,26vh,260px), 1fr)`) chính là thứ đẩy khối tương tác xuống dưới vùng tranh. Nút
-Google giữ nền trắng đặc, cao 74px trên máy tính để bàn, và **không có hoạt ảnh xuất hiện**.
-
-| Áo | Dòng | Bộ chữ | KB | Bốn sàn |
-|---|---|---|---|---|
-| `ap-phich` | Không tranh | Be Vietnam Pro 800 + hệ thống | 38 | đã qua |
-
-Dòng **có tranh** (Hero · Chia đôi · Nhập vai) chờ tranh của Tài — bản kê ở
-[`docs/anh-can-cho-ao-khoac.md`](docs/anh-can-cho-ao-khoac.md).
+*(chưa có khuôn nào vào mã)*

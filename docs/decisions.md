@@ -210,6 +210,13 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
 - **Astra dừng**: OpenAI không cho làm C3. C3 (cô lập dữ liệu giữa các shop) **chuyển sang Claude**, chưa làm.
 
+### Sáu áo khoác dựng thử đã bị xoá (Tài, 23/09)
+
+Ba bản không tranh, bản Áp phích và ba bản có tranh đều là bản thử tìm hướng; chúng được thay bằng **lát sáu
+khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `components/coat-viewer.*`, `app/xem/` và mọi
+móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
+`thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
+
 ### Xong gần nhất — lát khuôn/tài khoản (23/09, `5375358`)
 
 `shop_profile` (migration 022) + lớp ghép lúc đọc. **Nội dung thuộc tài khoản, diện mạo thuộc khuôn.** Đổi khuôn
@@ -240,8 +247,11 @@ thứ khó hoàn tác.
   `LEFT JOIN shop_profile`, database chưa migrate là trang khách sập.
 - **Không báo test xanh khi chưa có output.** Lệnh 7 bộ ở `operations-gotchas.md`.
 
-**Vercel chưa dựng nhánh preview** kể từ 22/09 (`/xem` vẫn 404 trên preview). Production deploy từ `main` thì
-bình thường. Chưa chẩn đoán; cần Tài mở Vercel → Deployments.
+**Vercel chưa dựng nhánh preview** kể từ 22/09. Đo 23/09: preview và production chạy **hai build khác nhau**
+(chunk khác hẳn), và hàm preview vẫn ở **`iad1`** trong khi production ở `sin1` — tức là việc đổi vùng 21/09 chỉ
+áp cho Production. Ứng viên số một cho build đỏ là `app/xem/page.tsx` dùng `next/font/google` (tải font lúc
+build); route đó ra đời đúng ở `8d35dc6`, khớp mốc preview đứng lại. **Route đó đã bị xoá 23/09**, nên nếu
+preview dựng lại được thì chính nó. Nếu vẫn không, cần Tài mở Vercel → Deployments xem có *Ignored Build Step*.
 
 ### Việc còn treo của Tài
 

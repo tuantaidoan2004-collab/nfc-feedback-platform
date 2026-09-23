@@ -9,6 +9,21 @@ thứ ở đây.
 
 ---
 
+## 0. Sáu áo khoác dựng thử đã bị xoá (Tài, 23/09/2026)
+
+Ba bản **không tranh** (Thẻ tối · Kính · Xếp lớp), bản **Áp phích**, và ba bản **có tranh** (Hero · Chia đôi ·
+Nhập vai) đều là **bản thử để tìm hướng**. Tài chốt bỏ hết: chúng được thay bằng **lát sáu khuôn** ở mục 12.
+
+Đã xoá khỏi mã: `components/coats.css`, `lib/publishing/coats.ts`, `components/coat-viewer.{tsx,css}`,
+`app/xem/` và mọi móc `coat` trong `shop-feedback-v2.tsx`. Lấy lại được từ lịch sử git nếu cần tham khảo
+(`git show 5f80321 -- components/coats.css`).
+
+**Cái không bị xoá, vì nó là kiến thức chứ không phải kết quả:** mọi nguyên tắc ở `DESIGN.md`, mô hình
+khuôn/tài khoản ở mục 11, phạm vi sáu khuôn ở mục 12, hai luật dùng chung ở mục 13, và ba chỗ suýt thủng ở
+mục 14. Sáu khuôn mới kế thừa hết.
+
+---
+
 ## 9. Thiết kế trang khách — hướng đi chốt 22/09/2026
 
 ### Thiết kế trước, tính năng sau

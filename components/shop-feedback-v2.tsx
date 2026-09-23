@@ -8,7 +8,6 @@ import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackB
 import { burstConfetti } from './confetti';
 import { FACES } from '@/lib/faces';
 import './guest-page.css';
-import './coats.css';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
@@ -20,12 +19,7 @@ import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
  * the same for every visitor because no rating is asked before it. Private feedback lives behind a floating button
  * and opens a spotlight card with its own stars; the stars and the text are saved only when the customer presses Send.
  */
-/**
- * `coat` là áo khoác (lát A29). Nó chỉ trở thành một thuộc tính trên phần tử gốc; CSS trong
- * `coats.css` treo vào đó. Áo khoác không được đổi cây DOM — hợp đồng ở `DESIGN.md` mục 1 —
- * nên nó không xuất hiện ở bất kỳ chỗ nào khác trong tệp này.
- */
-type Props = { render?: RenderBinding; pageConfig?: PageConfig; coat?: string; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
+type Props = { render?: RenderBinding; pageConfig?: PageConfig; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
 const messages = {
   vi: {
     loading: 'Đang kết nối…', ready: 'Chọn sao, viết góp ý, hoặc cả hai.',
@@ -109,15 +103,9 @@ function useVideoPlays() {
   return [blocked, ref] as const;
 }
 
-/**
- * Khi trang đang mặc áo khoác, **áo sở hữu cái nền**: không phát style nội tuyến từ
- * `PageConfig`, vì style nội tuyến thắng mọi quy tắc CSS và sẽ đè lên nền của áo. Nền do
- * shop chọn chỉ dùng khi trang không mặc áo nào.
- */
-function Background({ config, reduced, coat }: { config: ReturnType<typeof defaultConfig>; reduced: boolean; coat?: string }) {
+function Background({ config, reduced }: { config: ReturnType<typeof defaultConfig>; reduced: boolean }) {
   const b = config.background;
-  const style = coat ? undefined
-    : b.kind === 'solid' ? { background: b.color }
+  const style = b.kind === 'solid' ? { background: b.color }
     : b.kind === 'gradient' ? { background: `linear-gradient(${b.angle}deg, ${b.colors[0]}, ${b.colors[1]})` } : undefined;
   const still = b.kind === 'media' ? stillFor(b.media) : null;
   const [blocked, plays] = useVideoPlays();
@@ -389,8 +377,8 @@ export default function ShopFeedbackV2(shop: Props) {
     {state?.opens.filter(entry => entry.result?.kind === 'pending' && !entry.running).map((entry, index) => <button type="button" key={entry.event.loadKey} className="guest-send" onClick={() => { setValidation(null); void client.retryOpen(entry.event.loadKey); }}>{m.retryOpen}{index > 0 ? ` (${index + 1})` : ''}</button>)}
   </>;
 
-  return <main className="guest" lang={lang} data-layout={config.layout} data-schema={config.schemaVersion} data-coat={shop.coat} data-ready={snapshot ? '' : undefined}>
-    <Background config={config} reduced={reduced} coat={shop.coat} />
+  return <main className="guest" lang={lang} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}>
+    <Background config={config} reduced={reduced} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
       <Poster poster={config.poster} label={p.poster} />
