@@ -1,4 +1,5 @@
 import { validateConfig, type PageConfig } from './config';
+import { assertPublishable } from './policy';
 
 /**
  * Hồ sơ của **tài khoản** — nội dung do chủ quán sở hữu (migration 022, `docs/decisions.md` mục 11).
@@ -22,23 +23,34 @@ export type ShopProfileRow = {
  *
  * Hai luật, và luật thứ hai quan trọng hơn:
  *
- * 1. Trường nào thuộc tài khoản thì tài khoản thắng. `google_url` là ngoại lệ có điều kiện: tài khoản chưa cấp
- *    link thì giữ link trong bản chụp, vì `PageConfig` bắt buộc phải có một URL hợp lệ.
- * 2. **Hồ sơ hỏng không bao giờ được làm trang khách sập.** Kết quả ghép phải qua lại `validateConfig`; không
- *    qua thì trả về đúng bản chụp. Một hàng dữ liệu xấu làm trang cũ hơn một chút, chứ không làm trang trắng.
+ * 1. **Hồ sơ điền vào ổ nó có, không bịt ổ nó không có.** Tên quán và câu hỏi là `NOT NULL` nên luôn của tài
+ *    khoản. Còn link Google, danh sách link, logo và ảnh: hồ sơ **trống** nghĩa là "tài khoản chưa cấp", chứ
+ *    không phải "tài khoản muốn xoá" — lúc đó bản chụp giữ nguyên giá trị của nó.
+ *
+ *    Không có luật này thì một quán đã phát hành ba link sẽ **mất sạch link trên trang khách**, vì hàng hồ sơ
+ *    mà trigger seed ra có `links = '[]'`. Đúng lỗi đó đã làm `publishing.spec.ts:112` đỏ.
+ * 2. **Hồ sơ hỏng không bao giờ được làm trang khách sập, và không bao giờ đi vòng qua luật Google.**
+ *    Kết quả ghép phải qua lại `validateConfig` **và** `assertPublishable`; không qua thì trả về đúng bản chụp.
+ *
+ *    Vế thứ hai là chỗ suýt thủng: tên quán và câu hỏi nằm trong hàng rào của `google-policy.md` (lát F-013 —
+ *    "tên quán và câu hỏi đi qua cùng một phép kiểm với nhãn link"). Nếu hồ sơ tài khoản được ghép vào lúc đọc
+ *    mà không kiểm lại, một quán đặt tên "Đánh giá 5 sao nhận quà" sẽ lên thẳng trang khách, không qua cửa
+ *    phát hành. Kiểm ở đây đóng đúng cái cửa đó: hồ sơ phạm luật thì **bản đã phát hành vẫn giữ nguyên trên
+ *    trang**, chứ trang không đổi theo và cũng không sập. Test `publishing.spec.ts:112` giữ tính chất này.
  */
 export function withProfile(config: PageConfig, row: ShopProfileRow | null | undefined): PageConfig {
   if (!row) return config;
+  const links = Array.isArray(row.links) && row.links.length ? row.links : config.links;
   const merged = {
     ...config,
     name: row.name,
     googleUrl: row.google_url ?? config.googleUrl,
     text: { question: { vi: row.question_vi, en: row.question_en } },
-    links: Array.isArray(row.links) ? row.links : config.links,
-    logo: row.logo ?? null,
-    poster: row.poster ?? null,
+    links,
+    logo: row.logo ?? config.logo,
+    poster: row.poster ?? config.poster,
   };
-  try { return validateConfig(merged); } catch { return config; }
+  try { const next = validateConfig(merged); assertPublishable(next); return next; } catch { return config; }
 }
 
 /** Các cột hồ sơ, viết một lần để hai truy vấn trong resolver không lệch nhau. */

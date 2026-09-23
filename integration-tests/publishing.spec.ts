@@ -45,14 +45,16 @@ test('render R1 → publish R2 → open remains R1; reload shares session and re
   await page.route('**/api/v2/pages/visits', async route => { if (hold) { hold = false; await latch; } await route.continue(); });
   const pending = page.waitForRequest('**/api/v2/pages/visits');
   await page.goto('/one'); await pending;
-  await expect(page.getByText('Release One', { exact: true }).first()).toBeVisible();
-  await f.admin.saveDraft(f.shop, 2, defaultConfig('Release Two'));
+  // Từ migration 022 tên quán thuộc tài khoản, không thuộc bản phát hành, nên nó không còn đổi theo
+  // release. Bằng chứng "bản nào đang hiện" chuyển sang `data-layout` — thứ vẫn do bản phát hành quyết.
+  await expect(page.locator('main.guest')).toHaveAttribute('data-layout', 'full-bleed');
+  await f.admin.saveDraft(f.shop, 2, { ...defaultConfig('Release Two'), layout: 'card' as const });
   const second = await f.admin.publish(f.shop, 3);
   release(); await loaded(page);
   await rated(page, 5);
   const google = await page.locator('.google-invitation').innerText();
   await page.reload(); await loaded(page);
-  await expect(page.getByText('Release Two', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('main.guest')).toHaveAttribute('data-layout', 'card');
   expect(await page.locator('.google-invitation').innerText()).toBe(google);
   const response = page.waitForResponse('**/feedback');
   await openCard(page); await star(page, 2).click();
@@ -260,6 +262,8 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
   await expect(page.locator('.guest-watermark-track span').first()).toHaveText('YOUR LOGO');
   await expect(page.locator('.guest-poster-empty')).toHaveText('POSTER SỰ KIỆN');
+  // Chữ tắt dựng từ tên quán. Tên quán thuộc tài khoản (022), nhưng `publish()` ghi nội dung xuống hồ sơ
+  // trong cùng transaction — nên sau khi phát hành, tên của tài khoản CHÍNH LÀ tên vừa phát hành.
   await expect(page.locator('.guest-logo')).toHaveText('QT');
   const facebook = page.getByRole('link', { name: 'Facebook' }), phone = page.getByRole('link', { name: 'Gọi cho quán' });
   await expect(facebook).toHaveAttribute('href', 'https://facebook.com/quanthu'); await expect(facebook).toHaveAttribute('target', '_blank');

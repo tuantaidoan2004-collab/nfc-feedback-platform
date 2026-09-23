@@ -54,6 +54,18 @@ export class PublishingAdmin {
       // Checked again on the way out: a draft written before this rule existed cannot be published under it.
       const config = validateConfig(draft.config); assertPublishable(config);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id`, [shopId, draft.template_version_id, config, expected, actor])).rows[0].id;
+      // Nửa còn lại của migration 022: phát hành cũng ghi phần nội dung xuống hồ sơ TÀI KHOẢN.
+      // Thiếu bước này thì trình chỉnh trang đứt mạch — chủ quán sửa tên, bấm phát hành, và trang khách vẫn
+      // hiện tên cũ, vì trình chỉnh ghi vào bản chụp còn trang khách đọc từ hồ sơ. Ghi ở đây, trong cùng
+      // transaction với bản phát hành, nên hai bên không bao giờ lệch nhau.
+      await db.query(`INSERT INTO shop_profile(shop_id,name,google_url,question_vi,question_en,links,logo,poster)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+        ON CONFLICT(shop_id) DO UPDATE SET name=EXCLUDED.name,google_url=EXCLUDED.google_url,
+          question_vi=EXCLUDED.question_vi,question_en=EXCLUDED.question_en,links=EXCLUDED.links,
+          logo=EXCLUDED.logo,poster=EXCLUDED.poster,updated_at=clock_timestamp()`,
+        [shopId, config.name, config.googleUrl, config.text.question.vi, config.text.question.en,
+         JSON.stringify(config.links), config.logo ? JSON.stringify(config.logo) : null,
+         config.poster ? JSON.stringify(config.poster) : null]);
       await db.query("UPDATE shops SET active_release_id=$2,publishing_state='active' WHERE id=$1", [shopId, release]);
       await db.query('UPDATE page_drafts SET revision=revision+1 WHERE shop_id=$1', [shopId]);
       return { releaseId: release as string, draftRevision: expected + 1 };
@@ -116,9 +128,12 @@ export class PublishingResolver {
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state,${PROFILE_COLUMNS} FROM preview_sessions p JOIN shops s ON s.id=p.shop_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id LEFT JOIN shop_profile pr ON pr.shop_id=p.shop_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
+    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state FROM preview_sessions p JOIN shops s ON s.id=p.shop_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
-    return { slug: row.slug as string, config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context, expiresAt: row.expires_at as Date };
+    // Xem trước KHÔNG ghép hồ sơ tài khoản, có chủ ý: nó tồn tại để chủ quán thấy **đúng bản nháp sắp phát
+    // hành**. Ghép hồ sơ vào đây thì sửa tên xong xem trước vẫn ra tên cũ, và cái nút xem trước mất nghĩa.
+    // Hồ sơ chỉ ghép ở `live()`; và `publish()` ghi nội dung xuống hồ sơ, nên hai đường gặp nhau lúc phát hành.
+    return { slug: row.slug as string, config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
   }
 }

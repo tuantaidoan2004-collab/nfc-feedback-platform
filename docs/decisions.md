@@ -388,6 +388,38 @@ trang dài thêm chừng ấy khoảng trống vô nghĩa — đúng thứ A1 mu
 thành khung cuộn và **không** tạo containing block, nên nút góp ý `position: fixed` vẫn neo vào màn hình — đã đo
 lại sau khi sửa: nút vẫn cách đáy đúng 18px.
 
+## 14. Ba chỗ suýt thủng khi tách nội dung khỏi khuôn (23/09/2026)
+
+Bảy bộ test bắt được ba lỗi mà đọc mã không thấy. Ghi lại vì chúng là **ranh giới của mô hình**, không phải lỗi vặt.
+
+**① Hồ sơ tài khoản suýt đi vòng qua luật Google.** Tên quán và câu hỏi nằm trong hàng rào `google-policy.md`
+(lát F-013: *"tên quán và câu hỏi đi qua cùng một phép kiểm với nhãn link"*). Ghép hồ sơ vào lúc đọc mà không
+kiểm lại thì một quán đặt tên *"Đánh giá 5 sao nhận quà"* sẽ lên thẳng trang khách, **không qua cửa phát hành**.
+Sửa: `withProfile()` chạy cả `validateConfig` **và** `assertPublishable`; không qua thì bản đã phát hành giữ
+nguyên trên trang. `publishing.spec.ts:112` giữ tính chất này.
+
+**② Hồ sơ rỗng suýt xoá sạch link đã phát hành.** Trigger seed hàng hồ sơ với `links = '[]'`. Lớp ghép ban đầu
+để cái rỗng đó thắng, nên một quán đã phát hành ba link sẽ **mất hết link trên trang**. Luật đúng: **hồ sơ điền
+vào ổ nó có, không bịt ổ nó không có** — trống nghĩa là "chưa cấp", không phải "muốn xoá".
+
+**③ Trình chỉnh trang đứt mạch.** Trình chỉnh ghi tên vào bản nháp; trang khách đọc tên từ hồ sơ. Chủ quán sửa
+tên, bấm phát hành, trang khách **vẫn tên cũ**. Sửa: `publish()` ghi phần nội dung xuống `shop_profile` trong
+**cùng transaction** với bản phát hành, nên hai bên không bao giờ lệch.
+
+### Hai luật đi kèm, đừng đảo lại
+
+- **`live()` ghép hồ sơ; `preview()` thì không.** Xem trước tồn tại để chủ quán thấy **đúng bản nháp sắp phát
+  hành**. Ghép hồ sơ vào đó thì sửa tên xong xem trước vẫn ra tên cũ, và nút xem trước mất nghĩa.
+- **Rollback không đổi nội dung.** Nó đổi bản phát hành đang sống, mà nội dung thuộc tài khoản — nên tên quán
+  không quay ngược theo. Vì vậy test nào cần bằng chứng *"bản nào đang sống"* phải soi một trường **thuộc bản
+  phát hành** (`layout`, `data-schema`), không soi tên quán. Đã sửa ở `publishing.spec.ts` và
+  `impersonation.spec.ts`.
+
+### Thứ tự triển khai — bắt buộc
+
+Mã mới `LEFT JOIN shop_profile`, nên **database chưa chạy 022 thì trang khách sập**. Luật 4 trong mục 5 vốn đã
+bắt migrate trước khi đẩy `main`; với lát này nó không còn là kỷ luật mà là điều kiện sống.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-21
 
 Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên trước, rồi khối này.

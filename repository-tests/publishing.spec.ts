@@ -13,7 +13,7 @@ type Fixture={db:Pool;admin:PublishingAdmin;resolver:PublishingResolver;shop:str
 const test=base.extend<{fixture:Fixture}>({fixture:async({},provideFixture)=>{
  const schema=`nfc_publish_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri});
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:8});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','020_page_events.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','020_page_events.sql','022_shop_profile.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  const shop=randomUUID(),other=randomUUID();await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'one','One'),($2,'two','Two')",[shop,other]);
  await provideFixture({db,shop,other,admin:new PublishingAdmin(db,async()=>({actorId:'fixture-admin'})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -35,8 +35,11 @@ test('authority boundary, draft CAS, concurrent publish and immutable versions/r
  await expect(f.admin.saveDraft(f.shop,2,{...defaultConfig(),html:'x'})).rejects.toThrow('INVALID_CONFIG');
 });
 test('rollback pointer CAS and cross-shop FK preserve releases',async({fixture:f})=>{
- const first=await seed(f);await f.admin.saveDraft(f.shop,2,defaultConfig('R2'));const second=await f.admin.publish(f.shop,3);
- await f.admin.rollback(f.shop,first.releaseId,second.releaseId);expect((await f.resolver.live({slug:'one'})).config.name).toBe('R1');
+ // Từ migration 022 tên quán thuộc về tài khoản, không thuộc bản phát hành — nên nó KHÔNG đổi theo
+ // rollback nữa, và không còn dùng được làm bằng chứng "release nào đang sống". `layout` thì vẫn thuộc
+ // bản phát hành, nên nó là bằng chứng đúng cho phép kiểm này.
+ const first=await seed(f);await f.admin.saveDraft(f.shop,2,{...defaultConfig('R2'),layout:'card' as const});const second=await f.admin.publish(f.shop,3);
+ await f.admin.rollback(f.shop,first.releaseId,second.releaseId);expect((await f.resolver.live({slug:'one'})).config.layout).toBe('full-bleed');
  await expect(f.admin.rollback(f.shop,second.releaseId,second.releaseId)).rejects.toThrow('RELEASE_CONFLICT');
  await f.admin.createDraft(f.other,first.template,defaultConfig('Other'));const other=await f.admin.publish(f.other,1);
  await expect(f.admin.rollback(f.shop,other.releaseId,first.releaseId)).rejects.toThrow();
