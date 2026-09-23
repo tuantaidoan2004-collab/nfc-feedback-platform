@@ -204,7 +204,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–022**.
-  `main` có khuôn 6 (23/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+  `main` có khuôn 5 (23/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
@@ -217,7 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — khuôn 6 · Nút lớn (23/09)
+### Xong gần nhất — khuôn 5 · Ánh sáng tụ (23/09)
+
+Khuôn tối đầu tiên: quầng sáng hổ phách là bóng của chính nút Google, lưới chấm nét gần nút và nhoè khi ra xa. Nó làm
+lộ bốn chỗ CSS gốc viết cứng màu sáng (viên link, ô nhập, nút Gửi, bóng nút Google) — đã nối token. Chữ dòng mời góp ý
+giờ cố định để A2 đứng được ở khuôn tối; có test so khuôn 5 với khuôn 6. **Không migration.**
+
+### Trước đó — khuôn 6 · Nút lớn (23/09)
 
 Khuôn đầu tiên có diện mạo: nút Google 112px giữa màn hình, chuyển cảnh 300ms rồi **cùng tab** sang Google
 (`LEAVE_TRANSITION_MS`). Nút Google mọi khuôn giờ pha màu từ `--c-brand`. Chi tiết `DESIGN.md` mục 9.
@@ -248,7 +254,7 @@ production). Chi tiết ở [`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md).
 ### Việc kế, theo thứ tự
 
 1. **Diện mạo từng khuôn còn lại**, mỗi khuôn một lát, chỉ đặt token trong `.guest[data-template="<khoá>"]`. Khuôn 2
-   chờ ảnh gốc của Tài; khuôn 3 và 5 làm được ngay; khuôn 4 phần trang trí là A35.
+   chờ ảnh gốc của Tài; khuôn 3 (Kính) làm được ngay, cần bản rút gọn cho Android rẻ; khuôn 4 phần trang trí là A35.
 2. **Ba khuôn có tranh** — chờ ảnh của Tài; bản kê ở [`anh-can-cho-ao-khoac.md`](anh-can-cho-ao-khoac.md).
 3. **Cửa duyệt ảnh** (mục 10) — có migration.
 4. **C3 + sao lưu** — trước khách trả tiền.

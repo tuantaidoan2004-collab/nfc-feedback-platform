@@ -288,3 +288,23 @@ luật đó phải chuyển chỗ trước, hoặc có test giữ nó. Lỗi c�
 bằng `span { display: none }`; link chỉ còn một SVG `aria-hidden`, nên trình đọc màn hình đọc ra một link không tên.
 Cắt bằng `position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)` — mắt không thấy, tên
 vẫn còn. `getByRole('link', { name })` trong test bắt được lỗi này.
+
+**Ảnh chụp giữa lúc hoạt ảnh trông như lỗi xếp lớp.** Khuôn 5: chụp ngay sau khi mở thẻ góp ý thì trang hiện **sắc
+nét, đè lên** thẻ — trông như `isolation: isolate` vừa thêm đã đẩy thẻ xuống dưới. Thật ra thẻ đang `opacity` từ 0 lên
+trong 0,5 giây, và lớp làm mờ nền cũng đang hiện dần. Chờ 700ms thì đúng; `document.elementFromPoint` xác nhận
+`.guest-modal` ở trên. Trước khi sửa xếp lớp, **chờ hoạt ảnh xong rồi hỏi trình duyệt phần tử nào ở trên**, đừng tin
+một khung hình.
+
+**Một token dùng chung làm hỏng thứ phải bất biến.** Dòng mời góp ý (A2 — giống hệt ở mọi khuôn) lấy màu chữ từ
+`--forest-deep`, tức `--c-ink-2` của khuôn. Khuôn tối đặt `--c-ink-2` trắng, nên dòng mời thành chữ trắng trên viên
+sáng. Thứ bất biến thì **không đọc token của khuôn**; viết cứng giá trị và có test so hai khuôn.
+
+**Test tương phản so với một nền giả định thì không bắt được gì.** Ca khuôn 5 đầu tiên so màu chữ viên link với
+`rgb(32, 33, 41)` — màu Claude *định* cho viên link — thay vì màu viên link **thật sự** được vẽ. Phá thử bằng cách gỡ
+token viên link: chữ thành trắng trên nền trắng mà ca vẫn xanh. Đo cả hai vế từ trình duyệt (`color` và
+`backgroundImage`/`backgroundColor` của chính phần tử). Chỉ phá thử mới lộ ra — lại một lần "test xanh ngay lần đầu
+thì cố tình phá mã".
+
+**So kích thước hai trang thì chờ hoạt ảnh xuất hiện xong.** Ca A2 (khuôn 5 vs khuôn 6) đo bề rộng dòng mời ngay khi
+nó hiện: lần 271px, lần 272px, vì dòng mời bật vào bằng lò xo có vượt đà. Chờ `element.getAnimations()` xong rồi đo.
+Đừng chờ mọi hoạt ảnh của trang — nút máy bay nổi lên xuống vô hạn, `finished` của nó không bao giờ tới.

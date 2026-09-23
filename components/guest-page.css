@@ -26,7 +26,8 @@
 .guest[data-layout="card"] .guest-language { color: var(--muted); }
 .guest-language select { min-height: 44px; max-width: 150px; padding: 8px; border-radius: 10px; border: 1px solid #ffffff55; background: #ffffff1f; color: inherit; font-size: 16px; }
 .guest[data-layout="card"] .guest-language select { border-color: var(--line); background: transparent; }
-.guest-language option { color: var(--ink); }
+/* A native option list is drawn by the phone, usually on white, whatever the template: a fixed dark ink. */
+.guest-language option { color: #1d2f28; }
 
 .guest-poster { display: block; width: calc(100% - 32px); margin: 0 16px; aspect-ratio: var(--c-poster); object-fit: cover; border-radius: 20px; background: #ffffff14; }
 .guest[data-layout="card"] .guest-poster { width: 100%; margin: 0; border-radius: 0; }
@@ -71,7 +72,7 @@
   /* Type and mark grow with the button, so a template makes it bigger with one token (--c-btn-h), never a new rule. */
   font-size: clamp(17px, calc(var(--c-btn-h) * .2), 22px); font-weight: 750; letter-spacing: -.01em; text-shadow: 0 1px 1px #0000004d;
   background: linear-gradient(180deg, #3a6553 0%, #274a3d 48%, #1b372d 52%, #17302a 100%);
-  box-shadow: inset 0 1px 0 #ffffff47, inset 0 -2px 0 #0000004d, 0 1px 1px #0000002e, 0 6px 12px -4px #17302a73, 0 18px 32px -14px #17302a8c;
+  box-shadow: var(--c-btn-shadow);
 }
 .guest .google-button::after { content: ""; position: absolute; inset: 2px 2px 50% 2px;
   border-radius: calc(var(--c-btn-radius) - 2px) calc(var(--c-btn-radius) - 2px) 40% 40% / calc(var(--c-btn-radius) - 2px) calc(var(--c-btn-radius) - 2px) 12px 12px; background: linear-gradient(180deg, #ffffff2e, #ffffff00); pointer-events: none; }
@@ -87,8 +88,8 @@
 .guest-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
 .guest-links a {
   display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 7px 16px 7px 8px; border-radius: 999px;
-  color: var(--forest-deep); font-size: 14px; font-weight: 650; text-decoration: none;
-  background: linear-gradient(180deg, #ffffff 0%, #f1f4ee 100%);
+  color: var(--c-pill-ink); font-size: 14px; font-weight: 650; text-decoration: none;
+  background: var(--c-pill-bg);
   box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 #0000000f, 0 0 0 1px #21403414, 0 1px 2px #0000001f, 0 6px 14px -8px #17302a59;
 }
 .guest-links .brand-mark { flex: none; filter: drop-shadow(0 1px 1px #00000026); }
@@ -97,6 +98,9 @@
 .guest .guest-send {
   width: 100%; min-height: 48px; margin-top: 14px; border: 0; border-radius: 14px; color: #fff; font-weight: 700;
   background: linear-gradient(180deg, #2c4f41, #17302a); box-shadow: inset 0 1px 0 #ffffff33, 0 6px 14px -8px #17302a99;
+}
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  .guest .guest-send { background: linear-gradient(180deg, color-mix(in srgb, var(--c-brand) 90%, #fff), color-mix(in srgb, var(--c-brand) 75%, #000)); }
 }
 .guest .guest-send:disabled { opacity: .5; }
 
@@ -114,8 +118,10 @@
 }
 .guest button.guest-plane:not(:disabled):active { transform: scale(.7); transition: transform .1s cubic-bezier(.3, 0, .5, 1); animation-play-state: paused; }
 @keyframes guest-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+/* A2: the plane and its invitation look the same under every template, so their ink is fixed rather than read
+   from --c-ink-2 -- a dark template made it light ink on this light pill (found building khuôn 5). */
 .guest .guest-hint {
-  pointer-events: auto; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 999px; font-size: 13px; font-weight: 650; color: var(--forest-deep);
+  pointer-events: auto; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 999px; font-size: 13px; font-weight: 650; color: #17302a;
   background: #fbfcf7eb; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   box-shadow: 0 0 0 1px #21403414, 0 8px 20px -10px #0b1d1680; transform-origin: left center;
   animation: guest-hint-in .55s var(--spring) both;
@@ -150,7 +156,7 @@
 @keyframes guest-face-in { from { opacity: 0; transform: scale(.35) rotate(-18deg); } to { opacity: 1; transform: none; } }
 .guest-card label { display: block; margin: 12px 0 6px; font-size: 12px; font-weight: 700; }
 .guest-card select, .guest-card textarea, .guest-card input {
-  display: block; width: 100%; padding: 10px 12px; border: 1px solid #cfd7c5; border-radius: 12px; background: #fff;
+  display: block; width: 100%; padding: 10px 12px; border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-paper);
   color: var(--ink); font: inherit; font-size: 16px;
 }
 .guest-card textarea { resize: vertical; }

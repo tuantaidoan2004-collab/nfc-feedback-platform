@@ -45,6 +45,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | A33 | **Sáu khoá khuôn**: `templateConfig(key)`, sáu hàng `template_versions`, ô chọn khuôn trong `/gov` lúc tạo shop | V | — | **Xong 23/09.** Bộ xương thôi, chưa diện mạo |
 | A36 | **Dựng lại lớp da**: token `--c-*`, `--c-floor`, hai luật dùng chung (quãng cuộn dư · nút máy bay bất biến) trên `.guest[data-template]` | V | — | **Xong 23/09.** `components/skin.css` |
 | K6 | **Khuôn 6 · Nút lớn**: diện mạo + chuyển cảnh 300ms cùng tab | V | — | **Xong 23/09** |
+| K5 | **Khuôn 5 · Ánh sáng tụ**: nền tối, quầng sáng ở nút Google, chấm nhoè theo khoảng cách | V | — | **Xong 23/09** |
 | A34 | **Ba khuôn có tranh** (Hero · Chia đôi · Nhập vai) | V | — | Chờ ảnh của Tài, bản kê ở `anh-can-cho-ao-khoac.md` |
 | A35 | **Lớp trang trí có ràng buộc** cho khuôn 4 — kéo thả trong vùng an toàn loại trừ dải CTA, toạ độ theo phần trăm | L | Canva | Bản đầy đủ kiểu bảng trắng **không làm**; xem `thiet-ke-va-khuon.md` mục 12 |
 | A31 | **Trang giới thiệu nền tảng** + nhận diện — chỗ duy nhất hiệu ứng nặng của Componentry đáng tiền | L | Componentry | Cần F6. Không đụng trang khách |

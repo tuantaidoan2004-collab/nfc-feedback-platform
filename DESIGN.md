@@ -116,8 +116,9 @@ sàn        --c-floor                        chỗ chừa cho nút góp ý (mụ
 --c-ink --c-ink-2 --c-muted --c-line --c-brand --c-on-brand --c-accent --c-font --c-display --c-h1 --c-h1-weight
 --c-h1-track --c-h1-case --c-radius --c-btn-radius --c-btn-h --c-logo --c-poster --c-floor --c-overscroll`. Mặc định = diện
 mạo trước A36. Nút Google pha bốn nấc màu từ `--c-brand` (khuôn 6); cỡ chữ và logo Google trong nút lớn theo
-`--c-btn-h`. **Chưa nối:** `--c-c1 --c-c2 --c-angle` (nền vẫn lấy từ `PageConfig`), `--c-fab`, `--c-body`,
-`--c-density`, bóng và viên link; nút Gửi vẫn viết cứng màu xanh lá. Nối từng cái khi một khuôn cần tới.
+`--c-btn-h`. Khuôn 5 nối thêm `--c-btn-shadow --c-pill-bg --c-pill-ink`, và nút Gửi pha từ `--c-brand`. **Chưa nối:**
+`--c-c1 --c-c2 --c-angle` (nền vẫn lấy từ `PageConfig`), `--c-fab`, `--c-body`, `--c-density`, `--c-sheet-shadow`,
+`--c-pill-radius --c-pill-shadow`. Nối từng cái khi một khuôn cần tới.
 
 Nút Google của khuôn gốc giờ **pha** từ `--c-brand` thay vì bốn mã màu cứng; sai khác mỗi nấc vài đơn vị RGB (tinh
 chỉnh, không đổi căn tính). Trình duyệt không có `color-mix()` giữ bốn mã cũ nhờ `@supports`.
@@ -233,7 +234,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 | 2 | `minimal` | Tối giản | `card`, nền đặc `#F4F1EA` |
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` |
 | 4 | `deco` | Thẻ trang trí | `card`, chuyển sắc `#2A1E3F → #F2C14E` |
-| 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` |
+| 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` — **có diện mạo**, xem dưới |
 | 6 | `big-button` | Nút lớn | `card`, nền đặc `#ECE8E1` — **có diện mạo**, xem dưới |
 
 Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng khuôn có diện mạo.
@@ -245,6 +246,20 @@ giảm chuyển động hoặc chạm có phím bổ trợ thì đi ngay, không
 Bộ chữ `system-ui`, **0 KB**. Bốn sàn: (1) nút trọn màn đầu, tâm nằm ở một phần ba giữa · (2) tương phản qua test
 `skin.spec.ts`, kể cả chữ trắng trên `--c-brand` · (3) nút cao hơn nút góp ý · (4) 0 KB tài nguyên. Test:
 `publishing.spec.ts`, ba ca "khuôn 6".
+
+**Khuôn 5 · `spotlight` · Ánh sáng tụ** (23/09) — quán tối, bar, cà phê đêm. Nền than, chữ kem; nút Google màu hổ
+phách với **quầng sáng của chính nó** (`--c-btn-shadow`), nên ánh sáng đi theo nút dù tên quán dài bao nhiêu. Quanh
+nút là lưới chấm sắc và một vũng sáng thở chậm (7 giây); ra xa thì cùng lưới chấm đó **nhoè** (`blur 2.5px`) và mờ đi.
+Chỉ lớp trang trí nhoè, chữ không bao giờ. Lớp trang trí là pseudo-element của `.guest-body` và `.guest-bg`, không thêm
+nút DOM. Tâm vũng sáng ước ở ~180px dưới mép thân trang; tên quán hai dòng thì lệch vài chục px — ánh sáng mềm nên
+chấp nhận. `system-ui`, **0 KB**. Bốn sàn: (1) nút trong màn đầu · (2) test `skin.spec.ts` + đo thật viên link và ô
+nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "khuôn 5".
+
+**Khuôn tối đầu tiên làm lộ bốn chỗ viết cứng màu sáng**, đã nối vào token: viên link (`--c-pill-bg`, `--c-pill-ink`),
+ô nhập trong thẻ góp ý (`--c-paper`, `--c-line`), nút Gửi (pha từ `--c-brand`), bóng nút Google (`--c-btn-shadow`). Và
+hai chỗ **tách khỏi token** có chủ ý: chữ của dòng mời góp ý (A2 — phải giống hệt ở mọi khuôn) và chữ trong danh sách
+ngôn ngữ (điện thoại tự vẽ nó trên nền trắng). Test mới giữ A2: nút máy bay và dòng mời đo ra giống hệt nhau giữa khuôn
+5 và khuôn 6.
 
 **Lớp da đã dựng lại (A36, 23/09)** ở `components/skin.css`, sau khi mất cùng `coats.css`: token (mục 4), `--c-floor`,
 quãng cuộn dư, cách bày link theo số lượng. Nút máy bay giấy **không** nằm ở đó mà ở `guest-page.css`, và test cấm

@@ -2,7 +2,7 @@ import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { PublishingAdmin } from '../lib/publishing/repository';
-import { defaultConfig, STEM_BACKGROUND, type PageConfig } from '../lib/publishing/config';
+import { defaultConfig, STEM_BACKGROUND, templateConfig, type PageConfig, type TemplateKey } from '../lib/publishing/config';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
 type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; release: string };
@@ -385,16 +385,16 @@ test('A36: one to six links each get their designed arrangement, and icon-only l
   }
 });
 
-// Khuôn 6 · Nút lớn (thiet-ke-va-khuon.md mục 12). A shop of its own, because a draft keeps the template it was made on.
-async function bigButtonShop(f: Fixture) {
+// A shop on a given template, because a draft keeps the template it was made on (thiet-ke-va-khuon.md mục 12).
+async function templateShop(f: Fixture, key: TemplateKey, slug: string, patch: Partial<PageConfig> = {}) {
   const shop = randomUUID();
-  await f.db.query("INSERT INTO shops(id,slug,name)VALUES($1,'six','Quán Sáu')", [shop]);
-  const template = await f.admin.createTemplate('big-button', 1);
-  const { templateConfig } = await import('../lib/publishing/config');
-  await f.admin.createDraft(shop, template, { ...templateConfig('big-button'), name: 'Quán Sáu', googleUrl: 'https://maps.google.com/?cid=66' });
+  await f.db.query('INSERT INTO shops(id,slug,name)VALUES($1,$2,$3)', [shop, slug, `Quán ${slug}`]);
+  const template = await f.admin.createTemplate(key, 1);
+  await f.admin.createDraft(shop, template, { ...templateConfig(key), name: `Quán ${slug}`, googleUrl: 'https://maps.google.com/?cid=66', ...patch });
   await f.admin.publish(shop, 1);
   return shop;
 }
+const bigButtonShop = (f: Fixture) => templateShop(f, 'big-button', 'six');
 const googleStub = (page: Page) => page.route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
 
 test('khuôn 6: one giant Google button in the middle of the phone, the same in every other respect', async ({ page, fixture: f }) => {
@@ -445,4 +445,51 @@ test('khuôn 6: with reduced motion the tap goes straight to Google, no cover', 
   await page.locator('[data-google]').click();
   await page.waitForURL('https://maps.google.com/?cid=66');
   expect(covered).toBe(false);
+});
+
+// Khuôn 5 · Ánh sáng tụ: a dark page where light gathers on the Google button and the pattern blurs with distance.
+const luminance = (rgb: string) => { const [r, g, b] = rgb.match(/[\d.]+/g)!.slice(0, 3).map(n => Number(n) / 255)
+  .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a: string, b: string) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+test('khuôn 5: light gathers on the Google button, and every text stays readable on the dark page', async ({ page, fixture: f }) => {
+  await templateShop(f, 'spotlight', 'five', { links: [
+    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
+    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' }] });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/five'); await loaded(page);
+  await expect(page.locator('main')).toHaveAttribute('data-template', 'spotlight');
+  const google = page.locator('[data-google]');
+  await expect(google).toBeInViewport();
+  // The glow is the button's own shadow, so it follows the button wherever the name pushes it.
+  expect(await google.evaluate(element => getComputedStyle(element).boxShadow)).toContain('rgba(245, 185, 74');
+  // Near is sharp, far is blurred: the decoration, never the text.
+  const layers = await page.locator('.guest-body').evaluate(body => [getComputedStyle(body, '::before').filter, getComputedStyle(body, '::after').filter]);
+  expect(layers).toEqual(['none', 'blur(2.5px)']);
+  expect(await page.locator('.guest h1').evaluate(element => getComputedStyle(element).filter)).toBe('none');
+  // Links are dark pills with light ink, not light ink on the default white pill.
+  // Measured against the pill's own painted background (the first stop of its gradient), never against an assumed one.
+  const [ink, paint] = await page.locator('.guest-links a').first().evaluate(link => [getComputedStyle(link).color, getComputedStyle(link).backgroundImage]);
+  expect(contrast(ink, paint.match(/rgba?\([^)]*\)/)![0])).toBeGreaterThanOrEqual(4.5);
+  // Inside the private card the fields take the template's paper and ink.
+  await openCard(page);
+  const field = await page.locator('#message').evaluate(element => [getComputedStyle(element).color, getComputedStyle(element).backgroundColor]);
+  expect(contrast(field[0], field[1])).toBeGreaterThanOrEqual(4.5);
+});
+
+// A2: the paper plane and its invitation are one thing under every template, dark or light.
+test('the private-feedback button and its invitation look the same under a dark and a light template', async ({ page, fixture: f }) => {
+  await templateShop(f, 'spotlight', 'five'); await bigButtonShop(f);
+  await page.setViewportSize({ width: 390, height: 600 });
+  const look = async (slug: string) => {
+    await page.goto(`/${slug}`); await loaded(page);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(page.locator('[data-hint]')).toBeVisible({ timeout: 6000 });
+    // The invitation springs in (0.55 s, with overshoot): measured mid-flight its width differs by a pixel run to run.
+    await page.locator('[data-hint]').evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+    return page.evaluate(() => [...document.querySelectorAll('.guest-plane, .guest-hint')].map(element => {
+      const style = getComputedStyle(element); const box = element.getBoundingClientRect();
+      return [style.color, style.backgroundColor, style.boxShadow, style.fontSize, Math.round(box.width), Math.round(box.height), Math.round(box.left)];
+    }));
+  };
+  expect(await look('five')).toEqual(await look('six'));
 });
