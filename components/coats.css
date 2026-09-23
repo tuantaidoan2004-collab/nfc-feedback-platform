@@ -14,6 +14,67 @@
  */
 
 /* =====================================================================
+   A · HAI LUẬT DÙNG CHUNG CHO MỌI KHUÔN (Tài chốt 23/09/2026)
+   ===================================================================== */
+
+/* A1 · Mọi khuôn luôn cao hơn màn hình điện thoại.
+ * `useBottomHint` chỉ hiện dòng mời góp ý sau khi khách **cuộn hết trang**. Khuôn nào vừa khít màn hình thì
+ * "đã cuộn hết" đúng ngay giây đầu, và thanh góp ý bật ra lúc khách còn chưa kịp đọc tên quán. Nên mỗi khuôn
+ * phải chừa sẵn một quãng cuộn — đây là ràng buộc của nền tảng, không phải lựa chọn của từng khuôn. */
+.guest[data-coat] .guest-sheet { min-height: calc(100dvh + var(--c-overscroll, 128px)); }
+
+/* A2 · Nút máy bay giấy là **một** thứ, giống hệt nhau ở mọi khuôn.
+ * Khuôn đổi màu, đổi bố cục, đổi hiệu ứng — nhưng đường vào góp ý riêng thì không. Khách quen nó ở quán này
+ * phải nhận ra nó ở quán khác. Vì vậy khối dưới đây nằm ở phạm vi `[data-coat]` chứ không thuộc khuôn nào, và
+ * không khuôn nào được ghi đè. Màu cố định, hoạt động cố định, vị trí cố định. */
+.guest[data-coat] .guest-float {
+  left: auto; right: max(18px, env(safe-area-inset-right));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  flex-direction: row; align-items: center; gap: 10px;
+  z-index: 9;
+}
+.guest[data-coat] .guest-plane {
+  order: 2; width: 46px; height: 46px; border-radius: 50%;
+  background: #14101FD9; box-shadow: inset 0 0 0 1px #FFFFFF1F;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  animation: none; filter: none;
+  transition: background .3s ease, transform .3s var(--c-ease, ease);
+}
+.guest[data-coat] .guest-plane svg { width: 19px; height: 19px; }
+@media (hover: hover) {
+  .guest[data-coat] .guest-plane:hover { background: #1E182EF2; transform: scale(1.06); }
+}
+.guest[data-coat] .guest-hint {
+  order: 1;
+  min-height: 42px; padding: 0 16px; border-radius: 999px;
+  font-size: 13px; font-weight: 500; letter-spacing: -.01em;
+  color: #C9C1DE;
+  background: #0D0918CC; box-shadow: inset 0 0 0 1px #FFFFFF14;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  animation: hint-in .5s var(--c-ease, ease) both;
+}
+@keyframes hint-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+
+/* Con tam giác nhô lên sau nút góp ý. Cũng dùng chung, cũng không khuôn nào đổi. */
+.guest[data-coat] {
+  --c-mascot: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 112"><defs><filter id="k" filterUnits="userSpaceOnUse" x="-12" y="-12" width="144" height="136"><feTurbulence type="fractalNoise" baseFrequency="0.055" numOctaves="3" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G"/></filter></defs><g filter="url(%23k)" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M60 10c4 0 7.7 2.1 9.7 5.5l40 69c4.5 7.6-1 17.2-9.8 17.2H20.1c-8.8 0-14.3-9.6-9.8-17.2l40-69A11.2 11.2 0 0 1 60 10Z" fill="%23F6C244" stroke="%23241B3C" stroke-width="5.5"/><path d="M60 42v23" stroke="%23241B3C" stroke-width="9"/><path d="M60 79.5v.3" stroke="%23241B3C" stroke-width="11"/><path d="M24 86h16a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4v-8a4 4 0 0 1 4-4Z" fill="%23F6C244" stroke="%23241B3C" stroke-width="4.8"/><path d="M80 86h16a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H80a4 4 0 0 1-4-4v-8a4 4 0 0 1 4-4Z" fill="%23F6C244" stroke="%23241B3C" stroke-width="4.8"/><path d="M26 92h12M26 97h12M82 92h12M82 97h12" stroke="%23241B3C" stroke-width="3"/></g></svg>');
+}
+.guest[data-coat] .guest-float::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  right: 2px; bottom: 26px; width: 58px; height: 53px;
+  background: var(--c-mascot) center bottom / contain no-repeat;
+  transform-origin: 50% 100%;
+  animation: peek .6s var(--c-ease, ease) 1.1s both, sway 6s ease-in-out 1.9s infinite;
+}
+@keyframes peek { from { transform: translateY(30px) rotate(-6deg); } to { transform: translateY(0) rotate(0deg); } }
+@keyframes sway { 0%, 100% { transform: rotate(-1.8deg); } 50% { transform: translateY(-3px) rotate(1.8deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .guest[data-coat] .guest-plane { transition: none; }
+  .guest[data-coat] .guest-hint,
+  .guest[data-coat] .guest-float::after { animation: none; transform: none; }
+}
+
+/* =====================================================================
    0 · BẢNG MÀU VÀ VẬT LIỆU
    ===================================================================== */
 .guest[data-coat="ap-phich"] {
@@ -42,7 +103,10 @@
 
   color: var(--paper);
   background: var(--ink-0);
-  overflow-x: clip;
+  /* `clip` chứ không phải `hidden`: nó cắt phần thò ra của vòng cung và của tranh mà **không** biến phần tử
+     thành khung cuộn, cũng không tạo containing block — nên nút góp ý `position: fixed` vẫn neo vào màn hình.
+     Không có nó thì vòng cung thò xuống 374px, kéo trang dài thêm chừng ấy khoảng trống vô nghĩa. */
+  overflow: clip;
   font-family: var(--c-body-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
 }
 
@@ -409,10 +473,7 @@
   .guest[data-coat="ap-phich"] .guest-logo {
     left: auto; right: 22px; top: calc(42dvh + 48px);
   }
-  /* Con tam giác nhô lên sau nút góp ý, không đứng cạnh tranh chỗ với nó. */
-  .guest[data-coat="ap-phich"] .guest-float::after {
-    right: -4px; bottom: 30px; width: 50px; height: 46px;
-  }
+  /* Con tam giác là thứ dùng chung (mục A2) — khuôn không đổi nó. */
   .guest[data-coat="ap-phich"] .guest-poster {
     top: 0; right: -14vw;
     width: 114vw; height: 42dvh;
@@ -453,51 +514,6 @@
   .guest[data-coat="ap-phich"] .guest-links { grid-row: 3; padding: 20px 20px 0; }
   .guest[data-coat="ap-phich"] .guest-legal { grid-row: 4; padding: 26px 20px 0; }
 }
-
-/* =====================================================================
-   7 · GÓP Ý RIÊNG — nhỏ, nằm góc, không tranh chỗ với nút Google
-   ===================================================================== */
-.guest[data-coat="ap-phich"] .guest-float {
-  left: auto; right: max(18px, env(safe-area-inset-right));
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  flex-direction: row; align-items: center; gap: 10px;
-  z-index: 9;
-}
-.guest[data-coat="ap-phich"] .guest-plane {
-  width: 46px; height: 46px; border-radius: 50%;
-  background: #FFFFFF0F; box-shadow: inset 0 0 0 1px #FFFFFF1F;
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-  animation: none; filter: none; order: 2;
-  transition: background .3s ease, transform .3s var(--c-ease);
-}
-.guest[data-coat="ap-phich"] .guest-plane svg { width: 19px; height: 19px; }
-@media (hover: hover) {
-  .guest[data-coat="ap-phich"] .guest-plane:hover { background: #FFFFFF1F; transform: scale(1.06); }
-}
-.guest[data-coat="ap-phich"] .guest-hint {
-  order: 1;
-  min-height: 42px; padding: 0 16px; border-radius: 999px;
-  font-size: 13px; font-weight: 500; letter-spacing: -.01em;
-  color: var(--soft);
-  background: #0D0918B3; box-shadow: inset 0 0 0 1px #FFFFFF14;
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  animation: hint-in .5s var(--c-ease) both;
-}
-@keyframes hint-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
-
-/* Con tam giác: nhô lên sau nút góp ý, vẽ tay bằng bộ lọc nhiễu. */
-.guest[data-coat="ap-phich"] .guest-float::after {
-  content: ""; position: absolute; z-index: -1; pointer-events: none;
-  right: 2px; bottom: 26px; width: 58px; height: 53px;
-  background: var(--c-mascot) center bottom / contain no-repeat;
-  transform-origin: 50% 100%;
-  animation: peek .6s var(--c-ease) 1.1s both, sway 6s ease-in-out 1.9s infinite;
-}
-.guest[data-coat="ap-phich"] {
-  --c-mascot: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 112"><defs><filter id="k" filterUnits="userSpaceOnUse" x="-12" y="-12" width="144" height="136"><feTurbulence type="fractalNoise" baseFrequency="0.055" numOctaves="3" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G"/></filter></defs><g filter="url(%23k)" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M60 10c4 0 7.7 2.1 9.7 5.5l40 69c4.5 7.6-1 17.2-9.8 17.2H20.1c-8.8 0-14.3-9.6-9.8-17.2l40-69A11.2 11.2 0 0 1 60 10Z" fill="%23F6C244" stroke="%23241B3C" stroke-width="5.5"/><path d="M60 42v23" stroke="%23241B3C" stroke-width="9"/><path d="M60 79.5v.3" stroke="%23241B3C" stroke-width="11"/><path d="M24 86h16a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4v-8a4 4 0 0 1 4-4Z" fill="%23F6C244" stroke="%23241B3C" stroke-width="4.8"/><path d="M80 86h16a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H80a4 4 0 0 1-4-4v-8a4 4 0 0 1 4-4Z" fill="%23F6C244" stroke="%23241B3C" stroke-width="4.8"/><path d="M26 92h12M26 97h12M82 92h12M82 97h12" stroke="%23241B3C" stroke-width="3"/></g></svg>');
-}
-@keyframes peek { from { transform: translateY(30px) rotate(-6deg); } to { transform: translateY(0) rotate(0deg); } }
-@keyframes sway { 0%, 100% { transform: rotate(-1.8deg); } 50% { transform: translateY(-3px) rotate(1.8deg); } }
 
 /* =====================================================================
    8 · THẺ GÓP Ý — cùng vật liệu với tấm tương tác

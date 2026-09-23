@@ -367,6 +367,27 @@ jsonb`. Quyết khi làm lát đó.
    viên tràn ngang · 2 → hai nửa · 3 → hai nhãn + một nút tròn · 4 → hai nhãn + hai nút tròn · 5–6 → hàng nút
    tròn. Cỡ chạm 44px giữ nguyên ở mọi số lượng.
 
+## 13. Hai luật dùng chung cho mọi khuôn (Tài chốt 23/09/2026)
+
+Hai thứ này **không thuộc về khuôn nào**. Chúng nằm ở phạm vi `.guest[data-coat]` trong `components/coats.css`
+mục A, và không khuôn nào được ghi đè.
+
+**A1 · Mọi khuôn luôn cao hơn màn hình điện thoại.** `useBottomHint` chỉ hiện dòng mời góp ý sau khi khách
+**cuộn hết trang**. Khuôn nào vừa khít màn hình thì "đã cuộn hết" đúng ngay giây đầu, và thanh góp ý bật ra lúc
+khách còn chưa đọc xong tên quán. Nên mỗi khuôn chừa sẵn một quãng cuộn: `min-height: calc(100dvh +
+var(--c-overscroll, 128px))` trên `.guest-sheet`. Đo tại 390×844: dư quãng cuộn **156px**, khoảng trống dưới chân
+trang **128px**, và dòng mời **không hiện lúc mở trang**.
+
+**A2 · Nút máy bay giấy giống hệt nhau ở mọi khuôn.** Khuôn đổi màu, đổi bố cục, đổi hiệu ứng — đường vào góp ý
+riêng thì không. Khách quen nó ở quán này phải nhận ra nó ở quán khác. Màu, vị trí, kích thước, con tam giác và
+hoạt ảnh đều cố định.
+
+**Một bẫy đã dính khi làm A1:** vòng cung trang trí của khuôn Áp phích thò xuống dưới thân trang **374px**, kéo
+trang dài thêm chừng ấy khoảng trống vô nghĩa — đúng thứ A1 muốn tránh lại thành ra thừa. Sửa bằng
+`overflow: clip` (không phải `hidden`) trên `.guest[data-coat]`: nó cắt phần thò ra mà **không** biến phần tử
+thành khung cuộn và **không** tạo containing block, nên nút góp ý `position: fixed` vẫn neo vào màn hình — đã đo
+lại sau khi sửa: nút vẫn cách đáy đúng 18px.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-21
 
 Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên trước, rồi khối này.

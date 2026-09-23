@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { PublishingError, TEMPLATE_V1, validateConfig } from './config';
 import { assertPublishable } from './policy';
+import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import type { RenderContext } from './proof';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
@@ -102,20 +103,22 @@ export class PublishingAdmin {
 export class PublishingResolver {
   constructor(private pool: Pool) {}
   async live(target: { slug: string } | { code: string }) {
+    // Hồ sơ tài khoản đi kèm trong cùng một truy vấn: nội dung là của tài khoản, diện mạo là của bản chụp
+    // (migration 022). LEFT JOIN vì một shop có thể chưa có hàng hồ sơ — lúc đó bản chụp tự lo lấy.
     const row = 'slug' in target
-      ? (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,NULL::uuid tag_id FROM shops s
-        JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id WHERE lower(s.slug)=lower($1)`, [target.slug])).rows[0]
-      : (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,t.id tag_id,t.state tag_state FROM tags t
-        JOIN shops s ON s.id=t.shop_id JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id WHERE t.public_code=$1`, [target.code])).rows[0];
+      ? (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM shops s
+        JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE lower(s.slug)=lower($1)`, [target.slug])).rows[0]
+      : (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
+        JOIN shops s ON s.id=t.shop_id JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE t.public_code=$1`, [target.code])).rows[0];
     if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : 'direct:shop' };
-    return { slug: row.slug as string, config: validateConfig(row.config_snapshot), context };
+    return { slug: row.slug as string, config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context };
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state FROM preview_sessions p JOIN shops s ON s.id=p.shop_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
+    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state,${PROFILE_COLUMNS} FROM preview_sessions p JOIN shops s ON s.id=p.shop_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id LEFT JOIN shop_profile pr ON pr.shop_id=p.shop_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
-    return { slug: row.slug as string, config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
+    return { slug: row.slug as string, config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context, expiresAt: row.expires_at as Date };
   }
 }
