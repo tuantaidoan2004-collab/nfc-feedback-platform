@@ -262,3 +262,15 @@ coi một tính năng về quyền riêng tư là xong**: đó là lúc lời h�
 
 **Cluster PostgreSQL tạm trong thư mục scratchpad: đường dẫn socket quá dài.** Unix socket của PostgreSQL giới hạn **103 byte**, mà đường dẫn scratchpad của phiên đã dài hơn thế, nên `pg_ctl start` chết với `could not create any Unix-domain sockets` — và `pg_isready` chỉ nói "connection refused", không nói vì sao. Chạy TCP thuần: `pg_ctl -D "$D" -o "-p 55439 -c unix_socket_directories=" -l "$D/log" start`. Binary ở `/Applications/Postgres.app/Contents/Versions/latest/bin`, không có trong `PATH`.
 
+**Ba lệnh hỏng liên tiếp vì viết theo trí nhớ thay vì dò từ mã.** Lát 022, cùng một buổi:
+(1) bảo Tài mở `/urr6ud` trên **preview** trong khi shop đó chỉ có trên production — preview có ba shop khác hẳn;
+(2) đưa lệnh mở `next dev` trong lúc agent **đang để một `next dev` chạy sẵn** ở cùng thư mục, mà Next khoá theo *thư mục* chứ không theo cổng, nên đổi cổng không cứu được (`Another next dev server is already running`);
+(3) lệnh chạy app thiếu `SERVER_DATA_ENABLED=true`, nên `database()` ném `DATABASE_NOT_CONFIGURED` và trang hiện "Trang chưa sẵn sàng" — trông y như lỗi sản phẩm.
+
+Mỗi lần Tài mất một lượt, và hai lần đầu còn làm anh tưởng migration của mình hỏng.
+
+**Luật từ giờ, trước khi đưa bất kỳ lệnh chạy app nào:**
+- **Dò cổng từ mã, đừng nhớ.** Đường render trang khách đi qua `nfcEnvDeclared()` → `visitsV2Enabled()` → `publishingEnabled()` → `database()` → `keyring()`. Cách dò: `grep -rho "process\.env\.[A-Z_]*"` trên `server/` và `lib/` của đường đó, rồi đối chiếu `.env.example`.
+- **Kiểm trạng thái máy trước.** `pgrep -fl "next.*dev"` và `lsof -nP -iTCP:<cổng> -sTCP:LISTEN`. Agent tự dọn tiến trình của mình trước khi đưa lệnh cho Tài.
+- **Kiểm dữ liệu tồn tại trước khi bảo mở một URL.** Preview và production là hai branch Neon khác nhau; slug của bên này không có ở bên kia.
+
