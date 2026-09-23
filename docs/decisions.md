@@ -247,11 +247,19 @@ thứ khó hoàn tác.
   `LEFT JOIN shop_profile`, database chưa migrate là trang khách sập.
 - **Không báo test xanh khi chưa có output.** Lệnh 7 bộ ở `operations-gotchas.md`.
 
-**Vercel chưa dựng nhánh preview** kể từ 22/09. Đo 23/09: preview và production chạy **hai build khác nhau**
-(chunk khác hẳn), và hàm preview vẫn ở **`iad1`** trong khi production ở `sin1` — tức là việc đổi vùng 21/09 chỉ
-áp cho Production. Ứng viên số một cho build đỏ là `app/xem/page.tsx` dùng `next/font/google` (tải font lúc
-build); route đó ra đời đúng ở `8d35dc6`, khớp mốc preview đứng lại. **Route đó đã bị xoá 23/09**, nên nếu
-preview dựng lại được thì chính nó. Nếu vẫn không, cần Tài mở Vercel → Deployments xem có *Ignored Build Step*.
+**Vercel không tạo deployment cho nhánh preview — đã chứng minh 23/09.** Một lần `git push` cùng lúc lên
+`main` và `feat/local-app-foundation`: **production dựng lại** (chunk `6722-cc14267f…` → `6722-d96f9277…`),
+**preview đứng yên** (`6722-8da949b4…`, không đổi sau hơn 6 phút). Cùng một cây mã, chỉ khác nhánh. Vậy
+**không phải lỗi mã**; giả thuyết `next/font` trong `app/xem` đã bị bác. Thêm một dấu hiệu: hàm preview chạy
+`iad1` còn production `sin1` — việc đổi vùng 21/09 chỉ áp cho Production.
+
+Việc của Tài, trong Vercel → Project → **Settings → Git**:
+1. **Ignored Build Step** — có lệnh nào ở đó không? Một lệnh luôn trả "skip" sẽ chặn đúng kiểu này.
+2. **Deployment Branches** — có đang đặt "Only the Production Branch" hay một danh sách không có nhánh này không?
+3. Tab **Deployments**, lọc nhánh `feat/local-app-foundation` — có deployment nào sau 22/09 không, và trạng thái gì?
+
+Và trong **Settings → Functions**: đặt Function Region = **Singapore (`sin1`)** cho cả **Preview**, không chỉ
+Production.
 
 ### Việc còn treo của Tài
 
