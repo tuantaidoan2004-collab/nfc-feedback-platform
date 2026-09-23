@@ -525,3 +525,36 @@ test('khuôn 3: glass panes carry an aligned, refracted copy of the scene, and t
   await page.locator('#language').selectOption('en');
   await expect.poll(() => glassPlacement(page)).toBeLessThan(1);
 });
+
+// Khuôn 4 · Chồng thẻ (ảnh Tài gửi 24/09): a tilted card over a second card that is the shop's poster slot.
+test('khuôn 4: a tilted card over the poster card, links as rows, and nothing covers the Google button', async ({ page, fixture: f }) => {
+  // Six links: the tallest card a shop can make, so the tilt's reach to the right is measured at its worst.
+  await templateShop(f, 'deco', 'four', { links: [
+    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
+    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
+    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' },
+    { label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
+    { label: { vi: 'Website', en: 'Website' }, url: 'https://quanthu.example', icon: 'link' },
+    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/four'); await loaded(page);
+  await expect(page.locator('main')).toHaveAttribute('data-template', 'deco');
+  const google = page.locator('[data-google]');
+  await expect(google).toBeInViewport();
+  // The card is tilted, and the Google button is what a tap on its centre reaches: no card of the stack lies over it.
+  expect(await page.locator('.guest-body').evaluate(body => getComputedStyle(body).transform)).not.toBe('none');
+  const box = (await google.boundingBox())!;
+  expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-google]'), [box.x + box.width / 2, box.y + box.height / 2])).toBe(true);
+  expect(box.y + box.height).toBeLessThan(640);
+  // Links are full-width rows of one width, each still named.
+  const widths = await page.locator('.guest-links a').evaluateAll(links => links.map(link => Math.round(link.getBoundingClientRect().width)));
+  expect(new Set(widths).size).toBe(1); expect(widths[0]).toBeGreaterThan(250);
+  for (const name of ['Instagram', 'Zalo', 'TikTok', 'Facebook', 'Website', 'Gọi cho quán']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(1);
+  const [ink, paint] = await page.locator('.guest-links a').first().evaluate(link => [getComputedStyle(link).color, getComputedStyle(link).backgroundColor]);
+  expect(contrast(ink, paint)).toBeGreaterThanOrEqual(4.5);
+  // The Google button is light here, so its label must be dark.
+  const label = await google.evaluate(element => getComputedStyle(element).color);
+  expect(contrast(label, 'rgb(255, 255, 255)')).toBeGreaterThanOrEqual(4.5);
+  // The tilted card stays on the screen: its far corner does not run off the right edge of a 390px phone.
+  expect(await page.locator('.guest-body').evaluate(body => body.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
+});

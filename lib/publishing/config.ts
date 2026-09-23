@@ -108,7 +108,8 @@ const SKELETONS = new Map<TemplateKey, () => PageConfig>([
   ['standard', () => ({ ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } })],
   ['minimal', () => skeleton('card', { kind: 'solid', color: '#F4F1EA' })],
   ['glass', () => skeleton('full-bleed', { kind: 'gradient', colors: ['#1B2B4A', '#8FB3D9'], angle: 160 })],
-  ['deco', () => skeleton('card', { kind: 'gradient', colors: ['#2A1E3F', '#F2C14E'], angle: 135 })],
+  // Khuôn 4 is a stack of cards on a dark ground: the page itself is full-bleed and the content is the tilted card.
+  ['deco', () => skeleton('full-bleed', { kind: 'solid', color: '#1A1326' })],
   ['spotlight', () => skeleton('full-bleed', { kind: 'solid', color: '#0E0F13' })],
   // Khuôn 6 is a card on a warm ground: a white full-bleed page left the language picker and the poster frame white on white.
   ['big-button', () => skeleton('card', { kind: 'solid', color: '#ECE8E1' })],

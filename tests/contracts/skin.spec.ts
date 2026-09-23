@@ -19,7 +19,7 @@ const declarations = (body: string) => new Map([...body.matchAll(/(--c-[a-z0-9-]
 const TOKENS = ['--c-c1', '--c-c2', '--c-angle', '--c-paper', '--c-ink', '--c-ink-2', '--c-muted', '--c-line', '--c-brand', '--c-on-brand',
   '--c-accent', '--c-fab', '--c-font', '--c-display', '--c-h1', '--c-h1-weight', '--c-h1-track', '--c-h1-case', '--c-body', '--c-radius',
   '--c-btn-radius', '--c-btn-h', '--c-logo', '--c-poster', '--c-density', '--c-sheet-shadow', '--c-btn-shadow', '--c-pill-bg', '--c-pill-ink',
-  '--c-pill-radius', '--c-pill-shadow', '--c-floor', '--c-overscroll'];
+  '--c-pill-radius', '--c-pill-shadow', '--c-floor', '--c-overscroll', '--c-btn-fill'];
 
 test('only token names from DESIGN.md are declared, and every token read has a default in the skin', () => {
   for (const rule of all) for (const name of declarations(rule.body).keys()) expect(TOKENS, `${rule.file}: ${rule.selector}`).toContain(name);
@@ -54,8 +54,7 @@ test('text tokens reach 4.5:1 on their surface, muted text included, in the defa
       expect(fg, `${name} ${text}`).toMatch(/^#[0-9a-fA-F]{6}$/); expect(bg, `${name} ${surface}`).toMatch(/^#[0-9a-fA-F]{6}$/);
       expect(contrast(fg, bg), `${name}: ${text} on ${surface}`).toBeGreaterThanOrEqual(4.5);
     }
-    // The Google button's text is white on a mix of --c-brand, darkest at the bottom stop.
-    expect(contrast('#ffffff', tokens.get('--c-brand')!), `${name}: Google button text on --c-brand`).toBeGreaterThanOrEqual(4.5);
+    // The Google button's text is --c-on-brand on a fill mixed from (or standing for) --c-brand: the pair above.
     // Floor 3, the part a token can break: the Google button stays taller than the 46px link buttons around it.
     expect(parseFloat(tokens.get('--c-btn-h')!), `${name} --c-btn-h`).toBeGreaterThanOrEqual(56);
   }

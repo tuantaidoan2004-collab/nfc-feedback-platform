@@ -328,3 +328,9 @@ chạy script ngoài harness trỏ vào `127.0.0.1:3317`.
 **`ResizeObserver` không báo khi phần tử dời chỗ mà không đổi cỡ.** Đổi ngôn ngữ làm dòng chữ phía trên các viên link
 xuống dòng khác; viên link dời 17px nhưng cỡ không đổi, không ai báo, bản sao lệch. Theo dõi cả các khối **có thể đẩy**
 tấm kính (`.guest-sheet > *, .guest-body > *`), không chỉ tấm kính.
+
+**Thêm câu kiểm sau lần chạy cuối rồi commit luôn.** Khuôn 4: sau khi nhìn ảnh, Claude thêm một câu kiểm "thẻ nghiêng
+không thò qua mép phải" rồi commit mà **không chạy lại** bộ publishing; bảy bộ trên worktree tạm bắt được: thò 1,7px.
+Không có gì lên `main`, nhưng đúng là thứ tự sai. Và câu kiểm đó lộ một lỗi thiết kế thật: thẻ xoay quanh mép trên thì
+góc dưới thò ra theo **chiều cao** thẻ — shop nhiều link hơn sẽ thò nhiều hơn. Kiểm ở trường hợp xấu nhất (6 link),
+không ở trường hợp mẫu.

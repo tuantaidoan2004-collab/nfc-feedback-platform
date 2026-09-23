@@ -110,6 +110,8 @@ tỉ lệ      --c-radius --c-btn-radius        bo góc khối · nút
 bề mặt     --c-sheet-shadow --c-btn-shadow
            --c-pill-bg --c-pill-ink --c-pill-radius --c-pill-shadow
 
+nút Google --c-btn-fill                     nền nút Google; mặc định pha từ --c-brand (khuôn 4)
+
 sàn        --c-floor                        chỗ chừa cho nút góp ý (mục 6c)
            --c-overscroll                   quãng cuộn dư, luật A1 (thiet-ke-va-khuon.md mục 13)
 ```
@@ -235,7 +237,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 | 1 | `standard` | Bản gốc | như trước A33 (nền video, nhân bản từ shop khuôn) |
 | 2 | `minimal` | Tối giản | `card`, nền đặc `#F4F1EA` |
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
-| 4 | `deco` | Thẻ trang trí | `card`, chuyển sắc `#2A1E3F → #F2C14E` |
+| 4 | `deco` | Thẻ trang trí | `full-bleed`, nền đặc `#1A1326` — **có diện mạo** (chồng thẻ), xem dưới |
 | 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` — **có diện mạo**, xem dưới |
 | 6 | `big-button` | Nút lớn | `card`, nền đặc `#ECE8E1` — **có diện mạo**, xem dưới |
 
@@ -256,6 +258,14 @@ Chỉ lớp trang trí nhoè, chữ không bao giờ. Lớp trang trí là pseud
 nút DOM. Tâm vũng sáng ước ở ~180px dưới mép thân trang; tên quán hai dòng thì lệch vài chục px — ánh sáng mềm nên
 chấp nhận. `system-ui`, **0 KB**. Bốn sàn: (1) nút trong màn đầu · (2) test `skin.spec.ts` + đo thật viên link và ô
 nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "khuôn 5".
+
+**Khuôn 4 · `deco` · Chồng thẻ** (24/09, theo ảnh Tài gửi) — quán trẻ, trà sữa, đồ uống. Nền tím than, thẻ nội dung
+nghiêng −2°, phía sau là thẻ thứ hai nghiêng −9° — **chính là ô poster**: shop có poster thì poster nằm đó, chưa có thì
+thẻ hồng mặt cười. Hình vẽ tay (dấu cộng, tim, mũi tên cong) bằng SVG nội tuyến có bộ lọc bút sáp. Link là hàng dọc có
+mũi tên. Nút Google **trắng đặc** — nối token mới `--c-btn-fill`, và chữ nút đọc `--c-on-brand`. `system-ui`, **0 KB**.
+**Cố ý khác ảnh:** không có câu "SMALL REVIEW BIG SUPPORT" (câu xin đánh giá sát nút Google — google-policy.md rào áp
+lực và gợi ý; chữ viết tay có dấu tiếng Việt chưa có bộ chữ); thanh "nhắn riêng" giữ nút máy bay bất biến (A2); tên quán
+nằm dưới logo chứ không cạnh. Phần kéo thả trang trí vẫn là A35.
 
 **Khuôn 3 · `glass` · Kính** (23/09) — quán hiện đại, spa, cà phê sáng. Thân trang và viên link là kính khúc xạ
 thật trên một cảnh màu do khuôn vẽ; nút Google đặc, xanh lam. **Cùng một kết quả ở Chrome, Safari, Firefox** — cách
