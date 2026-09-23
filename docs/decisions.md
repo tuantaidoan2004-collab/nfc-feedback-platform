@@ -204,7 +204,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–022**.
-  `main` có lát A33 (23/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+  `main` có lát A36 (23/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
@@ -217,7 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — A33 sáu khoá khuôn (23/09)
+### Xong gần nhất — A36 lớp da (23/09)
+
+`components/skin.css`: tên + mặc định mọi token `--c-*` (mặc định = diện mạo cũ, trang không đổi màu), quãng cuộn
+dư A1, `--c-floor`, cách bày link 1–6. Nút máy bay giữ ở `guest-page.css` và được test khoá. `coats.css` còn mang
+theo cả cách bày link (`f1a071e`) — mất cùng nó, giờ đã dựng lại. **Không migration.** Chi tiết `DESIGN.md` mục 4, 9.
+
+### Trước đó — A33 sáu khoá khuôn (23/09)
 
 Sáu khoá `standard · minimal · glass · deco · spotlight · big-button`, mỗi khoá một cấu hình và một hàng
 `template_versions` (tạo lúc cần), ô chọn khuôn ở `/gov`, trang khách mang `data-template`. **Không migration.**
@@ -235,8 +241,8 @@ production). Chi tiết ở [`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md).
 
 ### Việc kế, theo thứ tự
 
-1. **A36 · Dựng lại lớp da** — token `--c-*`, `--c-floor`, quãng cuộn dư, nút máy bay bất biến, trên
-   `.guest[data-template]`. Không migration. Rồi mới tới diện mạo từng khuôn (khuôn 2 chờ ảnh gốc của Tài).
+1. **Diện mạo từng khuôn**, mỗi khuôn một lát, chỉ đặt token trong `.guest[data-template="<khoá>"]`. Khuôn 2 chờ ảnh
+   gốc của Tài; khuôn 3, 5, 6 làm được ngay; khuôn 4 phần trang trí là A35.
 2. **Ba khuôn có tranh** — chờ ảnh của Tài; bản kê ở [`anh-can-cho-ao-khoac.md`](anh-can-cho-ao-khoac.md).
 3. **Cửa duyệt ảnh** (mục 10) — có migration.
 4. **C3 + sao lưu** — trước khách trả tiền.

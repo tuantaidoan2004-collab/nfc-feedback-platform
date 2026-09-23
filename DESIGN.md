@@ -107,7 +107,20 @@ tỉ lệ      --c-radius --c-btn-radius        bo góc khối · nút
 
 bề mặt     --c-sheet-shadow --c-btn-shadow
            --c-pill-bg --c-pill-ink --c-pill-radius --c-pill-shadow
+
+sàn        --c-floor                        chỗ chừa cho nút góp ý (mục 6c)
+           --c-overscroll                   quãng cuộn dư, luật A1 (thiet-ke-va-khuon.md mục 13)
 ```
+
+**Đã nối vào mã (A36, 23/09):** tên và giá trị mặc định ở `components/skin.css`; `guest-page.css` đọc `--c-paper
+--c-ink --c-ink-2 --c-muted --c-line --c-brand --c-on-brand --c-accent --c-font --c-display --c-h1 --c-h1-weight
+--c-h1-track --c-h1-case --c-radius --c-btn-radius --c-btn-h --c-logo --c-floor --c-overscroll`. Mặc định = diện mạo
+trước A36. **Chưa nối** (được phép đặt tên, chưa có chỗ đọc): `--c-c1 --c-c2 --c-angle` (nền vẫn lấy từ `PageConfig`),
+`--c-fab`, `--c-body`, `--c-poster`, `--c-density`, bóng và viên link. Màu gradient của nút Google và nút Gửi vẫn viết
+cứng. Nối từng cái khi khuôn đầu tiên cần tới.
+
+`tests/contracts/skin.spec.ts` giữ ba điều: không tên token nào ngoài danh sách này · mọi token được đọc đều có mặc
+định · chữ trên nền đạt 4,5:1 (sàn 2) và `--c-btn-h` ≥ 56px cho mặc định **và mọi khối `[data-template]`**.
 
 `--c-density` là thứ làm hai áo **khác nhau về tỉ lệ** chứ không chỉ khác màu. Mọi khoảng cách viết bằng
 `calc(<số> * var(--u))` với `--u: calc(1px * var(--c-density))`.
@@ -222,7 +235,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 
 Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng khuôn có diện mạo.
 
-**Chỗ lệch giữa tệp này và mã (tìm ra 23/09, lát A33):** lớp token `--c-*` ở mục 4, `--c-floor` ở mục 6c, và hai
-luật dùng chung ở `thiet-ke-va-khuon.md` mục 13 (`--c-overscroll` · nút máy bay giấy bất biến) đều nằm trong
-`components/coats.css` — **đã bị xoá cùng sáu áo thử**. `grep -- '--c-' components/` ra 0. Các mục đó hiện là
-**thiết kế**, không phải mã. Dựng lại lớp da này là lát ngay sau A33, trước khuôn đầu tiên có diện mạo.
+**Lớp da đã dựng lại (A36, 23/09)** ở `components/skin.css`, sau khi mất cùng `coats.css`: token (mục 4), `--c-floor`,
+quãng cuộn dư, cách bày link theo số lượng. Nút máy bay giấy **không** nằm ở đó mà ở `guest-page.css`, và test cấm
+mọi khối `[data-template="…"]` chạm vào nó. **Con tam giác** (mục 6c) chưa dựng lại — nó thuộc diện mạo, chưa được
+chốt cho sáu khuôn mới.

@@ -1,0 +1,79 @@
+/* Lớp da trang khách — lát A36. Hợp đồng ở DESIGN.md mục 1, 4, 13.
+ *
+ * Tệp này là **thứ chung cho mọi khuôn**, dựng lại sau khi `coats.css` bị xoá cùng sáu áo thử (23/09). Nó có ba phần:
+ *
+ *   1 · Token      tên và giá trị mặc định của mọi token `--c-*`. `guest-page.css` đọc chúng; một khuôn chỉ đặt lại
+ *                  giá trị trong khối `.guest[data-template="<khoá>"]` của nó. Không khuôn nào được thêm tên mới.
+ *   2 · Hai luật   quãng cuộn dư (A1) và chỗ chừa cho nút góp ý (`--c-floor`).
+ *   3 · Số link    mỗi số lượng 1–6 có một cách bày thiết kế sẵn, chọn bằng quantity query.
+ *
+ * Nút máy bay giấy (A2) **không** có ở đây, có chủ ý: nó sống ở `guest-page.css` và là một thứ duy nhất. Test
+ * `tests/contracts/skin.spec.ts` từ chối mọi quy tắc `[data-template="…"]` chạm vào nó, hay vào khối lời mời Google.
+ */
+
+/* =====================================================================
+   1 · TOKEN — giá trị mặc định là đúng diện mạo trước A36, nên trang không đổi màu
+   ===================================================================== */
+.guest {
+  /* màu */
+  --c-paper: #fbfcf7;     /* nền khối nội dung */
+  --c-ink: #1d2f28;       /* chữ chính */
+  --c-ink-2: #17302a;     /* chữ phụ, tên quán */
+  --c-muted: #5d6b63;     /* chữ mờ: ghi chú, dòng pháp lý — phải qua sàn 2 như mọi chữ khác */
+  --c-line: #d6dccb;
+  --c-brand: #214034;
+  --c-on-brand: #eff2e8;
+  --c-accent: #c88a1e;
+  /* chữ */
+  --c-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --c-display: var(--c-font);
+  --c-h1: clamp(26px, 7vw, 32px);
+  --c-h1-weight: 800;
+  --c-h1-track: -.03em;
+  --c-h1-case: none;
+  /* tỉ lệ */
+  --c-radius: 28px;
+  --c-btn-radius: 18px;
+  --c-btn-h: 60px;
+  --c-logo: 84px;
+  /* chỗ trống dưới cùng dành cho nút góp ý; khối nội dung không bao giờ chạm vào nó (DESIGN.md mục 6c) */
+  --c-floor: 104px;
+  /* quãng cuộn dư, A1 */
+  --c-overscroll: 128px;
+}
+
+/* =====================================================================
+   2 · HAI LUẬT DÙNG CHUNG (Tài chốt 23/09)
+   ===================================================================== */
+
+/* A1 · Mọi khuôn luôn cao hơn màn hình điện thoại. `useBottomHint` chỉ mời góp ý sau khi khách **cuộn hết trang**;
+ * trang vừa khít màn hình thì "đã cuộn hết" ngay giây đầu, và dòng mời bật ra lúc khách chưa đọc xong tên quán.
+ * Bản full-bleed kéo dài chính tờ giấy, để quãng dư vẫn là giấy; bản thẻ kéo dài trang quanh cái thẻ. */
+.guest[data-template][data-layout="full-bleed"] .guest-sheet { min-height: calc(100dvh + var(--c-overscroll)); }
+.guest[data-template][data-layout="card"] { min-height: calc(100dvh + var(--c-overscroll)); }
+
+/* =====================================================================
+   3 · SỐ LINK THAY ĐỔI THÌ BỐ CỤC VẪN PHẢI ĐẸP (Tài chốt 23/09, thiet-ke-va-khuon.md mục 12)
+   1 → một viên tràn ngang · 2 → hai nửa · 3 → hai nhãn + một nút tròn · 4 → hai nhãn + hai nút tròn · 5–6 → hàng nút
+   tròn. Vùng chạm giữ 46px ở mọi số lượng. Nút tròn **giấu nhãn bằng cách cắt, không bằng `display: none`**: nhãn
+   vẫn là tên của link cho trình đọc màn hình — bản trong `coats.css` đã xoá mất tên đó.
+   ===================================================================== */
+.guest[data-template] .guest-links a { position: relative; }
+
+.guest[data-template] .guest-links a:only-child { flex: 1 1 100%; justify-content: center; }
+
+.guest[data-template] .guest-links a:first-child:nth-last-child(2),
+.guest[data-template] .guest-links a:first-child:nth-last-child(2) ~ a { flex: 1 1 0; min-width: 0; justify-content: center; }
+
+.guest[data-template] .guest-links a:first-child:nth-last-child(3) ~ a:nth-child(3),
+.guest[data-template] .guest-links a:first-child:nth-last-child(4) ~ a:nth-child(n+3),
+.guest[data-template] .guest-links a:first-child:nth-last-child(n+5),
+.guest[data-template] .guest-links a:first-child:nth-last-child(n+5) ~ a {
+  flex: 0 0 auto; width: 46px; padding: 0; justify-content: center;
+}
+.guest[data-template] .guest-links a:first-child:nth-last-child(3) ~ a:nth-child(3) > span,
+.guest[data-template] .guest-links a:first-child:nth-last-child(4) ~ a:nth-child(n+3) > span,
+.guest[data-template] .guest-links a:first-child:nth-last-child(n+5) > span,
+.guest[data-template] .guest-links a:first-child:nth-last-child(n+5) ~ a > span {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}

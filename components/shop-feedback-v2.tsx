@@ -8,6 +8,7 @@ import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackB
 import { burstConfetti } from './confetti';
 import { FACES } from '@/lib/faces';
 import './guest-page.css';
+import './skin.css';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';

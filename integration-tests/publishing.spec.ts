@@ -342,3 +342,45 @@ test('what the customer did reaches the log, through the published page, without
   expect(visits).toHaveLength(1);
   expect((await f.db.query('SELECT 1 FROM page_visits WHERE id=$1', [visits[0].visit_id])).rowCount).toBe(1);
 });
+
+// A36 · lớp da. A1: the page is always taller than the phone, so reaching the bottom is something the visitor does.
+// A page shorter than the screen used to count as "already at the bottom" on arrival and invite feedback unasked.
+test('A36: a short page still scrolls, so the private-feedback invitation never shows on arrival', async ({ page, fixture: f }) => {
+  let revision = 2;
+  for (const layout of ['full-bleed', 'card'] as const) {
+    revision = await release(f, b2({ layout, links: [] }), revision);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/one'); await loaded(page);
+    await expect(page.locator('main')).toHaveAttribute('data-template', 'neutral');
+    const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(room, layout).toBeGreaterThanOrEqual(128);
+    await page.waitForTimeout(2600);
+    await expect(page.locator('[data-hint]'), layout).toHaveCount(0);
+    await expect(page.locator('[data-google]')).toBeInViewport();
+  }
+});
+
+// A36 · số link: each count has its own arrangement, and a round button keeps its name for a screen reader.
+test('A36: one to six links each get their designed arrangement, and icon-only links keep their names', async ({ page, fixture: f }) => {
+  const all = [
+    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const },
+    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' as const },
+    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' as const },
+    { label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' as const },
+    { label: { vi: 'Website', en: 'Website' }, url: 'https://quanthu.example', icon: 'link' as const },
+    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' as const },
+  ];
+  // How many of the links show as a round, icon-only button at each count.
+  const round = [0, 0, 0, 1, 2, 5, 6];
+  await page.setViewportSize({ width: 390, height: 844 });
+  let revision = 2;
+  for (let n = 1; n <= 6; n++) {
+    revision = await release(f, b2({ links: all.slice(0, n) }), revision);
+    await page.goto('/one'); await loaded(page);
+    const widths = await page.locator('.guest-links a').evaluateAll(links => links.map(link => Math.round(link.getBoundingClientRect().width)));
+    expect(widths.filter(width => width === 46), `${n} links`).toHaveLength(round[n]);
+    for (const link of all.slice(0, n)) await expect(page.getByRole('link', { name: link.label.vi, exact: true })).toHaveCount(1);
+    if (n === 1) expect(widths[0]).toBeGreaterThan(300);
+    if (n === 2) expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
+  }
+});

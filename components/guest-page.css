@@ -1,9 +1,10 @@
 /* Guest page v2 (lát B2). Scoped under .guest; the older demo pages keep app/globals.css. */
 .guest {
-  --forest: #214034; --forest-deep: #17302a; --mist: #eff2e8; --paper: #fbfcf7; --gold: #c88a1e; --line: #d6dccb;
-  --ink: #1d2f28; --muted: #5d6b63;
+  /* Aliases of the skin tokens (components/skin.css, lát A36): a template changes the token, never these. */
+  --forest: var(--c-brand); --forest-deep: var(--c-ink-2); --mist: var(--c-on-brand); --paper: var(--c-paper); --gold: var(--c-accent); --line: var(--c-line);
+  --ink: var(--c-ink); --muted: var(--c-muted);
   position: relative; min-height: 100dvh; color: var(--ink);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--c-font);
   isolation: isolate; overflow-x: clip;
 }
 .guest-bg { position: fixed; inset: 0; z-index: -1; background: var(--forest); overflow: hidden; }
@@ -18,7 +19,7 @@
 
 .guest-sheet { position: relative; margin: 0 auto; max-width: 440px; min-height: 100dvh; display: flex; flex-direction: column; }
 .guest[data-layout="card"] .guest-sheet {
-  min-height: 0; width: calc(100% - 32px); max-width: 400px; margin: 24px auto; border-radius: 28px; overflow: hidden;
+  min-height: 0; width: calc(100% - 32px); max-width: 400px; margin: 24px auto; border-radius: var(--c-radius); overflow: hidden;
   background: var(--paper); box-shadow: 0 30px 80px -30px #0b1d1699, 0 0 0 1px #ffffff22;
 }
 .guest-language { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; font-size: 11px; color: #fff; }
@@ -34,18 +35,21 @@
 .guest-poster-empty span { font-size: 12px; font-weight: 700; letter-spacing: .18em; }
 
 .guest-logo {
-  position: relative; z-index: 2; width: 84px; height: 84px; margin: -42px auto 0; border-radius: 50%;
+  position: relative; z-index: 2; width: var(--c-logo); height: var(--c-logo); margin: calc(var(--c-logo) / -2) auto 0; border-radius: 50%;
   display: grid; place-items: center; overflow: hidden; background: var(--forest); color: var(--mist);
   border: 5px solid var(--paper); box-shadow: 0 6px 18px #0b1d1633; font-weight: 800; font-size: 26px; letter-spacing: -.02em;
 }
 .guest-logo img { width: 100%; height: 100%; object-fit: cover; }
 
 .guest-body {
-  flex: 1; margin-top: -42px; padding: 54px 22px 28px; background: var(--paper); text-align: center;
-  border-radius: 28px 28px 0 0;
+  flex: 1; margin-top: calc(var(--c-logo) / -2); padding: calc(var(--c-logo) / 2 + 12px) 22px 28px; background: var(--paper); text-align: center;
+  border-radius: var(--c-radius) var(--c-radius) 0 0;
 }
-.guest[data-layout="card"] .guest-body { margin-top: -42px; border-radius: 0; flex: none; }
-.guest h1 { margin: 6px 0 0; font-size: clamp(26px, 7vw, 32px); line-height: 1.1; letter-spacing: -.03em; font-weight: 800; color: var(--forest-deep); }
+.guest[data-layout="card"] .guest-body { margin-top: calc(var(--c-logo) / -2); border-radius: 0; flex: none; }
+.guest h1 {
+  margin: 6px 0 0; font-family: var(--c-display); font-size: var(--c-h1); line-height: 1.1; letter-spacing: var(--c-h1-track);
+  font-weight: var(--c-h1-weight); text-transform: var(--c-h1-case); color: var(--forest-deep);
+}
 .guest-note { margin: 0 auto; max-width: 300px; font-size: 12px; line-height: 1.45; color: var(--muted); }
 
 /* Apple-like spring, generated for a stiff, lightly damped motion. Browsers without linear() keep the cubic fallback. */
@@ -62,8 +66,8 @@
 .guest .google-invitation { margin-top: 22px; padding: 0; border: 0; }
 .guest .google-invitation > p:first-child { font-size: 13px; color: var(--ink); }
 .guest .google-button {
-  position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 60px; margin: 10px 0 8px;
-  padding: 12px 18px; border: 0; border-radius: 18px; color: #fff; text-decoration: none;
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: var(--c-btn-h); margin: 10px 0 8px;
+  padding: 12px 18px; border: 0; border-radius: var(--c-btn-radius); color: #fff; text-decoration: none;
   font-size: 17px; font-weight: 750; letter-spacing: -.01em; text-shadow: 0 1px 1px #0000004d;
   background: linear-gradient(180deg, #3a6553 0%, #274a3d 48%, #1b372d 52%, #17302a 100%);
   box-shadow: inset 0 1px 0 #ffffff47, inset 0 -2px 0 #0000004d, 0 1px 1px #0000002e, 0 6px 12px -4px #17302a73, 0 18px 32px -14px #17302a8c;
@@ -88,8 +92,8 @@
 .guest .guest-send:disabled { opacity: .5; }
 
 /* Floating private-feedback button: the glyph alone, no disc behind it. Room is left so it never covers the last button. */
-.guest[data-layout="full-bleed"] .guest-body { padding-bottom: 104px; }
-.guest[data-layout="card"] { padding-bottom: 72px; }
+.guest[data-layout="full-bleed"] .guest-body { padding-bottom: var(--c-floor); }
+.guest[data-layout="card"] { padding-bottom: calc(var(--c-floor) - 32px); }
 .guest-float {
   position: fixed; z-index: 30; left: max(14px, env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom));
   display: flex; align-items: center; gap: 6px; pointer-events: none;
@@ -118,7 +122,7 @@
 @keyframes guest-fade { from { opacity: 0; } to { opacity: 1; } }
 .guest-card {
   position: relative; z-index: 50; width: 100%; max-width: 400px; max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
-  padding: 22px 20px 18px; border-radius: 28px; background: var(--paper); color: var(--ink); text-align: left; outline: none;
+  padding: 22px 20px 18px; border-radius: var(--c-radius); background: var(--paper); color: var(--ink); text-align: left; outline: none;
   box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #21403414, 0 30px 80px -24px #0b1d16b3;
   animation: guest-card-in .5s var(--spring) both;
 }
@@ -151,7 +155,7 @@
 }
 @media (min-width: 720px) {
   .guest[data-layout="full-bleed"] .guest-sheet { padding-top: 24px; }
-  .guest[data-layout="full-bleed"] .guest-body { border-radius: 28px; margin-bottom: 24px; flex: none; }
+  .guest[data-layout="full-bleed"] .guest-body { border-radius: var(--c-radius); margin-bottom: 24px; flex: none; }
 }
 /* A refused autoplay must not show iOS's ▶ button over the still (lát F5). */
 .guest-bg-media::-webkit-media-controls-start-playback-button, .guest-poster::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }

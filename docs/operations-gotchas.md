@@ -276,3 +276,15 @@ Mỗi lần Tài mất một lượt, và hai lần đầu còn làm anh tưởn
 
 **Một phép thử phải khác nhau ở đúng một biến.** Chẩn đoán "vì sao preview không dựng" (23/09), Claude đẩy **cùng một commit lên cả `main` lẫn nhánh**, rồi kết luận "preview đứng yên ⇒ Vercel bỏ nhánh". Sai: Vercel dựng mỗi SHA **một lần** — chính ô *Ignored Build Step* ghi *"Vercel skips builds for commits with a previously deployed SHA"*. Preview đứng yên là hệ quả tất yếu của cách đẩy. Claude còn dùng chính phép thử hỏng đó để **bác một giả thuyết đúng đắn khác** (`next/font` trong `app/xem`), tức là một thí nghiệm sai đã xoá nhầm một nghi can. Trước khi tuyên bố "đã chứng minh", hỏi: **thí nghiệm này khác nhau ở đúng cái biến đang xét chưa?**
 
+
+**Xoá một tệp "thử nghiệm" mang theo cả luật thật nằm chung trong nó.** Lát dọn sáu áo thử (`f34794f`, 23/09) xoá
+`components/coats.css` như một khối. Nhưng tệp đó chứa, ngoài sáu áo, **ba thứ Tài đã chốt là luật chung**: quãng
+cuộn dư (A1), phạm vi giữ nút máy bay, và cách bày link 1–6 (`f1a071e`). Docs vẫn ghi "đã làm", mã thì không còn;
+không test nào đỏ vì chưa test nào kiểm chúng. Claude tìm ra ở A33 khi `grep -- '--c-'` ra 0, dựng lại ở A36. Luật:
+trước khi xoá một tệp, `grep -rn "<tên tệp>" docs/ DESIGN.md` — tài liệu nào gọi tệp đó là **nhà** của một luật thì
+luật đó phải chuyển chỗ trước, hoặc có test giữ nó. Lỗi của Claude.
+
+**Giấu nhãn bằng `display: none` là xoá luôn tên của link.** Bản cách bày link trong `coats.css` giấu chữ của nút tròn
+bằng `span { display: none }`; link chỉ còn một SVG `aria-hidden`, nên trình đọc màn hình đọc ra một link không tên.
+Cắt bằng `position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)` — mắt không thấy, tên
+vẫn còn. `getByRole('link', { name })` trong test bắt được lỗi này.

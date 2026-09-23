@@ -212,15 +212,21 @@ A33), `google-policy.spec.ts` (luật Google cho từng khoá), `admin-http.spec
 3. **Số link thay đổi thì bố cục vẫn phải đẹp** (Tài, 23/09). Không để flex tự xuống dòng. Mỗi số lượng 1–6 có
    một cách bày được thiết kế sẵn, chọn bằng **quantity query** trong CSS, không JS. Đã làm (`f1a071e`): 1 → một
    viên tràn ngang · 2 → hai nửa · 3 → hai nhãn + một nút tròn · 4 → hai nhãn + hai nút tròn · 5–6 → hàng nút
-   tròn. Cỡ chạm 44px giữ nguyên ở mọi số lượng.
+   tròn. Cỡ chạm 44px giữ nguyên ở mọi số lượng. **Mất cùng `coats.css`, dựng lại ở A36** trong `skin.css`: vùng chạm
+   46px, bỏ các độ lệch đường chân (đó là thẩm mỹ của áo thử), và nút tròn **cắt nhãn thay vì `display: none`** — bản
+   cũ làm link mất tên với trình đọc màn hình.
 
 ## 13. Hai luật dùng chung cho mọi khuôn (Tài chốt 23/09/2026)
 
 Hai thứ này **không thuộc về khuôn nào**. Chúng nằm ở phạm vi `.guest[data-coat]` trong `components/coats.css`
 mục A, và không khuôn nào được ghi đè.
 
-> **Hiện không còn trong mã (23/09, A33).** Cả hai luật dưới đây nằm trong `coats.css` và đã bị xoá cùng sáu
-> áo thử. Chúng vẫn là luật; lát dựng lại lớp da (ngay sau A33) đặt chúng về phạm vi `.guest[data-template]`.
+> **Dựng lại ở A36 (23/09)**, sau khi mất cùng `coats.css`. Phạm vi giờ là `.guest[data-template]` trong
+> `components/skin.css`. A1: bản full-bleed kéo dài tờ giấy (`.guest-sheet`), bản thẻ kéo dài cả trang. A2: nút máy
+> bay **giữ nguyên** như ở `guest-page.css` (không lấy lại bản tối góc phải của áo thử); `tests/contracts/skin.spec.ts`
+> đỏ nếu bất kỳ khối khuôn nào chạm `.guest-float/.guest-plane/.guest-hint` hay khối Google. Đo lại tại 390×844:
+> quãng cuộn ≥ 128px ở cả hai bố cục, dòng mời không hiện sau 2,6 giây đứng yên (`publishing.spec.ts`, ca A36).
+> `overflow: clip` trong đoạn dưới **chưa** đặt lại: chưa khuôn nào có trang trí thò ra.
 
 **A1 · Mọi khuôn luôn cao hơn màn hình điện thoại.** `useBottomHint` chỉ hiện dòng mời góp ý sau khi khách
 **cuộn hết trang**. Khuôn nào vừa khít màn hình thì "đã cuộn hết" đúng ngay giây đầu, và thanh góp ý bật ra lúc
