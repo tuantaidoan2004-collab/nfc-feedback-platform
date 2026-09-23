@@ -18,6 +18,7 @@ import './coat-viewer.css';
 export default function CoatViewer({ shopSlug, shopName }: { shopSlug: string; shopName: string }) {
   const [index, setIndex] = useState(0);
   const [withPhoto, setWithPhoto] = useState(false);
+  const [linkCount, setLinkCount] = useState(3);
   const [open, setOpen] = useState(false);
   const [replay, setReplay] = useState(0);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -52,15 +53,19 @@ export default function CoatViewer({ shopSlug, shopName }: { shopSlug: string; s
     };
   }, [go]);
 
+  // Chủ quán thêm/bớt link bất cứ lúc nào, nên bàn xem phải thử được mọi số lượng.
+  const base = defaultConfig(shopName);
+  const pool = [...base.links, ...base.links, ...base.links].slice(0, 6);
   const config: PageConfig = {
-    ...defaultConfig(shopName),
+    ...base,
+    links: pool.slice(0, linkCount).map((l, i) => ({ ...l, url: `${l.url}${i > 2 ? `?n=${i}` : ''}` })),
     poster: withPhoto ? { kind: 'image', url: STEM_BACKGROUND.still } : null,
   };
 
   return (
     <>
       <ShopFeedbackV2
-        key={`${coat.id}-${withPhoto}-${replay}`}
+        key={`${coat.id}-${withPhoto}-${linkCount}-${replay}`}
         coat={coat.id}
         pageConfig={config}
         slug={shopSlug}
@@ -88,6 +93,12 @@ export default function CoatViewer({ shopSlug, shopName }: { shopSlug: string; s
             <label className="cv-act cv-check">
               <input type="checkbox" checked={withPhoto} onChange={e => setWithPhoto(e.target.checked)} />
               Ảnh quán
+            </label>
+            <label className="cv-act cv-check">
+              Link
+              <input type="range" min={1} max={6} value={linkCount} style={{ width: 66 }}
+                onChange={e => setLinkCount(Number(e.target.value))} />
+              {linkCount}
             </label>
           </div>
           <p className="cv-hintline">Vuốt ngang hoặc ← → để đổi áo. Bàn này chỉ có trên bản thử; trang khách thật không có ô chọn nào.</p>

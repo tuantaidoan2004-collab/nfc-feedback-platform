@@ -584,3 +584,51 @@
   .guest[data-coat="ap-phich"] .guest-logo,
   .guest[data-coat="ap-phich"] .guest-poster { opacity: 1; transform: none; }
 }
+
+/* =====================================================================
+   10 · SỐ LINK THAY ĐỔI THÌ BỐ CỤC PHẢI VẪN ĐẸP (Tài chốt 23/09)
+   Chủ quán thêm hay bớt nút Instagram bất cứ lúc nào. Nếu chỉ để flex tự xuống dòng
+   thì 1 nút trông lạc lõng, 4 nút xuống dòng lệch, 6 nút thành một đống.
+   Nên mỗi số lượng có một cách bày **được thiết kế sẵn**, chọn bằng quantity query —
+   CSS đếm được số anh em ruột, không cần một dòng JS nào.
+   Luật chung cho mọi khuôn: các nút này luôn là hạng hai, không bao giờ cao bằng nút Google.
+   ===================================================================== */
+.guest[data-coat] .guest-links { flex-wrap: wrap; }
+
+/* — đúng 1: một viên tràn ngang, có nhãn. Một nút nhỏ lẻ loi thì thà cho nó ra dáng. */
+.guest[data-coat] .guest-links a:only-child {
+  flex: 1 1 100%; justify-content: center; translate: none;
+}
+
+/* — đúng 2: hai nửa bằng nhau. */
+.guest[data-coat] .guest-links a:first-child:nth-last-child(2),
+.guest[data-coat] .guest-links a:first-child:nth-last-child(2) ~ a {
+  flex: 1 1 0; min-width: 0; justify-content: center; translate: none;
+}
+
+/* — đúng 3: hai viên có nhãn + một nút tròn chỉ icon, lệch đường chân. Bố cục mặc định. */
+.guest[data-coat] .guest-links a:first-child:nth-last-child(3),
+.guest[data-coat] .guest-links a:first-child:nth-last-child(3) ~ a { flex: 0 1 auto; }
+.guest[data-coat] .guest-links a:first-child:nth-last-child(3) ~ a:nth-child(2) { translate: 0 -4px; }
+.guest[data-coat] .guest-links a:first-child:nth-last-child(3) ~ a:nth-child(3) {
+  width: 44px; padding: 0; justify-content: center; translate: 0 6px;
+}
+.guest[data-coat] .guest-links a:first-child:nth-last-child(3) ~ a:nth-child(3) span { display: none; }
+
+/* — đúng 4: hai viên có nhãn dẫn đầu, hai nút tròn theo sau. Vẫn một hàng, vẫn lệch. */
+.guest[data-coat] .guest-links a:first-child:nth-last-child(4),
+.guest[data-coat] .guest-links a:first-child:nth-last-child(4) ~ a { flex: 0 1 auto; translate: none; }
+.guest[data-coat] .guest-links a:first-child:nth-last-child(4) ~ a:nth-child(n+3) {
+  width: 44px; padding: 0; justify-content: center;
+}
+.guest[data-coat] .guest-links a:first-child:nth-last-child(4) ~ a:nth-child(3) { translate: 0 5px; }
+.guest[data-coat] .guest-links a:first-child:nth-last-child(4) ~ a:nth-child(n+3) span { display: none; }
+
+/* — từ 5 trở lên: bỏ nhãn hết, thành một hàng nút tròn. Nhãn ở cỡ đó là nhiễu. */
+.guest[data-coat] .guest-links a:first-child:nth-last-child(n+5),
+.guest[data-coat] .guest-links a:first-child:nth-last-child(n+5) ~ a {
+  flex: 0 0 auto; width: 44px; padding: 0; justify-content: center; translate: none;
+}
+.guest[data-coat] .guest-links a:first-child:nth-last-child(n+5) span,
+.guest[data-coat] .guest-links a:first-child:nth-last-child(n+5) ~ a span { display: none; }
+.guest[data-coat] .guest-links a:first-child:nth-last-child(n+5) ~ a:nth-child(even) { translate: 0 5px; }
