@@ -286,6 +286,87 @@ lên thì gọi thẳng API là đi vòng được.
   để làm; giờ có.
 - Cần migration: bảng ảnh có trạng thái `chờ · duyệt · từ chối` kèm lý do, người duyệt, thời điểm.
 
+## 11. Khuôn là bộ xương rỗng; dữ liệu và thiết lập nằm ở tài khoản (Tài chốt 23/09/2026)
+
+Tài nêu bằng một ví dụ, và ví dụ đó là toàn bộ mô hình:
+
+> Tài khoản `4raushop` đã có sẵn link dẫn tới trang sao. Khi đăng nhập vào **bản nhân bản rỗng** của khuôn, nó
+> **tự động đưa link đó vào xương**, vào nút Google mà trước đó đang rỗng.
+
+Nói cách khác: **khuôn là ổ cắm, tài khoản là phích.** Khuôn chưa có não, chưa có chủ. Đổi khuôn thì chủ quán
+không phải gõ lại gì cả.
+
+### Hạ tầng đã có sẵn — không cần cách mạng
+
+Kiểm mã 23/09: cấu trúc này **đã nằm trong database từ migration 002**.
+
+```
+template_versions (template_key, version, capabilities)   ← bộ xương, có khoá, có phiên bản
+page_drafts  (shop_id, template_version_id, config)       ← tài khoản trỏ tới xương
+page_releases(shop_id, template_version_id, config)
+```
+
+`lib/publishing/repository.ts:32` chèn `template_key` **bằng tham số**, không hardcode. Chỉ có người gọi
+(`provisioning.ts:220`) đang truyền đúng một khoá `TEMPLATE_KEY`. Thêm khuôn thứ hai tới thứ sáu **không đổi một
+dòng schema nào**.
+
+### Chỗ lệch duy nhất, và nó là một chỗ trùng lặp
+
+Google URL đang tồn tại **hai bản**:
+
+| Ở đâu | Là gì |
+|---|---|
+| `shops.google_url` | cột trên bảng tài khoản — **đúng mô hình của Tài** |
+| `PageConfig.googleUrl` | một **bản sao** nằm trong draft và trong mọi release |
+
+Và `components/published-page.tsx:8` đọc **bản sao** (`c.googleUrl`), không đọc cột tài khoản. Nên hôm nay, đổi
+khuôn = phải chép lại URL vào cấu hình mới. Đó chính là thứ ví dụ `4raushop` cấm.
+
+Cùng bệnh với: `name`, `links`, `logo`, `poster`, `text.question` — tất cả đều là **của tài khoản** nhưng đang
+nằm trong cấu hình của khuôn.
+
+### Cách sửa — `schemaVersion 3`, một lát có migration
+
+Cắt `PageConfig` làm đôi theo đúng quyền sở hữu:
+
+| Của **tài khoản** (chủ quán sở hữu, đổi khuôn không mất) | Của **khuôn** (nền tảng sở hữu) |
+|---|---|
+| `name` · `googleUrl` · `links[]` · `logo` · `poster` · câu hỏi | bố cục · nền · hiệu ứng · màu · watermark · nút góp ý |
+
+Trang khách **ghép hai thứ đó lúc render**, không lưu bản sao. Hệ quả:
+
+- Đổi khuôn = đổi **một chuỗi** `template_key`. Không chép, không gõ lại, không mất dữ liệu.
+- Sửa khuôn cho đẹp hơn thì **mọi tài khoản dùng khuôn đó đẹp lên cùng lúc**.
+- Nội dung của shop không bao giờ bị khuôn đụng vào.
+
+Chưa quyết: nội dung tài khoản nằm ở đâu — thêm cột vào `shops`, hay một bảng `shop_profile`, hay `shops.profile
+jsonb`. Quyết khi làm lát đó.
+
+## 12. Sáu khuôn — phạm vi Tài chốt 23/09/2026
+
+| # | Khuôn | Chốt |
+|---|---|---|
+| 1 | Bản gốc, sửa vài điểm | — |
+| 2 | Tối giản (nền + ảnh đại diện) | chờ ảnh gốc để đối chiếu |
+| 3 | Kính lỏng kiểu Apple | CSS đạt ~70% cảm giác; **bắt buộc có bản rút gọn cho Android rẻ** |
+| 4 | Thẻ + lớp trang trí | **bản có ràng buộc**, không phải bảng trắng Canva đầy đủ |
+| 5 | Hữu hình — ánh sáng tụ vào ô Google, đồ hoạ nhoè dần khi ra xa | hợp luật vì nó làm CTA nổi hơn |
+| 6 | Một nút Google khổng lồ giữa trang, hiệu ứng ấn, chuyển cảnh khi rời | **gói cho thuê rẻ nhất** — tiện, ít chức năng |
+
+**Ba ranh giới đã chốt:**
+
+1. **Khuôn 4 có ràng buộc.** Kéo thả tự do trong **vùng an toàn loại trừ dải chứa nút Google**; xoay −15°…+15°;
+   toạ độ lưu theo phần trăm của khung tỉ lệ cố định nên sống sót trên màn 390px. Bốn sàn sống sót *theo cấu
+   tạo*, không nhờ cửa duyệt. Bảng trắng đầy đủ chỉ làm khi có khách thật đòi.
+2. **Khuôn 6 chấp nhận trả 300ms** để chạy hoạt ảnh trước khi rời trang. Nút phải mở **cùng tab** — `target=
+   "_blank"` cộng điều hướng trì hoãn sẽ bị iOS/Android chặn như popup. Và vế *"mây tan rồi hiện ra trang đích"*
+   **bất khả thi**: trang Google là tên miền khác, không render dưới lớp mây được. Mây phủ trang mình, rồi
+   trình duyệt nhảy sang Google.
+3. **Số link thay đổi thì bố cục vẫn phải đẹp** (Tài, 23/09). Không để flex tự xuống dòng. Mỗi số lượng 1–6 có
+   một cách bày được thiết kế sẵn, chọn bằng **quantity query** trong CSS, không JS. Đã làm (`f1a071e`): 1 → một
+   viên tràn ngang · 2 → hai nửa · 3 → hai nhãn + một nút tròn · 4 → hai nhãn + hai nút tròn · 5–6 → hàng nút
+   tròn. Cỡ chạm 44px giữ nguyên ở mọi số lượng.
+
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-21
 
 Khối này luôn nằm cuối tệp. Phiên mới đọc mục 1–8 ở trên trước, rồi khối này.
