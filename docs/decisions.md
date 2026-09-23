@@ -247,19 +247,31 @@ thứ khó hoàn tác.
   `LEFT JOIN shop_profile`, database chưa migrate là trang khách sập.
 - **Không báo test xanh khi chưa có output.** Lệnh 7 bộ ở `operations-gotchas.md`.
 
-**Vercel và nhánh preview — đang chẩn đoán (23/09).** Hai phép thử đầu **không kết luận được, vì chúng được thiết kế sai**: chúng
-đẩy **cùng một commit** lên cả `main` lẫn nhánh, mà Vercel gom deployment theo **SHA** — một commit đã dựng làm
-production thì không dựng lại thành preview. Preview đứng yên là hệ quả tất yếu của cách đẩy, không phải bằng
-chứng Vercel bỏ nhánh. Giả thuyết `next/font` cũng chưa bị bác, chỉ là chưa được kiểm đúng. Thêm một dấu hiệu: hàm preview chạy
-`iad1` còn production `sin1` — việc đổi vùng 21/09 chỉ áp cho Production.
+**Vercel không dựng nhánh preview — chưa tìm ra nguyên nhân (23/09).** Preview kẹt ở build
+`6722-8da949b4…` từ 22/09; production dựng lại bình thường mỗi lần đẩy `main`.
 
-Việc của Tài, trong Vercel → Project → **Settings → Git**:
-1. **Ignored Build Step** — có lệnh nào ở đó không? Một lệnh luôn trả "skip" sẽ chặn đúng kiểu này.
-2. **Deployment Branches** — có đang đặt "Only the Production Branch" hay một danh sách không có nhánh này không?
-3. Tab **Deployments**, lọc nhánh `feat/local-app-foundation` — có deployment nào sau 22/09 không, và trạng thái gì?
+Đã loại trừ, có bằng chứng:
 
-Và trong **Settings → Functions**: đặt Function Region = **Singapore (`sin1`)** cho cả **Preview**, không chỉ
-Production.
+| Nghi ngờ | Kết quả |
+|---|---|
+| Lỗi mã / `next/font` trong `app/xem` | **Không.** Route đã xoá, preview vẫn kẹt |
+| Ignored Build Step | **Không.** Behavior = `Automatic` |
+| Preview không theo dõi nhánh | **Không.** Preview theo `All unassigned git branches` |
+| Deployment Checks (`Lint`, `TypeCheck`) đỏ | **Không.** `eslint .` và `next typegen && tsc --noEmit` đều exit 0 trên toàn repo |
+| Nhánh chưa lên GitHub | **Không.** `git ls-remote` xác nhận nhánh đi trước `main` |
+
+**Hai phép thử đầu của Claude vô giá trị vì thiết kế sai**: chúng đẩy cùng một commit lên cả hai nhánh, mà
+Vercel dựng mỗi SHA một lần — chính ô Ignored Build Step ghi rõ *"Vercel skips builds for commits with a
+previously deployed SHA"*. Phép thử đúng (commit chỉ trên nhánh, SHA riêng) cho kết quả: preview vẫn không dựng.
+
+**Chỗ duy nhất chưa nhìn:** tab **Deployments** (thanh trên cùng, không phải Settings), lọc nhánh
+`feat/local-app-foundation`. Không có dòng nào ⇒ webhook không tới Vercel ⇒ sửa bằng **Disconnect rồi Connect
+lại** repo ở Settings → Git.
+
+**Không chặn việc gì.** Luật triển khai đã nới: xong → 7 bộ xanh → đẩy `main`.
+
+Việc nhỏ đi kèm: **Settings → Functions → Function Region** đặt **Singapore (`sin1`)** cho cả **Preview**; hiện
+nó vẫn chạy `iad1`, nên mọi phép đo tốc độ trên preview chậm giả tạo ~250ms mỗi truy vấn.
 
 ### Việc còn treo của Tài
 

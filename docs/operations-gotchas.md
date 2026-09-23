@@ -274,3 +274,5 @@ Mỗi lần Tài mất một lượt, và hai lần đầu còn làm anh tưởn
 - **Kiểm trạng thái máy trước.** `pgrep -fl "next.*dev"` và `lsof -nP -iTCP:<cổng> -sTCP:LISTEN`. Agent tự dọn tiến trình của mình trước khi đưa lệnh cho Tài.
 - **Kiểm dữ liệu tồn tại trước khi bảo mở một URL.** Preview và production là hai branch Neon khác nhau; slug của bên này không có ở bên kia.
 
+**Một phép thử phải khác nhau ở đúng một biến.** Chẩn đoán "vì sao preview không dựng" (23/09), Claude đẩy **cùng một commit lên cả `main` lẫn nhánh**, rồi kết luận "preview đứng yên ⇒ Vercel bỏ nhánh". Sai: Vercel dựng mỗi SHA **một lần** — chính ô *Ignored Build Step* ghi *"Vercel skips builds for commits with a previously deployed SHA"*. Preview đứng yên là hệ quả tất yếu của cách đẩy. Claude còn dùng chính phép thử hỏng đó để **bác một giả thuyết đúng đắn khác** (`next/font` trong `app/xem`), tức là một thí nghiệm sai đã xoá nhầm một nghi can. Trước khi tuyên bố "đã chứng minh", hỏi: **thí nghiệm này khác nhau ở đúng cái biến đang xét chưa?**
+
