@@ -38,7 +38,7 @@ test('one call builds a live page, a card that is not live yet, and an owner who
  const template=(await f.db.query('SELECT id,slug FROM shops WHERE is_template')).rows[0];
  const audit=(await f.db.query('SELECT action,shop_id,detail FROM admin_audit ORDER BY id')).rows;
  expect(audit).toEqual([{action:'template.create',shop_id:template.id,detail:{slug:template.slug}},
-  {action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe'}}]);
+  {action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe',templateKey:'standard'}}]);
 });
 
 test('the link the operator hands over is what opens the account',async({f})=>{
@@ -58,7 +58,9 @@ test('the link the operator hands over is what opens the account',async({f})=>{
 
 test('refuses input that would produce an unusable shop',async({f})=>{
  for(const bad of [{name:''},{name:'x'.repeat(101)},{ownerUsername:'NO SPACES'},{ownerEmail:'khong-phai-email'},
-   {googleUrl:'http://maps.google.com/'},{googleUrl:'javascript:alert(1)'}])
+   {googleUrl:'http://maps.google.com/'},{googleUrl:'javascript:alert(1)'},
+   // A template key is looked up in a closed list; inherited names must not slip through (operations-gotchas, F-012).
+   {templateKey:'unknown'},{templateKey:'constructor'},{templateKey:'__proto__'},{templateKey:null},{templateKey:1},{templateKey:'Glass'}])
   await expect(f.shops.create(f.actorId,{...input,...bad})).rejects.toThrow('INVALID_INPUT');
  expect((await f.db.query('SELECT count(*)::int n FROM shops')).rows[0].n).toBe(0);
  // A missing Google link is not an error: every page ships with the generic one until the shop supplies theirs.
@@ -259,4 +261,38 @@ test('production: the template account comes with a single-use link, never yours
  const session=await auth.login('@yourshop','a-strong-template-password');
  await expect(auth.access(session.token,first.slug,'design')).resolves.toMatchObject({role:'owner'});
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.link'")).rows[0].n).toBe(2);
+});
+
+test('A33: each of the six templates is a bare skeleton with its own template row, and carries no account content',async({f})=>{
+ const {TEMPLATE_KEYS,templateConfig,validateConfig}=await import('../lib/publishing/config');
+ const {assertPublishable}=await import('../lib/publishing/policy');
+ const {PublishingResolver}=await import('../lib/publishing/repository');
+ expect(TEMPLATE_KEYS).toEqual(['standard','minimal','glass','deco','spotlight','big-button']);
+ for(const key of TEMPLATE_KEYS){
+  const skeleton=templateConfig(key);
+  expect(()=>assertPublishable(validateConfig(skeleton))).not.toThrow();
+  // Placeholder content only: the slots an account fills hold nobody's name, link, logo or picture.
+  expect({name:skeleton.name,googleUrl:skeleton.googleUrl,logo:skeleton.logo,poster:skeleton.poster}).toEqual({name:'YOUR SHOP',googleUrl:'https://maps.google.com/',logo:null,poster:null});
+  if(key!=='standard')expect(skeleton.links).toEqual([]);
+ }
+ const resolver=new PublishingResolver(f.db);
+ for(const [i,key] of TEMPLATE_KEYS.entries()){
+  const made=await f.shops.create(f.actorId,{...input,ownerUsername:`khuon-${i}`,ownerEmail:`khuon${i}@example.com`,templateKey:key});
+  const page=await resolver.live({slug:made.slug});
+  expect(page.template).toBe(key);
+  // The account's own content lands in the skeleton; the look is the template's.
+  expect({name:page.config.name,googleUrl:page.config.googleUrl}).toEqual({name:input.name,googleUrl:input.googleUrl});
+  if(key!=='standard')expect({layout:page.config.layout,background:page.config.background}).toEqual({layout:templateConfig(key).layout,background:templateConfig(key).background});
+ }
+ // One row per template, shared by every shop on it, and no shop or sign-in attached to a skeleton.
+ expect((await f.db.query('SELECT template_key FROM template_versions ORDER BY template_key')).rows.map(r=>r.template_key)).toEqual([...TEMPLATE_KEYS].sort());
+ expect((await f.db.query('SELECT count(*)::int n FROM shops WHERE is_template')).rows[0].n).toBe(1);
+ // Omitting the key means khuôn 1, so a caller from before A33 still gets the original page.
+ const old=await f.shops.create(f.actorId,{...input,ownerUsername:'cu-truoc',ownerEmail:'cu@example.com'});
+ expect((await resolver.live({slug:old.slug})).template).toBe('standard');
+});
+
+test('A33: two shops asking for a brand-new template at the same moment share one template row',async({f})=>{
+ await Promise.all(['a','b','c'].map(x=>f.shops.create(f.actorId,{...input,ownerUsername:`dua-${x}`,ownerEmail:`${x}@example.com`,templateKey:'spotlight'})));
+ expect((await f.db.query("SELECT count(*)::int n FROM template_versions WHERE template_key='spotlight'")).rows[0].n).toBe(1);
 });

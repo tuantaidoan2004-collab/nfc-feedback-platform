@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import styles from './admin.module.css';
+import { TEMPLATE_KEYS, type TemplateKey } from '@/lib/publishing/config';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
@@ -10,6 +11,9 @@ export type ShopRow = {
 };
 /** The owner's four positions, as the operator sees them (migration 012). */
 const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
+/** The six templates, named as in docs/thiet-ke-va-khuon.md mục 12. */
+const TEMPLATE_NAMES: Record<TemplateKey, string> = { standard: '1 · Bản gốc', minimal: '2 · Tối giản', glass: '3 · Kính',
+  deco: '4 · Thẻ trang trí', spotlight: '5 · Ánh sáng tụ', 'big-button': '6 · Nút lớn' };
 const allows = (row: ShopRow, scope: 'overview' | 'feedback' | 'design') =>
   scope === 'overview' ? row.support_level !== 'edit' : scope === 'feedback' ? ['view', 'full'].includes(row.support_level) : ['edit', 'full'].includes(row.support_level);
 
@@ -126,7 +130,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
 
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
-      <p className={styles.muted}>Một lần bấm tạo trang khách (sao chép giao diện từ shop khuôn), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
+      <p className={styles.muted}>Một lần bấm tạo trang khách (theo khuôn đã chọn; khuôn 1 sao chép từ shop khuôn), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
       <form className={styles.form} onSubmit={async event => {
         event.preventDefault(); setBusy(true); setError(''); setHandover(null);
         const form = new FormData(event.currentTarget), element = event.currentTarget;
@@ -134,7 +138,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
           const response = await fetch('/gov/api/shops', { method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: form.get('name'), ownerUsername: form.get('ownerUsername'),
-              ownerEmail: form.get('ownerEmail'), googleUrl: form.get('googleUrl') }) });
+              ownerEmail: form.get('ownerEmail'), googleUrl: form.get('googleUrl'), templateKey: form.get('templateKey') }) });
           if (!response.ok) { setError(failed(response.status)); return; }
           const { shop } = await response.json();
           setHandover({ ...shop, expiresAt: shop.setupExpiresAt });
@@ -146,6 +150,8 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
         <label>Tài khoản chủ shop<input name="ownerUsername" required maxLength={64} placeholder="caphe-banmai" pattern="[a-z0-9][a-z0-9_.\-]{2,63}"/></label>
         <label>Email chủ shop<input name="ownerEmail" type="email" required maxLength={254} placeholder="chu@example.com"/></label>
         <label>Đường dẫn Google (bỏ trống nếu chưa có)<input name="googleUrl" type="url" maxLength={2048} placeholder="https://maps.app.goo.gl/..."/></label>
+        <label>Khuôn<select name="templateKey" defaultValue="standard" data-template-choice>
+          {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}</select></label>
         <button disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo shop'}</button>
       </form>
       {error && <p role="alert" className={styles.muted}>{error}</p>}

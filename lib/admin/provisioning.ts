@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
-import { PublishingError, templateConfig, validateConfig } from '../publishing/config';
+import { PublishingError, isTemplateKey, templateConfig, validateConfig, type TemplateKey } from '../publishing/config';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
@@ -11,7 +11,6 @@ import { shortCode, withShortCode } from '../short-code';
 // Opaque and short (lib/short-code.ts). A slug is a name only in the sense that it appears in a URL: a shop can be
 // given a real one later without breaking anything, because cards carry the tag code and history keys off the id.
 
-const TEMPLATE_KEY = 'standard';
 // Test sign-in for the template shop. Weak on purpose and refused in production; see ensureTemplateAccount.
 const TEMPLATE_USERNAME = 'yourshop', TEMPLATE_PASSWORD = '1';
 const duplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
@@ -22,7 +21,10 @@ export type ProvisionedShop = {
   setupToken: string; setupExpiresAt: Date;
 };
 
-export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; googleUrl?: unknown };
+export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; googleUrl?: unknown; templateKey?: unknown };
+
+/** Absent means khuôn 1, so callers from before the six templates keep working. */
+const chosenTemplate = (value: unknown): TemplateKey | null => value === undefined ? 'standard' : isTemplateKey(value) ? value : null;
 
 const printable = (value: string) => ![...value].some(character => (character.codePointAt(0) ?? 0) < 32 || '<>'.includes(character));
 const shopName = (value: unknown) =>
@@ -63,7 +65,7 @@ export class ShopProvisioning {
       const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
       try {
         const draft = (await this.pool.query('SELECT revision FROM page_drafts WHERE shop_id=$1', [row.id])).rows[0];
-        const revision = draft ? Number(draft.revision) : await admin.createDraft(row.id, await this.template(admin), templateConfig());
+        const revision = draft ? Number(draft.revision) : await admin.createDraft(row.id, await this.template(admin, 'standard'), templateConfig('standard'));
         await admin.publish(row.id, revision);
         continue;
       } catch (error) {
@@ -84,7 +86,7 @@ export class ShopProvisioning {
     const template = await this.ensureTemplate(actorId);
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
     const draft = Number((await this.pool.query('SELECT revision FROM page_drafts WHERE shop_id=$1', [template.shopId])).rows[0].revision);
-    const saved = await admin.saveDraft(template.shopId, draft, templateConfig());
+    const saved = await admin.saveDraft(template.shopId, draft, templateConfig('standard'));
     const { releaseId } = await admin.publish(template.shopId, saved);
     await recordAdminAction(this.pool, actorId, { action: 'template.reset', shopId: template.shopId, detail: { releaseId } });
     return { ...template, releaseId };
@@ -188,18 +190,19 @@ export class ShopProvisioning {
    */
   async create(actorId: string, input: ProvisionInput): Promise<ProvisionedShop> {
     const name = shopName(input.name), owner = username(input.ownerUsername);
-    const email = ownerEmail(input.ownerEmail), google = googleLink(input.googleUrl);
-    if (!name || !owner || !email || !google) throw new AdminError(400, 'INVALID_INPUT');
+    const email = ownerEmail(input.ownerEmail), google = googleLink(input.googleUrl), key = chosenTemplate(input.templateKey);
+    if (!name || !owner || !email || !google || !key) throw new AdminError(400, 'INVALID_INPUT');
     if ((await this.pool.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1 OR email=$2', [owner, email])).rowCount)
       throw new AdminError(409, 'OWNER_ALREADY_EXISTS');
     // Read before the shop row exists, so a missing or broken template stops the run with nothing written for this shop.
-    const config = await this.fromTemplate(actorId, name, google);
+    // Khuôn 1 is cloned from the template shop's live release, as before; the other five start from their bare skeleton.
+    const config = key === 'standard' ? await this.fromTemplate(actorId, name, google) : validateConfig({ ...templateConfig(key), name, googleUrl: google });
 
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
     const { slug, shopId } = await withShortCode(async slug => ({ slug,
       shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id', [slug, name, google])).rows[0].id as string }));
 
-    const template = await this.template(admin);
+    const template = await this.template(admin, key);
     await admin.createDraft(shopId, template, config);
 
     // Prepared, not active: the card still has to be written and tested before anyone can scan it.
@@ -210,15 +213,20 @@ export class ShopProvisioning {
     await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [provisioned.userId, shopId]);
     await admin.publish(shopId, 1);
 
-    await recordAdminAction(this.pool, actorId, { action: 'shop.create', shopId, detail: { slug, tagCode, ownerUsername: owner } });
+    await recordAdminAction(this.pool, actorId, { action: 'shop.create', shopId, detail: { slug, tagCode, ownerUsername: owner, templateKey: key } });
     return { shopId, slug, tagCode, ownerUserId: provisioned.userId, ownerUsername: owner, ownerEmail: provisioned.email,
       setupToken: provisioned.link.token, setupExpiresAt: provisioned.link.expiresAt };
   }
 
-  /** One shared template rather than one per shop: every shop renders through the same versioned renderer. */
-  private async template(admin: PublishingAdmin) {
-    const found = (await this.pool.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=1', [TEMPLATE_KEY])).rows[0];
-    return (found?.id as string) ?? await admin.createTemplate(TEMPLATE_KEY, 1);
+  /**
+   * One shared row per template rather than one per shop: every shop renders through the same versioned renderer.
+   * Created on first use; a racing twin lands on the unique (template_key, version) and the loser reads its row.
+   */
+  private async template(admin: PublishingAdmin, key: TemplateKey) {
+    const find = async () => (await this.pool.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=1', [key])).rows[0]?.id as string | undefined;
+    const found = await find(); if (found) return found;
+    try { return await admin.createTemplate(key, 1); }
+    catch (error) { const raced = duplicate(error) ? await find() : undefined; if (raced) return raced; throw error; }
   }
 
   /** What the administrative table shows: one row per shop, with what is needed to act on it. */

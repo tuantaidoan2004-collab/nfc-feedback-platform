@@ -117,6 +117,11 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
+ // Six templates to choose from (A33); khuôn 1 is preselected so a hurried operator still gets the original page.
+ const choice=page.locator('select[data-template-choice]');
+ await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Thẻ trang trí','5 · Ánh sáng tụ','6 · Nút lớn']);
+ await expect(choice).toHaveValue('standard');
+ await choice.selectOption('glass');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
 
  await expect(page.getByRole('heading',{name:'Gửi liên kết này cho chủ shop'})).toBeVisible();
@@ -125,6 +130,10 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  expect(setupUrl).toContain('/owner/setup/');
  const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
+ // The chosen skeleton is the release's template, and it reaches the guest page as a skin hook only.
+ expect((await admin.db.query(`SELECT tv.template_key FROM shops s JOIN page_releases r ON r.id=s.active_release_id
+   JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.slug=$1`,[slug])).rows).toEqual([{template_key:'glass'}]);
+ expect(await (await page.request.get(`/${slug}`)).text()).toContain('data-template="glass"');
 
  // The shop opens the link itself and chooses a password the operator never sees.
  await page.goto(setupUrl);

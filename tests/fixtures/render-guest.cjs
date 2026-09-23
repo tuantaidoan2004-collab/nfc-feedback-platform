@@ -19,5 +19,5 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const Guest = require(path.join(root, 'components/shop-feedback-v2.tsx')).default;
 const config = JSON.parse(fs.readFileSync(0, 'utf8'));
 process.stdout.write(renderToStaticMarkup(React.createElement(Guest, {
-  slug: 'fixture', name: config.name, googleUrl: config.googleUrl, pageConfig: config, heroUrl: null, heroKind: null,
+  slug: 'fixture', template: process.env.NFC_FIXTURE_TEMPLATE, name: config.name, googleUrl: config.googleUrl, pageConfig: config, heroUrl: null, heroKind: null,
 })));

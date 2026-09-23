@@ -42,7 +42,8 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | A29 | ~~**Dựng trọn áo đầu tiên trong repo**~~ **xong 23/09** (`5f80321`, khuôn `ap-phich`, bố cục biên tập lệch trái):, đầy đủ tính năng, xem trên preview | V | — | Không clone logic; chỉ thay lớp trình bày |
 | A30 | **Cửa duyệt ảnh shop**: bảng ảnh có trạng thái, `validateConfig` chỉ nhận ảnh đã duyệt, hàng chờ duyệt trong `/gov` | V | — | **Có migration.** `decisions.md` mục 10. Rủi ro pháp lý nếu không làm |
 | A32 | ~~**Tách nội dung khỏi khuôn**: `shop_profile` + ghép lúc đọc~~ **xong 23/09** (`5375358`, migration 022). Nội dung thuộc tài khoản, diện mạo thuộc khuôn; đổi khuôn không mất dữ liệu | V | — | 7 bộ xanh. `decisions.md` mục 11 |
-| A33 | **Sáu khoá khuôn**: `templateConfig(key)`, sáu hàng `template_versions`, ô chọn khuôn trong `/gov` lúc tạo shop | V | — | **Lát kế tiếp.** Không migration; hạ tầng có từ 002 |
+| A33 | **Sáu khoá khuôn**: `templateConfig(key)`, sáu hàng `template_versions`, ô chọn khuôn trong `/gov` lúc tạo shop | V | — | **Xong 23/09.** Bộ xương thôi, chưa diện mạo |
+| A36 | **Dựng lại lớp da**: token `--c-*`, `--c-floor`, hai luật dùng chung (quãng cuộn dư · nút máy bay bất biến) trên `.guest[data-template]` | V | — | **Lát kế tiếp.** Mất cùng `coats.css`; `DESIGN.md` mục 9 |
 | A34 | **Ba khuôn có tranh** (Hero · Chia đôi · Nhập vai) | V | — | Chờ ảnh của Tài, bản kê ở `anh-can-cho-ao-khoac.md` |
 | A35 | **Lớp trang trí có ràng buộc** cho khuôn 4 — kéo thả trong vùng an toàn loại trừ dải CTA, toạ độ theo phần trăm | L | Canva | Bản đầy đủ kiểu bảng trắng **không làm**; xem `thiet-ke-va-khuon.md` mục 12 |
 | A31 | **Trang giới thiệu nền tảng** + nhận diện — chỗ duy nhất hiệu ứng nặng của Componentry đáng tiền | L | Componentry | Cần F6. Không đụng trang khách |

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { defaultConfig, validateConfig } from '../../lib/publishing/config';
+import { TEMPLATE_KEYS, defaultConfig, templateConfig, validateConfig } from '../../lib/publishing/config';
 import { SERVICE_LABELS, assertPublishable, freeTextProblem } from '../../lib/publishing/policy';
 const render = (config = defaultConfig('Shop fixture')) => execFileSync(process.execPath, ['tests/fixtures/render-guest.cjs'], {
   input: JSON.stringify(config), encoding: 'utf8',
@@ -14,6 +14,20 @@ test('Google invitation is already present before hydration, stars or a working 
     expect(html).toContain('Đánh giá trên Google');
     expect(html).not.toContain('data-ready=""');
     expect(html).not.toContain('role="dialog"');
+  }
+});
+
+// A33: the six templates only dress the skeleton. Each one, rendered with a template hook, keeps the Google
+// invitation in the server HTML, identical, before hydration -- the contract every future skin inherits.
+test('every template keeps the Google invitation in the server HTML', () => {
+  for (const key of TEMPLATE_KEYS) {
+    const config = validateConfig({ ...templateConfig(key), name: 'Shop fixture', googleUrl: 'https://maps.google.com/?cid=42' });
+    const html = execFileSync(process.execPath, ['tests/fixtures/render-guest.cjs'], { input: JSON.stringify(config), encoding: 'utf8',
+      env: { ...process.env, NFC_FIXTURE_TEMPLATE: key } });
+    expect(html).toContain(`data-template="${key}"`);
+    expect(html).toContain('data-google="true" href="https://maps.google.com/?cid=42"');
+    expect(html).toContain('Đánh giá trên Google');
+    expect(html).not.toContain('data-ready=""');
   }
 });
 

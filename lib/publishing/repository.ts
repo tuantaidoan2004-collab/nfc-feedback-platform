@@ -118,22 +118,26 @@ export class PublishingResolver {
     // Hồ sơ tài khoản đi kèm trong cùng một truy vấn: nội dung là của tài khoản, diện mạo là của bản chụp
     // (migration 022). LEFT JOIN vì một shop có thể chưa có hàng hồ sơ — lúc đó bản chụp tự lo lấy.
     const row = 'slug' in target
-      ? (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM shops s
-        JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE lower(s.slug)=lower($1)`, [target.slug])).rows[0]
-      : (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
-        JOIN shops s ON s.id=t.shop_id JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE t.public_code=$1`, [target.code])).rows[0];
+      ? (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,tv.template_key,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM shops s
+        JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
+        LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE lower(s.slug)=lower($1)`, [target.slug])).rows[0]
+      : (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,tv.template_key,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
+        JOIN shops s ON s.id=t.shop_id JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
+        LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE t.public_code=$1`, [target.code])).rows[0];
     if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : 'direct:shop' };
-    return { slug: row.slug as string, config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context };
+    // The template key travels with the page so the skin can dress each skeleton; it never changes the DOM.
+    return { slug: row.slug as string, template: row.template_key as string, config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context };
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state FROM preview_sessions p JOIN shops s ON s.id=p.shop_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
+    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state,tv.template_key FROM preview_sessions p JOIN shops s ON s.id=p.shop_id
+      JOIN template_versions tv ON tv.id=p.template_version_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
     // Xem trước KHÔNG ghép hồ sơ tài khoản, có chủ ý: nó tồn tại để chủ quán thấy **đúng bản nháp sắp phát
     // hành**. Ghép hồ sơ vào đây thì sửa tên xong xem trước vẫn ra tên cũ, và cái nút xem trước mất nghĩa.
     // Hồ sơ chỉ ghép ở `live()`; và `publish()` ghi nội dung xuống hồ sơ, nên hai đường gặp nhau lúc phát hành.
-    return { slug: row.slug as string, config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
+    return { slug: row.slug as string, template: row.template_key as string, config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
   }
 }

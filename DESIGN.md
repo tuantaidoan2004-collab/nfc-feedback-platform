@@ -207,4 +207,22 @@ giấy bất biến), và kỹ thuật nét tay bằng bộ lọc SVG. Sáu khu�
 
 Mỗi khuôn khi vào mã ghi một mục ở đây: id · tên · dùng cho ngành nào · bộ chữ và số KB · kết quả bốn sàn.
 
-*(chưa có khuôn nào vào mã)*
+**Sáu khoá đã vào mã (A33, 23/09)** — mới là bộ xương, **chưa có diện mạo riêng**. Mỗi khoá có một cấu hình
+(`templateConfig(key)` trong `lib/publishing/config.ts`), một hàng `template_versions`, và tới trang khách dưới
+dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đọc thuộc tính đó.
+
+| # | id | Tên | Cấu hình hiện có |
+|---|---|---|---|
+| 1 | `standard` | Bản gốc | như trước A33 (nền video, nhân bản từ shop khuôn) |
+| 2 | `minimal` | Tối giản | `card`, nền đặc `#F4F1EA` |
+| 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` |
+| 4 | `deco` | Thẻ trang trí | `card`, chuyển sắc `#2A1E3F → #F2C14E` |
+| 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` |
+| 6 | `big-button` | Nút lớn | `full-bleed`, nền đặc `#FFFFFF` |
+
+Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng khuôn có diện mạo.
+
+**Chỗ lệch giữa tệp này và mã (tìm ra 23/09, lát A33):** lớp token `--c-*` ở mục 4, `--c-floor` ở mục 6c, và hai
+luật dùng chung ở `thiet-ke-va-khuon.md` mục 13 (`--c-overscroll` · nút máy bay giấy bất biến) đều nằm trong
+`components/coats.css` — **đã bị xoá cùng sáu áo thử**. `grep -- '--c-' components/` ra 0. Các mục đó hiện là
+**thiết kế**, không phải mã. Dựng lại lớp da này là lát ngay sau A33, trước khuôn đầu tiên có diện mạo.

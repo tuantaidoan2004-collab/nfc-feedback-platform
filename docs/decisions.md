@@ -204,7 +204,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–022**.
-  `main` ở `5375358` (23/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+  `main` có lát A33 (23/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
@@ -217,7 +217,14 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — lát khuôn/tài khoản (23/09, `5375358`)
+### Xong gần nhất — A33 sáu khoá khuôn (23/09)
+
+Sáu khoá `standard · minimal · glass · deco · spotlight · big-button`, mỗi khoá một cấu hình và một hàng
+`template_versions` (tạo lúc cần), ô chọn khuôn ở `/gov`, trang khách mang `data-template`. **Không migration.**
+Khuôn là bộ xương, không gắn tài khoản (Tài, 23/09). **Chưa khuôn nào có diện mạo riêng** — và lớp da (token
+`--c-*`, hai luật dùng chung) đã mất cùng `coats.css`; xem `DESIGN.md` mục 9.
+
+### Trước đó — lát khuôn/tài khoản (23/09, `5375358`)
 
 `shop_profile` (migration 022) + lớp ghép lúc đọc. **Nội dung thuộc tài khoản, diện mạo thuộc khuôn.** Đổi khuôn
 không mất tên, link Google, danh sách link, logo, ảnh. `publish()` ghi nội dung xuống hồ sơ trong cùng
@@ -228,9 +235,8 @@ production). Chi tiết ở [`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md).
 
 ### Việc kế, theo thứ tự
 
-1. **Sáu khoá khuôn** — `templateConfig(key)` trả sáu cấu hình, sáu hàng `template_versions`, ô chọn khuôn trong
-   `/gov` lúc tạo shop. Hạ tầng có sẵn từ migration 002 (`template_key` đã là tham số ở
-   `repository.ts:createTemplate`). **Không có migration.** Phạm vi sáu khuôn ở `thiet-ke-va-khuon.md` mục 12.
+1. **A36 · Dựng lại lớp da** — token `--c-*`, `--c-floor`, quãng cuộn dư, nút máy bay bất biến, trên
+   `.guest[data-template]`. Không migration. Rồi mới tới diện mạo từng khuôn (khuôn 2 chờ ảnh gốc của Tài).
 2. **Ba khuôn có tranh** — chờ ảnh của Tài; bản kê ở [`anh-can-cho-ao-khoac.md`](anh-can-cho-ao-khoac.md).
 3. **Cửa duyệt ảnh** (mục 10) — có migration.
 4. **C3 + sao lưu** — trước khách trả tiền.

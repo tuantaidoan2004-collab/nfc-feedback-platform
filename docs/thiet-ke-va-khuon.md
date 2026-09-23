@@ -193,6 +193,13 @@ jsonb`. Quyết khi làm lát đó.
 | 5 | Hữu hình — ánh sáng tụ vào ô Google, đồ hoạ nhoè dần khi ra xa | hợp luật vì nó làm CTA nổi hơn |
 | 6 | Một nút Google khổng lồ giữa trang, hiệu ứng ấn, chuyển cảnh khi rời | **gói cho thuê rẻ nhất** — tiện, ít chức năng |
 
+**Khuôn là bộ xương, không gắn tài khoản nào (Tài, 23/09, lúc giao A33).** Sáu khuôn chỉ là sáu hàng
+`template_versions` với nội dung giữ chỗ (`YOUR SHOP`, link Google chung, không link, không logo, không ảnh). Không
+tạo shop hay tài khoản test cho từng khuôn. Cần xem một khuôn có dữ liệu thì **admin đăng nhập vào, đăng xuất là
+khuôn tự rỗng lại** — dữ liệu không bao giờ nằm trong khuôn. Mã A33: `templateConfig(key)` · `provisioning.ts`
+(`templateKey`, khoá lạ trả `INVALID_INPUT`) · ô chọn khuôn ở `/gov`. Test: `shop-provisioning.spec.ts` (hai ca
+A33), `google-policy.spec.ts` (luật Google cho từng khoá), `admin-http.spec.ts` (ô chọn).
+
 **Ba ranh giới đã chốt:**
 
 1. **Khuôn 4 có ràng buộc.** Kéo thả tự do trong **vùng an toàn loại trừ dải chứa nút Google**; xoay −15°…+15°;
@@ -211,6 +218,9 @@ jsonb`. Quyết khi làm lát đó.
 
 Hai thứ này **không thuộc về khuôn nào**. Chúng nằm ở phạm vi `.guest[data-coat]` trong `components/coats.css`
 mục A, và không khuôn nào được ghi đè.
+
+> **Hiện không còn trong mã (23/09, A33).** Cả hai luật dưới đây nằm trong `coats.css` và đã bị xoá cùng sáu
+> áo thử. Chúng vẫn là luật; lát dựng lại lớp da (ngay sau A33) đặt chúng về phạm vi `.guest[data-template]`.
 
 **A1 · Mọi khuôn luôn cao hơn màn hình điện thoại.** `useBottomHint` chỉ hiện dòng mời góp ý sau khi khách
 **cuộn hết trang**. Khuôn nào vừa khít màn hình thì "đã cuộn hết" đúng ngay giây đầu, và thanh góp ý bật ra lúc

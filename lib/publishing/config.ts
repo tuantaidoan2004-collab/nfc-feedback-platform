@@ -90,7 +90,28 @@ export function defaultConfig(name = 'YOUR BRAND'): PageConfig {
     text: { question: { vi: 'Trải nghiệm hôm nay của bạn thế nào?', en: 'How was your experience today?' } },
     googleUrl: 'https://maps.google.com/', links: structuredClone(DEFAULT_LINKS), feedbackButton: { ...DEFAULT_FEEDBACK_BUTTON } };
 }
-/** What the template shop starts as: the default page with the moving background Tài chose on 2026-09-17. */
-export function templateConfig(): PageConfig {
-  return { ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } };
+/**
+ * The six templates Tài chose on 2026-09-23 (`docs/thiet-ke-va-khuon.md` mục 12). A template is a bare skeleton:
+ * it owns layout, background and effects, never an account's content, and no shop or sign-in is attached to it.
+ * Content comes from the account at render time (`shop_profile`, migration 022). `standard` is khuôn 1 and keeps
+ * its key because its `template_versions` row already exists and is immutable. No key names a brand (DESIGN.md mục 8).
+ */
+export const TEMPLATE_KEYS = ['standard', 'minimal', 'glass', 'deco', 'spotlight', 'big-button'] as const;
+export type TemplateKey = typeof TEMPLATE_KEYS[number];
+export const isTemplateKey = (value: unknown): value is TemplateKey =>
+  typeof value === 'string' && (TEMPLATE_KEYS as readonly string[]).includes(value);
+/** Placeholder content only: every slot an account fills is empty or neutral, so a skeleton carries no one's data. */
+const skeleton = (layout: PageConfig['layout'], background: PageConfig['background']): PageConfig => ({
+  ...defaultConfig('YOUR SHOP'), layout, background, links: [], watermark: { text: 'YOUR LOGO', enabled: false, motion: 'diagonal-linear' } });
+const SKELETONS = new Map<TemplateKey, () => PageConfig>([
+  // Khuôn 1: what the template shop starts as, the default page with the moving background Tài chose on 2026-09-17.
+  ['standard', () => ({ ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } })],
+  ['minimal', () => skeleton('card', { kind: 'solid', color: '#F4F1EA' })],
+  ['glass', () => skeleton('full-bleed', { kind: 'gradient', colors: ['#1B2B4A', '#8FB3D9'], angle: 160 })],
+  ['deco', () => skeleton('card', { kind: 'gradient', colors: ['#2A1E3F', '#F2C14E'], angle: 135 })],
+  ['spotlight', () => skeleton('full-bleed', { kind: 'solid', color: '#0E0F13' })],
+  ['big-button', () => skeleton('full-bleed', { kind: 'solid', color: '#FFFFFF' })],
+]);
+export function templateConfig(key: TemplateKey = 'standard'): PageConfig {
+  const make = SKELETONS.get(key); if (!make) throw new PublishingError('INVALID_TEMPLATE'); return make();
 }
