@@ -6,9 +6,14 @@ If context is missing, read the local decision checkpoint first, then the Obsidi
 
 Memory is on demand only. Do not create daily sync, reminders, or background project work. Refresh the decision checkpoint when needed for continuity or explicitly requested. Do not mirror full transcripts. Obsidian is the canonical durable product context; GitHub holds source and a concise decision checkpoint. Keep newer explicit owner instructions authoritative and flag conflicting records.
 
-Design work reads two files at the repo root before any CSS: **`PRODUCT.md`** (who uses this and for what) and
-**`DESIGN.md`** (how it must look — the coat contract, the four floors, the anchored layout, the Vietnamese
-diacritic rule, the trademark rules). They outrank any design skill or upstream style guide.
+Design and template work reads three files first: **`PRODUCT.md`** (who uses this and for what), **`DESIGN.md`**
+(how it must look) and **`docs/thiet-ke-va-khuon.md`** (the coat/template decisions of 22–23/09). They outrank any
+design skill or upstream style guide. Other kinds of work do not need them.
+
+Shipping rule, relaxed by Tài on 2026-09-23: **a slice does not have to be seen on preview first.** Finish it, get
+the seven suites green with real output, push `main`. Two rules are not relaxed: a slice **with a migration** waits
+until Tài has run it on Neon (the code and the schema ship together — lát 022 broke the guest page without it), and
+**no suite is ever called green without its output**.
 
 Product invariants: identical Google review invitation at every rating; low scores may open private feedback without hiding Google; internal stars update the same experience; Vietnamese default plus manual English only; private tenant-isolated owner data. Every Google-related rule is in `docs/google-policy.md`; it overrides any other request. The slice backlog, ordered by readiness, is `docs/roadmap-slices.md`.
 

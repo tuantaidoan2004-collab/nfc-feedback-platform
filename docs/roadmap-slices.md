@@ -37,10 +37,14 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | A25 | **Tài liệu cho đội ngũ**: ADR (mỗi quyết định một tệp), sổ tay vận hành, hướng dẫn người mới; giữ `operations-gotchas.md` | V | AWS | Để đội ngũ tiếp quản khi không còn agent |
 | A26 | **PWA + thông báo đẩy** trên điện thoại cho chuông | V | Salesforce Mobile | |
 
-| A27 | **`DESIGN.md` + `PRODUCT.md`** — sản phẩm phải trông và cư xử như thế nào, viết bằng markdown để cả agent lẫn công cụ thiết kế đọc được | N | Google Stitch | **Lát kế tiếp.** Không dependency, không migration |
-| A28 | **Hệ áo khoác trang khách**: `PageConfig` v3 lưu `coat: '<tên>'`, một bộ token cho mỗi áo, test giữ bốn sàn cho **từng** áo | L | — | `decisions.md` mục 9. Thay phần lớn A19 ở phía trang khách |
-| A29 | **Dựng trọn áo đầu tiên (dòng Sentry) trong repo**, đầy đủ tính năng, xem trên preview | V | — | Không clone logic; chỉ thay lớp trình bày |
+| A27 | ~~**`DESIGN.md` + `PRODUCT.md`**~~ **xong 22/09** (`1b5e6de`): — sản phẩm phải trông và cư xử như thế nào, viết bằng markdown để cả agent lẫn công cụ thiết kế đọc được | N | Google Stitch | **Lát kế tiếp.** Không dependency, không migration |
+| A28 | **Hệ áo khoác trang khách** — *một phần xong 22–23/09*:: `PageConfig` v3 lưu `coat: '<tên>'`, một bộ token cho mỗi áo, test giữ bốn sàn cho **từng** áo | L | — | `decisions.md` mục 9. Thay phần lớn A19 ở phía trang khách |
+| A29 | ~~**Dựng trọn áo đầu tiên trong repo**~~ **xong 23/09** (`5f80321`, khuôn `ap-phich`, bố cục biên tập lệch trái):, đầy đủ tính năng, xem trên preview | V | — | Không clone logic; chỉ thay lớp trình bày |
 | A30 | **Cửa duyệt ảnh shop**: bảng ảnh có trạng thái, `validateConfig` chỉ nhận ảnh đã duyệt, hàng chờ duyệt trong `/gov` | V | — | **Có migration.** `decisions.md` mục 10. Rủi ro pháp lý nếu không làm |
+| A32 | ~~**Tách nội dung khỏi khuôn**: `shop_profile` + ghép lúc đọc~~ **xong 23/09** (`5375358`, migration 022). Nội dung thuộc tài khoản, diện mạo thuộc khuôn; đổi khuôn không mất dữ liệu | V | — | 7 bộ xanh. `decisions.md` mục 11 |
+| A33 | **Sáu khoá khuôn**: `templateConfig(key)`, sáu hàng `template_versions`, ô chọn khuôn trong `/gov` lúc tạo shop | V | — | **Lát kế tiếp.** Không migration; hạ tầng có từ 002 |
+| A34 | **Ba khuôn có tranh** (Hero · Chia đôi · Nhập vai) | V | — | Chờ ảnh của Tài, bản kê ở `anh-can-cho-ao-khoac.md` |
+| A35 | **Lớp trang trí có ràng buộc** cho khuôn 4 — kéo thả trong vùng an toàn loại trừ dải CTA, toạ độ theo phần trăm | L | Canva | Bản đầy đủ kiểu bảng trắng **không làm**; xem `thiet-ke-va-khuon.md` mục 12 |
 | A31 | **Trang giới thiệu nền tảng** + nhận diện — chỗ duy nhất hiệu ứng nặng của Componentry đáng tiền | L | Componentry | Cần F6. Không đụng trang khách |
 
 ## B. Cần Tài làm hoặc quyết trước
@@ -103,7 +107,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | F6 | Thiết kế nhận diện nền tảng (logo, dấu trên thẻ) cho A16 |
 | F7 | Ghi `story.md` / Obsidian về lịch sử hình thành |
 
-**Tổng: 31 (A) + 7 (B) + 4 (C) + 9 (D) + 8 (E) + 7 (F) = 61 mục.** P0 gồm A1–A7 và B1–B4.
+**Tổng: 35 (A) + 7 (B) + 4 (C) + 9 (D) + 8 (E) + 7 (F) = 61 mục.** P0 gồm A1–A7 và B1–B4.
 
 ## Kiến trúc dữ liệu: vì sao không Cassandra → Hadoop/Hive/Pig → Spark
 
