@@ -247,10 +247,10 @@ thứ khó hoàn tác.
   `LEFT JOIN shop_profile`, database chưa migrate là trang khách sập.
 - **Không báo test xanh khi chưa có output.** Lệnh 7 bộ ở `operations-gotchas.md`.
 
-**Vercel không tạo deployment cho nhánh preview — đã chứng minh 23/09.** Một lần `git push` cùng lúc lên
-`main` và `feat/local-app-foundation`: **production dựng lại** (chunk `6722-cc14267f…` → `6722-d96f9277…`),
-**preview đứng yên** (`6722-8da949b4…`, không đổi sau hơn 6 phút). Cùng một cây mã, chỉ khác nhánh. Vậy
-**không phải lỗi mã**; giả thuyết `next/font` trong `app/xem` đã bị bác. Thêm một dấu hiệu: hàm preview chạy
+**Vercel và nhánh preview — đang chẩn đoán (23/09).** Hai phép thử đầu **không kết luận được, vì chúng được thiết kế sai**: chúng
+đẩy **cùng một commit** lên cả `main` lẫn nhánh, mà Vercel gom deployment theo **SHA** — một commit đã dựng làm
+production thì không dựng lại thành preview. Preview đứng yên là hệ quả tất yếu của cách đẩy, không phải bằng
+chứng Vercel bỏ nhánh. Giả thuyết `next/font` cũng chưa bị bác, chỉ là chưa được kiểm đúng. Thêm một dấu hiệu: hàm preview chạy
 `iad1` còn production `sin1` — việc đổi vùng 21/09 chỉ áp cho Production.
 
 Việc của Tài, trong Vercel → Project → **Settings → Git**:
