@@ -13,10 +13,13 @@
 CREATE TABLE shop_profile (
   shop_id uuid PRIMARY KEY REFERENCES shops(id),
   -- Tên quán hiện trên trang khách. Cùng giới hạn với `validateConfig`, để hai đường không lệch nhau.
-  name text NOT NULL CHECK (length(name) BETWEEN 1 AND 100 AND name !~ '[\u0000-\u001f<>]'),
+  -- Độ dài kiểm bằng `length`, KHÔNG bằng số lặp trong regex: PostgreSQL từ chối số lặp lớn hơn 255
+  -- (`invalid repetition count(s)`). Bẫy này đã ghi ở `operations-gotchas.md` từ lát A2 và vẫn dẫm lại ở 022.
+  name text NOT NULL CHECK (length(name) BETWEEN 1 AND 100 AND name !~ '[[:cntrl:]<>]'),
   -- NULL nghĩa là tài khoản chưa cấp link Google. Trang khách vẫn dựng, nút Google hiện ở trạng thái tắt —
   -- nó không bao giờ biến mất, vì "lời mời giống hệt nhau với mọi khách" là luật cứng.
-  google_url text CHECK (google_url IS NULL OR google_url ~ '^https://[^\s<>]{1,2040}$'),
+  google_url text CHECK (google_url IS NULL OR (length(google_url) <= 2048
+    AND google_url ~ '^https://' AND google_url !~ '[[:space:]<>]')),
   question_vi text NOT NULL CHECK (length(question_vi) BETWEEN 1 AND 180),
   question_en text NOT NULL CHECK (length(question_en) BETWEEN 1 AND 180),
   -- Tối đa 6, khớp trần của `validateConfig`. Bố cục có cách bày riêng cho từng số lượng 1..6
