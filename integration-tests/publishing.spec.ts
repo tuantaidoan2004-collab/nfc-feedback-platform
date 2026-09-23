@@ -384,3 +384,65 @@ test('A36: one to six links each get their designed arrangement, and icon-only l
     if (n === 2) expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
   }
 });
+
+// Khuôn 6 · Nút lớn (thiet-ke-va-khuon.md mục 12). A shop of its own, because a draft keeps the template it was made on.
+async function bigButtonShop(f: Fixture) {
+  const shop = randomUUID();
+  await f.db.query("INSERT INTO shops(id,slug,name)VALUES($1,'six','Quán Sáu')", [shop]);
+  const template = await f.admin.createTemplate('big-button', 1);
+  const { templateConfig } = await import('../lib/publishing/config');
+  await f.admin.createDraft(shop, template, { ...templateConfig('big-button'), name: 'Quán Sáu', googleUrl: 'https://maps.google.com/?cid=66' });
+  await f.admin.publish(shop, 1);
+  return shop;
+}
+const googleStub = (page: Page) => page.route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
+
+test('khuôn 6: one giant Google button in the middle of the phone, the same in every other respect', async ({ page, fixture: f }) => {
+  await bigButtonShop(f);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/six'); await loaded(page);
+  await expect(page.locator('main')).toHaveAttribute('data-template', 'big-button');
+  const google = page.locator('[data-google]');
+  await expect(google).toBeInViewport();
+  const box = (await google.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(110);
+  // Its centre sits in the middle third of the screen: the page is the button.
+  expect(box.y + box.height / 2).toBeGreaterThan(844 / 3); expect(box.y + box.height / 2).toBeLessThan(844 * 2 / 3);
+  // Same tab, so the delayed navigation is not blocked as a popup; other templates still open a new tab.
+  expect(await google.getAttribute('target')).toBeNull();
+  const plane = (await page.locator('#private-feedback').boundingBox())!;
+  expect(box.height).toBeGreaterThan(plane.height);
+  await page.goto('/one'); await loaded(page);
+  await expect(page.locator('[data-google]')).toHaveAttribute('target', '_blank');
+});
+
+test('khuôn 6: a tap covers the page for 300 ms, then the same tab goes to Google, with the tap recorded', async ({ page, fixture: f }) => {
+  const shop = await bigButtonShop(f); await googleStub(page);
+  await page.goto('/six'); await loaded(page);
+  const started = Date.now();
+  await page.locator('[data-google]').click();
+  await expect(page.locator('main[data-leaving]')).toHaveCount(1);
+  // Still on our own page, and the cover is drawn: the page Google sends back is never under it.
+  expect(await page.evaluate(() => [location.hostname, getComputedStyle(document.querySelector('main')!, '::after').content])).toEqual(['127.0.0.1', '""']);
+  await page.waitForURL('https://maps.google.com/?cid=66');
+  expect(Date.now() - started).toBeGreaterThanOrEqual(280);
+  // The tap was queued before leaving and flushed on pagehide, so the same-tab exit does not lose it.
+  await expect.poll(async () => (await f.db.query(`SELECT e.name FROM page_events e JOIN page_visits v ON v.id=e.visit_id
+    WHERE v.shop_id=$1 AND e.name='google_tapped'`, [shop])).rowCount).toBe(1);
+  // Back on the page, with or without the back-forward cache, the cover is gone.
+  await page.goBack(); await loaded(page);
+  await expect(page.locator('main[data-leaving]')).toHaveCount(0);
+});
+
+test('khuôn 6: with reduced motion the tap goes straight to Google, no cover', async ({ page, fixture: f }) => {
+  await bigButtonShop(f); await googleStub(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // The cover would last only 300 ms, so watch for it rather than look for it afterwards.
+  let covered = false; await page.exposeFunction('coverSeen', () => { covered = true; });
+  await page.addInitScript(() => new MutationObserver(() => { if (document.querySelector('main[data-leaving]')) (window as unknown as { coverSeen: () => void }).coverSeen(); })
+    .observe(document, { subtree: true, attributes: true, attributeFilter: ['data-leaving'] }));
+  await page.goto('/six'); await loaded(page);
+  await page.locator('[data-google]').click();
+  await page.waitForURL('https://maps.google.com/?cid=66');
+  expect(covered).toBe(false);
+});

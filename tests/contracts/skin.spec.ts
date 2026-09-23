@@ -54,6 +54,8 @@ test('text tokens reach 4.5:1 on their surface, muted text included, in the defa
       expect(fg, `${name} ${text}`).toMatch(/^#[0-9a-fA-F]{6}$/); expect(bg, `${name} ${surface}`).toMatch(/^#[0-9a-fA-F]{6}$/);
       expect(contrast(fg, bg), `${name}: ${text} on ${surface}`).toBeGreaterThanOrEqual(4.5);
     }
+    // The Google button's text is white on a mix of --c-brand, darkest at the bottom stop.
+    expect(contrast('#ffffff', tokens.get('--c-brand')!), `${name}: Google button text on --c-brand`).toBeGreaterThanOrEqual(4.5);
     // Floor 3, the part a token can break: the Google button stays taller than the 46px link buttons around it.
     expect(parseFloat(tokens.get('--c-btn-h')!), `${name} --c-btn-h`).toBeGreaterThanOrEqual(56);
   }

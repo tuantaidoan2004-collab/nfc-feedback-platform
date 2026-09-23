@@ -114,10 +114,13 @@ sàn        --c-floor                        chỗ chừa cho nút góp ý (mụ
 
 **Đã nối vào mã (A36, 23/09):** tên và giá trị mặc định ở `components/skin.css`; `guest-page.css` đọc `--c-paper
 --c-ink --c-ink-2 --c-muted --c-line --c-brand --c-on-brand --c-accent --c-font --c-display --c-h1 --c-h1-weight
---c-h1-track --c-h1-case --c-radius --c-btn-radius --c-btn-h --c-logo --c-floor --c-overscroll`. Mặc định = diện mạo
-trước A36. **Chưa nối** (được phép đặt tên, chưa có chỗ đọc): `--c-c1 --c-c2 --c-angle` (nền vẫn lấy từ `PageConfig`),
-`--c-fab`, `--c-body`, `--c-poster`, `--c-density`, bóng và viên link. Màu gradient của nút Google và nút Gửi vẫn viết
-cứng. Nối từng cái khi khuôn đầu tiên cần tới.
+--c-h1-track --c-h1-case --c-radius --c-btn-radius --c-btn-h --c-logo --c-poster --c-floor --c-overscroll`. Mặc định = diện
+mạo trước A36. Nút Google pha bốn nấc màu từ `--c-brand` (khuôn 6); cỡ chữ và logo Google trong nút lớn theo
+`--c-btn-h`. **Chưa nối:** `--c-c1 --c-c2 --c-angle` (nền vẫn lấy từ `PageConfig`), `--c-fab`, `--c-body`,
+`--c-density`, bóng và viên link; nút Gửi vẫn viết cứng màu xanh lá. Nối từng cái khi một khuôn cần tới.
+
+Nút Google của khuôn gốc giờ **pha** từ `--c-brand` thay vì bốn mã màu cứng; sai khác mỗi nấc vài đơn vị RGB (tinh
+chỉnh, không đổi căn tính). Trình duyệt không có `color-mix()` giữ bốn mã cũ nhờ `@supports`.
 
 `tests/contracts/skin.spec.ts` giữ ba điều: không tên token nào ngoài danh sách này · mọi token được đọc đều có mặc
 định · chữ trên nền đạt 4,5:1 (sàn 2) và `--c-btn-h` ≥ 56px cho mặc định **và mọi khối `[data-template]`**.
@@ -231,9 +234,17 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` |
 | 4 | `deco` | Thẻ trang trí | `card`, chuyển sắc `#2A1E3F → #F2C14E` |
 | 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` |
-| 6 | `big-button` | Nút lớn | `full-bleed`, nền đặc `#FFFFFF` |
+| 6 | `big-button` | Nút lớn | `card`, nền đặc `#ECE8E1` — **có diện mạo**, xem dưới |
 
 Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng khuôn có diện mạo.
+
+**Khuôn 6 · `big-button` · Nút lớn** (23/09) — gói cho thuê rẻ nhất, ngành nào cũng dùng được. Thẻ trắng trên nền
+ấm, nút Google xanh than cao **112px** đứng giữa màn hình 390×844, poster thu thành dải 3:1. Chỉ đặt token
+(`skin.css` mục 4). Chạm nút: lớp sương màu giấy loang từ chỗ chạm trong **300ms**, rồi **cùng tab** sang Google;
+giảm chuyển động hoặc chạm có phím bổ trợ thì đi ngay, không sương. Quay lại bằng nút Back thì sương đã tan.
+Bộ chữ `system-ui`, **0 KB**. Bốn sàn: (1) nút trọn màn đầu, tâm nằm ở một phần ba giữa · (2) tương phản qua test
+`skin.spec.ts`, kể cả chữ trắng trên `--c-brand` · (3) nút cao hơn nút góp ý · (4) 0 KB tài nguyên. Test:
+`publishing.spec.ts`, ba ca "khuôn 6".
 
 **Lớp da đã dựng lại (A36, 23/09)** ở `components/skin.css`, sau khi mất cùng `coats.css`: token (mục 4), `--c-floor`,
 quãng cuộn dư, cách bày link theo số lượng. Nút máy bay giấy **không** nằm ở đó mà ở `guest-page.css`, và test cấm

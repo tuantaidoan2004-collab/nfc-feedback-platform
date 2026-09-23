@@ -110,8 +110,15 @@ const SKELETONS = new Map<TemplateKey, () => PageConfig>([
   ['glass', () => skeleton('full-bleed', { kind: 'gradient', colors: ['#1B2B4A', '#8FB3D9'], angle: 160 })],
   ['deco', () => skeleton('card', { kind: 'gradient', colors: ['#2A1E3F', '#F2C14E'], angle: 135 })],
   ['spotlight', () => skeleton('full-bleed', { kind: 'solid', color: '#0E0F13' })],
-  ['big-button', () => skeleton('full-bleed', { kind: 'solid', color: '#FFFFFF' })],
+  // Khuôn 6 is a card on a warm ground: a white full-bleed page left the language picker and the poster frame white on white.
+  ['big-button', () => skeleton('card', { kind: 'solid', color: '#ECE8E1' })],
 ]);
+/**
+ * Templates that play a leaving transition before the browser goes to Google (thiet-ke-va-khuon.md mục 12, ranh giới 2:
+ * khuôn 6 accepts 300 ms). Such a template opens Google in the **same tab**: a new tab opened after a delay is no longer
+ * a direct result of the tap, and phones block it as a popup. Every other template opens Google at once, in a new tab.
+ */
+export const LEAVE_TRANSITION_MS = new Map<string, number>([['big-button', 300]]);
 export function templateConfig(key: TemplateKey = 'standard'): PageConfig {
   const make = SKELETONS.get(key); if (!make) throw new PublishingError('INVALID_TEMPLATE'); return make();
 }

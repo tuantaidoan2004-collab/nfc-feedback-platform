@@ -2,9 +2,9 @@
 /* eslint-disable @next/next/no-img-element -- media URLs are shop-configured https or built-in paths; next/image would need every host listed in advance. */
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
-import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
+import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, LEAVE_TRANSITION_MS, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
 import { FACES } from '@/lib/faces';
 import './guest-page.css';
@@ -193,6 +193,32 @@ function resultMessage(result: CoordinatorResult | null | undefined): MessageKey
 }
 
 /** The hint appears once the visitor has reached the bottom of the page and stayed two seconds, then stays. */
+/**
+ * Khuôn 6's way out (thiet-ke-va-khuon.md mục 12): the tap covers this page for `ms`, then the same tab goes to Google.
+ * Only a plain tap is held back -- a long-press, a modified click or reduced motion get the browser's own behaviour at
+ * once. Coming back with the Back button restores the page from the cache with the cover still on, so `pageshow`
+ * takes it off; and if the navigation never happens (offline), the cover lifts by itself.
+ */
+function useLeaveTransition(ms: number, reduced: boolean) {
+  const [leaving, setLeaving] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const back = (event: PageTransitionEvent) => { if (event.persisted) setLeaving(null); };
+    window.addEventListener('pageshow', back); return () => window.removeEventListener('pageshow', back);
+  }, []);
+  useEffect(() => {
+    if (!leaving) return;
+    const lift = window.setTimeout(() => setLeaving(null), ms + 2500); return () => window.clearTimeout(lift);
+  }, [leaving, ms]);
+  const leave = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!ms || reduced || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const box = event.currentTarget.getBoundingClientRect(), href = event.currentTarget.href;
+    setLeaving({ x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) });
+    window.setTimeout(() => window.location.assign(href), ms);
+  };
+  return [leaving, leave] as const;
+}
+
 function useBottomHint() {
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -251,6 +277,8 @@ export default function ShopFeedbackV2(shop: Props) {
   const opening = state?.opens.find(entry => entry.event.loadKey === current?.event.loadKey);
   const reduced = useReducedMotion();
   const hint = useBottomHint();
+  const leaveMs = LEAVE_TRANSITION_MS.get(shop.template ?? '') ?? 0;
+  const [leaving, leave] = useLeaveTransition(leaveMs, reduced);
   const config = shop.pageConfig ?? { ...defaultConfig(shop.name),
     poster: shop.heroUrl && shop.heroKind ? { kind: shop.heroKind, url: shop.heroUrl } : null };
   const feedbackButton = config.feedbackButton ?? DEFAULT_FEEDBACK_BUTTON;
@@ -378,7 +406,8 @@ export default function ShopFeedbackV2(shop: Props) {
     {state?.opens.filter(entry => entry.result?.kind === 'pending' && !entry.running).map((entry, index) => <button type="button" key={entry.event.loadKey} className="guest-send" onClick={() => { setValidation(null); void client.retryOpen(entry.event.loadKey); }}>{m.retryOpen}{index > 0 ? ` (${index + 1})` : ''}</button>)}
   </>;
 
-  return <main className="guest" lang={lang} data-template={shop.template} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}>
+  return <main className="guest" lang={lang} data-template={shop.template} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}
+    data-leaving={leaving ? '' : undefined} style={leaving ? { '--leave-x': `${leaving.x}px`, '--leave-y': `${leaving.y}px` } as CSSProperties : undefined}>
     <Background config={config} reduced={reduced} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
@@ -388,8 +417,8 @@ export default function ShopFeedbackV2(shop: Props) {
         <h1>{shop.name}</h1>
         <section className="google-invitation"><p>{t.invite}</p>
           {shop.googleUrl
-            ? <a className="google-button" data-google href={shop.googleUrl} target="_blank" rel="noopener noreferrer"
-                onClick={() => client.event('google_tapped', { layout: config.layout })}><GoogleMark /><span>{p.google}</span></a>
+            ? <a className="google-button" data-google href={shop.googleUrl} {...(leaveMs ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+                onClick={event => { client.event('google_tapped', { layout: config.layout }); leave(event); }}><GoogleMark /><span>{p.google}</span></a>
             : <button className="google-button" data-google disabled><GoogleMark /><span>{p.google}</span></button>}
           <p className="guest-note">{t.thanks}</p></section>
         {config.links.length > 0 && <nav className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}

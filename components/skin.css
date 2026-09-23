@@ -6,6 +6,7 @@
  *                  giá trị trong khối `.guest[data-template="<khoá>"]` của nó. Không khuôn nào được thêm tên mới.
  *   2 · Hai luật   quãng cuộn dư (A1) và chỗ chừa cho nút góp ý (`--c-floor`).
  *   3 · Số link    mỗi số lượng 1–6 có một cách bày thiết kế sẵn, chọn bằng quantity query.
+ *   4 · Khuôn      mỗi khuôn một khối `.guest[data-template="<khoá>"]`, chỉ đặt lại token.
  *
  * Nút máy bay giấy (A2) **không** có ở đây, có chủ ý: nó sống ở `guest-page.css` và là một thứ duy nhất. Test
  * `tests/contracts/skin.spec.ts` từ chối mọi quy tắc `[data-template="…"]` chạm vào nó, hay vào khối lời mời Google.
@@ -36,6 +37,7 @@
   --c-btn-radius: 18px;
   --c-btn-h: 60px;
   --c-logo: 84px;
+  --c-poster: 16 / 10;
   /* chỗ trống dưới cùng dành cho nút góp ý; khối nội dung không bao giờ chạm vào nó (DESIGN.md mục 6c) */
   --c-floor: 104px;
   /* quãng cuộn dư, A1 */
@@ -51,6 +53,19 @@
  * Bản full-bleed kéo dài chính tờ giấy, để quãng dư vẫn là giấy; bản thẻ kéo dài trang quanh cái thẻ. */
 .guest[data-template][data-layout="full-bleed"] .guest-sheet { min-height: calc(100dvh + var(--c-overscroll)); }
 .guest[data-template][data-layout="card"] { min-height: calc(100dvh + var(--c-overscroll)); }
+
+/* Chuyển cảnh khi rời trang — chỉ khuôn nào khai trong `LEAVE_TRANSITION_MS` (hôm nay: khuôn 6). Một lớp sương phủ
+ * **trang mình** loang ra từ chỗ vừa chạm, rồi trình duyệt sang Google: trang Google ở tên miền khác, không vẽ được
+ * dưới lớp sương (thiet-ke-va-khuon.md mục 12, ranh giới 2). Không chặn chạm, không chạm vào nút Google. */
+.guest[data-leaving]::after {
+  content: ""; position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  background: var(--c-paper);
+  animation: guest-leave .3s cubic-bezier(.4, 0, .2, 1) both;
+}
+@keyframes guest-leave {
+  from { clip-path: circle(0 at var(--leave-x, 50%) var(--leave-y, 50%)); }
+  to { clip-path: circle(150vmax at var(--leave-x, 50%) var(--leave-y, 50%)); }
+}
 
 /* =====================================================================
    3 · SỐ LINK THAY ĐỔI THÌ BỐ CỤC VẪN PHẢI ĐẸP (Tài chốt 23/09, thiet-ke-va-khuon.md mục 12)
@@ -76,4 +91,25 @@
 .guest[data-template] .guest-links a:first-child:nth-last-child(n+5) > span,
 .guest[data-template] .guest-links a:first-child:nth-last-child(n+5) ~ a > span {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* =====================================================================
+   4 · KHUÔN 6 · NÚT LỚN (gói rẻ nhất). Một nút Google khổng lồ giữa màn hình, nền ấm, thẻ trắng. Chỉ đặt token.
+   Poster thành một dải mỏng để nút đứng giữa màn hình 390×844; nó vẫn là poster của quán, không bị giấu.
+   ===================================================================== */
+.guest[data-template="big-button"] {
+  --c-paper: #ffffff;
+  --c-ink: #16181d;
+  --c-ink-2: #16181d;
+  --c-muted: #5a606b;
+  --c-line: #e4e1da;
+  --c-brand: #1e2a44;
+  --c-on-brand: #f1f3f7;
+  --c-accent: #e8a33d;
+  --c-h1: clamp(24px, 6.4vw, 30px);
+  --c-radius: 32px;
+  --c-btn-radius: 30px;
+  --c-btn-h: 112px;
+  --c-logo: 64px;
+  --c-poster: 3 / 1;
 }
