@@ -308,3 +308,23 @@ thì cố tình phá mã".
 **So kích thước hai trang thì chờ hoạt ảnh xuất hiện xong.** Ca A2 (khuôn 5 vs khuôn 6) đo bề rộng dòng mời ngay khi
 nó hiện: lần 271px, lần 272px, vì dòng mời bật vào bằng lò xo có vượt đà. Chờ `element.getAnimations()` xong rồi đo.
 Đừng chờ mọi hoạt ảnh của trang — nút máy bay nổi lên xuống vô hạn, `finished` của nó không bao giờ tới.
+
+**Bộ lọc SVG chạy trên ba lõi — bốn chỗ các lõi làm khác nhau** (khuôn 3, 23/09):
+1. **`feComposite arithmetic` để lại alpha nửa vời.** `k2·a − k3·b + 0,5` cho alpha 0,5, và các lõi đọc bản đồ dịch
+   chuyển nửa trong suốt mỗi lõi một kiểu: ba lõi ra ba hình. Tính độ dốc bằng `feConvolveMatrix preserveAlpha="true"`
+   trên ảnh đục hoàn toàn.
+2. **`feConvolveMatrix` lật ngược nhân.** `kernelMatrix="-g 0 g"` tính *trái trừ phải*; kính thành lõm, vệt sáng về dưới
+   phải. Viết `g 0 -g`.
+3. **Mép vùng lọc.** Để vùng lọc sát phần tử thì WebKit chỉ cong ở góc, Firefox chỉ cong mép phải và mép dưới — mỗi lõi
+   hiểu "ngoài vùng" khác nhau. Nới vùng lọc (`x="-20%" … width="140%"`) để độ dốc tính trên phần trong suốt thật.
+4. **Phải so đúng một biến.** So ảnh chụp tĩnh (HTML + CSS chụp từ Chrome) trong WebKit ra lệch 22/255 — vì WebKit vẽ ô
+   chọn ngôn ngữ thấp hơn nên cả trang dịch 42px, trong khi vị trí kính là số đo *của Chrome*. So đúng: mở **trang thật**
+   ở từng lõi (JS đo trong chính lõi đó), rồi bù phần trang dịch trước khi trừ ảnh.
+
+**Harness không mở được WebKit/Firefox.** Nó chỉ cho vài biến môi trường qua tiến trình con, nên Playwright không thấy
+trình duyệt đã tải; test treo tới hết giờ. Muốn so nhiều lõi: giữ server harness sống (một bước chờ tạm trong test) và
+chạy script ngoài harness trỏ vào `127.0.0.1:3317`.
+
+**`ResizeObserver` không báo khi phần tử dời chỗ mà không đổi cỡ.** Đổi ngôn ngữ làm dòng chữ phía trên các viên link
+xuống dòng khác; viên link dời 17px nhưng cỡ không đổi, không ai báo, bản sao lệch. Theo dõi cả các khối **có thể đẩy**
+tấm kính (`.guest-sheet > *, .guest-body > *`), không chỉ tấm kính.

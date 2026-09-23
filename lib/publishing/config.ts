@@ -119,6 +119,13 @@ const SKELETONS = new Map<TemplateKey, () => PageConfig>([
  * a direct result of the tap, and phones block it as a popup. Every other template opens Google at once, in a new tab.
  */
 export const LEAVE_TRANSITION_MS = new Map<string, number>([['big-button', 300]]);
+/**
+ * Templates drawn in glass (khuôn 3). The page renders the glass filters once, as the last child of the page, and
+ * measures where each glass pane sits so the pane can carry an aligned copy of the scene behind it. The copy is
+ * refracted with `filter`, not `backdrop-filter`: the one form Chrome, Safari and Firefox all run
+ * (docs/thiet-ke-va-khuon.md mục 15).
+ */
+export const GLASS_TEMPLATES = new Set<string>(['glass']);
 export function templateConfig(key: TemplateKey = 'standard'): PageConfig {
   const make = SKELETONS.get(key); if (!make) throw new PublishingError('INVALID_TEMPLATE'); return make();
 }

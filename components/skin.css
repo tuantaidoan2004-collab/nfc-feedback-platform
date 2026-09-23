@@ -16,7 +16,10 @@
    1 · TOKEN — giá trị mặc định là đúng diện mạo trước A36, nên trang không đổi màu
    ===================================================================== */
 .guest {
-  /* màu */
+  /* màu — c1/c2/angle là màu nền của chính shop (PageConfig), trang đặt chúng inline; đây chỉ là giá trị dự phòng */
+  --c-c1: #214034;
+  --c-c2: #eff2e8;
+  --c-angle: 135deg;
   --c-paper: #fbfcf7;     /* nền khối nội dung */
   --c-ink: #1d2f28;       /* chữ chính */
   --c-ink-2: #17302a;     /* chữ phụ, tên quán */
@@ -170,5 +173,77 @@
 @keyframes spot-breathe { from { opacity: .8; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .guest[data-template="spotlight"] .guest-body::before { animation: none; }
+}
+
+/* =====================================================================
+   6 · KHUÔN 3 · KÍNH. Kính khúc xạ thật, cùng một kết quả ở Chrome, Safari và Firefox
+   (thiet-ke-va-khuon.md mục 15). Không dùng `backdrop-filter: url()` — chỉ Chrome chạy. Thay vào đó:
+     1. Nền là một **cảnh** do khuôn tự vẽ từ màu của shop, và nó **cuộn cùng trang** (không `fixed`).
+     2. Mỗi tấm kính mang một **bản sao** của cảnh trong `::before`, dịch đúng bằng vị trí của nó (`--gx --gy`,
+        do `useGlassPlacement` đo), rồi `filter: url(#nfc-glass-*)` bẻ bản sao đó ở viền.
+     3. Kính và cảnh không bao giờ trượt qua nhau khi cuộn, nên bộ lọc chạy **một lần**; lúc cuộn chỉ là dịch ảnh.
+   `::after` là lớp sương giữa tấm kính, đủ đặc để chữ qua 4,5:1 trên **bất kỳ** màu nào phía sau
+   (`skin.spec.ts` tính cả hai trường hợp xấu nhất: sau lưng là đen tuyền, và trắng tuyền).
+   Nút Google không phải kính: nó giữ nút đặc của nó, và mọi thứ quanh nó trong suốt thì nó càng nổi.
+   ===================================================================== */
+.guest[data-template="glass"] {
+  --c-paper: #f7f8fb;
+  --c-ink: #14161b;
+  --c-ink-2: #0f1115;
+  --c-muted: #3f444c;
+  --c-line: #d9dde6;
+  --c-brand: #2346c8;
+  --c-on-brand: #eef2ff;
+  --c-accent: #ffd166;
+  --c-radius: 30px;
+  --c-pill-bg: transparent;
+  --c-pill-ink: #0f1115;
+}
+/* Cảnh: ba vùng màu, một lớp sọc mảnh (kính chỉ trông như kính khi phía sau có chi tiết), trên màu của shop. Mọi lớp
+   định vị bằng px, không %, vì % của background-position tính khác nhau giữa cảnh và bản sao. */
+.guest[data-template="glass"] .guest-bg,
+.guest[data-template="glass"] .guest-body::before,
+.guest[data-template="glass"] .guest-links a::before {
+  background:
+    radial-gradient(closest-side, #ff5fa2b3, #ff5fa200) calc(var(--sx) - 70px) calc(var(--sy) + 30px) / 340px 340px no-repeat,
+    radial-gradient(closest-side, #ffd166b3, #ffd16600) calc(var(--sx) + 170px) calc(var(--sy) + 430px) / 380px 380px no-repeat,
+    radial-gradient(closest-side, #4cc9f0b3, #4cc9f000) calc(var(--sx) - 60px) calc(var(--sy) + 780px) / 400px 400px no-repeat,
+    repeating-linear-gradient(135deg, #ffffff24 0 2px, #ffffff00 2px 14px) var(--sx) var(--sy) / var(--gw) var(--gh),
+    linear-gradient(var(--c-angle), var(--c-c1), var(--c-c2)) var(--sx) var(--sy) / var(--gw) var(--gh);
+}
+.guest[data-template="glass"] .guest-bg { position: absolute; --sx: 0px; --sy: 0px; --gw: 100%; --gh: 100%; }
+
+.guest[data-template="glass"] .guest-body {
+  position: relative; isolation: isolate; background: transparent;
+  margin: calc(var(--c-logo) / -2) 12px 12px; border-radius: var(--c-radius);
+}
+.guest[data-template="glass"] .guest-links a { isolation: isolate; }
+.guest[data-template="glass"] .guest-body::before,
+.guest[data-template="glass"] .guest-links a::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  --sx: calc(-1 * var(--gx, 0px)); --sy: calc(-1 * var(--gy, 0px));
+  opacity: 0; transition: opacity .25s ease;
+}
+/* Bản sao chỉ hiện khi đã căn xong; trước đó (trước khi JS chạy) tấm kính chỉ là lớp sương. */
+.guest[data-template="glass"][data-glass] .guest-body::before,
+.guest[data-template="glass"][data-glass] .guest-links a::before { opacity: 1; }
+.guest[data-template="glass"] .guest-body::before { filter: url(#nfc-glass-lg); }
+.guest[data-template="glass"] .guest-links a::before { filter: url(#nfc-glass-sm); }
+.guest[data-template="glass"] .guest-body::after,
+.guest[data-template="glass"] .guest-links a::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  background: var(--c-paper);
+  opacity: .82; /* glass-tint — skin.spec.ts đọc số này */
+}
+.guest[data-template="glass"] .guest-body::after { inset: 14px; border-radius: calc(var(--c-radius) - 14px); filter: blur(8px); }
+.guest[data-template="glass"] .guest-links a::after { inset: 5px; border-radius: 999px; filter: blur(3px); }
+.guest-glass-filters { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* Máy xin giảm trong suốt: một tấm đặc, không bộ lọc, không bản sao. */
+@media (prefers-reduced-transparency: reduce) {
+  .guest[data-template="glass"] .guest-body::before,
+  .guest[data-template="glass"] .guest-links a::before { display: none; }
+  .guest[data-template="glass"] .guest-body::after,
+  .guest[data-template="glass"] .guest-links a::after { inset: 0; border-radius: inherit; opacity: 1; filter: none; }
 }
 

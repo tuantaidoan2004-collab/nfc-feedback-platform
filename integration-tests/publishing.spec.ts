@@ -493,3 +493,35 @@ test('the private-feedback button and its invitation look the same under a dark 
   };
   expect(await look('five')).toEqual(await look('six'));
 });
+
+// Khuôn 3 · Kính (thiet-ke-va-khuon.md mục 15): every pane carries a copy of the scene shifted by exactly where it sits,
+// refracted by a filter every engine runs; the scene scrolls with the page so the filter never has to run again.
+const glassPlacement = (page: Page) => page.evaluate(() => {
+  const main = document.querySelector('main')!, m = main.getBoundingClientRect();
+  return Math.max(...[...document.querySelectorAll<HTMLElement>('.guest-body, .guest-links a')].flatMap(pane => {
+    const box = pane.getBoundingClientRect();
+    return [Math.abs(parseFloat(pane.style.getPropertyValue('--gx')) - (box.left - m.left)), Math.abs(parseFloat(pane.style.getPropertyValue('--gy')) - (box.top - m.top))];
+  }));
+});
+test('khuôn 3: glass panes carry an aligned, refracted copy of the scene, and the Google button stays solid', async ({ page, fixture: f }) => {
+  await templateShop(f, 'glass', 'three', { links: [
+    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
+    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
+    { label: { vi: 'Thực đơn', en: 'Menu' }, url: 'https://quanthu.example/menu', icon: 'link' }] });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/three'); await loaded(page);
+  await expect(page.locator('main[data-glass]')).toHaveCount(1);
+  expect(await glassPlacement(page)).toBeLessThan(1);
+  const filters = await page.evaluate(() => [getComputedStyle(document.querySelector('.guest-body')!, '::before').filter,
+    getComputedStyle(document.querySelector('.guest-links a')!, '::before').filter, getComputedStyle(document.querySelector('.guest-bg')!).position]);
+  expect(filters[0]).toContain('nfc-glass-lg'); expect(filters[1]).toContain('nfc-glass-sm');
+  // The scene scrolls with the page: glass and scene never slide past each other.
+  expect(filters[2]).toBe('absolute');
+  await expect(page.locator('video')).toHaveCount(0);
+  const google = page.locator('[data-google]');
+  await expect(google).toBeInViewport();
+  expect(await google.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('gradient');
+  // A language switch rewraps the lines above the links: the panes move without changing size, and the copies follow.
+  await page.locator('#language').selectOption('en');
+  await expect.poll(() => glassPlacement(page)).toBeLessThan(1);
+});

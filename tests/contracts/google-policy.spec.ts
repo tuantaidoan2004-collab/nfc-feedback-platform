@@ -31,6 +31,21 @@ test('every template keeps the Google invitation in the server HTML', () => {
   }
 });
 
+// Khuôn 3's one exception to "a template adds no DOM node": an invisible <svg> holding the glass filters. It must be
+// the last thing on the page, hidden from assistive technology, never display:none, and it must leave the Google
+// invitation byte for byte as every other template renders it.
+test('the glass filters are the page\'s last node and change nothing about the Google invitation', () => {
+  const config = validateConfig({ ...templateConfig('glass'), name: 'Shop fixture', googleUrl: 'https://maps.google.com/?cid=42' });
+  const renderAs = (key: string) => execFileSync(process.execPath, ['tests/fixtures/render-guest.cjs'], { input: JSON.stringify(config), encoding: 'utf8',
+    env: { ...process.env, NFC_FIXTURE_TEMPLATE: key } });
+  const invitation = (html: string) => /<section class="google-invitation">[\s\S]*?<\/section>/.exec(html)![0];
+  const glass = renderAs('glass'), plain = renderAs('minimal');
+  expect(invitation(glass)).toBe(invitation(plain));
+  expect(glass).toMatch(/<svg class="guest-glass-filters" width="0" height="0" aria-hidden="true" focusable="false">[\s\S]*<\/svg><\/main>$/);
+  expect(glass).not.toContain('display:none');
+  expect(plain).not.toContain('guest-glass-filters');
+});
+
 test('internal review wording is never added to the outbound Google URL', () => {
   const base = defaultConfig('Shop fixture');
   const html = render(validateConfig({ ...base, googleUrl: 'https://maps.google.com/?cid=42', text: { question: { vi: 'PRIVATE_SENTINEL', en: 'PRIVATE_SENTINEL' } } }));

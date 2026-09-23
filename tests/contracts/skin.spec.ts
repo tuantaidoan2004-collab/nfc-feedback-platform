@@ -60,3 +60,20 @@ test('text tokens reach 4.5:1 on their surface, muted text included, in the defa
     expect(parseFloat(tokens.get('--c-btn-h')!), `${name} --c-btn-h`).toBeGreaterThanOrEqual(56);
   }
 });
+
+// Khuôn 3: text sits on a frosted tint laid over whatever the scene shows. The tint alone must carry 4.5:1 in the two
+// worst cases -- pure black behind it and pure white behind it -- so no shop colour can make the text unreadable.
+test('glass: text on the frosted tint reaches 4.5:1 whether the scene behind is black or white', () => {
+  // The tint's opacity is read from the stylesheet, where it is marked, so lowering it turns this test red.
+  const opacity = Number(/opacity:\s*([0-9.]+);\s*\/\* glass-tint/.exec(skin)![1]);
+  expect(opacity).toBeGreaterThan(0.5);
+  const tokens = new Map([...declarations(rules('skin.css', skin).find(rule => rule.selector === '.guest')!.body),
+    ...declarations(all.find(rule => rule.selector === '.guest[data-template="glass"]')!.body)]);
+  const over = (paper: string, behind: number) => '#' + [1, 3, 5].map(at => Math.round(parseInt(paper.slice(at, at + 2), 16) * opacity + behind * (1 - opacity)))
+    .map(c => c.toString(16).padStart(2, '0')).join('');
+  for (const behind of [0, 255]) {
+    const surface = over(tokens.get('--c-paper')!, behind);
+    for (const text of ['--c-ink', '--c-ink-2', '--c-muted', '--c-pill-ink'])
+      expect(contrast(tokens.get(text)!, surface), `${text} on tint over ${behind ? 'white' : 'black'}`).toBeGreaterThanOrEqual(4.5);
+  }
+});

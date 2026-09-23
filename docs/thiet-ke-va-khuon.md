@@ -276,3 +276,54 @@ tên, bấm phát hành, trang khách **vẫn tên cũ**. Sửa: `publish()` ghi
 
 Mã mới `LEFT JOIN shop_profile`, nên **database chưa chạy 022 thì trang khách sập**. Luật 4 trong mục 5 vốn đã
 bắt migrate trước khi đẩy `main`; với lát này nó không còn là kỷ luật mà là điều kiện sống.
+
+## 15. Khuôn 3 · Kính — cùng một kết quả ở mọi trình duyệt (Tài chốt 23/09/2026)
+
+**Câu hỏi của Tài:** làm kính lỏng kiểu Apple (bài kube.io) sao cho tốc độ và hiển thị tương đương ở mọi trình
+duyệt; không lùi.
+
+**Vì sao không dùng cách của bài kube.io nguyên trạng.** Bài dùng `backdrop-filter: url(#svg)`: **chỉ Chrome chạy**.
+Mọi trình duyệt trên iPhone là WebKit; bản vá WebKit (PR #68614) còn mở, và kể cả khi nhận thì nó vẽ bằng CPU.
+Nó còn bắt tính lại bộ lọc mỗi khung hình khi cuộn.
+
+**Cách đã làm — bốn quyết định:**
+
+1. **Tự vẽ thứ nằm sau kính.** Nền khuôn 3 là một *cảnh* do khuôn vẽ từ màu của shop (`--c-c1 --c-c2 --c-angle`,
+   trang đặt inline từ `PageConfig`), gồm ba vùng màu và một lớp sọc — kính chỉ trông như kính khi phía sau có chi
+   tiết. Mỗi tấm kính (thân trang, từng viên link) mang **bản sao** của cảnh trong `::before`, dịch đúng bằng vị trí
+   của nó (`--gx --gy`), rồi áp `filter: url(#nfc-glass-*)` — dạng `filter` thì Chrome, Safari, Firefox đều chạy.
+2. **Cảnh cuộn cùng trang** (`position: absolute`, không `fixed`), nên kính và cảnh không trượt qua nhau: bộ lọc chạy
+   **một lần**, lúc cuộn trình duyệt chỉ dịch ảnh. `useGlassPlacement` đo lại chỉ khi có thứ đổi cỡ.
+3. **Bộ lọc tự dựng bản đồ khúc xạ từ hình dạng tấm kính** (alpha làm mờ = chiều cao kính, độ dốc = độ bẻ), nên một
+   bộ lọc hợp mọi cỡ, không ảnh, không script. Hai bộ: `nfc-glass-lg` (thân trang) và `nfc-glass-sm` (viên link).
+4. **Một thẻ `<svg>` vô hình** chứa bộ lọc — ngoại lệ duy nhất của luật "áo khoác không thêm nút DOM", Tài chốt
+   23/09. Rào: chỉ render cho khuôn khai trong `GLASS_TEMPLATES`, luôn là nút cuối của trang, `aria-hidden`,
+   `focusable=false`, ẩn bằng cỡ 0 (không `display: none` — Safari bỏ qua bộ lọc trong phần tử đó). Test
+   `google-policy.spec.ts` giữ: khối lời mời Google giống từng byte với khuôn khác.
+
+**Nút Google không phải kính** (DESIGN.md mục 6b): nút đặc, xanh lam `--c-brand`. Mọi thứ quanh nó trong suốt nên nó
+càng nổi.
+
+**Chữ đọc được trên mọi màu shop chọn:** lớp sương `::after` (màu giấy, độ đục `.82`) nằm giữa tấm kính; viền 14px để
+lộ phần khúc xạ. `skin.spec.ts` tính tương phản của chữ trên lớp sương khi phía sau là **đen tuyền** và **trắng tuyền**;
+hạ độ đục xuống `.6` thì test đỏ (đã phá thử).
+
+**Đo, 23/09:**
+
+| Phép đo | Kết quả |
+|---|---|
+| Lệch vị trí bản sao, đo bằng JS trong chính từng lõi, trên trang thật | Chrome **0px** · WebKit **0px** · Firefox **0px** |
+| Vùng kính, lệch điểm ảnh so với Chrome (0–255, sau khi bù phần trang dịch 42px vì WebKit vẽ ô chọn ngôn ngữ thấp hơn) | WebKit **3,96** · Firefox **4,41** |
+| Cuộn, CPU hãm chậm 6 lần (Chrome), 90 khung | kính p95 **17,6ms** · không kính p95 **17,6–17,8ms** |
+| Thời gian tới trang sẵn sàng, cùng điều kiện | kính **1,24s** · không kính **1,11–1,19s** |
+
+Nghĩa là: ba lõi cho cùng một tấm kính, và kính không làm cuộn chậm đi khi CPU bị hãm chậm 6 lần. **Chưa đo trên
+iPhone và Android thật** — hãm CPU trên máy Mac không thay được card đồ hoạ của máy rẻ.
+
+**Còn khác, nói thẳng:** Firefox vẽ vệt sáng viền rõ hơn một chút. Chấp nhận — hiếm trên điện thoại.
+
+**Rút gọn:** `prefers-reduced-transparency: reduce` → tấm đặc màu giấy, không bộ lọc, không bản sao. Trước khi JS chạy
+(hoặc nếu JS không chạy), tấm kính chỉ là lớp sương — bản sao hiện dần khi đã căn xong (`data-glass`).
+
+**Giới hạn:** kính chỉ bẻ được cảnh của khuôn, không bẻ ảnh hay video của shop. Nền `media` bị bỏ qua ở khuôn 3 (không
+tải video). Chủ quán muốn ảnh làm nền thì đó là khuôn khác.

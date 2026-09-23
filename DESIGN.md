@@ -31,6 +31,8 @@ Phần còn lại của tệp này nói về **trang khách**, trừ mục 7.
 ### Hợp đồng của một áo khoác
 
 > **Áo khoác chỉ đặt token CSS. Nó không được thêm, bớt, đổi thứ tự hay làm chậm bất kỳ nút DOM nào.**
+>
+> Một ngoại lệ có rào, Tài chốt 23/09: thẻ `<svg>` vô hình chứa bộ lọc kính của khuôn 3 — `thiet-ke-va-khuon.md` mục 15.
 
 Đây là toàn bộ cơ chế an toàn. Mọi test trong `tests/contracts/google-policy.spec.ts` kiểm **cấu trúc**; áo khoác
 không chạm được vào cấu trúc, nên không áo nào phá được các test đó — theo cấu tạo, không nhờ cẩn thận.
@@ -116,8 +118,8 @@ sàn        --c-floor                        chỗ chừa cho nút góp ý (mụ
 --c-ink --c-ink-2 --c-muted --c-line --c-brand --c-on-brand --c-accent --c-font --c-display --c-h1 --c-h1-weight
 --c-h1-track --c-h1-case --c-radius --c-btn-radius --c-btn-h --c-logo --c-poster --c-floor --c-overscroll`. Mặc định = diện
 mạo trước A36. Nút Google pha bốn nấc màu từ `--c-brand` (khuôn 6); cỡ chữ và logo Google trong nút lớn theo
-`--c-btn-h`. Khuôn 5 nối thêm `--c-btn-shadow --c-pill-bg --c-pill-ink`, và nút Gửi pha từ `--c-brand`. **Chưa nối:**
-`--c-c1 --c-c2 --c-angle` (nền vẫn lấy từ `PageConfig`), `--c-fab`, `--c-body`, `--c-density`, `--c-sheet-shadow`,
+`--c-btn-h`. Khuôn 5 nối thêm `--c-btn-shadow --c-pill-bg --c-pill-ink`, và nút Gửi pha từ `--c-brand`. Khuôn 3 nối
+`--c-c1 --c-c2 --c-angle` (trang đặt inline từ màu nền của shop). **Chưa nối:** `--c-fab`, `--c-body`, `--c-density`, `--c-sheet-shadow`,
 `--c-pill-radius --c-pill-shadow`. Nối từng cái khi một khuôn cần tới.
 
 Nút Google của khuôn gốc giờ **pha** từ `--c-brand` thay vì bốn mã màu cứng; sai khác mỗi nấc vài đơn vị RGB (tinh
@@ -232,7 +234,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 |---|---|---|---|
 | 1 | `standard` | Bản gốc | như trước A33 (nền video, nhân bản từ shop khuôn) |
 | 2 | `minimal` | Tối giản | `card`, nền đặc `#F4F1EA` |
-| 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` |
+| 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
 | 4 | `deco` | Thẻ trang trí | `card`, chuyển sắc `#2A1E3F → #F2C14E` |
 | 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` — **có diện mạo**, xem dưới |
 | 6 | `big-button` | Nút lớn | `card`, nền đặc `#ECE8E1` — **có diện mạo**, xem dưới |
@@ -254,6 +256,12 @@ Chỉ lớp trang trí nhoè, chữ không bao giờ. Lớp trang trí là pseud
 nút DOM. Tâm vũng sáng ước ở ~180px dưới mép thân trang; tên quán hai dòng thì lệch vài chục px — ánh sáng mềm nên
 chấp nhận. `system-ui`, **0 KB**. Bốn sàn: (1) nút trong màn đầu · (2) test `skin.spec.ts` + đo thật viên link và ô
 nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "khuôn 5".
+
+**Khuôn 3 · `glass` · Kính** (23/09) — quán hiện đại, spa, cà phê sáng. Thân trang và viên link là kính khúc xạ
+thật trên một cảnh màu do khuôn vẽ; nút Google đặc, xanh lam. **Cùng một kết quả ở Chrome, Safari, Firefox** — cách
+làm, số đo và giới hạn ở `docs/thiet-ke-va-khuon.md` mục 15. `system-ui`, **0 KB** tài nguyên (bộ lọc là SVG nội tuyến,
+~1,5 KB HTML). Bốn sàn: (1) nút trong màn đầu · (2) chữ trên lớp sương qua 4,5:1 kể cả khi sau lưng đen hay trắng tuyền ·
+(3) nút Google là thứ duy nhất đặc giữa đám kính · (4) 0 KB. Nối thêm `--c-c1 --c-c2 --c-angle`.
 
 **Khuôn tối đầu tiên làm lộ bốn chỗ viết cứng màu sáng**, đã nối vào token: viên link (`--c-pill-bg`, `--c-pill-ink`),
 ô nhập trong thẻ góp ý (`--c-paper`, `--c-line`), nút Gửi (pha từ `--c-brand`), bóng nút Google (`--c-btn-shadow`). Và
