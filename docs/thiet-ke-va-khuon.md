@@ -126,6 +126,31 @@ lên thì gọi thẳng API là đi vòng được.
   để làm; giờ có.
 - Cần migration: bảng ảnh có trạng thái `chờ · duyệt · từ chối` kèm lý do, người duyệt, thời điểm.
 
+### Đã làm — migration 023 (24/09/2026)
+
+- **Bảng `media_assets`**: mỗi lần chủ quán (hoặc hỗ trợ trong phiên thiết kế) xin link tải lên là một hàng `pending`,
+  ghi ai xin (`owner:<id>` / `admin:<id>`), loại, cỡ. Từ chối bắt buộc có lý do (`CHECK`), quyết định có thời điểm.
+- **Chặn ở `PublishingAdmin.publish`** (`lib/publishing/media-gate.ts`): mọi URL ảnh/video trên trang (poster, ảnh tĩnh
+  của poster, logo, nền, ảnh tĩnh của nền) phải là tài sản **đã duyệt của chính shop hoặc của shop khuôn**. Ba câu trả
+  lời, vì mỗi câu đòi shop làm một việc khác: `MEDIA_REJECTED` (thay ảnh) · `MEDIA_UNKNOWN` (URL không tải qua nền
+  tảng — đóng lỗ cũ: trước 023 bản nháp nhận **mọi** URL https) · `MEDIA_PENDING` (chờ). Trình chỉnh trang nói rõ từng
+  trường hợp. Đường dẫn dựng sẵn (`/media/…`) là của nền tảng, không cần duyệt.
+- **Trang đang chạy vẫn chạy**: cửa chỉ ở lúc phát hành; không đụng lớp đọc (cùng nguyên tắc F-013).
+- **`/gov` → "Ảnh chờ duyệt"**: ảnh/video hiện nguyên hình, cũ nhất trước; Duyệt hoặc Từ chối kèm lý do; mỗi quyết định
+  một dòng `admin_audit` (`media.approve` / `media.reject`) cùng transaction. Quyết định là cuối cùng cho lần tải đó —
+  muốn đổi thì shop tải ảnh mới.
+- **Ảnh đã nằm trên trang trước 023** được migration ghi là đã duyệt (`uploaded_by = 'backfill-023'`), quét bản nháp,
+  mọi bản phát hành và hồ sơ tài khoản — không trang nào mất ảnh, không bản nháp nào bị chặn vì ảnh cũ của nó.
+- `reviewed_by` **không** có khoá ngoại tới `platform_admins`, có chủ ý: mọi lần phát hành đọc bảng này, kể cả ở nơi
+  chưa có bảng admin; người duyệt thật nằm trong `admin_audit` (có khoá ngoại).
+
+**Chưa làm, nói thẳng:**
+- **Gỡ ảnh đã lên trang.** Từ chối chỉ áp cho ảnh đang chờ. Một ảnh đã duyệt và đang sống mà sau này thấy sai thì chưa
+  có nút gỡ; hiện phải tạm ngưng shop.
+- **Tự phát hành khi được duyệt.** Chủ quán phải tự bấm phát hành lại sau khi ảnh được duyệt; chưa có thông báo cho họ.
+- **Ảnh đại diện/ảnh bìa tài khoản** (migration 014, hiện trong dashboard, không lên trang khách) không qua cửa này.
+- **Hàng chờ có thể bị nhồi**: mỗi lần xin link là một hàng, kể cả khi không tải gì lên. Chưa giới hạn tần suất.
+
 ## 11. Khuôn là bộ xương rỗng; dữ liệu và thiết lập nằm ở tài khoản (Tài chốt 23/09/2026)
 
 Tài nêu bằng một ví dụ, và ví dụ đó là toàn bộ mô hình:

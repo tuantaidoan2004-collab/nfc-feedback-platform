@@ -286,6 +286,10 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
   await expect(page.locator('[data-video-blocked]')).toHaveCount(1);
   const uploaded = { kind: 'video' as const, url: 'https://media.example/bg.mp4', still: 'https://media.example/bg.jpg' };
+  // Cửa duyệt ảnh (migration 023): uploaded media is published only once approved.
+  for (const url of [uploaded.url, uploaded.still, 'https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
+    await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
+      [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
   const next = await release(f, b2({ background: { kind: 'media', media: uploaded, loop: true },
     poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), revision);
   await page.reload(); await loaded(page);
@@ -629,4 +633,15 @@ test('khuôn 1: a floating card whose top fades into the background, text only o
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect.poll(async () => (await look()).map(n => Math.round(n * 100) / 100)).toEqual([1.08, 0.35]);
   }
+});
+
+// Cửa duyệt ảnh (migration 023): a picture waiting for review never reaches the guest page, and the page stays up.
+test('an uploaded picture that is still waiting for review cannot be published; the live page keeps running', async ({ page, fixture: f }) => {
+  const poster = 'https://media.example/waiting.jpg';
+  await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by)VALUES($1,$2,'image','fixture')", [f.shop, poster]);
+  const saved = await f.admin.saveDraft(f.shop, 2, b2({ poster: { kind: 'image', url: poster } }));
+  await expect(f.admin.publish(f.shop, saved)).rejects.toThrow('MEDIA_PENDING');
+  await page.goto('/one'); await loaded(page);
+  await expect(page.locator(`img[src="${poster}"]`)).toHaveCount(0);
+  await expect(page.locator('[data-google]')).toBeVisible();
 });

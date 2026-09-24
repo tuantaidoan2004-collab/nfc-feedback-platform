@@ -14,7 +14,7 @@ type Fixture=Awaited<ReturnType<typeof ownerFixture>>&{adminId:string;adminToken
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_imp_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const base=await ownerFixture(db),admins=new AdminAuth(db);
   const adminId=await admins.bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
@@ -431,4 +431,11 @@ test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s fold
  await position(f,'edit');const d=await open(f,'design');
  await media.presign(d.credential,'one',{type:'image/jpeg',size:10});
  expect((await audit(f,'impersonation.design.upload')).map(r=>[r.actor_id,r.on_behalf_of,r.detail.type])).toEqual([[f.adminId,f.users[0].id,'image/jpeg']]);
+ // Cửa duyệt ảnh (migration 023): every signed upload queues for review, recorded under whoever asked for it.
+ const queued=(await f.db.query("SELECT url,kind,content_type,size_bytes,uploaded_by,state FROM media_assets WHERE url=$1",[signed.url])).rows;
+ expect(queued).toEqual([{url:signed.url,kind:'image',content_type:'image/png',size_bytes:12345,uploaded_by:`owner:${f.users[0].id}`,state:'pending'}]);
+ expect(signed.review).toBe('pending');
+ expect((await f.db.query("SELECT count(*)::int n FROM media_assets WHERE uploaded_by=$1",[`admin:${f.adminId}`])).rows[0].n).toBe(1);
+ // Only the three uploads that were signed (the PNG, the MP4, the design-session JPEG) queue; every refused request leaves nothing.
+ expect((await f.db.query("SELECT count(*)::int n FROM media_assets")).rows[0].n).toBe(3);
 });

@@ -442,3 +442,35 @@ test('enrolment: administration is unreachable until the second factor is on, an
  await page.reload();
  await expect(page.locator('[data-backup-codes]')).toHaveCount(0);
 });
+
+// Cửa duyệt ảnh (migration 023): the operator sees each waiting upload with the file itself, approves it, or refuses it
+// with a reason the shop will read. Nothing without a signed-in operator with the second factor.
+test('image gate: waiting uploads are approved or refused from /gov, each decision on the record',async({page,admin})=>{
+ expect((await page.request.get('/gov/api/media')).status()).toBe(401);
+ const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id;
+ await admin.db.query('TRUNCATE media_assets');
+ const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Chờ Ảnh',ownerUsername:'quan-cho-anh',ownerEmail:'cho@example.com',googleUrl:''});
+ const queue=(url:string)=>admin.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)VALUES($1,$2,'image','image/jpeg',204800,'owner:x')RETURNING id`,[shop.shopId,url]).then(r=>r.rows[0].id as string);
+ const first=await queue('https://media.example/cho/1.jpg'),second=await queue('https://media.example/cho/2.jpg');
+ await page.goto('/gov/login');
+ await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ const panel=page.locator('[data-media-review]');
+ await expect(panel.getByRole('heading')).toContainText('Ảnh chờ duyệt');
+ await expect(panel.locator('[data-media-item]')).toHaveCount(2);
+ await expect(panel.locator(`[data-media-item="${first}"] img`)).toHaveAttribute('src','https://media.example/cho/1.jpg');
+ await expect(panel.locator(`[data-media-item="${first}"]`)).toContainText('Quán Chờ Ảnh');
+ await panel.locator(`[data-media-item="${first}"]`).getByRole('button',{name:'Duyệt',exact:true}).click();
+ await expect(panel.locator(`[data-media-item="${first}"]`)).toHaveCount(0);
+ await panel.locator(`[data-media-item="${second}"]`).getByRole('button',{name:'Từ chối…',exact:true}).click();
+ await panel.getByLabel('Lý do (shop sẽ đọc)').fill('Logo của một thương hiệu khác');
+ await panel.getByRole('button',{name:'Xác nhận từ chối',exact:true}).click();
+ await expect(panel.locator('[data-media-empty]')).toBeVisible();
+ expect((await admin.db.query('SELECT id,state,reason,reviewed_by FROM media_assets ORDER BY created_at,id')).rows.map(r=>[r.id,r.state,r.reason,r.reviewed_by]).sort())
+  .toEqual([[first,'approved',null,actor],[second,'rejected','Logo của một thương hiệu khác',actor]].sort());
+ expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'media.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['media.approve','media.reject']);
+ // Cross-origin decisions are refused like every other administrative write.
+ expect((await page.request.post(`/gov/api/media/${first}`,{headers:{Origin:'https://evil.example'},data:{decision:'approve'}})).status()).toBe(403);
+});

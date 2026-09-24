@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { PublishingError, TEMPLATE_V1, validateConfig } from './config';
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
+import { assertMediaApproved } from './media-gate';
 import type { RenderContext } from './proof';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
@@ -53,6 +54,8 @@ export class PublishingAdmin {
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       // Checked again on the way out: a draft written before this rule existed cannot be published under it.
       const config = validateConfig(draft.config); assertPublishable(config);
+      // Every picture and video on the page must have passed review (migration 023). The page already live stays live.
+      await assertMediaApproved(db, shopId, config);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id`, [shopId, draft.template_version_id, config, expected, actor])).rows[0].id;
       // Nửa còn lại của migration 022: phát hành cũng ghi phần nội dung xuống hồ sơ TÀI KHOẢN.
       // Thiếu bước này thì trình chỉnh trang đứt mạch — chủ quán sửa tên, bấm phát hành, và trang khách vẫn

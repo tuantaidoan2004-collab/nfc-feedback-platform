@@ -338,3 +338,10 @@ không ở trường hợp mẫu.
 **Hiệu ứng theo cuộn đặt quãng cố định thì trang ngắn không bao giờ chạy hết.** Khuôn 1 đặt `animation-range: 0 480px`,
 nhưng trang ngắn chỉ cuộn được ~128px (quãng cuộn dư của A1): nền dừng ở 25% hiệu ứng. Test cuộn tới 480px bắt được vì
 `scrollTo` bị chặn ở đáy. Dùng toàn quãng cuộn (`scroll(root)` không `animation-range`) để đáy trang luôn là 100%.
+
+**Một migration phụ thuộc cột của migration khác mà không ghi.** Cửa duyệt ảnh (023) đọc `shops.is_template` của 009,
+trong khi chú thích trong 023 ghi "chỉ cần tới 022". Harness chế độ publishing không áp 009, nên hai ca có ảnh https đỏ
+với `column "is_template" does not exist`. Ba fixture repository cũng thiếu 009 nhưng **vẫn xanh**, vì cấu hình của
+chúng không có ảnh https nên cửa dừng trước khi chạm database — một lỗi ngủ. Production có đủ 001–022 nên không dính.
+Luật: khi mã mới đọc một bảng/cột, `grep` mọi danh sách migration (fixture **và** `run-local.mjs`) để chắc nơi nào
+chạy mã đó cũng có đủ migration nó cần — không chỉ migration mới nhất. Lỗi của Claude, lát cửa duyệt ảnh.

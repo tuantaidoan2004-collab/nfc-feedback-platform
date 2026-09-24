@@ -33,6 +33,8 @@ const translate = (error: unknown): never => {
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
     // Two separate answers, because the shop can fix them in two different ways (lát F-013).
     if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE') throw new OwnerError(400, error.code);
+    // Cửa duyệt ảnh (migration 023): three answers, because each asks the shop for something different.
+    if (error.code === 'MEDIA_PENDING' || error.code === 'MEDIA_REJECTED' || error.code === 'MEDIA_UNKNOWN') throw new OwnerError(409, error.code);
   }
   throw error;
 };

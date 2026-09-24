@@ -25,6 +25,9 @@ const ERRORS: Record<string, string> = {
 };
 const mediaOf = (value: string, kind: MediaRef['kind']): MediaRef | null => value.trim() ? { kind, url: value.trim() } : null;
 const UPLOAD_ERRORS: Record<string, string> = {
+  MEDIA_PENDING: 'Ảnh hoặc video mới đang chờ nền tảng duyệt. Trang hiện tại vẫn chạy như cũ; phát hành lại sau khi ảnh được duyệt, hoặc bỏ ảnh đó ra để phát hành ngay.',
+  MEDIA_REJECTED: 'Một ảnh hoặc video trên trang đã bị từ chối. Hãy thay bằng ảnh khác rồi phát hành lại.',
+  MEDIA_UNKNOWN: 'Trang đang dùng một ảnh không tải lên qua nền tảng. Hãy tải ảnh lên từ trình chỉnh trang để được duyệt.',
   UNSUPPORTED_MEDIA: 'Chỉ nhận ảnh JPG, PNG, WebP hoặc video MP4.', MEDIA_TOO_LARGE: 'Ảnh tối đa 5 MB, video tối đa 30 MB.',
   UPLOADS_NOT_CONFIGURED: 'Kho lưu trữ chưa được bật.', SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện.',
 };

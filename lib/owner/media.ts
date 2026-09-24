@@ -53,9 +53,13 @@ export class OwnerMedia {
     const upload = presignUrl({ method: 'PUT', host: `${this.settings.accountId}.r2.cloudflarestorage.com`, path: `/${this.settings.bucket}/${key}`,
       region: 'auto', service: 's3', accessKeyId: this.settings.accessKeyId, secretAccessKey: this.settings.secretAccessKey,
       date: this.now(), expiresSeconds: UPLOAD_EXPIRES_SECONDS, headers: { 'content-type': type as string, 'content-length': String(size) } });
+    const url = `${this.settings.publicOrigin}/${key}`;
+    // Every upload enters the review queue (migration 023): the page cannot be published with it until approved.
+    await this.pool.query('INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)VALUES($1,$2,$3,$4,$5,$6)',
+      [access.shopId, url, rule.kind, type, size, access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`]);
     if (access.actor.kind === 'admin') await recordAdminAction(this.pool, access.actor.adminId, { action: 'impersonation.design.upload',
       shopId: access.shopId, onBehalfOf: access.userId, detail: { session: access.actor.sessionId, key, type, size } });
     await recordActivity(this.pool, access, 'media.upload', rule.kind === 'video' ? 'Video' : 'Ảnh', { type: type as string });
-    return { upload, url: `${this.settings.publicOrigin}/${key}`, kind: rule.kind, headers: { 'Content-Type': type as string } };
+    return { upload, url, kind: rule.kind, headers: { 'Content-Type': type as string }, review: 'pending' as const };
   }
 }
