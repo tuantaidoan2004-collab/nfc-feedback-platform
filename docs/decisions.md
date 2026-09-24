@@ -204,7 +204,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–022**.
-  `main` có khuôn 4 (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+  `main` có khuôn 2 (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
@@ -217,7 +217,14 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — khuôn 4 · Chồng thẻ (24/09)
+### Xong gần nhất — khuôn 2 · Tối giản (24/09)
+
+Theo ảnh "Minimal Dark Card": thẻ tối, quầng tím mờ quanh thẻ (nhoè tĩnh, không backdrop-filter), nền vẽ bằng SVG,
+link lưới ô đều theo số lượng. Không tạo ảnh (không có công cụ; RunComfy trả phí chưa mở). **Không migration.**
+Còn **khuôn 1**: Claude đề xuất ý 1 (mép trên thẻ mờ dần, che nền mềm khi cuộn) + ý 2 (nền phóng nhẹ, tối dần theo
+cuộn), ý 3 (tự lấy màu từ ảnh nền) đi cùng lát cửa duyệt ảnh — **chờ Tài chọn**.
+
+### Trước đó — khuôn 4 · Chồng thẻ (24/09)
 
 Theo ảnh Tài gửi: thẻ nghiêng trên thẻ poster (chưa có poster thì thẻ hồng mặt cười), link hàng dọc, nút Google trắng
 (token mới `--c-btn-fill`, chữ nút đọc `--c-on-brand`). Bỏ câu "SMALL REVIEW BIG SUPPORT" vì luật Google. **Không

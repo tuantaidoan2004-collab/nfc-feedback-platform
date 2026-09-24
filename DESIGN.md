@@ -235,7 +235,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 | # | id | Tên | Cấu hình hiện có |
 |---|---|---|---|
 | 1 | `standard` | Bản gốc | như trước A33 (nền video, nhân bản từ shop khuôn) |
-| 2 | `minimal` | Tối giản | `card`, nền đặc `#F4F1EA` |
+| 2 | `minimal` | Tối giản | `full-bleed`, nền đặc `#140F22` — **có diện mạo**, xem dưới |
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
 | 4 | `deco` | Thẻ trang trí | `full-bleed`, nền đặc `#1A1326` — **có diện mạo** (chồng thẻ), xem dưới |
 | 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` — **có diện mạo**, xem dưới |
@@ -258,6 +258,13 @@ Chỉ lớp trang trí nhoè, chữ không bao giờ. Lớp trang trí là pseud
 nút DOM. Tâm vũng sáng ước ở ~180px dưới mép thân trang; tên quán hai dòng thì lệch vài chục px — ánh sáng mềm nên
 chấp nhận. `system-ui`, **0 KB**. Bốn sàn: (1) nút trong màn đầu · (2) test `skin.spec.ts` + đo thật viên link và ô
 nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "khuôn 5".
+
+**Khuôn 2 · `minimal` · Tối giản** (24/09, theo ảnh "Minimal Dark Card" Tài gửi) — ngành nào cũng hợp. Một thẻ tối
+trên nền tím than, **quầng tím mờ quanh thẻ** (lớp `::before` làm nhoè một lần — filter tĩnh, không backdrop-filter, nên
+cuộn không tốn thêm), hai mảng màu uốn, dấu cộng, lớp hạt nhiễu — tất cả SVG/CSS, **0 KB**, không cần tạo ảnh (máy này
+không có công cụ tạo ảnh; RunComfy là dịch vụ trả phí chưa mở). Link là lưới ô đều: 1 · 2 · 3 · 2×2 · 3+2 · 3+3. Nút
+Google trắng. Ô poster trống thì ẩn; shop có poster thì poster vẫn hiện. **Khác ảnh:** tên quán nằm trong thẻ (đặt ngoài
+thì phải đoán tên dài mấy dòng, tên dài sẽ đè logo); không có dòng khẩu hiệu dưới tên (không có chỗ trong xương).
 
 **Khuôn 4 · `deco` · Chồng thẻ** (24/09, theo ảnh Tài gửi) — quán trẻ, trà sữa, đồ uống. Nền tím than, thẻ nội dung
 nghiêng −2°, phía sau là thẻ thứ hai nghiêng −9° — **chính là ô poster**: shop có poster thì poster nằm đó, chưa có thì

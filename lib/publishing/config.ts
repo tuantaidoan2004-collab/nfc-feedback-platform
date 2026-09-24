@@ -106,7 +106,8 @@ const skeleton = (layout: PageConfig['layout'], background: PageConfig['backgrou
 const SKELETONS = new Map<TemplateKey, () => PageConfig>([
   // Khuôn 1: what the template shop starts as, the default page with the moving background Tài chose on 2026-09-17.
   ['standard', () => ({ ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } })],
-  ['minimal', () => skeleton('card', { kind: 'solid', color: '#F4F1EA' })],
+  // Khuôn 2: one dark card on a dark ground (Tài's reference "Minimal Dark Card", 24/09); the page itself is full-bleed.
+  ['minimal', () => skeleton('full-bleed', { kind: 'solid', color: '#140F22' })],
   ['glass', () => skeleton('full-bleed', { kind: 'gradient', colors: ['#1B2B4A', '#8FB3D9'], angle: 160 })],
   // Khuôn 4 is a stack of cards on a dark ground: the page itself is full-bleed and the content is the tilted card.
   ['deco', () => skeleton('full-bleed', { kind: 'solid', color: '#1A1326' })],

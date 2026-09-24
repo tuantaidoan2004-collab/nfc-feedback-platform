@@ -558,3 +558,37 @@ test('khuôn 4: a tilted card over the poster card, links as rows, and nothing c
   // The tilted card stays on the screen: its far corner does not run off the right edge of a 390px phone.
   expect(await page.locator('.guest-body').evaluate(body => body.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
 });
+
+// Khuôn 2 · Tối giản (ảnh "Minimal Dark Card" Tài gửi 24/09): one dark card with a blurred glow around it, links as tiles.
+test('khuôn 2: a dark card with a glow around it, and links laid out as even tiles for every count', async ({ page, fixture: f }) => {
+  const all = [
+    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const },
+    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' as const },
+    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' as const },
+    { label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' as const },
+    { label: { vi: 'Website', en: 'Website' }, url: 'https://quanthu.example', icon: 'link' as const },
+    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' as const },
+  ];
+  const shop = await templateShop(f, 'minimal', 'two', { links: all.slice(0, 1) });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/two'); await loaded(page);
+  await expect(page.locator('main')).toHaveAttribute('data-template', 'minimal');
+  await expect(page.locator('[data-google]')).toBeInViewport();
+  // The glow is a blurred layer behind the card, drawn once: a static filter, never a backdrop filter.
+  const glow = await page.locator('.guest-body').evaluate(body => [getComputedStyle(body, '::before').filter, getComputedStyle(body).backdropFilter]);
+  expect(glow[0]).toContain('blur'); expect(glow[1]).toBe('none');
+  // An empty poster slot is not shown; a shop's poster would be.
+  await expect(page.locator('.guest-poster-empty')).toBeHidden();
+  // Rows of tiles, as [row, width] per link: every row fills the card, and tiles in a row are equal.
+  const rows = [[[1]], [[2]], [[3]], [[2], [2]], [[3], [2]], [[3], [3]]];
+  let revision = 2;
+  for (let n = 1; n <= 6; n++) {
+    if (n > 1) { const saved = await f.admin.saveDraft(shop, revision, { ...templateConfig('minimal'), name: 'Quán two', googleUrl: 'https://maps.google.com/?cid=66', links: all.slice(0, n) });
+      await f.admin.publish(shop, saved); revision = saved + 1; await page.goto('/two'); await loaded(page); }
+    const boxes = await page.locator('.guest-links a').evaluateAll(links => links.map(link => { const b = link.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.width)]; }));
+    const byRow = [...new Set(boxes.map(([top]) => top))].map(top => boxes.filter(([t]) => t === top).map(([, w]) => w));
+    expect(byRow.map(row => [row.length]), `${n} links`).toEqual(rows[n - 1]);
+    for (const row of byRow) expect(Math.max(...row) - Math.min(...row), `${n} links`).toBeLessThanOrEqual(1);
+    for (const link of all.slice(0, n)) await expect(page.getByRole('link', { name: link.label.vi, exact: true })).toHaveCount(1);
+  }
+});
