@@ -203,8 +203,8 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 
 ### Đang ở đâu
 
-- **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–022**.
-  `main` có đủ sáu khuôn (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+- **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–023** (Tài báo 24/09).
+  `main` có cửa duyệt ảnh (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
@@ -217,11 +217,11 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Đang chờ Tài — cửa duyệt ảnh, migration 023 (24/09)
+### Xong gần nhất — cửa duyệt ảnh, migration 023 (24/09)
 
-Mã xong, 7 bộ xanh trên commit tại máy; **chưa đẩy `main`** vì có migration. Tài chạy 023 trên Neon **production rồi
-preview**, rồi Claude mới đẩy. Mã mới đọc `media_assets` ở mỗi lần phát hành: đẩy trước khi migrate là **mọi lần phát
-hành đều lỗi** (trang khách thì không sao — lớp đọc không đụng bảng này). Chi tiết `thiet-ke-va-khuon.md` mục 10.
+Mọi ảnh/video shop tải lên chờ admin duyệt ở `/gov` trước khi phát hành được; trang đang chạy vẫn chạy. Tài báo
+24/09, nguyên văn: *"đã chạy xong cả hai"* (023 trên Neon production và preview) — Claude không có credential nên
+không tự kiểm được. Sau đó mới đẩy `main`. Chi tiết `thiet-ke-va-khuon.md` mục 10.
 
 ### Trước đó — khuôn 1 · thẻ trôi (24/09) — đủ sáu khuôn
 
@@ -288,7 +288,7 @@ production). Chi tiết ở [`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md).
 1. **Thử sáu khuôn trên iPhone và Android thật** (Tài) — trước khi giao quán đầu tiên. Khuôn 4 phần kéo thả trang trí
    là A35.
 2. **Ba khuôn có tranh** — chờ ảnh của Tài; bản kê ở [`anh-can-cho-ao-khoac.md`](anh-can-cho-ao-khoac.md).
-3. **Cửa duyệt ảnh** (mục 10) — mã xong, chờ Tài chạy Neon 023.
+3. ~~Cửa duyệt ảnh~~ — xong 24/09 (023).
 4. **C3 + sao lưu** — trước khách trả tiền.
 5. `/gov` đúng nghĩa; tính năng theo lời shop thật.
 

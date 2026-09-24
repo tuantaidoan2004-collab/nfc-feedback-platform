@@ -45,7 +45,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | A33 | **Sáu khoá khuôn**: `templateConfig(key)`, sáu hàng `template_versions`, ô chọn khuôn trong `/gov` lúc tạo shop | V | — | **Xong 23/09.** Bộ xương thôi, chưa diện mạo |
 | A36 | **Dựng lại lớp da**: token `--c-*`, `--c-floor`, hai luật dùng chung (quãng cuộn dư · nút máy bay bất biến) trên `.guest[data-template]` | V | — | **Xong 23/09.** `components/skin.css` |
 | K6 | **Khuôn 6 · Nút lớn**: diện mạo + chuyển cảnh 300ms cùng tab | V | — | **Xong 23/09** |
-| M23 | **Cửa duyệt ảnh** (migration 023): chặn ảnh chưa duyệt lúc phát hành, hàng chờ ở `/gov` | L | — | **Mã xong 24/09 — chờ Tài chạy Neon** |
+| M23 | **Cửa duyệt ảnh** (migration 023): chặn ảnh chưa duyệt lúc phát hành, hàng chờ ở `/gov` | L | — | **Xong 24/09** (Tài chạy 023 cả hai branch) |
 | K1 | **Khuôn 1 · Bản gốc — thẻ trôi**: mép trên mờ dần, nền thở theo cuộn | V | ảnh Tài | **Xong 24/09**. Ý 3 (màu từ ảnh nền) đi với cửa duyệt ảnh |
 | K2 | **Khuôn 2 · Tối giản**: thẻ tối, quầng mờ quanh thẻ, link lưới ô đều | V | ảnh Tài | **Xong 24/09** |
 | K4 | **Khuôn 4 · Chồng thẻ**: thẻ nghiêng trên thẻ poster, link hàng dọc, nút Google trắng | V | ảnh Tài | **Xong 24/09**. Kéo thả trang trí vẫn là A35 |
