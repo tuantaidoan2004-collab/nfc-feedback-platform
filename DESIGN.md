@@ -296,6 +296,10 @@ hai chỗ **tách khỏi token** có chủ ý: chữ của dòng mời góp ý (
 ngôn ngữ (điện thoại tự vẽ nó trên nền trắng). Test mới giữ A2: nút máy bay và dòng mời đo ra giống hệt nhau giữa khuôn
 5 và khuôn 6.
 
+**Diện mạo từng khuôn nằm ở `components/skins/<khoá>.v<bản>.css` (25/09)**: mỗi bản khuôn một tệp đóng băng, selector
+`.guest[data-template="…"]:where([data-template-version="…"])`. `skin.css` chỉ giữ phần của nền tảng. Luật đổi
+bản ở `thiet-ke-va-khuon.md` mục 16.
+
 **Lớp da đã dựng lại (A36, 23/09)** ở `components/skin.css`, sau khi mất cùng `coats.css`: token (mục 4), `--c-floor`,
 quãng cuộn dư, cách bày link theo số lượng. Nút máy bay giấy **không** nằm ở đó mà ở `guest-page.css`, và test cấm
 mọi khối `[data-template="…"]` chạm vào nó. **Con tam giác** (mục 6c) chưa dựng lại — nó thuộc diện mạo, chưa được

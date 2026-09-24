@@ -119,7 +119,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
  // Six templates to choose from (A33); khuôn 1 is preselected so a hurried operator still gets the original page.
  const choice=page.locator('select[data-template-choice]');
- await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Thẻ trang trí','5 · Ánh sáng tụ','6 · Nút lớn']);
+ await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Chồng thẻ','5 · Ánh sáng tụ','6 · Nút lớn']);
  await expect(choice).toHaveValue('standard');
  await choice.selectOption('glass');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();

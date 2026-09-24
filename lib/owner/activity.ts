@@ -12,6 +12,7 @@ export const ACTIONS: Record<string, string> = {
   'note.save': 'Ghi chú góp ý',
   'design.save': 'Lưu nháp giao diện',
   'design.publish': 'Phát hành giao diện',
+  'design.version': 'Đổi bản khuôn của bản nháp',
   'media.upload': 'Tải ảnh/video lên',
   'card.create': 'Nhân bản thẻ',
   'card.rename': 'Đổi tên thẻ',

@@ -95,6 +95,8 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  await expect(page.locator('[data-week] [data-opens]').last()).toHaveAttribute('data-opens','1');
  await page.locator('[data-view="design"]').click();
  await expect(page.locator('[data-design-editor]')).toBeVisible();await expect(page.locator('[data-week]')).toHaveCount(0);
+ // Which template version the draft and the live page wear (versions.ts): here both are version 1.
+ await expect(page.locator('[data-template-state]')).toContainText('bản nháp dùng bản 1, trang khách cũng đang chạy bản này.');
  await page.locator('[data-view="settings"]').click();
  await expect(page.getByRole('region',{name:'Tài khoản'})).toContainText(f.users[0].username);
  await expect(page.locator('[data-support]')).toBeVisible();

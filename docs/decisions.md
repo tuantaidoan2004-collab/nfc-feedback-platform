@@ -197,7 +197,7 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình khuôn*
 | **13** | Hai luật dùng chung mọi khuôn: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi khuôn, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-23
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-25
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên rồi khối này; chi tiết ở tệp được trỏ.
 
@@ -217,7 +217,15 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — khuôn 6 làm lại: nút hạt ngọc (24/09)
+### Xong gần nhất — bản khuôn (25/09)
+
+Mỗi khuôn một số bản; bản phát hành ghim bản; CSS mỗi bản là một tệp đóng băng (`components/skins/<khoá>.v<bản>.css`,
+mã băm giữ trong test). Chủ quán thấy khung "Khuôn" trong trình chỉnh: bản nháp dùng bản nào, trang khách chạy bản nào,
+nút "Dùng bản N" chỉ đổi bản nháp rồi Xem trước / Phát hành như thường. Sửa lỗi / bảo mật / luật Google sửa thẳng mọi
+bản. Hôm nay mọi khuôn mới có bản 1, nên khách chưa thấy gì khác. **Không migration** (`template_versions` có từ 003).
+Chi tiết `thiet-ke-va-khuon.md` mục 16. **Còn lại:** số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi.
+
+### Trước đó — khuôn 6 làm lại: nút hạt ngọc (24/09)
 
 Tài chốt: một nút G bốn màu, chữ chạy vòng quanh, nền trắng sữa, vệt sáng gương, con quay hồi chuyển. Chi tiết
 `DESIGN.md` mục 9. **Không migration.** Kèm hai test hàng rào: góp ý riêng gửi được ở **cả sáu khuôn**, và khách tải

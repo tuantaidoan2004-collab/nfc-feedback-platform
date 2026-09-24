@@ -45,6 +45,28 @@ export class PublishingAdmin {
     const result = await this.pool.query('UPDATE page_drafts SET config=$3,revision=revision+1 WHERE shop_id=$1 AND revision=$2 RETURNING revision', [shopId, expected, config]);
     if (!result.rowCount) error('DRAFT_CONFLICT'); return Number(result.rows[0].revision);
   }
+  /**
+   * Moves the draft onto another version of the SAME template (versions.ts). The live page does not change: the shop
+   * previews the draft and publishes it like any other edit. `offered` lists the versions the platform ships for the
+   * draft's template; a version outside it is refused, and so is any other template. The version's row is created on
+   * first use, like the first version's row at provisioning; a racing twin lands on the unique (template_key, version).
+   */
+  async setDraftTemplate(shopId: string, expected: number, version: number, offered: (key: string) => readonly number[]) {
+    await this.actor('draft:template', shopId); revision(expected);
+    if (!Number.isSafeInteger(version) || version < 1) error('INVALID_TEMPLATE');
+    return tx(this.pool, async db => {
+      const draft = (await db.query(`SELECT d.revision,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
+        WHERE d.shop_id=$1 FOR UPDATE OF d`, [shopId])).rows[0];
+      if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
+      if (!offered(draft.template_key).includes(version)) error('INVALID_TEMPLATE');
+      if (Number(draft.version) === version) return { revision: expected };
+      await db.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3)
+        ON CONFLICT(template_key,version) DO NOTHING`, [draft.template_key, version, JSON.stringify(TEMPLATE_V1.capabilities)]);
+      const updated = await db.query(`UPDATE page_drafts SET template_version_id=(SELECT id FROM template_versions WHERE template_key=$2 AND version=$3),
+        revision=revision+1 WHERE shop_id=$1 RETURNING revision`, [shopId, draft.template_key, version]);
+      return { revision: Number(updated.rows[0].revision) };
+    });
+  }
   async publish(shopId: string, expected: number) {
     const actor = await this.actor('release:publish', shopId); revision(expected);
     return tx(this.pool, async db => {
@@ -121,26 +143,27 @@ export class PublishingResolver {
     // Hồ sơ tài khoản đi kèm trong cùng một truy vấn: nội dung là của tài khoản, diện mạo là của bản chụp
     // (migration 022). LEFT JOIN vì một shop có thể chưa có hàng hồ sơ — lúc đó bản chụp tự lo lấy.
     const row = 'slug' in target
-      ? (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,tv.template_key,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM shops s
+      ? (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,tv.template_key,tv.version template_version,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM shops s
         JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
         LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE lower(s.slug)=lower($1)`, [target.slug])).rows[0]
-      : (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,tv.template_key,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
+      : (await this.pool.query(`SELECT s.id,s.slug,s.publishing_state,s.active_release_id,r.config_snapshot,tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
         JOIN shops s ON s.id=t.shop_id JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
         LEFT JOIN shop_profile pr ON pr.shop_id=s.id WHERE t.public_code=$1`, [target.code])).rows[0];
     if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : 'direct:shop' };
-    // The template key travels with the page so the skin can dress each skeleton; it never changes the DOM.
-    return { slug: row.slug as string, template: row.template_key as string, config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context };
+    // The template key and its version travel with the page so the skin dresses each skeleton exactly as it was
+    // published (versions.ts); neither changes the DOM.
+    return { slug: row.slug as string, template: row.template_key as string, templateVersion: Number(row.template_version), config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context };
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state,tv.template_key FROM preview_sessions p JOIN shops s ON s.id=p.shop_id
+    const row = (await this.pool.query(`SELECT p.*,s.slug,s.publishing_state,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions p JOIN shops s ON s.id=p.shop_id
       JOIN template_versions tv ON tv.id=p.template_version_id LEFT JOIN tags t ON t.shop_id=p.shop_id AND t.id=p.tag_id WHERE p.token_hash=$1 AND p.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
     // Xem trước KHÔNG ghép hồ sơ tài khoản, có chủ ý: nó tồn tại để chủ quán thấy **đúng bản nháp sắp phát
     // hành**. Ghép hồ sơ vào đây thì sửa tên xong xem trước vẫn ra tên cũ, và cái nút xem trước mất nghĩa.
     // Hồ sơ chỉ ghép ở `live()`; và `publish()` ghi nội dung xuống hồ sơ, nên hai đường gặp nhau lúc phát hành.
-    return { slug: row.slug as string, template: row.template_key as string, config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
+    return { slug: row.slug as string, template: row.template_key as string, templateVersion: Number(row.template_version), config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
   }
 }

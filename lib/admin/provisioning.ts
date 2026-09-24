@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
 import { PublishingError, isTemplateKey, templateConfig, validateConfig, type TemplateKey } from '../publishing/config';
+import { latestVersion } from '../publishing/versions';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
@@ -223,9 +224,11 @@ export class ShopProvisioning {
    * Created on first use; a racing twin lands on the unique (template_key, version) and the loser reads its row.
    */
   private async template(admin: PublishingAdmin, key: TemplateKey) {
-    const find = async () => (await this.pool.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=1', [key])).rows[0]?.id as string | undefined;
+    // A new shop starts on the newest version of its template; shops already running stay on theirs (versions.ts).
+    const version = latestVersion(key);
+    const find = async () => (await this.pool.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=$2', [key, version])).rows[0]?.id as string | undefined;
     const found = await find(); if (found) return found;
-    try { return await admin.createTemplate(key, 1); }
+    try { return await admin.createTemplate(key, version); }
     catch (error) { const raced = duplicate(error) ? await find() : undefined; if (raced) return raced; throw error; }
   }
 

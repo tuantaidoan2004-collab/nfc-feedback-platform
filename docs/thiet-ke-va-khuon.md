@@ -352,3 +352,43 @@ iPhone và Android thật** — hãm CPU trên máy Mac không thay được car
 
 **Giới hạn:** kính chỉ bẻ được cảnh của khuôn, không bẻ ảnh hay video của shop. Nền `media` bị bỏ qua ở khuôn 3 (không
 tải video). Chủ quán muốn ảnh làm nền thì đó là khuôn khác.
+
+## 16. Bản khuôn — shop giữ diện mạo đã phát hành cho tới khi tự chọn bản mới (Tài giao Claude quyết, 24/09/2026)
+
+**Câu hỏi của Tài:** bản hoàn chỉnh tách khỏi bản thử; khi khuôn có diện mạo mới, khách **được chọn** cập nhật hay
+không. Số phiên bản Tài giao Claude quyết.
+
+**Quyết định:**
+
+- **Khuôn có số bản riêng**, số nguyên từ 1 (`lib/publishing/versions.ts`, kèm ngày và một câu ghi chú cho chủ quán).
+  Số bản nền tảng kiểu `năm.tháng.lần` (vd `26.9.3`) là việc riêng, **chưa làm**.
+- **Bản phát hành của shop ghim một bản khuôn.** Bảng `template_versions` (migration 003) và cột
+  `page_releases.template_version_id` có sẵn từ đầu, nên lát này **không cần migration**. Trang khách mang
+  `data-template` và `data-template-version`.
+- **Mỗi bản một tệp CSS đóng băng**: `components/skins/<khoá>.v<bản>.css`. Mọi selector trong tệp có dạng
+  `.guest[data-template="<khoá>"]:where([data-template-version="<bản>"])`. `:where` không cộng độ ưu tiên, nên trang
+  vẽ y như trước khi tách. `skin.css` chỉ còn phần của nền tảng: token mặc định, hai luật dùng chung, cách bày link
+  1–6, nút hạt ngọc, thẻ `<svg>` bộ lọc kính.
+- **Đổi diện mạo = thêm bản mới**: một dòng trong `versions.ts` và một tệp mới. Shop đang chạy không đổi gì.
+- **Sửa lỗi, bảo mật, luật Google không phải bản mới**: sửa thẳng tệp của mọi bản đang chạy, vì không shop nào được
+  chọn ở lại với trang lỗi hay trái luật Google. Sửa như vậy thì ghi lại mã băm trong `skin.spec.ts` cùng commit, và
+  nói rõ lý do.
+- **Chủ quán chọn trong trình chỉnh** (khung "Khuôn"). Khung ghi bản nháp đang dùng bản nào và trang khách đang chạy bản
+  nào. Mỗi bản có ghi chú và nút "Dùng bản N": nút này chỉ đổi **bản nháp**, sau đó Xem trước và Phát hành như mọi
+  thay đổi khác. Muốn quay lại thì bấm bản cũ. Chỉ đổi bản **trong cùng khuôn**; đổi sang khuôn khác là việc khác.
+- **Shop mới dùng bản mới nhất** của khuôn được chọn.
+
+**Test giữ:**
+
+- `skin.spec.ts`: mỗi bản có đúng một tệp và mọi tệp đều được trang khách import; selector chỉ nhắm khuôn và bản của
+  chính tệp đó; `skin.css` không mặc áo cho khuôn nào; tên `@keyframes` không trùng; **mã băm từng tệp không đổi**
+  (bỏ qua chú thích và khoảng trắng).
+- `template-versions.spec.ts` (repository): shop chưa đổi bản thì trang khách vẫn chạy bản cũ; xem trước thấy bản
+  mới; phát hành xong mới đổi; quay lại được. Từ chối bản không có, bản của khuôn khác, bản nháp đã cũ, và thân
+  request sai. Shop mới dùng bản mới nhất.
+- `publishing.spec.ts`: cùng shop, cùng cấu hình, chỉ khác bản ghim. Sang bản 2 thì diện mạo của bản 1 không đi theo.
+
+**Chưa đóng băng, nói thẳng:** ba bảng nền tảng trong `config.ts` (`LEAVE_TRANSITION_MS`, `GLASS_TEMPLATES`,
+`BUTTON_FORMS`) và bộ xương `templateConfig(key)` vẫn theo **khoá**, chưa theo bản. Bản mới nào cần đổi một trong
+chúng thì đổi khoá của bảng đó thành cặp khoá + bản, ngay trong lát làm bản mới. Nút hạt ngọc là phần của nền tảng,
+không thuộc bản của khuôn 6, vì luật Google của nút Google phải giống nhau ở mọi nơi.

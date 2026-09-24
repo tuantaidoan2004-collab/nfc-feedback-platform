@@ -1,0 +1,68 @@
+/* Khuôn `standard` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+ * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+
+/* =====================================================================
+   9 · KHUÔN 1 · BẢN GỐC — thẻ trôi (Tài chốt 24/09, bố cục ảnh "Hero Bold", ý 1 + 2). Giữ **màu** của bản gốc (giấy
+   sáng, xanh rừng): đó là căn tính của nó; đổi **bố cục**.
+   Ý 1 · Thẻ trôi, mép trên mờ dần. Nền đứng yên (`fixed`), chỉ thẻ cuộn. Mép trên thẻ là hai lớp: một dải làm nhoè nền
+   phía sau (`::before`, backdrop-filter blur — hàm có sẵn, mọi trình duyệt chạy) và một lớp giấy **mờ dần** từ trong
+   suốt tới đặc (`::after`, mask). Cuộn lên thì thẻ che dần nền mà không có đường cắt. Chữ luôn bắt đầu **dưới** dải
+   mờ dần (`padding-top` lớn hơn `--fade`), nên chữ luôn nằm trên giấy đặc — test giữ điều này.
+   Ý 2 · Nền "thở" theo cuộn: phóng 1 → 1,08 và tối dần 0 → 35% trên **toàn bộ quãng cuộn** của trang (trang ngắn chỉ
+   cuộn được ~128px nhờ A1 — một quãng cố định 480px thì trang ngắn không bao giờ đi hết), bằng scroll-driven animation —
+   chỉ `transform` và `opacity`, card đồ hoạ tự lo. Trình duyệt chưa có thì nền đứng yên, không hỏng gì.
+   ===================================================================== */
+.guest[data-template="standard"]:where([data-template-version="1"]) { --fade: calc(var(--c-logo) / 2 + 22px); }
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-body {
+  position: relative; isolation: isolate; background: transparent;
+  margin: calc(var(--c-logo) / -2) 12px 16px; border-radius: var(--c-radius);
+  padding-top: calc(var(--fade) + 4px);
+  box-shadow: 0 40px 60px -40px #0b1d1699;
+}
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-body::before,
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-body::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+}
+/* Dải làm nhoè nền ngay dưới mép trên — nó là thứ làm "nhìn từ bìa lên nền mờ dần". */
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-body::before {
+  bottom: auto; height: calc(var(--fade) * 2);
+  -webkit-backdrop-filter: blur(14px) saturate(120%); backdrop-filter: blur(14px) saturate(120%);
+  -webkit-mask-image: linear-gradient(to bottom, #0000 0, #000 50%, #0000 100%);
+  mask-image: linear-gradient(to bottom, #0000 0, #000 50%, #0000 100%);
+}
+/* Tờ giấy: trong suốt ở mép trên, đặc hẳn ở --fade. */
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-body::after {
+  background: var(--c-paper);
+  -webkit-mask-image: linear-gradient(to bottom, #0000 0, #000 var(--fade));
+  mask-image: linear-gradient(to bottom, #0000 0, #000 var(--fade));
+}
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-bg::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; background: #000; opacity: 0;
+}
+@supports (animation-timeline: scroll()) {
+  .guest[data-template="standard"]:where([data-template-version="1"]) .guest-bg { animation: std-breathe linear both; animation-timeline: scroll(root); }
+  .guest[data-template="standard"]:where([data-template-version="1"]) .guest-bg::after { animation: std-dim linear both; animation-timeline: scroll(root); }
+}
+@keyframes std-breathe { from { transform: scale(1); } to { transform: scale(1.08); } }
+@keyframes std-dim { from { opacity: 0; } to { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .guest[data-template="standard"]:where([data-template-version="1"]) .guest-bg,
+  .guest[data-template="standard"]:where([data-template-version="1"]) .guest-bg::after { animation: none; }
+}
+@media (min-width: 720px) {
+  .guest[data-template="standard"]:where([data-template-version="1"]) .guest-body { margin-bottom: 24px; }
+}
+
+/* Link: lưới ô 6 cột, cùng cách bày với khuôn 2 (mỗi khuôn giữ bản của mình để đóng băng riêng). */
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a {
+  grid-column: span 2; min-width: 0; min-height: 56px; justify-content: center; gap: 6px; padding: 8px 6px;
+  border-radius: 14px; box-shadow: inset 0 0 0 1px var(--c-line); font-size: 13px; line-height: 1.2; text-align: left;
+}
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a:only-child { grid-column: 1 / -1; }
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a:first-child:nth-last-child(2),
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a:first-child:nth-last-child(2) ~ a,
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a:first-child:nth-last-child(4),
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a:first-child:nth-last-child(4) ~ a,
+.guest[data-template="standard"]:where([data-template-version="1"]) .guest-links a:first-child:nth-last-child(5) ~ a:nth-child(n+4) { grid-column: span 3; }

@@ -351,3 +351,23 @@ hàm đó *không* có (vì iPhone có nó và bắt xin quyền). Test đỏ: C
 tắt luôn cả Chrome Android. Đúng là: chỉ lắng nghe sự kiện, **không bao giờ gọi** `requestPermission`. Máy nào không cho
 thì không có sự kiện — không cần đoán máy gì. Luật chung: dò **khả năng** bằng hành vi, đừng dò **loại máy** bằng một
 hàm có mặt hay không.
+
+**Vòng kiểm production trong zsh in `orb-css=0` suốt mười phút, trong khi bản mới đã lên từ lâu.** Lệnh kiểm gom các
+đường dẫn CSS của trang vào một biến (`css=$(curl … | grep -o … | sort -u)`, mỗi dòng một đường dẫn) rồi lặp
+`for c in $css`. zsh **không tách từ** biến không có ngoặc kép (khác bash), nên vòng lặp chạy **một lần** với cả chuỗi
+nhiều dòng, `curl` nhận một URL hỏng, và lần nào cũng ra 0. Mọi con số 0 là của lệnh kiểm, không phải của deploy. Luật:
+trong zsh, lặp qua từng dòng bằng `${(f)css}` hoặc `while read -r c`; và trước khi tin một vòng kiểm, chạy tay nó một
+lần trên một thứ **chắc chắn có**. Lỗi của Claude, lát khuôn 6 hạt ngọc (ghi bù ở lát bản khuôn).
+
+**Tách CSS ra nhiều tệp thì thứ tự nạp và độ ưu tiên đổi theo.** Lát bản khuôn chuyển diện mạo sáu khuôn từ
+`skin.css` sang `components/skins/*.css`. Có hai rủi ro, đã chặn trước: (1) thêm `[data-template-version]` vào
+selector sẽ cộng độ ưu tiên và làm lệch thế cân với `skin.css`, nên bọc nó trong `:where()` (độ ưu tiên 0); (2) một
+luật của nền tảng nằm lẫn trong khối khuôn (`.guest-glass-filters`) suýt bị đóng băng theo khuôn 3. Test "selector chỉ
+nhắm khuôn và bản của chính tệp" bắt đúng loại này; luật đó đã trả về `skin.css`.
+
+**Ca "impersonation" của bộ admin không đứng một mình được — có từ trước lát bản khuôn.** Lát bản khuôn đổi nhãn khuôn 4
+thành "Chồng thẻ" mà quên sửa test, nên ca 1 (`generate a shop…`) đỏ ở dòng kiểm nhãn; kéo theo ca 5 (`impersonation:
+cookie…`) hết giờ 60s ở bước chủ quán đăng nhập rồi bấm `[data-view="settings"]`. Đã thử từng biến: chạy riêng ca 5 bằng
+`-g` trên commit lát này **và trên `main` cũ `2336c61`** thì đều hết giờ y hệt; cả bộ chạy đủ thì xanh. Vậy ca 5 cần một
+việc mà ca 1 làm ở nửa sau (chưa tìm ra việc nào). Luật đọc log: **khi hai ca cùng đỏ, sửa ca đầu rồi chạy lại cả bộ**
+trước khi đào ca sau — ca sau có thể chỉ là hậu quả. Việc gỡ ràng buộc này tách thành việc riêng.

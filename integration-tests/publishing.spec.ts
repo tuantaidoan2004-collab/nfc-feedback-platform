@@ -428,6 +428,24 @@ test('khuôn 6: one giant Google button in the middle of the phone, the same in 
   await expect(page.locator('[data-google]')).toHaveAttribute('target', '_blank');
 });
 
+// Bản khuôn (versions.ts): the one variable here is the version the release is pinned to -- same shop, same
+// configuration, same template key. Version 1's look must not follow the shop onto a version with its own stylesheet.
+test('a page is dressed by the template version it was published on, never by another version of the same template', async ({ page, fixture: f }) => {
+  const shop = await bigButtonShop(f);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/six'); await loaded(page);
+  const main = page.locator('main'), paper = () => main.evaluate(m => getComputedStyle(m).getPropertyValue('--c-paper').trim());
+  await expect(main).toHaveAttribute('data-template-version', '1');
+  expect(await paper()).toBe('#f6f3ee');
+  const second = await f.admin.createTemplate('big-button', 2);
+  await f.db.query('UPDATE page_drafts SET template_version_id=$2 WHERE shop_id=$1', [shop, second]);
+  await f.admin.publish(shop, 2);
+  await page.reload(); await loaded(page);
+  await expect(main).toHaveAttribute('data-template', 'big-button');
+  await expect(main).toHaveAttribute('data-template-version', '2');
+  expect(await paper()).not.toBe('#f6f3ee');
+});
+
 test('khuôn 6: a tap covers the page for 300 ms, then the same tab goes to Google, with the tap recorded', async ({ page, fixture: f }) => {
   const shop = await bigButtonShop(f); await googleStub(page);
   await page.goto('/six'); await loaded(page);

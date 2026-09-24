@@ -1,0 +1,34 @@
+/* Khuôn `big-button` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+ * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+
+/* =====================================================================
+   4 · KHUÔN 6 · NÚT LỚN (gói rẻ nhất; Tài làm lại 24/09). Trắng sữa và một nút Google duy nhất: hạt ngọc tròn phồng
+   chứa chữ G, dòng "ĐÁNH GIÁ TRÊN GOOGLE" chạy vòng quanh (hình dạng nút ở `skin.css` mục 4 — `data-button="orb"`, quyết định
+   của nền tảng, không phải của khuôn). Ô poster trống thì ẩn; shop có poster thì poster vẫn hiện.
+   ===================================================================== */
+.guest[data-template="big-button"]:where([data-template-version="1"]) {
+  --c-paper: #f6f3ee;
+  --c-ink: #2b2620;
+  --c-ink-2: #1f1b16;
+  --c-muted: #6b6258;
+  --c-line: #e6dfd4;
+  --c-brand: #2b2620;
+  --c-on-brand: #ffffff;
+  --c-accent: #e8a33d;
+  --c-h1: clamp(22px, 6vw, 28px);
+  --c-h1-track: .01em;
+  --c-radius: 32px;
+  --c-btn-h: 112px;
+  --c-logo: 60px;
+}
+.guest[data-template="big-button"]:where([data-template-version="1"]) .guest-poster-empty { display: none; }
+.guest[data-template="big-button"]:where([data-template-version="1"]) .guest-logo { margin: 28px auto 0; }
+/* Trang tràn viền mặc định viết chữ trắng lên ảnh nền; trên trắng sữa thì chữ phải tối. */
+.guest[data-template="big-button"]:where([data-template-version="1"]) .guest-language { color: var(--c-muted); }
+.guest[data-template="big-button"]:where([data-template-version="1"]) .guest-language select { border-color: var(--c-line); background: #ffffff99; }
+/* Trắng sữa không phẳng: một vùng sáng rất nhẹ ở giữa trên, như ánh đèn phòng trên mặt giấy. */
+.guest[data-template="big-button"]:where([data-template-version="1"]) .guest-bg::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(90% 60% at 50% 30%, #ffffffb3, #ffffff00 70%);
+}

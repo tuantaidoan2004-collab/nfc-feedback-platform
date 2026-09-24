@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import styles from './admin.module.css';
-import { TEMPLATE_KEYS, type TemplateKey } from '@/lib/publishing/config';
+import { TEMPLATE_KEYS } from '@/lib/publishing/config';
+import { TEMPLATE_NAMES } from '@/lib/publishing/versions';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
@@ -12,8 +13,6 @@ export type ShopRow = {
 /** The owner's four positions, as the operator sees them (migration 012). */
 const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
 /** The six templates, named as in docs/thiet-ke-va-khuon.md mục 12. */
-const TEMPLATE_NAMES: Record<TemplateKey, string> = { standard: '1 · Bản gốc', minimal: '2 · Tối giản', glass: '3 · Kính',
-  deco: '4 · Thẻ trang trí', spotlight: '5 · Ánh sáng tụ', 'big-button': '6 · Nút lớn' };
 const allows = (row: ShopRow, scope: 'overview' | 'feedback' | 'design') =>
   scope === 'overview' ? row.support_level !== 'edit' : scope === 'feedback' ? ['view', 'full'].includes(row.support_level) : ['edit', 'full'].includes(row.support_level);
 

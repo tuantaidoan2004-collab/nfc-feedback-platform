@@ -1,0 +1,73 @@
+/* Khuôn `deco` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+ * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+
+/* =====================================================================
+   7 · KHUÔN 4 · CHỒNG THẺ (ảnh Tài gửi 24/09). Nền tím than; thẻ nội dung nghiêng −2°; phía sau là thẻ thứ hai
+   nghiêng ngược — chính là ô **poster** của shop (có poster thì poster nằm đó, chưa có thì thẻ hồng mặt cười); hình vẽ
+   tay (dấu cộng, tim, mũi tên cong) bằng SVG nội tuyến có bộ lọc bút sáp (DESIGN.md mục 6b), 0 KB tài nguyên.
+   Link bày thành hàng dọc có mũi tên. Nút Google trắng đặc, nổi nhất trên nền tối.
+   Cố ý khác ảnh: không có câu "SMALL REVIEW BIG SUPPORT" — một câu xin đánh giá sát nút Google là thứ
+   google-policy.md rào (áp lực, gợi ý), và chữ viết tay có dấu tiếng Việt chưa có bộ chữ. Thanh "nhắn riêng" là nút máy
+   bay giấy bất biến (A2), không vẽ lại theo ảnh.
+   Xoay dùng transform-origin ở mép trên giữa của thẻ, và logo đứng đúng điểm đó xoay cùng góc: hai thứ không bao giờ
+   lệch nhau dù thẻ dài bao nhiêu.
+   ===================================================================== */
+.guest[data-template="deco"]:where([data-template-version="1"]) {
+  --c-paper: #221a33;
+  --c-ink: #f3eefc;
+  --c-ink-2: #ffffff;
+  --c-muted: #b9aed0;
+  --c-line: #3a2f52;
+  --c-brand: #ffffff;
+  --c-on-brand: #1a1326;
+  --c-accent: #ff4fa3;
+  --c-btn-fill: linear-gradient(180deg, #ffffff 0%, #f1edf8 100%);
+  --c-btn-shadow: inset 0 -2px 0 #d9d2e8, 0 10px 24px -10px #000000b3, 0 0 0 1px #ffffff33;
+  --c-btn-radius: 16px;
+  --c-btn-h: 58px;
+  --c-radius: 26px;
+  --c-logo: 76px;
+  --c-h1: clamp(24px, 6.6vw, 30px);
+  --c-pill-bg: #2b2140;
+  --c-pill-ink: #f3eefc;
+}
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-bg::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844"><defs><filter id="k" filterUnits="userSpaceOnUse" x="0" y="0" width="390" height="844"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G"/></filter></defs><g filter="url(%23k)" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M29 112h14M36 105v14" stroke="%23b48cff"/><path d="M201 92h10M206 87v10" stroke="%23ff4fa3"/><path d="M18 470h12M24 464v12" stroke="%23b48cff"/><path d="M33 640h14M40 633v14" stroke="%23ff4fa3"/><path d="M366 760h12M372 754v12" stroke="%23b48cff"/><path d="M330 790c-10-14-32-4-24 14 6 12 24 22 24 22s18-10 24-22c8-18-14-28-24-14Z" stroke="%23b89cff"/><path d="M252 760c22-4 42 4 50 22" stroke="%23b89cff"/><path d="M294 784l9 1 2-9" stroke="%23b89cff"/></g></svg>') center top / 390px 844px no-repeat;
+}
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-sheet { padding: 0 16px var(--c-floor); }
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-poster {
+  position: absolute; z-index: 0; top: 168px; left: 6px; width: 46%; margin: 0; aspect-ratio: 3 / 4;
+  border-radius: 22px; transform: rotate(-9deg); box-shadow: 0 24px 48px -20px #000000cc;
+}
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-poster-empty {
+  border: 0; background: #ff4fa3 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g fill="none" stroke="%231a1326" stroke-width="7" stroke-linecap="round"><path d="M36 38v6M62 36v6"/><path d="M30 60c10 14 32 14 42-2"/></g></svg>') 6% 30% / 40% no-repeat;
+}
+/* Nhãn "POSTER SỰ KIỆN" là chỗ giữ trống, không phải nội dung: ở khuôn này thẻ mặt cười thay nó. */
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-poster-empty span { opacity: 0; }
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-logo {
+  margin: 28px auto 0; transform: translateX(10px) rotate(-2deg);
+  box-shadow: 0 0 0 3px #1a1326, 0 10px 24px -10px #000000cc;
+}
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-body {
+  position: relative; z-index: 1; flex: none;
+  margin: calc(var(--c-logo) / -2) 16px 24px 36px; padding-bottom: 28px; border-radius: var(--c-radius);
+  /* Quay quanh mép trên, nên góc dưới thò sang phải thêm chiều cao × sin(2°) ≈ 3,5% — thẻ càng dài càng thò. Lề phải
+     16px + lề trang 16px chịu được thẻ cao ~900px, tức 6 link và tên quán hai dòng; test kiểm đúng trường hợp đó. */
+  transform: rotate(-2deg); transform-origin: 50% 0;
+  background: linear-gradient(180deg, #2a2040 0%, var(--c-paper) 100%);
+  box-shadow: 0 0 0 1px #ffffff1f, 0 40px 70px -30px #000000e6;
+}
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-links { flex-direction: column; flex-wrap: nowrap; gap: 8px; }
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-links a {
+  width: 100%; min-height: 52px; justify-content: flex-start; padding: 7px 14px 7px 8px; border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--c-line);
+}
+.guest[data-template="deco"]:where([data-template-version="1"]) .guest-links a::after {
+  content: ""; flex: none; margin-left: auto; width: 16px; height: 16px; opacity: .7;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" fill="none" stroke="%23f3eefc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>') center / contain no-repeat;
+}
+@media (min-width: 720px) {
+  .guest[data-template="deco"]:where([data-template-version="1"]) .guest-body { margin-bottom: 24px; }
+}

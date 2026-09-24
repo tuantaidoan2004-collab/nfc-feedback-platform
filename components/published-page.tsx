@@ -6,5 +6,5 @@ export default async function PublishedPage({target}:{target:{slug:string}|{code
   catch { return <main className="dashboard-wrap"><h1>Trang chưa sẵn sàng</h1><p>Vui lòng thử lại sau. / Please try again later.</p></main>; }
   const c = page.config;
   return <ShopFeedbackV2 slug={page.slug} name={c.name} googleUrl={c.googleUrl} heroUrl={c.poster?.url ?? null} heroKind={c.poster?.kind ?? null}
-    pageConfig={c} template={page.template} render={{proof:page.proof,preview:page.context.scope==='test'}}/>;
+    pageConfig={c} template={page.template} templateVersion={page.templateVersion} render={{proof:page.proof,preview:page.context.scope==='test'}}/>;
 }

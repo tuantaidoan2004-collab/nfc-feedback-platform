@@ -50,6 +50,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | K2 | **Khuôn 2 · Tối giản**: thẻ tối, quầng mờ quanh thẻ, link lưới ô đều | V | ảnh Tài | **Xong 24/09** |
 | K4 | **Khuôn 4 · Chồng thẻ**: thẻ nghiêng trên thẻ poster, link hàng dọc, nút Google trắng | V | ảnh Tài | **Xong 24/09**. Kéo thả trang trí vẫn là A35 |
 | K3 | **Khuôn 3 · Kính**: kính khúc xạ thật, cùng kết quả ở Chrome/Safari/Firefox | V | kube.io | **Xong 23/09** — `thiet-ke-va-khuon.md` mục 15 |
+| K7 | **Bản khuôn**: mỗi khuôn một số bản, bản phát hành ghim bản, CSS mỗi bản đóng băng (`components/skins/`), chủ quán tự chuyển bản trong trình chỉnh | V | — | **Xong 25/09**, không migration. `thiet-ke-va-khuon.md` mục 16. Số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi: **chưa** |
 | K5 | **Khuôn 5 · Ánh sáng tụ**: nền tối, quầng sáng ở nút Google, chấm nhoè theo khoảng cách | V | — | **Xong 23/09** |
 | A34 | **Ba khuôn có tranh** (Hero · Chia đôi · Nhập vai) | V | — | Chờ ảnh của Tài, bản kê ở `anh-can-cho-ao-khoac.md` |
 | A35 | **Lớp trang trí có ràng buộc** cho khuôn 4 — kéo thả trong vùng an toàn loại trừ dải CTA, toạ độ theo phần trăm | L | Canva | Bản đầy đủ kiểu bảng trắng **không làm**; xem `thiet-ke-va-khuon.md` mục 12 |

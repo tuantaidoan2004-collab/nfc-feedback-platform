@@ -3,14 +3,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import { SERVICE_LABELS } from '@/lib/publishing/policy';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
-import { STEM_BACKGROUND } from '@/lib/publishing/config';
+import { STEM_BACKGROUND, isTemplateKey } from '@/lib/publishing/config';
+import { TEMPLATE_NAMES, type TemplateRelease } from '@/lib/publishing/versions';
 import styles from './owner-app.module.css';
 
 /**
  * Design & Link editor (lát D). Works on the saved draft: Save keeps it, Preview opens the saved draft in a new tab
  * exactly as it would publish, Publish makes it the live page. Media are https links until per-shop uploads exist.
  */
-type State = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean };
+type State = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
+  template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[] } };
 const ICONS: [LinkIcon, string][] = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['zalo', 'Zalo'], ['phone', 'Gọi điện'], ['booking', 'Đặt lịch'], ['link', 'Liên kết']];
 const PLANES: [FeedbackButton['icon'], string][] = [['plane', 'Máy bay giấy'], ['chat', 'Bong bóng chat'], ['mail', 'Phong bì']];
 const ERRORS: Record<string, string> = {
@@ -19,6 +21,7 @@ const ERRORS: Record<string, string> = {
   SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện (cần khấc 2 hoặc 3).',
   IMPERSONATION_SCOPE: 'Phiên này chỉ để xem. Mở phiên "Sửa giao diện" để chỉnh.',
   SHOP_SUSPENDED: 'Shop đang bị tạm khoá nên chưa phát hành được.',
+  INVALID_TEMPLATE_VERSION: 'Bản khuôn này không còn. Đã tải lại danh sách bản.',
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
   POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
@@ -154,6 +157,20 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
     finally { setBusy(false); }
   };
 
+  /** Moves the draft to another version of its template; the guest page changes only on Publish (versions.ts). */
+  const switchVersion = async (version: number) => {
+    setBusy(true); setNotice('');
+    try {
+      const revision = await saved();
+      if (revision === null) return;
+      const result = await send('POST', { action: 'version', expectedRevision: revision, version });
+      if (!result) { await load(); return; }
+      await load();
+      setNotice(`Bản nháp giờ dùng khuôn bản ${version}. Bấm Xem trước để thử; khách chỉ thấy sau khi Phát hành.`);
+    } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
+    finally { setBusy(false); }
+  };
+
   if (!config || !state) return <section className={styles.panel} data-design-editor><h2>Thiết kế & Link</h2><p className={styles.hint}>{notice || 'Đang tải…'}</p></section>;
   const b = config.background, button = config.feedbackButton!;
   const setLink = (index: number, patch: Partial<PageConfig['links'][number]>) =>
@@ -173,6 +190,21 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
       </div>
       <p role="status" className={styles.notice} data-design-notice>{notice}</p>
     </div>
+
+    <fieldset className={styles.panel} data-template-panel><legend>Khuôn</legend>
+      {/* A template version is frozen: the live page keeps its version until the shop chooses another and publishes. */}
+      <p className={styles.hint} data-template-state>{isTemplateKey(state.template.key) ? TEMPLATE_NAMES[state.template.key] : state.template.key} ·
+        bản nháp dùng <strong>bản {state.template.draft}</strong>{state.template.live === null ? '.'
+          : state.template.live === state.template.draft ? ', trang khách cũng đang chạy bản này.'
+          : `; trang khách vẫn chạy bản ${state.template.live} cho tới khi bạn Phát hành.`}</p>
+      <ol className={styles.linkList}>{[...state.template.versions].reverse().map((release, index) =>
+        <li key={release.version} data-template-version-row={release.version}>
+          <p><strong>Bản {release.version}</strong>{index === 0 ? ' · mới nhất' : ''} · {release.date.split('-').reverse().join('/')}<br />{release.notes}</p>
+          {release.version === state.template.draft
+            ? <small>Bản nháp đang dùng</small>
+            : <button type="button" disabled={busy} onClick={() => void switchVersion(release.version)}>Dùng bản {release.version}</button>}
+        </li>)}</ol>
+    </fieldset>
 
     <fieldset className={styles.panel}><legend>Thông tin</legend><div className={styles.grid2}>
       <label>Tên hiển thị<input value={config.name} maxLength={100} onChange={e => change({ name: e.target.value })} /></label>

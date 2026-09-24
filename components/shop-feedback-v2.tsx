@@ -9,6 +9,13 @@ import { burstConfetti } from './confetti';
 import { FACES } from '@/lib/faces';
 import './guest-page.css';
 import './skin.css';
+// Each template version's frozen look (versions.ts). After skin.css, so a version's tokens override the defaults.
+import './skins/standard.v1.css';
+import './skins/minimal.v1.css';
+import './skins/glass.v1.css';
+import './skins/deco.v1.css';
+import './skins/spotlight.v1.css';
+import './skins/big-button.v1.css';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
@@ -20,7 +27,7 @@ import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
  * the same for every visitor because no rating is asked before it. Private feedback lives behind a floating button
  * and opens a spotlight card with its own stars; the stars and the text are saved only when the customer presses Send.
  */
-type Props = { render?: RenderBinding; pageConfig?: PageConfig; template?: string; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
+type Props = { render?: RenderBinding; pageConfig?: PageConfig; template?: string; templateVersion?: number; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
 const messages = {
   vi: {
     loading: 'Đang kết nối…', ready: 'Chọn sao, viết góp ý, hoặc cả hai.',
@@ -530,7 +537,7 @@ export default function ShopFeedbackV2(shop: Props) {
     {state?.opens.filter(entry => entry.result?.kind === 'pending' && !entry.running).map((entry, index) => <button type="button" key={entry.event.loadKey} className="guest-send" onClick={() => { setValidation(null); void client.retryOpen(entry.event.loadKey); }}>{m.retryOpen}{index > 0 ? ` (${index + 1})` : ''}</button>)}
   </>;
 
-  return <main className="guest" lang={lang} data-template={shop.template} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}
+  return <main className="guest" lang={lang} data-template={shop.template} data-template-version={shop.template ? shop.templateVersion ?? 1 : undefined} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}
     ref={page} data-leaving={leaving ? '' : undefined} data-button={orb ? 'orb' : undefined}
     style={{ ...sceneTokens(config.background), ...(leaving ? { '--leave-x': `${leaving.x}px`, '--leave-y': `${leaving.y}px` } : {}) } as CSSProperties}>
     <Background config={config} reduced={reduced} scene={glass} />
