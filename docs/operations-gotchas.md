@@ -334,3 +334,7 @@ không thò qua mép phải" rồi commit mà **không chạy lại** bộ publi
 Không có gì lên `main`, nhưng đúng là thứ tự sai. Và câu kiểm đó lộ một lỗi thiết kế thật: thẻ xoay quanh mép trên thì
 góc dưới thò ra theo **chiều cao** thẻ — shop nhiều link hơn sẽ thò nhiều hơn. Kiểm ở trường hợp xấu nhất (6 link),
 không ở trường hợp mẫu.
+
+**Hiệu ứng theo cuộn đặt quãng cố định thì trang ngắn không bao giờ chạy hết.** Khuôn 1 đặt `animation-range: 0 480px`,
+nhưng trang ngắn chỉ cuộn được ~128px (quãng cuộn dư của A1): nền dừng ở 25% hiệu ứng. Test cuộn tới 480px bắt được vì
+`scrollTo` bị chặn ở đáy. Dùng toàn quãng cuộn (`scroll(root)` không `animation-range`) để đáy trang luôn là 100%.

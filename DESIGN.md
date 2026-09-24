@@ -234,7 +234,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 
 | # | id | Tên | Cấu hình hiện có |
 |---|---|---|---|
-| 1 | `standard` | Bản gốc | như trước A33 (nền video, nhân bản từ shop khuôn) |
+| 1 | `standard` | Bản gốc | nền video, nhân bản từ shop khuôn — **có diện mạo** (thẻ trôi), xem dưới |
 | 2 | `minimal` | Tối giản | `full-bleed`, nền đặc `#140F22` — **có diện mạo**, xem dưới |
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
 | 4 | `deco` | Thẻ trang trí | `full-bleed`, nền đặc `#1A1326` — **có diện mạo** (chồng thẻ), xem dưới |
@@ -258,6 +258,14 @@ Chỉ lớp trang trí nhoè, chữ không bao giờ. Lớp trang trí là pseud
 nút DOM. Tâm vũng sáng ước ở ~180px dưới mép thân trang; tên quán hai dòng thì lệch vài chục px — ánh sáng mềm nên
 chấp nhận. `system-ui`, **0 KB**. Bốn sàn: (1) nút trong màn đầu · (2) test `skin.spec.ts` + đo thật viên link và ô
 nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "khuôn 5".
+
+**Khuôn 1 · `standard` · Bản gốc — thẻ trôi** (24/09, Tài chốt ý 1 + 2; bố cục ảnh "Hero Bold") — giữ **màu** bản gốc
+(giấy sáng, xanh rừng), đổi **bố cục**: nền (video của shop) đứng yên, chỉ thẻ cuộn. Mép trên thẻ **mờ dần** từ trong
+suốt tới giấy đặc, trên một dải làm nhoè nền — cuộn lên thì thẻ che dần nền không có đường cắt. Chữ luôn bắt đầu dưới
+dải mờ (test giữ). Nền **thở** theo cuộn: phóng 1 → 1,08 và tối 0 → 35% trên toàn quãng cuộn (scroll-driven animation,
+chỉ `transform`/`opacity`; trình duyệt chưa có thì nền đứng yên). Link lưới ô như khuôn 2. **Khuôn 1 là khuôn mọi shop
+hiện có đang dùng** (production `urr6ud`, ba shop preview) — đẩy `main` là chúng đổi diện mạo. Ý 3 (tự lấy màu từ ảnh
+nền để thẻ và nền cùng tông) đi với lát cửa duyệt ảnh.
 
 **Khuôn 2 · `minimal` · Tối giản** (24/09, theo ảnh "Minimal Dark Card" Tài gửi) — ngành nào cũng hợp. Một thẻ tối
 trên nền tím than, **quầng tím mờ quanh thẻ** (lớp `::before` làm nhoè một lần — filter tĩnh, không backdrop-filter, nên

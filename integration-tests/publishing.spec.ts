@@ -592,3 +592,41 @@ test('khuôn 2: a dark card with a glow around it, and links laid out as even ti
     for (const link of all.slice(0, n)) await expect(page.getByRole('link', { name: link.label.vi, exact: true })).toHaveCount(1);
   }
 });
+
+// Khuôn 1 · Bản gốc, thẻ trôi (Tài chốt 24/09, ý 1 + 2): the background stays put, only the card scrolls; the card's top
+// edge fades from clear to paper over a blurred band, and the background eases in and darkens as the page scrolls.
+test('khuôn 1: a floating card whose top fades into the background, text only on solid paper, and a background that breathes', async ({ page, fixture: f }) => {
+  await templateShop(f, 'standard', 'one-std', { links: [
+    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
+    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
+    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' }] });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/one-std'); await loaded(page);
+  await expect(page.locator('main')).toHaveAttribute('data-template', 'standard');
+  await expect(page.locator('[data-google]')).toBeInViewport();
+  const card = await page.evaluate(() => {
+    const body = document.querySelector('.guest-body')!, box = body.getBoundingClientRect(), h1 = document.querySelector('.guest h1')!.getBoundingClientRect();
+    const paper = getComputedStyle(body, '::after'), band = getComputedStyle(body, '::before');
+    return { mask: paper.maskImage || paper.getPropertyValue('-webkit-mask-image'), blur: band.backdropFilter || band.getPropertyValue('-webkit-backdrop-filter'),
+      textStartsAt: h1.top - box.top, sides: [box.left, window.innerWidth - box.right], bg: getComputedStyle(document.querySelector('.guest-bg')!).position };
+  });
+  expect(card.mask).toContain('gradient'); expect(card.blur).toContain('blur');
+  // The card floats: margins on both sides, and the background never scrolls.
+  expect(Math.min(...card.sides)).toBeGreaterThanOrEqual(10); expect(card.bg).toBe('fixed');
+  // Text begins below the fade, so it never sits on half-clear paper over a moving background.
+  const fadeEnd = await page.locator('.guest-body').evaluate(body => { const probe = document.createElement('div');
+    probe.style.height = 'var(--fade)'; body.appendChild(probe); const h = probe.getBoundingClientRect().height; probe.remove(); return h; });
+  expect(fadeEnd).toBeGreaterThan(40); expect(card.textStartsAt).toBeGreaterThanOrEqual(fadeEnd);
+  // Links are three even tiles in one row.
+  const tiles = await page.locator('.guest-links a').evaluateAll(links => links.map(link => { const b = link.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.width)]; }));
+  expect(new Set(tiles.map(([top]) => top)).size).toBe(1); expect(Math.max(...tiles.map(([, w]) => w)) - Math.min(...tiles.map(([, w]) => w))).toBeLessThanOrEqual(1);
+  // Idea 2, where the browser has scroll-driven animations: the background grows and dims as the page scrolls.
+  if (await page.evaluate(() => CSS.supports('animation-timeline: scroll()'))) {
+    const look = () => page.evaluate(() => { const bg = document.querySelector('.guest-bg')!;
+      return [new DOMMatrix(getComputedStyle(bg).transform).a, Number(getComputedStyle(bg, '::after').opacity)]; });
+    expect(await look()).toEqual([1, 0]);
+    // Measured over the page's whole scroll, so even a short page reaches the full effect at its foot.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(async () => (await look()).map(n => Math.round(n * 100) / 100)).toEqual([1.08, 0.35]);
+  }
+});
