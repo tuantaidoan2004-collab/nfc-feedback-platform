@@ -216,7 +216,7 @@ jsonb`. Quyết khi làm lát đó.
 | 3 | Kính lỏng kiểu Apple | CSS đạt ~70% cảm giác; **bắt buộc có bản rút gọn cho Android rẻ** |
 | 4 | Thẻ + lớp trang trí | **bản có ràng buộc**, không phải bảng trắng Canva đầy đủ |
 | 5 | Hữu hình — ánh sáng tụ vào ô Google, đồ hoạ nhoè dần khi ra xa | hợp luật vì nó làm CTA nổi hơn |
-| 6 | Một nút Google khổng lồ giữa trang, hiệu ứng ấn, chuyển cảnh khi rời | **gói cho thuê rẻ nhất** — tiện, ít chức năng |
+| 6 | Một nút Google khổng lồ giữa trang, hiệu ứng ấn, chuyển cảnh khi rời | **gói cho thuê rẻ nhất** — tiện, ít chức năng. **24/09 Tài chốt lại:** một hạt ngọc G bốn màu, chữ chạy vòng quanh, nền trắng sữa, vệt sáng gương, ánh sáng theo độ nghiêng máy — `DESIGN.md` mục 9 |
 
 **Khuôn là bộ xương, không gắn tài khoản nào (Tài, 23/09, lúc giao A33).** Sáu khuôn chỉ là sáu hàng
 `template_versions` với nội dung giữ chỗ (`YOUR SHOP`, link Google chung, không link, không logo, không ảnh). Không

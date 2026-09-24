@@ -114,24 +114,34 @@
 }
 
 /* =====================================================================
-   4 · KHUÔN 6 · NÚT LỚN (gói rẻ nhất). Một nút Google khổng lồ giữa màn hình, nền ấm, thẻ trắng. Chỉ đặt token.
-   Poster thành một dải mỏng để nút đứng giữa màn hình 390×844; nó vẫn là poster của quán, không bị giấu.
+   4 · KHUÔN 6 · NÚT LỚN (gói rẻ nhất; Tài làm lại 24/09). Trắng sữa và một nút Google duy nhất: hạt ngọc tròn phồng
+   chứa chữ G, dòng "ĐÁNH GIÁ TRÊN GOOGLE" chạy vòng quanh (hình dạng nút ở mục 10 — `data-button="orb"`, quyết định
+   của nền tảng, không phải của khuôn). Ô poster trống thì ẩn; shop có poster thì poster vẫn hiện.
    ===================================================================== */
 .guest[data-template="big-button"] {
-  --c-paper: #ffffff;
-  --c-ink: #16181d;
-  --c-ink-2: #16181d;
-  --c-muted: #5a606b;
-  --c-line: #e4e1da;
-  --c-brand: #1e2a44;
-  --c-on-brand: #f1f3f7;
+  --c-paper: #f6f3ee;
+  --c-ink: #2b2620;
+  --c-ink-2: #1f1b16;
+  --c-muted: #6b6258;
+  --c-line: #e6dfd4;
+  --c-brand: #2b2620;
+  --c-on-brand: #ffffff;
   --c-accent: #e8a33d;
-  --c-h1: clamp(24px, 6.4vw, 30px);
+  --c-h1: clamp(22px, 6vw, 28px);
+  --c-h1-track: .01em;
   --c-radius: 32px;
-  --c-btn-radius: 30px;
   --c-btn-h: 112px;
-  --c-logo: 64px;
-  --c-poster: 3 / 1;
+  --c-logo: 60px;
+}
+.guest[data-template="big-button"] .guest-poster-empty { display: none; }
+.guest[data-template="big-button"] .guest-logo { margin: 28px auto 0; }
+/* Trang tràn viền mặc định viết chữ trắng lên ảnh nền; trên trắng sữa thì chữ phải tối. */
+.guest[data-template="big-button"] .guest-language { color: var(--c-muted); }
+.guest[data-template="big-button"] .guest-language select { border-color: var(--c-line); background: #ffffff99; }
+/* Trắng sữa không phẳng: một vùng sáng rất nhẹ ở giữa trên, như ánh đèn phòng trên mặt giấy. */
+.guest[data-template="big-button"] .guest-bg::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(90% 60% at 50% 30%, #ffffffb3, #ffffff00 70%);
 }
 
 /* =====================================================================
@@ -444,5 +454,53 @@
 }
 @media (min-width: 720px) {
   .guest[data-template="standard"] .guest-body { margin-bottom: 24px; }
+}
+
+/* =====================================================================
+   10 · NÚT GOOGLE DẠNG HẠT NGỌC — `data-button="orb"` (BUTTON_FORMS, khuôn 6; Tài chốt 24/09)
+   Một hạt tròn phồng như nổi lên khỏi mặt giấy (sáng ở đỉnh, bóng mềm ở chân, một quầng ấm quanh chân), chứa chữ G
+   bốn màu của Google — không đổi màu logo. Quanh hạt là chính dòng chữ của nút, in hoa, giãn rộng. Mặt hạt như gương:
+   một vệt sáng lướt ngang, và trên Android ánh sáng trên mặt hạt theo độ nghiêng của máy (--tilt-x --tilt-y).
+   Nút vẫn là nút: chữ gốc nằm trong nó (chỉ ẩn khỏi mắt), không có hiệu ứng làm nó xuất hiện muộn, và test giữ
+   nó trong màn hình đầu.
+   ===================================================================== */
+.guest[data-button="orb"] .google-button {
+  flex-direction: column; width: auto; min-height: 0; margin: 6px auto 4px; padding: 0;
+  border-radius: 50%; background: none; box-shadow: none; text-shadow: none;
+}
+.guest[data-button="orb"] .google-button::after { display: none; }
+.guest[data-button="orb"] .google-orb { position: relative; display: grid; place-items: center; width: 244px; height: 244px; }
+.guest[data-button="orb"] .google-ring {
+  position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
+  font: 600 12px/1 var(--c-font); letter-spacing: .3em; fill: var(--c-muted);
+}
+.guest[data-button="orb"] .google-orb-face {
+  position: relative; display: grid; place-items: center; width: 172px; height: 172px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at calc(38% + var(--tilt-x, 0%)) calc(28% + var(--tilt-y, 0%)), #ffffff 0%, #fcfaf6 28%, #efe9e0 68%, #e2d9cc 100%);
+  box-shadow:
+    inset 0 10px 18px #ffffff, inset 0 -14px 28px #8a735230,
+    0 2px 3px #6b54352e, 0 30px 44px -18px #6b543580,
+    0 0 0 12px #f9ece6aa, 0 0 34px 16px #f3d6cb66;
+  transition: background-position .2s;
+}
+/* Gương: một vệt sáng lướt qua mặt hạt, rồi nghỉ. Chỉ transform — card đồ hoạ tự lo. */
+.guest[data-button="orb"] .google-orb-face::after {
+  content: ""; position: absolute; inset: -40%; pointer-events: none;
+  background: linear-gradient(105deg, #ffffff00 42%, #ffffffcc 50%, #ffffff00 58%);
+  transform: translateX(-70%); animation: orb-sheen 6s ease-in-out 1.5s infinite;
+}
+@keyframes orb-sheen { 0%, 60% { transform: translateX(-70%); } 85%, 100% { transform: translateX(70%); } }
+.guest[data-button="orb"] .google-g {
+  width: 88px; height: 88px;
+  background: conic-gradient(from 0deg, #ff4b3a 0deg, #ff4f73 40deg, #3b7ff5 78deg, #3b82f6 128deg, #16b364 172deg, #12b35e 212deg,
+    #ffc61a 252deg, #ffb31a 296deg, #ff4b3a 340deg);
+  -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat;
+}
+/* Chữ gốc của nút: tên của link cho trình đọc màn hình, và là chữ mọi khách được mời — chỉ giấu khỏi mắt. */
+.guest[data-button="orb"] .google-label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guest[data-button="orb"] .google-orb-face::after { animation: none; opacity: 0; }
 }
 

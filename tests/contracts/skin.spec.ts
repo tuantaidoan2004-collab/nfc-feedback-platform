@@ -35,7 +35,14 @@ test('a template block names one of the six templates', () => {
 test('no template touches the private-feedback button or the Google invitation, and nothing animates the invitation', () => {
   const protectedParts = /guest-float|guest-plane|guest-hint|google-/;
   for (const rule of all.filter(rule => /data-template/.test(rule.selector))) expect(rule.selector, rule.file).not.toMatch(protectedParts);
-  for (const rule of all.filter(rule => /google-/.test(rule.selector))) expect(rule.body, `${rule.file}: ${rule.selector}`).not.toMatch(/animation\s*:/);
+  // What carries meaning -- the invitation, the button, its words, its mark -- never animates at all. Decoration inside
+  // the button (khuôn 6's orb, ring and G) may only loop forever: an endless shimmer, never an entrance that arrives late.
+  for (const rule of all.filter(rule => /google-/.test(rule.selector)))
+    for (const selector of rule.selector.split(',')) {
+      const last = selector.trim().split(/\s+/).pop()!;
+      if (/\.google-(orb|orb-face|ring|g)(?![\w-])/.test(last)) { if (/animation\s*:/.test(rule.body)) expect(rule.body, `${rule.file}: ${selector}`).toMatch(/animation\s*:\s*none|animation\s*:[^;]*infinite/); }
+      else expect(rule.body, `${rule.file}: ${selector}`).not.toMatch(/animation\s*:/);
+    }
 });
 
 // Floor 2 (DESIGN.md mục 2), computed from the tokens for the default skin and for every template that sets colours.

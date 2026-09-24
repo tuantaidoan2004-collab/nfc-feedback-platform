@@ -345,3 +345,9 @@ với `column "is_template" does not exist`. Ba fixture repository cũng thiếu
 chúng không có ảnh https nên cửa dừng trước khi chạm database — một lỗi ngủ. Production có đủ 001–022 nên không dính.
 Luật: khi mã mới đọc một bảng/cột, `grep` mọi danh sách migration (fixture **và** `run-local.mjs`) để chắc nơi nào
 chạy mã đó cũng có đủ migration nó cần — không chỉ migration mới nhất. Lỗi của Claude, lát cửa duyệt ảnh.
+
+**Nhận ra iPhone bằng `DeviceOrientationEvent.requestPermission` là sai.** Khuôn 6 định chỉ nghe cảm biến nghiêng khi
+hàm đó *không* có (vì iPhone có nó và bắt xin quyền). Test đỏ: Chrome máy bàn bây giờ **cũng có** hàm đó, nên phép dò
+tắt luôn cả Chrome Android. Đúng là: chỉ lắng nghe sự kiện, **không bao giờ gọi** `requestPermission`. Máy nào không cho
+thì không có sự kiện — không cần đoán máy gì. Luật chung: dò **khả năng** bằng hành vi, đừng dò **loại máy** bằng một
+hàm có mặt hay không.

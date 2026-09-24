@@ -204,7 +204,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–023** (Tài báo 24/09).
-  `main` có cửa duyệt ảnh (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+  `main` có khuôn 6 hạt ngọc (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
   Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
@@ -217,7 +217,25 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — cửa duyệt ảnh, migration 023 (24/09)
+### Xong gần nhất — khuôn 6 làm lại: nút hạt ngọc (24/09)
+
+Tài chốt: một nút G bốn màu, chữ chạy vòng quanh, nền trắng sữa, vệt sáng gương, con quay hồi chuyển. Chi tiết
+`DESIGN.md` mục 9. **Không migration.** Kèm hai test hàng rào: góp ý riêng gửi được ở **cả sáu khuôn**, và khách tải
+lại trang sau khi shop phát hành lại vẫn gửi được.
+
+**Lỗi Tài báo — thẻ góp ý mở được nhưng không bấm được gì, "Chưa kết nối được" (shop Googy, Chrome iPhone):** chưa tái
+hiện. Đã loại: bố cục (WebKit + Chrome giả lập iPhone chạm trúng nút, mở thẻ, chọn sao, gõ chữ trên production
+`/urr6ud`), riêng từng khuôn (test sáu khuôn), phát hành lại rồi tải lại (test). **Nghi phạm còn lại:** link "Xem trước"
+đã quá 15 phút — trang vẫn hiện nhưng mọi thao tác bị từ chối với đúng câu đó. Chờ Tài thử trên trang thật.
+
+**Vercel preview đang dựng bình thường** (ảnh tab Deployments Tài gửi 24/09: mỗi commit trên nhánh có bản Preview
+"Ready", link nhánh `quitesensational-review-bio-git-feat-local-app-ea8fd5-mount-pro.vercel.app`). Vấn đề "preview kẹt ở
+build 6722" ghi ngày 23/09 **không còn**; không rõ nó tự hết lúc nào.
+
+**Số phiên bản (Tài giao Claude quyết, 24/09):** nền tảng `năm.tháng.lần` (vd `26.9.3`); khuôn là số nguyên riêng mỗi
+khuôn, ghim theo bản phát hành của shop, shop tự chọn cập nhật. Sửa lỗi / bảo mật / luật Google thì không cho chọn.
+
+### Trước đó — cửa duyệt ảnh, migration 023 (24/09)
 
 Mọi ảnh/video shop tải lên chờ admin duyệt ở `/gov` trước khi phát hành được; trang đang chạy vẫn chạy. Tài báo
 24/09, nguyên văn: *"đã chạy xong cả hai"* (023 trên Neon production và preview) — Claude không có credential nên

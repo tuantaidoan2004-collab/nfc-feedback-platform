@@ -239,17 +239,19 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
 | 4 | `deco` | Thẻ trang trí | `full-bleed`, nền đặc `#1A1326` — **có diện mạo** (chồng thẻ), xem dưới |
 | 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` — **có diện mạo**, xem dưới |
-| 6 | `big-button` | Nút lớn | `card`, nền đặc `#ECE8E1` — **có diện mạo**, xem dưới |
+| 6 | `big-button` | Nút lớn | `full-bleed`, nền trắng sữa `#F6F3EE` — **nút hạt ngọc** (24/09), xem dưới |
 
 Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng khuôn có diện mạo.
 
-**Khuôn 6 · `big-button` · Nút lớn** (23/09) — gói cho thuê rẻ nhất, ngành nào cũng dùng được. Thẻ trắng trên nền
-ấm, nút Google xanh than cao **112px** đứng giữa màn hình 390×844, poster thu thành dải 3:1. Chỉ đặt token
-(`skin.css` mục 4). Chạm nút: lớp sương màu giấy loang từ chỗ chạm trong **300ms**, rồi **cùng tab** sang Google;
-giảm chuyển động hoặc chạm có phím bổ trợ thì đi ngay, không sương. Quay lại bằng nút Back thì sương đã tan.
-Bộ chữ `system-ui`, **0 KB**. Bốn sàn: (1) nút trọn màn đầu, tâm nằm ở một phần ba giữa · (2) tương phản qua test
-`skin.spec.ts`, kể cả chữ trắng trên `--c-brand` · (3) nút cao hơn nút góp ý · (4) 0 KB tài nguyên. Test:
-`publishing.spec.ts`, ba ca "khuôn 6".
+**Khuôn 6 · `big-button` · Nút lớn** (làm lại 24/09 theo Tài) — gói rẻ nhất: trắng sữa và **một nút Google hạt ngọc**.
+Hạt tròn phồng như nổi lên khỏi mặt giấy (sáng đỉnh, bóng mềm ở chân, quầng ấm quanh chân), chứa chữ **G bốn màu của
+Google, không đổi màu** (vẽ bằng dải màu xoay tròn cắt theo hình chữ G). Quanh hạt là **chính chữ của nút**, in hoa,
+giãn rộng; chữ gốc vẫn nằm trong nút (chỉ ẩn khỏi mắt) nên trình đọc màn hình nghe đúng câu mọi khuôn khác nói. Mặt
+hạt như gương: một vệt sáng lướt ngang; trên Android ánh sáng theo độ nghiêng của máy — trang chỉ **lắng nghe**, không
+bao giờ xin quyền cảm biến, nên iPhone (không có quyền thì không có sự kiện) giữ vệt sáng tự lướt. Chạm nút: lớp sương
+300ms rồi cùng tab sang Google (như trước). Hình dạng nút là **quyết định của nền tảng** (`BUTTON_FORMS`, `data-button=
+"orb"`), không phải luật của khuôn, nên hàng rào "khuôn không đụng nút Google" vẫn đứng. Chrome và WebKit ra y hệt;
+Firefox bỏ qua `textLength` nên chữ vòng dồn về một phía. 0 KB tài nguyên.
 
 **Khuôn 5 · `spotlight` · Ánh sáng tụ** (23/09) — quán tối, bar, cà phê đêm. Nền than, chữ kem; nút Google màu hổ
 phách với **quầng sáng của chính nó** (`--c-btn-shadow`), nên ánh sáng đi theo nút dù tên quán dài bao nhiêu. Quanh

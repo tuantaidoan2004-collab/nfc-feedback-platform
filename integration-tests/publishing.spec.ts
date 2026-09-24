@@ -416,6 +416,14 @@ test('khuôn 6: one giant Google button in the middle of the phone, the same in 
   expect(await google.getAttribute('target')).toBeNull();
   const plane = (await page.locator('#private-feedback').boundingBox())!;
   expect(box.height).toBeGreaterThan(plane.height);
+  // Tài, 24/09: the button is one raised orb holding Google's "G", its words running round it, and the words stay the
+  // link's name -- a visitor with a screen reader hears exactly what every other template says.
+  await expect(page.locator('main')).toHaveAttribute('data-button', 'orb');
+  await expect(page.getByRole('link', { name: 'Đánh giá trên Google', exact: true })).toHaveCount(1);
+  await expect(google.locator('.google-ring textPath')).toContainText('ĐÁNH GIÁ TRÊN GOOGLE');
+  const face = (await google.locator('.google-orb-face').boundingBox())!;
+  expect(Math.round(face.width)).toBe(Math.round(face.height));
+  expect(await google.locator('.google-g').evaluate(g => getComputedStyle(g).maskImage || getComputedStyle(g).getPropertyValue('-webkit-mask-image'))).toContain('svg');
   await page.goto('/one'); await loaded(page);
   await expect(page.locator('[data-google]')).toHaveAttribute('target', '_blank');
 });
@@ -644,4 +652,58 @@ test('an uploaded picture that is still waiting for review cannot be published; 
   await page.goto('/one'); await loaded(page);
   await expect(page.locator(`img[src="${poster}"]`)).toHaveCount(0);
   await expect(page.locator('[data-google]')).toBeVisible();
+});
+
+// Tài báo 24/09: trên shop khuôn 6 thật, thẻ góp ý mở được nhưng không bấm được gì, kèm "Chưa kết nối được".
+// The private card has to work under every template: open it, pick a star, write, send, see the thanks.
+test('private feedback works end to end under every one of the six templates', async ({ page, fixture: f }) => {
+  const { TEMPLATE_KEYS } = await import('../lib/publishing/config');
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const key of TEMPLATE_KEYS) {
+    const slug = `pf-${key}`;
+    await templateShop(f, key, slug);
+    await page.goto(`/${slug}`); await loaded(page);
+    await expect(page.locator('.guest-connection'), key).toHaveCount(0);
+    await openCard(page);
+    await star(page, 4).click();
+    await page.locator('#message').fill(`Góp ý thử ở khuôn ${key}`);
+    await sendButton(page).click();
+    await expect(page.locator('[data-thanks]'), key).toBeVisible();
+  }
+});
+
+// Tài báo 24/09 (shop Googy, Chrome trên iPhone): sau khi shop phát hành lại, khách tải lại trang trong vòng một lượt ghé
+// thì "Chưa kết nối được" và không bấm được gì trong thẻ góp ý. The browser resumes its visit, which was opened under the
+// previous release; a republish must not lock a guest out of the page they are holding.
+test('a guest who reloads after the shop republishes can still send feedback', async ({ page, fixture: f }) => {
+  await page.goto('/one'); await loaded(page);
+  await openCard(page); await star(page, 5).click(); await page.keyboard.press('Escape');
+  await release(f, b2({ name: 'Quán Sau Khi Sửa' }), 2);
+  await page.reload(); await loaded(page);
+  await expect(page.locator('.guest-connection')).toHaveCount(0);
+  await openCard(page); await star(page, 3).click();
+  await page.locator('#message').fill('Vẫn gửi được sau khi quán sửa trang');
+  await sendButton(page).click();
+  await expect(page.locator('[data-thanks]')).toBeVisible();
+});
+
+// Khuôn 6: on Android tilting the phone moves the light on the orb; iPhone asks permission for the sensor, so there the
+// page never listens -- a guest page never asks a visitor for anything.
+test('khuôn 6: the light on the orb follows the tilt of the phone, and the visitor is never asked for the sensor', async ({ page, fixture: f }) => {
+  await bigButtonShop(f);
+  // Record any attempt to ask for the motion sensor: a guest page must never make one.
+  await page.addInitScript(() => { (window as unknown as { asked: number }).asked = 0;
+    (window.DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission = () => { (window as unknown as { asked: number }).asked++; return Promise.resolve('granted'); }; });
+  await page.goto('/six'); await loaded(page);
+  const tilt = () => page.evaluate(() => [document.querySelector('main')!.style.getPropertyValue('--tilt-x'), document.querySelector('main')!.style.getPropertyValue('--tilt-y')]);
+  expect(await tilt()).toEqual(['', '']);
+  await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 75, gamma: -30 })));
+  await expect.poll(tilt).toEqual(['-14.0%', '14.0%']);
+  await page.locator('[data-google]').hover();
+  expect(await page.evaluate(() => (window as unknown as { asked: number }).asked)).toBe(0);
+  // Reduced motion: the light stays where it is.
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await loaded(page);
+  await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 75, gamma: -30 })));
+  await page.waitForTimeout(200);
+  expect(await tilt()).toEqual(['', '']);
 });

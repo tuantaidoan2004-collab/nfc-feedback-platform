@@ -112,8 +112,8 @@ const SKELETONS = new Map<TemplateKey, () => PageConfig>([
   // Khuôn 4 is a stack of cards on a dark ground: the page itself is full-bleed and the content is the tilted card.
   ['deco', () => skeleton('full-bleed', { kind: 'solid', color: '#1A1326' })],
   ['spotlight', () => skeleton('full-bleed', { kind: 'solid', color: '#0E0F13' })],
-  // Khuôn 6 is a card on a warm ground: a white full-bleed page left the language picker and the poster frame white on white.
-  ['big-button', () => skeleton('card', { kind: 'solid', color: '#ECE8E1' })],
+  // Khuôn 6 (Tài, 24/09): milk-white and nothing else, so the one big Google orb is the page.
+  ['big-button', () => skeleton('full-bleed', { kind: 'solid', color: '#F6F3EE' })],
 ]);
 /**
  * Templates that play a leaving transition before the browser goes to Google (thiet-ke-va-khuon.md mục 12, ranh giới 2:
@@ -128,6 +128,12 @@ export const LEAVE_TRANSITION_MS = new Map<string, number>([['big-button', 300]]
  * (docs/thiet-ke-va-khuon.md mục 15).
  */
 export const GLASS_TEMPLATES = new Set<string>(['glass']);
+/**
+ * The shape of the Google button, where a template needs one the tokens cannot draw (Tài, 24/09: khuôn 6 is one big
+ * Google "G" with its label running round it). A platform decision, like the leaving transition, not a template rule:
+ * the button keeps its label word for word for every visitor, stays in the first screen, and the tests hold both.
+ */
+export const BUTTON_FORMS = new Map<string, 'orb'>([['big-button', 'orb']]);
 export function templateConfig(key: TemplateKey = 'standard'): PageConfig {
   const make = SKELETONS.get(key); if (!make) throw new PublishingError('INVALID_TEMPLATE'); return make();
 }
