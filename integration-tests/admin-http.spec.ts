@@ -153,6 +153,12 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await bio.getByRole('button',{name:/Trang bio/}).click();
  await expect(bio.locator(`tr[data-landing="${slug}"]`).getByRole('link',{name:'Truy cập'})).toHaveAttribute('href',`${origin}/${slug}`);
 
+ // The editor draws what khuôn 3's version offers (lát P2): the two-colour scene and the plane, nothing else.
+ await page.locator('[data-view="design"]').click();
+ await expect(page.locator('[data-setting="background"] select option')).toHaveText(['Chuyển màu','Một màu']);
+ await expect(page.locator('[data-setting="feedbackButton"]')).toBeVisible();
+ await expect(page.locator('[data-setting="layout"], [data-setting="watermark"]')).toHaveCount(0);
+
  // Spent once: the same link is dead now that the password is set.
  await page.goto(setupUrl);
  await expect(page.getByRole('heading',{name:'Liên kết không dùng được'})).toBeVisible();

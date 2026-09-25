@@ -34,13 +34,13 @@ async function shopOn(f:F,key:string,n=1){
  return {...made,token:(await new OwnerAuth(f.db).login(`quan-${n}`,`password-of-quan-${n}`)).token};
 }
 // A second version of khuôn 6 that the code does not ship yet, so the whole path can run today.
-const WITH_V2={...TEMPLATE_RELEASES,'big-button':[...TEMPLATE_RELEASES['big-button'],{version:2,date:'2026-10-01',notes:'Bản thử'}]};
+const WITH_V2={...TEMPLATE_RELEASES,'big-button':[...TEMPLATE_RELEASES['big-button'],{version:2,date:'2026-10-01',notes:'Bản thử',settings:[]}]};
 
 test('a page stays on its template version until the owner moves the draft, previews it and publishes',async({f})=>{
  const shop=await shopOn(f,'big-button'),design=new OwnerDesign(f.db,WITH_V2),resolver=new PublishingResolver(f.db);
  expect((await resolver.live({slug:shop.slug})).templateVersion).toBe(1);
  let state=await design.read(shop.token,shop.slug);
- expect(state.template).toEqual({key:'big-button',draft:1,live:1,versions:WITH_V2['big-button']});
+ expect(state.template).toEqual({key:'big-button',draft:1,live:1,versions:WITH_V2['big-button'],settings:[]});
  // Moving the draft changes nothing a guest sees.
  const moved=await design.version(shop.token,shop.slug,{action:'version',expectedRevision:state.draft.revision,version:2});
  expect(moved.revision).toBe(state.draft.revision+1);

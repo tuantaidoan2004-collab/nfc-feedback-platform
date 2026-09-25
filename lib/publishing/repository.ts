@@ -5,6 +5,8 @@ import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
 import type { RenderContext } from './proof';
+import { TEMPLATE_RELEASES, settingsOf, type TemplateRelease } from './versions';
+import { checkSettings, convertSettings } from './settings';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
 /**
@@ -30,8 +32,17 @@ async function tx<T>(pool: PublishingDb, run: (db: PoolClient) => Promise<T>): P
   catch (e) { await db.query('ROLLBACK'); throw e; } finally { db.release(); }
 }
 /** INTERNAL boundary. Caller must supply real authorization later. No administrative HTTP routes in this slice. */
+export type TemplateReleases = Record<string, readonly TemplateRelease[] | undefined>;
 export class PublishingAdmin {
-  constructor(private pool: PublishingDb, private authorize: AuthorizePublishing) {}
+  /** `releases`: the template versions the platform ships (versions.ts); injected only by tests that need a second one. */
+  constructor(private pool: PublishingDb, private authorize: AuthorizePublishing, private releases: TemplateReleases = TEMPLATE_RELEASES) {}
+  /** A page's own settings must be fields of its template version and fit them (settings.ts, lát P2). */
+  private async checkSettings(db: PublishingDb, templateVersionId: string, config: { settings?: Record<string, string | number | boolean> }) {
+    if (!config.settings) return;
+    const tv = (await db.query('SELECT template_key,version FROM template_versions WHERE id=$1', [templateVersionId])).rows[0];
+    if (!tv) error('INVALID_TEMPLATE');
+    checkSettings(settingsOf(this.releases, tv.template_key, Number(tv.version)), config.settings);
+  }
   private async actor(action: string, shopId?: string) {
     const principal = await this.authorize({ action, shopId });
     if (!principal?.actorId?.trim()) error('PUBLISH_FORBIDDEN'); return principal.actorId;
@@ -50,6 +61,7 @@ export class PublishingAdmin {
     await this.actor('page:create', shopId); if (!UUID.test(shopId)) error('SHOP_NOT_FOUND');
     const config = validateConfig(input); assertPublishable(config);
     return tx(this.pool, async db => {
+      await this.checkSettings(db, templateId, config);
       const pageId = (await db.query(`INSERT INTO pages(id,shop_id,slug,entry_key) SELECT g,$1,$2,'direct:page:'||g FROM (SELECT gen_random_uuid() g) n
         RETURNING id`, [shopId, slug])).rows[0].id as string;
       await db.query('INSERT INTO page_drafts(shop_id,page_id,template_version_id,config) VALUES($1,$2,$3,$4)', [shopId, pageId, templateId, config]);
@@ -60,29 +72,36 @@ export class PublishingAdmin {
     // The product's Google rules are checked where a shop writes, never where a page is read: a rule added today
     // must not take a page published yesterday off the air (lát F-013).
     await this.onPage('draft:save', page); revision(expected); const config = validateConfig(input); assertPublishable(config);
-    const result = await this.pool.query('UPDATE page_drafts SET config=$4,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 AND revision=$3 RETURNING revision',
-      [page.shopId, page.pageId, expected, config]);
-    if (!result.rowCount) error('DRAFT_CONFLICT'); return Number(result.rows[0].revision);
+    return tx(this.pool, async db => {
+      const draft = (await db.query('SELECT revision,template_version_id FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [page.shopId, page.pageId])).rows[0];
+      if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
+      await this.checkSettings(db, draft.template_version_id, config);
+      await db.query('UPDATE page_drafts SET config=$3,revision=revision+1 WHERE shop_id=$1 AND page_id=$2', [page.shopId, page.pageId, config]);
+      return expected + 1;
+    });
   }
   /**
    * Moves the draft onto another version of the SAME template (versions.ts). The live page does not change: the shop
-   * previews the draft and publishes it like any other edit. `offered` lists the versions the platform ships for the
-   * draft's template; a version outside it is refused, and so is any other template. The version's row is created on
-   * first use, like the first version's row at provisioning; a racing twin lands on the unique (template_key, version).
+   * previews the draft and publishes it like any other edit. Only a version the platform ships for the draft's template
+   * is taken. The version's row is created on first use, like the first version's row at provisioning; a racing twin
+   * lands on the unique (template_key, version). The page's own settings move with it (settings.ts `convertSettings`).
    */
-  async setDraftTemplate(page: PageRef, expected: number, version: number, offered: (key: string) => readonly number[]) {
+  async setDraftTemplate(page: PageRef, expected: number, version: number) {
     await this.onPage('draft:template', page); revision(expected);
     if (!Number.isSafeInteger(version) || version < 1) error('INVALID_TEMPLATE');
     return tx(this.pool, async db => {
-      const draft = (await db.query(`SELECT d.revision,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
+      const draft = (await db.query(`SELECT d.revision,d.config,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
         WHERE d.shop_id=$1 AND d.page_id=$2 FOR UPDATE OF d`, [page.shopId, page.pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
-      if (!offered(draft.template_key).includes(version)) error('INVALID_TEMPLATE');
+      if (!(this.releases[draft.template_key] ?? []).some(release => release.version === version)) error('INVALID_TEMPLATE');
       if (Number(draft.version) === version) return { revision: expected };
       await db.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3)
         ON CONFLICT(template_key,version) DO NOTHING`, [draft.template_key, version, JSON.stringify(TEMPLATE_V1.capabilities)]);
+      const { settings: previous, ...rest } = validateConfig(draft.config);
+      const settings = convertSettings(settingsOf(this.releases, draft.template_key, version), previous);
+      const config = validateConfig(rest.schemaVersion === 2 && settings ? { ...rest, settings } : rest);
       const updated = await db.query(`UPDATE page_drafts SET template_version_id=(SELECT id FROM template_versions WHERE template_key=$3 AND version=$4),
-        revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`, [page.shopId, page.pageId, draft.template_key, version]);
+        config=$5,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`, [page.shopId, page.pageId, draft.template_key, version, config]);
       return { revision: Number(updated.rows[0].revision) };
     });
   }
@@ -97,7 +116,7 @@ export class PublishingAdmin {
       const draft = (await db.query('SELECT * FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [shopId, pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       // Checked again on the way out: a draft written before this rule existed cannot be published under it.
-      const config = validateConfig(draft.config); assertPublishable(config);
+      const config = validateConfig(draft.config); assertPublishable(config); await this.checkSettings(db, draft.template_version_id, config);
       // Every picture and video on the page must have passed review (migration 023). The page already live stays live.
       await assertMediaApproved(db, shopId, config);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,

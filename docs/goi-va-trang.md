@@ -89,7 +89,7 @@ dừng khẩn cấp, duyệt ảnh.
 | # | Lát | Migration |
 |---|---|---|
 | P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang — **xong 25/09** (mục 10) | Có, lớn (024) |
-| P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng | Có thể không |
+| P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng — **xong 25/09** (mục 11) | Không |
 | P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn | Nhỏ hoặc không |
 | P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin | Có |
 | P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản | Có |
@@ -121,3 +121,32 @@ dừng khẩn cấp, duyệt ảnh.
   còn mã cũ nào chạy.
 - **Chưa làm (P3):** giao diện danh sách trang, nhân bản, nhập dữ liệu. Hôm nay chỉ có đường trong mã
   (`PublishingAdmin.createPage`) và test.
+
+## 11. P2 đã làm (25/09) — bảng cài đặt, không migration
+
+- **Bảng nằm cùng bản khuôn** (`TemplateRelease.settings` trong `lib/publishing/versions.ts`; loại ô ở
+  `lib/publishing/settings.ts`). Hai loại: **ô có sẵn** (bố cục · nền kèm kiểu nền nhận · watermark · nút góp ý) và **ô
+  chung** khuôn tự khai (màu · thanh kéo · lựa chọn · bật/tắt), lưu ở `config.settings`.
+- **Bản 1 của sáu khuôn mở** (Claude chọn theo những gì CSS của từng khuôn thật sự dùng — Tài đổi được, chỉ là dữ liệu):
+
+  | Khuôn | Ô mở |
+  |---|---|
+  | 1 · Bản gốc | nền (một màu, chuyển màu, ảnh/video) · watermark · nút góp ý |
+  | 2 · Tối giản | nút góp ý |
+  | 3 · Kính | nền (một màu, chuyển màu — cảnh kính vẽ từ hai màu này) · nút góp ý |
+  | 4 · Chồng thẻ | nút góp ý |
+  | 5 · Ánh sáng tụ | nút góp ý |
+  | 6 · Nút lớn | không ô nào (Tài) |
+
+  Không khuôn nào mở **bố cục**: cả sáu được thiết kế cho trang tràn màn hình.
+- **Trình chỉnh chỉ vẽ ô khuôn mở**; khuôn không mở ô nào thì hiện một dòng "chỉ cần điền nội dung". Nội dung (tên, link
+  Google, poster, logo, nút link) luôn mở.
+- **Server là cửa:** đổi một ô khuôn không mở → `SETTING_LOCKED`; giá trị ô chung sai (không có trong bảng, sai kiểu,
+  ngoài khoảng, lệch bước) → `INVALID_SETTING`, cả lúc lưu lẫn lúc phát hành. Giá trị cũ có từ trước bảng thì **giữ
+  nguyên**, để trang vẫn lưu được nội dung.
+- **Đổi bản:** giá trị ô chung còn hợp thì giữ, ô mới lấy mặc định, ô không còn thì bỏ.
+- **Trang khách:** màu và số thành biến CSS `--s-<khoá>`, lựa chọn và bật/tắt thành `data-s-<khoá>` trên `main`.
+  `validateConfig` chỉ nhận khoá ngắn và giá trị an toàn (màu `#RRGGBB`, số, true/false, chữ thường-số-gạch), tối đa 16.
+- **Cách thêm một ô vào khuôn:** làm bản mới (mục 16 của `thiet-ke-va-khuon.md`), khai ô trong `settings` của bản đó, và
+  tệp CSS của bản đó đọc `var(--s-<khoá>, <mặc định>)` hoặc `[data-s-<khoá>="…"]`. Test hợp đồng bắt CSS đọc ô không khai
+  hoặc thiếu giá trị dự phòng. **Chưa khuôn nào có ô chung**; đường này mới được thử bằng bản 2 giả trong test.

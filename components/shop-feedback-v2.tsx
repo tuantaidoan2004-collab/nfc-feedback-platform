@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CS
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
 import { BUTTON_FORMS, DEFAULT_FEEDBACK_BUTTON, defaultConfig, GLASS_TEMPLATES, LEAVE_TRANSITION_MS, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
+import { settingsOnPage } from '@/lib/publishing/settings';
 import { FACES } from '@/lib/faces';
 import './guest-page.css';
 import './skin.css';
@@ -413,6 +414,8 @@ export default function ShopFeedbackV2(shop: Props) {
   const config = shop.pageConfig ?? { ...defaultConfig(shop.name),
     poster: shop.heroUrl && shop.heroKind ? { kind: shop.heroKind, url: shop.heroUrl } : null };
   const feedbackButton = config.feedbackButton ?? DEFAULT_FEEDBACK_BUTTON;
+  // The template version's own fields (settings.ts): colours and numbers as --s-*, choices and switches as data-s-*.
+  const own = settingsOnPage(config.settings);
 
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<'form' | 'thanks'>('form');
@@ -539,7 +542,8 @@ export default function ShopFeedbackV2(shop: Props) {
 
   return <main className="guest" lang={lang} data-template={shop.template} data-template-version={shop.template ? shop.templateVersion ?? 1 : undefined} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}
     ref={page} data-leaving={leaving ? '' : undefined} data-button={orb ? 'orb' : undefined}
-    style={{ ...sceneTokens(config.background), ...(leaving ? { '--leave-x': `${leaving.x}px`, '--leave-y': `${leaving.y}px` } : {}) } as CSSProperties}>
+    {...own.attributes}
+    style={{ ...sceneTokens(config.background), ...own.style, ...(leaving ? { '--leave-x': `${leaving.x}px`, '--leave-y': `${leaving.y}px` } : {}) } as CSSProperties}>
     <Background config={config} reduced={reduced} scene={glass} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>

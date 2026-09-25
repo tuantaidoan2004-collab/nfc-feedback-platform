@@ -217,7 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — P1 tách quán / trang, migration 024 (25/09)
+### Xong gần nhất — P2 bảng cài đặt theo bản khuôn (25/09)
+
+Mỗi bản khuôn khai ô chủ quán được chỉnh; trình chỉnh chỉ vẽ ô đó, server từ chối phần còn lại. Khuôn 6 không ô nào;
+bảng của sáu bản 1 ở `goi-va-trang.md` mục 11 (Claude chọn, Tài đổi được). Ô chung (màu, thanh kéo…) đã có đường đi
+đủ nhưng chưa khuôn nào dùng. **Không migration.**
+
+### Trước đó — P1 tách quán / trang, migration 024 (25/09)
 
 `shops` là quán, `pages` là trang (link, bản nháp, bản phát hành, thẻ, xem trước, nội dung). Trang cũ giữ nguyên link và
 khoá lượt ghé `direct:shop`; link vĩnh viễn (trigger). Góp ý mọi trang về một dashboard. Trình chỉnh và thẻ nhận

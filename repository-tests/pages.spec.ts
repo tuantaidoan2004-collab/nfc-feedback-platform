@@ -73,8 +73,9 @@ test('two pages of one shop: separate links, drafts, content and visits; one das
  expect((await design.read(shop.token,shop.slug)).page.slug).toBe(shop.slug);
  const vipState=await design.read(shop.token,shop.slug,'phong-vip');
  expect([vipState.page.slug,vipState.draft.config.name]).toEqual(['phong-vip','Phòng VIP']);
- await design.save(shop.token,shop.slug,{expectedRevision:vipState.draft.revision,config:{...vipState.draft.config,layout:'card'}},'phong-vip');
- expect((await design.read(shop.token,shop.slug)).draft.config.layout).toBe('full-bleed');
+ await design.save(shop.token,shop.slug,{expectedRevision:vipState.draft.revision,config:{...vipState.draft.config,name:'Phòng VIP tầng 2'}},'phong-vip');
+ expect((await design.read(shop.token,shop.slug,'phong-vip')).draft.config.name).toBe('Phòng VIP tầng 2');
+ expect((await design.read(shop.token,shop.slug)).draft.config.name).toBe('Quán 1');
  await expect(design.read(shop.token,shop.slug,'khong-co')).rejects.toMatchObject({status:404,code:'PAGE_NOT_FOUND'});
 });
 

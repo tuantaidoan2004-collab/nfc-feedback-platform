@@ -3,11 +3,12 @@ import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredent
 import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
 import { DEFAULT_FEEDBACK_BUTTON, PublishingError, isTemplateKey, validateConfig, type PageConfig } from '../publishing/config';
-import { TEMPLATE_RELEASES, type TemplateRelease } from '../publishing/versions';
+import { TEMPLATE_RELEASES, settingsOf, type TemplateRelease } from '../publishing/versions';
+import { lockedChange, type SettingField } from '../publishing/settings';
 import { r2Settings } from './media';
 import { recordActivity } from './activity';
 import { pageOf } from './pages';
-import type { PageRef } from '../publishing/repository';
+import type { PageRef, TemplateReleases } from '../publishing/repository';
 
 /**
  * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an
@@ -18,11 +19,10 @@ import type { PageRef } from '../publishing/repository';
  * Which template the page wears and on which version (versions.ts): the draft's, the live page's, and every version
  * the platform ships for it, so the editor can offer a newer one. The shop never changes template here, only version.
  */
-export type TemplateState = { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[] };
+export type TemplateState = { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] };
 export type DesignState = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
   template: TemplateState };
 /** The versions shipped per template. Injected so a test can ship a second version the code does not have yet. */
-export type TemplateReleases = Record<string, readonly TemplateRelease[] | undefined>;
 
 /** Older pages are v1; the editor always works in v2, which adds the card layout, more buttons and the plane. */
 export function upgradeConfig(config: PageConfig): PageConfig {
@@ -44,6 +44,7 @@ const translate = (error: unknown): never => {
     // A version the platform does not ship for this page's template (versions.ts).
     if (error.code === 'INVALID_TEMPLATE') throw new OwnerError(400, 'INVALID_TEMPLATE_VERSION');
     if (error.code === 'PAGE_NOT_FOUND') throw new OwnerError(404, 'PAGE_NOT_FOUND');
+    if (error.code === 'INVALID_SETTING') throw new OwnerError(400, 'INVALID_SETTING');
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
     // Two separate answers, because the shop can fix them in two different ways (lát F-013).
     if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE') throw new OwnerError(400, error.code);
@@ -64,7 +65,7 @@ export class OwnerDesign {
     return new PublishingAdmin(db, async request => {
       if (request.shopId !== access.shopId) throw new OwnerError(403, 'ACCESS_DENIED');
       return { actorId: actor };
-    });
+    }, this.releases);
   }
   private async audit(db: PoolClient, access: OwnerAccess, action: string, detail: Record<string, unknown>) {
     if (access.actor.kind !== 'admin') return;
@@ -102,12 +103,21 @@ export class OwnerDesign {
       // Whether the upload buttons can work here: all R2 settings present.
       uploads: r2Settings() !== null,
       template: { key: draft.template_key, draft: Number(draft.version), live: live ? Number(live.version) : null,
-        versions: isTemplateKey(draft.template_key) ? this.releases[draft.template_key] ?? [] : [] } };
+        versions: isTemplateKey(draft.template_key) ? this.releases[draft.template_key] ?? [] : [],
+        // What the editor draws for this page: its draft's template version's table (settings.ts).
+        settings: settingsOf(this.releases, draft.template_key, Number(draft.version)) } };
   }
 
   async save(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const data = input(body, ['expectedRevision', 'config']), expected = revisionOf(data.expectedRevision);
     return this.write(credential, slug, pageSlug, async (db, access, page) => {
+      // The owner's door: a look the template does not offer cannot be changed here (settings.ts, lát P2).
+      const draft = (await db.query(`SELECT d.config,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
+        WHERE d.shop_id=$1 AND d.page_id=$2`, [page.shopId, page.pageId])).rows[0];
+      if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
+      let after; try { after = upgradeConfig(validateConfig(data.config)); } catch (error) { translate(error); }
+      if (lockedChange(settingsOf(this.releases, draft.template_key, Number(draft.version)), upgradeConfig(validateConfig(draft.config)), after!))
+        throw new OwnerError(400, 'SETTING_LOCKED');
       const revision = await this.admin(access, db).saveDraft(page, expected, data.config).catch(translate);
       await this.audit(db, access, 'impersonation.design.save', { revision });
       await recordActivity(db, access, 'design.save', `Bản nháp ${revision}`);
@@ -134,8 +144,7 @@ export class OwnerDesign {
     if (!Number.isSafeInteger(data.version) || Number(data.version) < 1) throw new OwnerError(400, 'INVALID_DESIGN');
     const version = Number(data.version);
     return this.write(credential, slug, pageSlug, async (db, access, page) => {
-      const offered = (key: string) => isTemplateKey(key) ? (this.releases[key] ?? []).map(release => release.version) : [];
-      const result = await this.admin(access, db).setDraftTemplate(page, expected, version, offered).catch(translate);
+      const result = await this.admin(access, db).setDraftTemplate(page, expected, version).catch(translate);
       // Choosing the version already in use changed nothing, so it leaves no line in the books.
       if (result.revision === expected) return result;
       await this.audit(db, access, 'impersonation.design.version', { version, revision: result.revision });

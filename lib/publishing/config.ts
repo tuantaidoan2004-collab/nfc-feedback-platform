@@ -17,6 +17,8 @@ export type PageConfig = {
   text: { question: Localized }; googleUrl: string;
   links: { label: Localized; url: string; icon: LinkIcon }[];
   feedbackButton?: FeedbackButton;
+  /** A template version's own fields (lib/publishing/settings.ts, lát P2). Absent means every field at its default. */
+  settings?: Record<string, string | number | boolean>;
 };
 export class PublishingError extends Error { constructor(public readonly code: string) { super(code); } }
 function fail(): never { throw new PublishingError('INVALID_CONFIG'); }
@@ -49,7 +51,19 @@ function media(value: unknown, logo = false) {
 const color = (v: unknown) => { if (typeof v !== 'string' || !/^#[a-fA-F0-9]{6}$/.test(v)) fail(); };
 export function validateConfig(value: unknown): PageConfig {
   const v2 = !!value && typeof value === 'object' && (value as Record<string, unknown>).schemaVersion === 2;
-  keys(value, ['schemaVersion', 'layout', 'name', 'poster', 'logo', 'background', 'watermark', 'text', 'googleUrl', 'links', ...(v2 ? ['feedbackButton'] : [])]);
+  const settings = v2 && Object.hasOwn(value as object, 'settings');
+  keys(value, ['schemaVersion', 'layout', 'name', 'poster', 'logo', 'background', 'watermark', 'text', 'googleUrl', 'links', ...(v2 ? ['feedbackButton'] : []), ...(settings ? ['settings'] : [])]);
+  // Only the shape here, so the guest page can put these on the page as they are: which keys a template version takes
+  // and what each one accepts is checked where a page is written (settings.ts).
+  if (settings) {
+    const raw = value.settings;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || Object.keys(raw).length > 16) fail();
+    for (const [key, item] of Object.entries(raw)) {
+      if (!/^[a-z][a-z0-9-]{0,31}$/.test(key)) fail();
+      if (!(typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item) && Math.abs(item) <= 10000)
+        || (typeof item === 'string' && /^(#[0-9a-fA-F]{6}|[a-z0-9-]{1,32})$/.test(item)))) fail();
+    }
+  }
   if (!(v2 || value.schemaVersion === 1) || !(value.layout === 'full-bleed' || (v2 && value.layout === 'card'))) fail();
   text(value.name, 100);
   if (value.poster !== null) media(value.poster); if (value.logo !== null) media(value.logo, true);

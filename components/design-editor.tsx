@@ -5,6 +5,7 @@ import { SERVICE_LABELS } from '@/lib/publishing/policy';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
 import { STEM_BACKGROUND, isTemplateKey } from '@/lib/publishing/config';
 import { TEMPLATE_NAMES, type TemplateRelease } from '@/lib/publishing/versions';
+import type { SettingField } from '@/lib/publishing/settings';
 import styles from './owner-app.module.css';
 
 /**
@@ -12,7 +13,7 @@ import styles from './owner-app.module.css';
  * exactly as it would publish, Publish makes it the live page. Media are https links until per-shop uploads exist.
  */
 type State = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
-  template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[] } };
+  template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] } };
 const ICONS: [LinkIcon, string][] = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['zalo', 'Zalo'], ['phone', 'Gọi điện'], ['booking', 'Đặt lịch'], ['link', 'Liên kết']];
 const PLANES: [FeedbackButton['icon'], string][] = [['plane', 'Máy bay giấy'], ['chat', 'Bong bóng chat'], ['mail', 'Phong bì']];
 const ERRORS: Record<string, string> = {
@@ -22,6 +23,8 @@ const ERRORS: Record<string, string> = {
   IMPERSONATION_SCOPE: 'Phiên này chỉ để xem. Mở phiên "Sửa giao diện" để chỉnh.',
   SHOP_SUSPENDED: 'Shop đang bị tạm khoá nên chưa phát hành được.',
   INVALID_TEMPLATE_VERSION: 'Bản khuôn này không còn. Đã tải lại danh sách bản.',
+  SETTING_LOCKED: 'Khuôn này không cho đổi phần diện mạo đó. Đã tải lại bản nháp.',
+  INVALID_SETTING: 'Có một tuỳ chỉnh của khuôn không hợp lệ. Đã tải lại bản nháp.',
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
   POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
@@ -120,7 +123,7 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       setNotice(ERRORS[data.error] ?? 'Chưa lưu được. Thử lại.');
-      if (data.error === 'DRAFT_CONFLICT') await load();
+      if (['DRAFT_CONFLICT', 'SETTING_LOCKED', 'INVALID_SETTING'].includes(data.error)) await load();
       return null;
     }
     return data;
@@ -173,6 +176,11 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
 
   if (!config || !state) return <section className={styles.panel} data-design-editor><h2>Thiết kế & Link</h2><p className={styles.hint}>{notice || 'Đang tải…'}</p></section>;
   const b = config.background, button = config.feedbackButton!;
+  // What this template version lets the owner adjust (lib/publishing/settings.ts). Content is always editable.
+  const fields = state.template.settings, offers = (kind: SettingField['kind']) => fields.some(field => field.kind === kind);
+  const backgroundField = fields.find((field): field is Extract<SettingField, { kind: 'background' }> => field.kind === 'background');
+  const ownFields = fields.filter((field): field is Extract<SettingField, { key: string }> => 'key' in field);
+  const setting = (key: string, value: string | number | boolean) => change({ settings: { ...config.settings, [key]: value } });
   const setLink = (index: number, patch: Partial<PageConfig['links'][number]>) =>
     change({ links: config.links.map((link, i) => i === index ? { ...link, ...patch } : link) });
   const move = (index: number, by: number) => {
@@ -211,10 +219,13 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
       <label>Link đánh giá Google<input type="url" value={config.googleUrl} onChange={e => change({ googleUrl: e.target.value })} placeholder="https://g.page/r/…" /></label>
     </div></fieldset>
 
-    <fieldset className={styles.panel}><legend>Bố cục</legend>
+    {!offers('layout') && !backgroundField && !offers('watermark') && !offers('feedbackButton') && !ownFields.length &&
+      <p className={styles.panel} data-no-settings>Khuôn này không có tuỳ chỉnh diện mạo: chỉ cần điền nội dung bên dưới.</p>}
+
+    {offers('layout') && <fieldset className={styles.panel} data-setting="layout"><legend>Bố cục</legend>
       <div className={styles.choices} role="radiogroup" aria-label="Bố cục">{([['full-bleed', 'Tràn màn hình'], ['card', 'Dạng thẻ']] as const).map(([value, label]) =>
         <label key={value} className={styles.choice}><input type="radio" name="layout" checked={config.layout === value} onChange={() => change({ layout: value })} />{label}</label>)}</div>
-    </fieldset>
+    </fieldset>}
 
     <fieldset className={styles.panel}><legend>Poster và logo</legend><div className={styles.grid2}>
       <label>Loại poster<select value={config.poster?.kind ?? 'image'} onChange={e => change({ poster: config.poster ? { kind: e.target.value as MediaRef['kind'], url: config.poster.url } : null })} disabled={!config.poster}>
@@ -227,33 +238,46 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
       </div>
     </div><p className={styles.hint}>Tải lên: ảnh JPG, PNG, WebP tối đa 5 MB; video MP4 tối đa 30 MB. Cũng có thể dán link https.</p></fieldset>
 
-    <fieldset className={styles.panel}><legend>Nền và watermark</legend><div className={styles.grid2}>
-      <label>Kiểu nền<select value={b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.video ? 'video' : 'upload'} onChange={e => {
+    {(backgroundField || offers('watermark')) && <fieldset className={styles.panel} data-setting="background"><legend>{backgroundField ? 'Nền' : 'Watermark'}</legend><div className={styles.grid2}>
+      {backgroundField && <label>Kiểu nền<select value={b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.video ? 'video' : 'upload'} onChange={e => {
         const kind = e.target.value;
         change({ background: kind === 'solid' ? { kind: 'solid', color: '#214034' } : kind === 'gradient' ? { kind: 'gradient', colors: ['#214034', '#EFF2E8'], angle: 135 }
           : kind === 'upload' ? { kind: 'media', media: { kind: 'image', url: 'https://' }, loop: true }
           : { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } });
-      }}><option value="video">Video mặc định</option><option value="upload">Ảnh hoặc video của shop</option><option value="gradient">Chuyển màu</option><option value="solid">Một màu</option></select></label>
-      {b.kind === 'media' && b.media.url !== STEM_BACKGROUND.video && <>
+      }}>{([['video', 'Video mặc định', 'media'], ['upload', 'Ảnh hoặc video của shop', 'media'], ['gradient', 'Chuyển màu', 'gradient'], ['solid', 'Một màu', 'solid']] as const)
+          .filter(([value, , kind]) => backgroundField.allow.includes(kind) || value === (b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.video ? 'video' : 'upload'))
+          .map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
+      {backgroundField && b.kind === 'media' && b.media.url !== STEM_BACKGROUND.video && <>
         <label>Link ảnh hoặc video nền<input type="url" value={b.media.url} onChange={e => change({ background: { ...b, media: { kind: b.media.kind, url: e.target.value.trim() } } })} /></label>
         <label>Loại<select value={b.media.kind} onChange={e => change({ background: { ...b, media: { kind: e.target.value as MediaRef['kind'], url: b.media.url } } })}><option value="image">Ảnh</option><option value="video">Video (chạy lặp, không tiếng)</option></select></label>
         <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải nền lên" enabled={state.uploads} onDone={media => change({ background: { kind: 'media', media, loop: true } })} />
       </>}
-      {b.kind === 'solid' && <label>Màu nền<input type="color" value={b.color} onChange={e => change({ background: { kind: 'solid', color: e.target.value.toUpperCase() } })} /></label>}
-      {b.kind === 'gradient' && <>
+      {backgroundField && b.kind === 'solid' && <label>Màu nền<input type="color" value={b.color} onChange={e => change({ background: { kind: 'solid', color: e.target.value.toUpperCase() } })} /></label>}
+      {backgroundField && b.kind === 'gradient' && <>
         <label>Màu đầu<input type="color" value={b.colors[0]} onChange={e => change({ background: { ...b, colors: [e.target.value.toUpperCase(), b.colors[1]] } })} /></label>
         <label>Màu cuối<input type="color" value={b.colors[1]} onChange={e => change({ background: { ...b, colors: [b.colors[0], e.target.value.toUpperCase()] } })} /></label>
         <label>Góc ({b.angle}°)<input type="range" min={0} max={359} value={b.angle} onChange={e => change({ background: { ...b, angle: Number(e.target.value) } })} /></label>
       </>}
-      <label className={styles.choice}><input type="checkbox" checked={config.watermark.enabled} onChange={e => change({ watermark: { ...config.watermark, enabled: e.target.checked } })} />Hiện watermark &quot;YOUR LOGO&quot; chạy chéo</label>
-    </div></fieldset>
+      {offers('watermark') && <label className={styles.choice} data-setting="watermark"><input type="checkbox" checked={config.watermark.enabled} onChange={e => change({ watermark: { ...config.watermark, enabled: e.target.checked } })} />Hiện watermark &quot;YOUR LOGO&quot; chạy chéo</label>}
+    </div></fieldset>}
 
-    <fieldset className={styles.panel}><legend>Nút góp ý riêng (góc dưới trái)</legend><div className={styles.grid2}>
+    {ownFields.length > 0 && <fieldset className={styles.panel} data-setting="own"><legend>Tuỳ chỉnh của khuôn</legend><div className={styles.grid2}>
+      {ownFields.map(field => {
+        const value = config.settings?.[field.key] ?? field.default;
+        if (field.kind === 'color') return <label key={field.key} data-setting={field.key}>{field.label}<input type="color" value={String(value)} onChange={e => setting(field.key, e.target.value.toUpperCase())} /></label>;
+        if (field.kind === 'range') return <label key={field.key} data-setting={field.key}>{field.label} ({String(value)})<input type="range" min={field.min} max={field.max} step={field.step} value={Number(value)} onChange={e => setting(field.key, Number(e.target.value))} /></label>;
+        if (field.kind === 'choice') return <label key={field.key} data-setting={field.key}>{field.label}<select value={String(value)} onChange={e => setting(field.key, e.target.value)}>
+          {field.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+        return <label key={field.key} className={styles.choice} data-setting={field.key}><input type="checkbox" checked={value === true} onChange={e => setting(field.key, e.target.checked)} />{field.label}</label>;
+      })}
+    </div></fieldset>}
+
+    {offers('feedbackButton') && <fieldset className={styles.panel} data-setting="feedbackButton"><legend>Nút góp ý riêng (góc dưới trái)</legend><div className={styles.grid2}>
       <label>Hình<select value={button.icon} onChange={e => change({ feedbackButton: { ...button, icon: e.target.value as FeedbackButton['icon'] } })}>
         {PLANES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label>Màu<input type="color" value={button.color} onChange={e => change({ feedbackButton: { ...button, color: e.target.value.toUpperCase() } })} /></label>
       <label>Màu viền<input type="color" value={button.outline} onChange={e => change({ feedbackButton: { ...button, outline: e.target.value.toUpperCase() } })} /></label>
-    </div></fieldset>
+    </div></fieldset>}
 
     <fieldset className={styles.panel}><legend>Nút link ({config.links.length}/6)</legend>
       {/* Said before the shop writes, not only after it is refused: most shops break this rule without knowing. */}
