@@ -217,6 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
+### Mô hình gói · trang · phiên bản — Tài chốt 25/09
+
+Quán có nhiều trang; mỗi trang một link, một khuôn + bản, một gói. Kho khuôn có giá (1–5 = 10k/tháng, khuôn 6 = 0đ),
+hai suất miễn phí mỗi quán, link đã đóng không bao giờ cấp lại, nút tạm dừng khẩn cấp báo về admin. Dashboard cập nhật
+riêng; khuôn nối với dashboard qua **bảng cài đặt** của từng bản. Toàn bộ và thứ tự lát P1–P7: **`docs/goi-va-trang.md`**.
+Lát kế tiếp đề xuất: **P1 tách quán / trang** (migration lớn).
+
 ### Xong gần nhất — bản khuôn (25/09)
 
 Mỗi khuôn một số bản; bản phát hành ghim bản; CSS mỗi bản là một tệp đóng băng (`components/skins/<khoá>.v<bản>.css`,

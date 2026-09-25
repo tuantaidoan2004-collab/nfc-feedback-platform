@@ -1,0 +1,104 @@
+# Gói, trang và phiên bản — mô hình Tài chốt 25/09/2026
+
+Buổi brainstorm 25/09 (Claude đề xuất, Tài chọn từng điểm). Tệp này là nguồn cho mọi lát về dashboard nhiều trang, kho
+khuôn, tính tiền và phiên bản. Luật Google (`google-policy.md`) vẫn đứng trên tệp này.
+
+## 1. Ba lớp, cập nhật độc lập
+
+| Lớp | Gồm | Cập nhật |
+|---|---|---|
+| **Nền tảng** | dashboard của quán, app admin, API, database | Một bản cho mọi người, luôn mới nhất, không ai chọn ở lại bản cũ. Số bản `năm.tháng.lần` (vd `26.9.3`) + nhật ký thay đổi |
+| **Khuôn** | diện mạo trang khách | Mỗi khuôn có bản riêng (1, 2, 3…); trang ghim bản; chủ quán tự chọn lên bản mới (`thiet-ke-va-khuon.md` mục 16) |
+| **Nội dung** | tên, link Google, logo, nút link, poster, dữ liệu góp ý | Thuộc **trang**; đổi khuôn hay đổi bản không mất gì |
+
+Tính năng dashboard ra riêng, không kéo theo khuôn. Sửa lỗi / bảo mật / luật Google ở khuôn thì sửa thẳng mọi bản, không
+cho chọn.
+
+## 2. Chỗ nối dashboard ↔ khuôn: bảng cài đặt
+
+Mỗi bản khuôn mang một **bảng cài đặt**: danh sách ô chủ quán được chỉnh (màu, phông, poster, độ trong kính…), mỗi ô có
+loại, giới hạn, mặc định. Trình chỉnh **không biết khuôn nào có gì**: nó đọc bảng và tự vẽ ô. Nên:
+
+- Bản khuôn mới thêm ô → trình chỉnh tự hiện ô đó, không sửa dashboard.
+- Chỉ khi khuôn cần **một loại ô chưa từng có** (vd kéo thả sticker) mới cần một bản nền tảng; loại ô đó dùng được cho
+  mọi khuôn sau.
+- Lên bản mới: một hàm chuyển cài đặt cũ sang mới, ô mới lấy mặc định; xem trước rồi mới phát hành.
+- **Khuôn 6 có bảng cài đặt rỗng** (Tài: khuôn 6 không có tuỳ chọn chỉnh) — chủ quán chỉ điền nội dung.
+
+Hiện trạng (25/09): trình chỉnh viết cứng một bộ ô chung cho cả 6 khuôn. Phải thay bằng bảng cài đặt **trước** khi có
+bản 2 của bất kỳ khuôn nào.
+
+## 3. Quán và trang
+
+Một **quán** (tài khoản: thành viên, quyền, hồ sơ, thanh toán) có **nhiều trang**. Mỗi trang = một link, một khuôn + bản,
+bản nháp và bản phát hành, các thẻ NFC của nó, trạng thái riêng, gói riêng.
+
+Dashboard có **danh sách trang**: ảnh xem trước thu nhỏ, link, khuôn + bản, giá ("Miễn phí" / "10k/tháng"), nút Sửa ·
+Nhân bản · Tạm dừng · Huỷ.
+
+**Tạo trang mới, hai cách** (Tài):
+1. **Nhân bản trang đang chọn** — bản sao đầy đủ (khuôn, cài đặt, nội dung), link mới. Dùng cho phòng VIP / bàn 1 /
+   quầy bar đổi poster hay phông.
+2. **Lấy pack nguyên bản từ kho** — khuôn trống, chưa có nội dung. Trong trình chỉnh có nút **"Nhập dữ liệu từ trang
+   khác"** để chép tên, link Google, logo, nút link từ một trang có sẵn.
+
+Nội dung nằm ở từng trang (không tự đồng bộ giữa các trang). Đổi link Google cho mọi trang một lúc là việc sau, nếu cần.
+
+**Đổi sang khuôn khác** trong cùng trang: được. Giữ link, thẻ NFC, dữ liệu; đổi diện mạo và giá thuê. Xem trước rồi
+mới phát hành.
+
+**Thay đổi cấu trúc dữ liệu:** hôm nay một `shop` vừa là quán vừa là trang. Mô hình này tách thành quán → trang. Làm
+bây giờ, khi chưa ghi thẻ NFC nào và chưa có khách thật.
+
+## 4. Tính tiền
+
+- **Kho khuôn**, mỗi khuôn một giá thuê/tháng. Hôm nay khuôn 1–5 = **10k/tháng**, **khuôn 6 = 0đ**.
+- **Hai suất miễn phí** mỗi quán. Khuôn 6 **không chiếm** suất. Hai suất luôn áp cho **hai trang có phí đang chạy lâu
+  nhất**: huỷ một trang được miễn thì trang có phí cũ nhất tiếp theo được miễn **từ kỳ sau**.
+- Tiền = tổng giá các trang có phí đang chạy, trừ hai suất miễn phí. Mỗi dòng trong dashboard ghi rõ trang đó miễn phí
+  hay bao nhiêu.
+- **Huỷ giữa kỳ:** trang chạy tới hết kỳ đã trả → tạm ngừng 30 ngày → đóng. Không hoàn tiền lẻ.
+- **Thanh toán giai đoạn đầu:** không dịch vụ trả phí. Khách chuyển khoản theo mã QR ngân hàng; admin bấm "đã nhận" trong
+  app admin. Tự động hoá để sau.
+
+## 5. Vòng đời trang và link
+
+**Đang chạy → Tạm ngừng → Đã đóng.**
+
+- *Tạm ngừng* (hết kỳ sau khi huỷ, hoặc chưa thanh toán): khách quét thấy "Trang tạm ngừng"; dữ liệu giữ; gia hạn là
+  chạy lại ngay. Kéo dài 30 ngày.
+- *Đã đóng*: link trả "không tồn tại"; dữ liệu xoá theo chính sách quyền riêng tư. **Tên link giữ vĩnh viễn, không bao
+  giờ cấp lại** — link nằm trong thẻ NFC đã dán; cấp lại thì khách quét thẻ cũ của quán A sẽ vào trang Google của quán B.
+- **Nút tạm dừng khẩn cấp** (Tài): chủ quán dừng trang **ngay lập tức** khi có lỗi. Việc này tạm dừng gói của trang đó
+  và gửi một báo cáo về app admin; admin quyết định cách xử lý (đền bù bằng gói khác khách chọn — **cách xử lý bàn sau**).
+
+## 6. App admin
+
+Cùng mã nguồn, **tên miền riêng** (vd `admin.<tên miền>`), chặn ở cửa theo tên miền, đăng nhập riêng có 2FA như `/gov`
+bây giờ. Quản lý quán, trang, kho khuôn (bản "thử" chỉ admin thấy → "mở" cho khách), xác nhận thanh toán, báo cáo tạm
+dừng khẩn cấp, duyệt ảnh.
+
+## 7. Phát hành
+
+- Preview (Neon preview) là bản thử; `main` là production.
+- Mỗi lần đẩy `main` = một số bản nền tảng + một dòng nhật ký.
+- Khuôn mới / bản khuôn mới vào kho ở trạng thái **thử** (chỉ admin), rồi **mở**.
+
+## 8. Thứ tự lát (Claude đề xuất)
+
+| # | Lát | Migration |
+|---|---|---|
+| P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang | Có, lớn |
+| P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng | Có thể không |
+| P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn | Nhỏ hoặc không |
+| P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin | Có |
+| P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản | Có |
+| P6 | **Số bản nền tảng + nhật ký thay đổi** | Không |
+| P7 | **App admin trên tên miền riêng** | Không |
+
+## 9. Chưa chốt
+
+- Cách xử lý báo cáo tạm dừng khẩn cấp (đền bù thế nào) — Tài: bàn sau.
+- Đổi từ khuôn 0đ sang khuôn có phí giữa kỳ: tính tiền từ lúc nào.
+- Một thẻ NFC có chuyển được từ trang này sang trang khác của cùng quán không.
+- Dữ liệu góp ý của trang đã đóng: xoá ngay hay giữ bao lâu (phải khớp trang chính sách quyền riêng tư).
