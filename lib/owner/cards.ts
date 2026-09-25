@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { authorize, requirePermission, transaction, OwnerError, type OwnerCredential } from './auth';
 import { recordActivity } from './activity';
 import { withShortCode } from '../short-code';
+import { pageOf } from './pages';
 
 /**
  * The shop's NFC cards (lát E, 2026-09-18). "Nhân bản thẻ" makes another card for the same page: one page, many
@@ -10,7 +11,7 @@ import { withShortCode } from '../short-code';
  * Support never changes cards, at any switch position.
  */
 export type CardState = 'prepared' | 'tested' | 'active' | 'disabled';
-export type Card = { id: string; code: string; label: string; state: CardState };
+export type Card = { id: string; code: string; label: string; state: CardState; page: string };
 
 /** Price list of commercial-model.md §3: five active cards come with the plan, then 8k each to 20, then 5k. */
 export const INCLUDED_CARDS = 5;
@@ -34,19 +35,24 @@ export class OwnerCards {
   async list(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'cards');
-      const cards = (await db.query(`SELECT id,public_code code,location_label label,state FROM tags WHERE shop_id=$1
-        ORDER BY state='disabled',public_code`, [access.shopId])).rows as Card[];
+      // Every card of the shop, each with the link of the page it opens (migration 024).
+      const cards = (await db.query(`SELECT t.id,t.public_code code,t.location_label label,t.state,p.slug page FROM tags t JOIN pages p ON p.id=t.page_id
+        WHERE t.shop_id=$1 ORDER BY t.state='disabled',t.public_code`, [access.shopId])).rows as Card[];
       const active = cards.filter(card => card.state === 'active').length;
       return { cards, active, included: INCLUDED_CARDS, monthlyFee: cardMonthlyFee(active), nextFee: cardMonthlyFee(active + 1) - cardMonthlyFee(active),
         canActivate: access.actor.kind === 'owner' && access.role === 'owner' };
     });
   }
 
-  async create(credential: OwnerCredential, slug: string, body: unknown) {
+  /** A new card for one page of the shop: `pageSlug`, or the shop's first page when absent (lib/owner/pages.ts). */
+  async create(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const name = label(shape(body, ['label']).label);
-    const access = await transaction(this.pool, async db => { const a = await authorize(db, credential, slug, 'write'); requirePermission(a, 'cards'); return a; });
-    const card = await withShortCode(async code => (await this.pool.query(`INSERT INTO tags(shop_id,public_code,location_label) VALUES($1,$2,$3)
-      RETURNING id,public_code code,location_label label,state`, [access.shopId, code, name])).rows[0] as Card);
+    const { access, page } = await transaction(this.pool, async db => {
+      const a = await authorize(db, credential, slug, 'write'); requirePermission(a, 'cards');
+      return { access: a, page: await pageOf(db, a.shopId, pageSlug) };
+    });
+    const card = await withShortCode(async code => ({ ...(await this.pool.query(`INSERT INTO tags(shop_id,page_id,public_code,location_label) VALUES($1,$2,$3,$4)
+      RETURNING id,public_code code,location_label label,state`, [page.shopId, page.pageId, code, name])).rows[0], page: page.slug }) as Card);
     await recordActivity(this.pool, access, 'card.create', `${card.label} (${card.code})`);
     return card;
   }
@@ -58,7 +64,7 @@ export class OwnerCards {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'write');
       requirePermission(access, 'cards');
-      const card = (await db.query('SELECT state,public_code,location_label FROM tags WHERE shop_id=$1 AND id=$2 FOR UPDATE', [access.shopId, change.id])).rows[0];
+      const card = (await db.query('SELECT state,public_code,location_label,page_id FROM tags WHERE shop_id=$1 AND id=$2 FOR UPDATE', [access.shopId, change.id])).rows[0];
       if (!card) throw new OwnerError(404, 'CARD_NOT_FOUND');
       if ('label' in change) {
         await db.query('UPDATE tags SET location_label=$3 WHERE shop_id=$1 AND id=$2', [access.shopId, change.id, label(change.label)]);
@@ -69,8 +75,10 @@ export class OwnerCards {
       if (change.state === card.state) return { id: change.id, state: card.state };
       if (change.state === 'active') {
         if (access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
-        const shop = (await db.query('SELECT publishing_state,active_release_id FROM shops WHERE id=$1 FOR SHARE', [access.shopId])).rows[0];
-        if (shop.publishing_state !== 'active' || !shop.active_release_id) throw new OwnerError(409, 'SHOP_UNAVAILABLE');
+        // A card goes live only onto a live page of a live shop.
+        const live = (await db.query(`SELECT s.publishing_state,p.state FROM shops s JOIN pages p ON p.shop_id=s.id AND p.id=$2
+          WHERE s.id=$1 FOR SHARE OF s,p`, [access.shopId, card.page_id])).rows[0];
+        if (!live || live.publishing_state !== 'active' || live.state !== 'active') throw new OwnerError(409, 'SHOP_UNAVAILABLE');
       }
       await db.query('UPDATE tags SET state=$3 WHERE shop_id=$1 AND id=$2', [access.shopId, change.id, change.state]);
       await recordActivity(db, access, 'card.state', `${card.location_label ?? ''} (${card.public_code})`, { state: change.state === 'active' ? 'bật' : 'tắt' });

@@ -371,3 +371,24 @@ cookie…`) hết giờ 60s ở bước chủ quán đăng nhập rồi bấm `[
 `-g` trên commit lát này **và trên `main` cũ `2336c61`** thì đều hết giờ y hệt; cả bộ chạy đủ thì xanh. Vậy ca 5 cần một
 việc mà ca 1 làm ở nửa sau (chưa tìm ra việc nào). Luật đọc log: **khi hai ca cùng đỏ, sửa ca đầu rồi chạy lại cả bộ**
 trước khi đào ca sau — ca sau có thể chỉ là hậu quả. Việc gỡ ràng buộc này tách thành việc riêng.
+
+**Dẫm lại bẫy zsh ngay trong ngày ghi nó.** Lát P1, lệnh thử migration để cả `psql -h … -U …` trong một biến rồi gọi
+`$P -f …`: zsh coi cả chuỗi là **tên một chương trình** ("no such file or directory"). Đây là cùng lỗi tách từ vừa ghi
+ở mục vòng kiểm production. Cách đúng trong zsh: **viết hàm** (`P(){ "$B/psql" … "$@"; }`) hoặc mảng, không để lệnh
+nhiều từ trong một biến chuỗi. Lỗi của Claude, lát P1; lệnh bị chặn ngay nên không chạy nhầm gì.
+
+**Thêm cột NOT NULL thì test chèn thô bằng SQL đỏ vì cột mới, không vì điều nó đang thử.** Lát P1 thêm `tags.page_id NOT
+NULL`; ca "database vẫn từ chối mã thẻ dưới năm ký tự" chèn `INSERT INTO tags(shop_id,public_code)` và nhận lỗi
+`null value in column "page_id"` thay vì lỗi `check constraint` nó chờ. Test **có thể đã xanh nhầm** nếu nó chỉ chờ "có
+lỗi". Sửa: câu chèn có đủ mọi cột bắt buộc, để hai lần chèn chỉ khác đúng **một biến** là độ dài mã. Khi thêm cột NOT
+NULL, `grep` mọi `INSERT INTO <bảng>` trong test.
+
+**Ca 2FA "phone thirty seconds out of step" chập chờn khoảng 3%.** `admin-auth.spec.ts:217` lấy `now` một lần, rồi sau
+vài lần đăng nhập (mỗi lần băm mật khẩu ~0,3s) mới thử mã của `stepAt(now)-1`. Nếu đồng hồ bước sang ô 30 giây kế tiếp
+giữa hai lúc đó, mã đã cách **hai** ô và bị từ chối đúng luật. Gặp một lần ở lát P1; chạy lại ba lần đều xanh; không
+liên quan tới trang. Sửa đúng là tính ô theo lúc gọi đăng nhập (hoặc tiêm đồng hồ), tách thành việc riêng.
+
+**Sửa bản ghi bất biến trong migration: tắt trigger đúng quãng cần, trong cùng transaction.** 024 phải gắn `page_id` vào
+`page_releases` và `preview_sessions`, hai bảng mà trigger của 003 cấm `UPDATE`. `ALTER TABLE … DISABLE TRIGGER`, cập nhật,
+`ENABLE TRIGGER` ngay — `scripts/migrate.mjs` chạy cả lượt trong một transaction, nên lỗi ở bất kỳ đâu thì trigger vẫn
+bật như cũ.

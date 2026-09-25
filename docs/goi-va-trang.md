@@ -88,7 +88,7 @@ dừng khẩn cấp, duyệt ảnh.
 
 | # | Lát | Migration |
 |---|---|---|
-| P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang | Có, lớn |
+| P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang — **xong 25/09** (mục 10) | Có, lớn (024) |
 | P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng | Có thể không |
 | P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn | Nhỏ hoặc không |
 | P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin | Có |
@@ -102,3 +102,22 @@ dừng khẩn cấp, duyệt ảnh.
 - Đổi từ khuôn 0đ sang khuôn có phí giữa kỳ: tính tiền từ lúc nào.
 - Một thẻ NFC có chuyển được từ trang này sang trang khác của cùng quán không.
 - Dữ liệu góp ý của trang đã đóng: xoá ngay hay giữ bao lâu (phải khớp trang chính sách quyền riêng tư).
+
+## 10. P1 đã làm (25/09) — migration 024
+
+- **`shops` là quán** (thành viên, quyền, góp ý, lượt ghé, hỗ trợ, ảnh đã duyệt — cách ly dữ liệu vẫn đứng trên
+  `shop_id`, không đổi). **`pages` là trang**: link (`slug`), trạng thái `draft`/`active`, bản phát hành đang chạy,
+  khoá lượt ghé. `page_drafts`, `page_releases`, `preview_sessions`, `tags`, `shop_profile` có thêm `page_id`.
+- **Nội dung theo trang:** `shop_profile` từ nay một hàng mỗi trang (tên bảng giữ nguyên, xem dưới).
+- **Link vĩnh viễn:** trigger cấm xoá trang và cấm đổi link, quán, khoá lượt ghé. Link trùng (không phân biệt hoa
+  thường) bị từ chối; tạo quán mới bỏ qua mã đã có trang dùng.
+- **Trang cũ giữ nguyên:** mỗi quán có sẵn đúng một trang, cùng link với quán, khoá lượt ghé `direct:shop` — lượt ghé cũ
+  và nút "Xoá dữ liệu của tôi" của khách cũ vẫn khớp. Trang tạo sau 024 dùng `direct:page:<id>`; dashboard gọi cả hai là
+  "Trực tiếp".
+- **Góp ý mọi trang về một dashboard** của quán. Trình chỉnh và thẻ nhận `?page=<link>`; không có thì là trang đầu tiên
+  (mọi quán hôm nay chỉ có một trang; danh sách trang là lát P3).
+- **Migration chỉ thêm:** mã cũ vẫn đọc được trang khách trong lúc chờ deploy. `shops.active_release_id` thôi được dùng
+  (bỏ ràng buộc của nó) và tên bảng `shop_profile` giữ nguyên vì mã cũ còn đọc; cả hai dọn ở một migration sau, khi không
+  còn mã cũ nào chạy.
+- **Chưa làm (P3):** giao diện danh sách trang, nhân bản, nhập dữ liệu. Hôm nay chỉ có đường trong mã
+  (`PublishingAdmin.createPage`) và test.

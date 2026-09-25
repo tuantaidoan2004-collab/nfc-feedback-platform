@@ -131,7 +131,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
  // The chosen skeleton is the release's template, and it reaches the guest page as a skin hook only.
- expect((await admin.db.query(`SELECT tv.template_key FROM shops s JOIN page_releases r ON r.id=s.active_release_id
+ expect((await admin.db.query(`SELECT tv.template_key FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id
    JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.slug=$1`,[slug])).rows).toEqual([{template_key:'glass'}]);
  expect(await (await page.request.get(`/${slug}`)).text()).toContain('data-template="glass"');
 

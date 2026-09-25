@@ -38,7 +38,7 @@ export const utc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YY
 export const experienceSelect = `SELECT e.session_id,${utc('e.first_interaction_at')} first_rated_at,${utc('e.updated_at')} updated_at,
  e.rating,e.revision::text experience_revision,e.feedback_topic topic,e.feedback_message message,e.feedback_phone phone,
  ${effectiveStatus} status,COALESCE(c.note,'') note,COALESCE(c.revision,0) case_revision,
- ${utc('c.updated_at')} case_updated_at,s.tag_id,COALESCE(NULLIF(t.location_label,''),CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) source_label,
+ ${utc('c.updated_at')} case_updated_at,s.tag_id,COALESCE(NULLIF(t.location_label,''),CASE WHEN s.entry_key LIKE 'direct:%' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) source_label,
  s.release_id,origin.release_id origin_release_id,
  (SELECT count(*)::int FROM feedback_comments fc WHERE fc.session_id=e.session_id AND fc.deleted_at IS NULL) comment_count,
  s.suspected_reason suspected
@@ -102,7 +102,7 @@ export class OwnerDashboard {
         COALESCE((SELECT jsonb_agg(tags) FROM (SELECT id,COALESCE(NULLIF(location_label,''),public_code) label FROM tags WHERE shop_id=$1 ORDER BY public_code LIMIT 100) tags),'[]') tags,
         COALESCE((SELECT jsonb_agg(releases) FROM (SELECT id,created_at FROM page_releases WHERE shop_id=$1 ORDER BY created_at DESC,id LIMIT 100) releases),'[]') releases,
         COALESCE((SELECT jsonb_agg(sources ORDER BY sessions DESC,label) FROM (SELECT COALESCE(NULLIF(t.location_label,''),
-          CASE WHEN s.entry_key='direct:shop' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) label,
+          CASE WHEN s.entry_key LIKE 'direct:%' THEN 'Trực tiếp' WHEN s.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END) label,
           count(*)::int sessions FROM selected s LEFT JOIN tags t ON t.id=s.tag_id GROUP BY 1 LIMIT 50) sources),'[]') sources,
         COALESCE((SELECT jsonb_agg(page ORDER BY first_rated_at DESC,session_id DESC) FROM page),'[]') records`,values)).rows[0];
       const rows=result.records as ExperienceRow[], tags=result.tags as {id:string;label:string}[], releases=result.releases as {id:string;created_at:string}[];

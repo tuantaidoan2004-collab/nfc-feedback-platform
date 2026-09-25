@@ -7,12 +7,14 @@ import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {OwnerAuth,authorize} from '../lib/owner/auth';
 import {AdminAuth} from '../lib/admin/auth';
 import {recordAdminAction} from '../lib/admin/audit';
+/** The shop's page (migration 024): provisioning returns both ids. */
+const pageOf=(m:{shopId:string;pageId:string})=>({shopId:m.shopId,pageId:m.pageId});
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:{db:Pool;shops:ShopProvisioning;links:OwnerSetupLinks;auth:OwnerAuth;actorId:string}}>({f:async({},provide)=>{
  const schema=`nfc_prov_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql'])
+  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql','024_pages.sql'])
    await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),links:new OwnerSetupLinks(db),auth:new OwnerAuth(db),actorId});
@@ -27,7 +29,7 @@ test('one call builds a live page, a card that is not live yet, and an owner who
  expect(made.tagCode).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
  expect(made.ownerEmail).toBe('chu@example.com');
 
- const shop=(await f.db.query('SELECT slug,name,google_url,publishing_state,active_release_id FROM shops WHERE id=$1',[made.shopId])).rows[0];
+ const shop=(await f.db.query('SELECT s.slug,s.name,s.google_url,s.publishing_state,p.active_release_id FROM shops s JOIN pages p ON p.shop_id=s.id WHERE s.id=$1',[made.shopId])).rows[0];
  expect(shop).toMatchObject({slug:made.slug,name:'Cà Phê Bàn Số 3',google_url:'https://maps.google.com/?cid=1',publishing_state:'active'});
  expect(shop.active_release_id).not.toBeNull();
  // The card has to be written and tested by hand before anyone can scan it, so it starts prepared.
@@ -131,7 +133,7 @@ test('the template shop is created once, even when asked at the same time, and r
  let made:{shopId:string}[];
  try{made=await Promise.all(Array.from({length:10},()=>new ShopProvisioning(small).ensureTemplate(f.actorId)));}finally{await small.end();}
  expect(new Set(made.map(t=>t.shopId)).size).toBe(1);
- const row=(await f.db.query(`SELECT s.name,s.publishing_state,r.config_snapshot FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.is_template`)).rows;
+ const row=(await f.db.query(`SELECT s.name,s.publishing_state,r.config_snapshot FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.is_template`)).rows;
  expect(row).toEqual([{name:'YOUR SHOP',publishing_state:'active',config_snapshot:templateConfig()}]);
  expect(row[0].config_snapshot.background).toEqual({kind:'media',media:{kind:'video',url:'/media/stem-background.mp4'},loop:true});
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.create'")).rows[0].n).toBe(1);
@@ -144,7 +146,7 @@ test('the template shop is created once, even when asked at the same time, and r
  await f.db.query("INSERT INTO shops(slug,name,is_template)VALUES('half-made','YOUR SHOP',true)");
  const repaired=await f.shops.ensureTemplate(f.actorId);
  expect(repaired.slug).toBe('half-made');
- expect((await f.db.query('SELECT publishing_state,active_release_id IS NOT NULL released FROM shops WHERE is_template')).rows).toEqual([{publishing_state:'active',released:true}]);
+ expect((await f.db.query('SELECT s.publishing_state,p.active_release_id IS NOT NULL released FROM shops s JOIN pages p ON p.shop_id=s.id WHERE s.is_template')).rows).toEqual([{publishing_state:'active',released:true}]);
  // Repair is not creation: the audit trail records only the template that was actually made.
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.create'")).rows[0].n).toBe(1);
 
@@ -156,7 +158,7 @@ test('a new shop starts from the template as it stands now, with its own name an
  const {PublishingAdmin}=await import('../lib/publishing/repository');
  const {templateConfig}=await import('../lib/publishing/config');
  const first=await f.shops.create(f.actorId,input);
- const release=async(shopId:string)=>(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[shopId])).rows[0].c;
+ const release=async(shopId:string)=>(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[shopId])).rows[0].c;
  expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/?cid=1'});
 
  // The operator changes the template: later shops follow, earlier ones do not.
@@ -164,7 +166,7 @@ test('a new shop starts from the template as it stands now, with its own name an
  const changed={...templateConfig(),text:{question:{vi:'Hôm nay thế nào?',en:'How was today?'}},
   links:[{label:{vi:'Đặt lịch',en:'Book'},url:'https://example.com/book',icon:'booking' as const}]};
  const revision=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
- await admin.publish(template.shopId,await admin.saveDraft(template.shopId,revision,changed));
+ await admin.publish(pageOf(template),await admin.saveDraft(pageOf(template),revision,changed));
  const second=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-tra',ownerEmail:'tra@example.com',googleUrl:undefined});
  expect(await release(second.shopId)).toEqual({...changed,name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/'});
  expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/?cid=1'});
@@ -178,20 +180,20 @@ test('resetting the template publishes the current defaults as a new release; sh
  // Stand in for a template published before the new defaults existed.
  const draft=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
  const {feedbackButton:_unused,...old}=templateConfig();void _unused;
- const saved=await admin.saveDraft(template.shopId,draft,{...old,schemaVersion:1,links:[]});await admin.publish(template.shopId,saved);
+ const saved=await admin.saveDraft(pageOf(template),draft,{...old,schemaVersion:1,links:[]});await admin.publish(pageOf(template),saved);
  const before=await f.shops.create(f.actorId,{name:'Quán Trước',ownerUsername:'quan-truoc',ownerEmail:'truoc@example.com',googleUrl:''});
- const oldRelease=(await f.db.query('SELECT active_release_id id FROM shops WHERE id=$1',[template.shopId])).rows[0].id;
+ const oldRelease=(await f.db.query('SELECT active_release_id id FROM pages WHERE shop_id=$1',[template.shopId])).rows[0].id;
  const reset=await f.shops.resetTemplate(f.actorId);
  expect(reset).toMatchObject({shopId:template.shopId,slug:template.slug});
- const live=(await f.db.query('SELECT r.id,r.config_snapshot FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[template.shopId])).rows[0];
+ const live=(await f.db.query('SELECT r.id,r.config_snapshot FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[template.shopId])).rows[0];
  expect(live.id).toBe(reset.releaseId);expect(live.id).not.toBe(oldRelease);
  expect(live.config_snapshot).toEqual(templateConfig());
  expect((await f.db.query('SELECT count(*)::int n FROM page_releases WHERE id=$1',[oldRelease])).rows[0].n).toBe(1);
  expect((await f.db.query("SELECT shop_id,detail->>'releaseId' release FROM admin_audit WHERE action='template.reset'")).rows).toEqual([{shop_id:template.shopId,release:reset.releaseId}]);
- const kept=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[before.shopId])).rows[0].c;
+ const kept=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[before.shopId])).rows[0].c;
  expect(kept.schemaVersion).toBe(1);expect(kept.links).toEqual([]);
  const after=await f.shops.create(f.actorId,{name:'Quán Sau',ownerUsername:'quan-sau',ownerEmail:'sau@example.com',googleUrl:''});
- const fresh=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN page_releases r ON r.id=s.active_release_id WHERE s.id=$1',[after.shopId])).rows[0].c;
+ const fresh=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[after.shopId])).rows[0].c;
  expect(fresh).toEqual({...templateConfig(),name:'Quán Sau'});
 });
 test('only the exact built-in media paths are accepted, and only as their own kind',async()=>{

@@ -17,7 +17,7 @@ const TEMPLATE_USERNAME = 'yourshop', TEMPLATE_PASSWORD = '1';
 const duplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 
 export type ProvisionedShop = {
-  shopId: string; slug: string; tagCode: string;
+  shopId: string; pageId: string; slug: string; tagCode: string;
   ownerUserId: string; ownerUsername: string; ownerEmail: string;
   setupToken: string; setupExpiresAt: Date;
 };
@@ -53,7 +53,7 @@ export class ShopProvisioning {
       let row = await this.templateRow();
       if (row?.active_release_id) {
         if (created) await recordAdminAction(this.pool, actorId, { action: 'template.create', shopId: row.id, detail: { slug: row.slug } });
-        return { shopId: row.id, slug: row.slug };
+        return { shopId: row.id, slug: row.slug, pageId: row.page_id! };
       }
       if (!row) {
         try {
@@ -65,9 +65,11 @@ export class ShopProvisioning {
       }
       const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
       try {
-        const draft = (await this.pool.query('SELECT revision FROM page_drafts WHERE shop_id=$1', [row.id])).rows[0];
-        const revision = draft ? Number(draft.revision) : await admin.createDraft(row.id, await this.template(admin, 'standard'), templateConfig('standard'));
-        await admin.publish(row.id, revision);
+        // The template shop has one page, at the shop's own link (migration 024).
+        const page = row.page_id ? { shopId: row.id, pageId: row.page_id }
+          : await admin.createPage(row.id, await this.template(admin, 'standard'), templateConfig('standard'), row.slug);
+        const draft = (await this.pool.query('SELECT revision FROM page_drafts WHERE page_id=$1', [page.pageId])).rows[0];
+        await admin.publish(page, Number(draft.revision));
         continue;
       } catch (error) {
         if (!(duplicate(error) || (error instanceof PublishingError && error.code === 'DRAFT_CONFLICT'))) throw error;
@@ -86,9 +88,10 @@ export class ShopProvisioning {
   async resetTemplate(actorId: string) {
     const template = await this.ensureTemplate(actorId);
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
-    const draft = Number((await this.pool.query('SELECT revision FROM page_drafts WHERE shop_id=$1', [template.shopId])).rows[0].revision);
-    const saved = await admin.saveDraft(template.shopId, draft, templateConfig('standard'));
-    const { releaseId } = await admin.publish(template.shopId, saved);
+    const page = { shopId: template.shopId, pageId: template.pageId };
+    const draft = Number((await this.pool.query('SELECT revision FROM page_drafts WHERE page_id=$1', [page.pageId])).rows[0].revision);
+    const saved = await admin.saveDraft(page, draft, templateConfig('standard'));
+    const { releaseId } = await admin.publish(page, saved);
     await recordAdminAction(this.pool, actorId, { action: 'template.reset', shopId: template.shopId, detail: { releaseId } });
     return { ...template, releaseId };
   }
@@ -167,15 +170,16 @@ export class ShopProvisioning {
   }
 
   private async templateRow() {
-    return (await this.pool.query('SELECT id,slug,active_release_id FROM shops WHERE is_template')).rows[0] as
-      { id: string; slug: string; active_release_id: string | null } | undefined;
+    return (await this.pool.query(`SELECT s.id,s.slug,p.id page_id,p.active_release_id FROM shops s LEFT JOIN pages p ON p.shop_id=s.id
+      WHERE s.is_template ORDER BY p.created_at,p.id LIMIT 1`)).rows[0] as
+      { id: string; slug: string; page_id: string | null; active_release_id: string | null } | undefined;
   }
 
   /** The configuration a new shop starts from: the template's live release, with the new shop's own name and link. */
   private async fromTemplate(actorId: string, name: string, googleUrl: string) {
     const template = await this.ensureTemplate(actorId);
-    const release = (await this.pool.query(`SELECT r.config_snapshot FROM shops s JOIN page_releases r ON r.shop_id=s.id AND r.id=s.active_release_id
-      WHERE s.id=$1`, [template.shopId])).rows[0];
+    const release = (await this.pool.query(`SELECT r.config_snapshot FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
+      WHERE p.id=$1`, [template.pageId])).rows[0];
     if (!release) throw new AdminError(503, 'TEMPLATE_UNAVAILABLE');
     return validateConfig({ ...release.config_snapshot, name, googleUrl });
   }
@@ -200,22 +204,26 @@ export class ShopProvisioning {
     const config = key === 'standard' ? await this.fromTemplate(actorId, name, google) : validateConfig({ ...templateConfig(key), name, googleUrl: google });
 
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
-    const { slug, shopId } = await withShortCode(async slug => ({ slug,
-      shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id', [slug, name, google])).rows[0].id as string }));
+    // The shop's first page shares the shop's code, so its link is the one the shop is known by. A code already taken
+    // by any page counts as taken: links are never reissued (migration 024).
+    const { slug, shopId } = await withShortCode(async slug => {
+      if ((await this.pool.query('SELECT 1 FROM pages WHERE lower(slug)=lower($1)', [slug])).rowCount) throw Object.assign(new Error('PAGE_SLUG_TAKEN'), { code: '23505' });
+      return { slug, shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id', [slug, name, google])).rows[0].id as string };
+    });
 
     const template = await this.template(admin, key);
-    await admin.createDraft(shopId, template, config);
+    const page = await admin.createPage(shopId, template, config, slug);
 
     // Prepared, not active: the card still has to be written and tested before anyone can scan it.
-    const tagCode = await withShortCode(async code => { await admin.createTag(shopId, code); return code; });
+    const tagCode = await withShortCode(async code => { await admin.createTag(page, code); return code; });
 
     const links = new OwnerSetupLinks(this.pool);
     const provisioned = await links.provision(owner, email, async () => {});
     await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [provisioned.userId, shopId]);
-    await admin.publish(shopId, 1);
+    await admin.publish(page, 1);
 
     await recordAdminAction(this.pool, actorId, { action: 'shop.create', shopId, detail: { slug, tagCode, ownerUsername: owner, templateKey: key } });
-    return { shopId, slug, tagCode, ownerUserId: provisioned.userId, ownerUsername: owner, ownerEmail: provisioned.email,
+    return { shopId, pageId: page.pageId, slug, tagCode, ownerUserId: provisioned.userId, ownerUsername: owner, ownerEmail: provisioned.email,
       setupToken: provisioned.link.token, setupExpiresAt: provisioned.link.expiresAt };
   }
 

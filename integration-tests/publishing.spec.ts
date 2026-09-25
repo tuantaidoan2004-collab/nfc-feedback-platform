@@ -1,11 +1,11 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomUUID, randomBytes } from 'node:crypto';
-import { PublishingAdmin } from '../lib/publishing/repository';
+import { PublishingAdmin, type PageRef } from '../lib/publishing/repository';
 import { defaultConfig, STEM_BACKGROUND, templateConfig, type PageConfig, type TemplateKey } from '../lib/publishing/config';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
-type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; release: string };
+type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; page: PageRef; release: string };
 const test = base.extend<{ fixture: Fixture }>({ fixture: async ({}, provideFixture) => {
   const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
   try {
@@ -14,9 +14,9 @@ const test = base.extend<{ fixture: Fixture }>({ fixture: async ({}, provideFixt
     await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'one','Legacy fixture')", [shop]);
     const admin = new PublishingAdmin(db, async () => ({ actorId: 'local-fixture-only' }));
     const template = await admin.createTemplate('neutral', 1);
-    await admin.createDraft(shop, template, defaultConfig('Release One'));
-    const published = await admin.publish(shop, 1);
-    await provideFixture({ db, admin, shop, release: published.releaseId });
+    const page = await admin.createPage(shop, template, defaultConfig('Release One'), 'one');
+    const published = await admin.publish(page, 1);
+    await provideFixture({ db, admin, shop, page, release: published.releaseId });
   } finally { await db.end(); }
 } });
 const star = (page: Page, n: number) => page.getByRole('button', { name: `${n} sao`, exact: true });
@@ -48,8 +48,8 @@ test('render R1 → publish R2 → open remains R1; reload shares session and re
   // Từ migration 022 tên quán thuộc tài khoản, không thuộc bản phát hành, nên nó không còn đổi theo
   // release. Bằng chứng "bản nào đang hiện" chuyển sang `data-layout` — thứ vẫn do bản phát hành quyết.
   await expect(page.locator('main.guest')).toHaveAttribute('data-layout', 'full-bleed');
-  await f.admin.saveDraft(f.shop, 2, { ...defaultConfig('Release Two'), layout: 'card' as const });
-  const second = await f.admin.publish(f.shop, 3);
+  await f.admin.saveDraft(f.page, 2, { ...defaultConfig('Release Two'), layout: 'card' as const });
+  const second = await f.admin.publish(f.page, 3);
   release(); await loaded(page);
   await rated(page, 5);
   const google = await page.locator('.google-invitation').innerText();
@@ -71,8 +71,8 @@ test('render R1 → publish R2 → open remains R1; reload shares session and re
   await expect(page.getByRole('button', { name: 'Send feedback', exact: true })).toBeVisible();
 });
 test('preview uses HttpOnly capability, test scope; tag tested→active→disabled blocks existing tab', async ({ page, context, fixture: f }) => {
-  const tag = await f.admin.createTag(f.shop, 'fixture-tag');
-  const preview = await f.admin.preview(f.shop, { kind: 'draft', revision: 2 }, 900, tag);
+  const tag = await f.admin.createTag(f.page, 'fixture-tag');
+  const preview = await f.admin.preview(f.page, { kind: 'draft', revision: 2 }, 900, tag);
   const exchanged = await context.request.post('/preview/exchange', { headers: { Origin: origin }, data: { token: preview.token } });
   expect(exchanged.status()).toBe(204); expect(await exchanged.text()).toBe('');
   expect((await context.cookies()).find(c => c.name === 'nfc_preview')).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
@@ -87,10 +87,10 @@ test('preview uses HttpOnly capability, test scope; tag tested→active→disabl
   await context.clearCookies();
   const denied = await context.request.post('/api/v2/pages/visits', { headers: { Origin: origin, Authorization: `Bearer ${randomBytes(32).toString('hex')}`, 'X-NFC-Render': proof }, data: openBody() });
   expect(denied.status()).toBe(403); expect(await denied.json()).toEqual({ error: 'PREVIEW_UNAVAILABLE' });
-  await f.admin.setTagState(f.shop, tag, 'tested', preview.id); await f.admin.setTagState(f.shop, tag, 'active');
+  await f.admin.setTagState(f.page, tag, 'tested', preview.id); await f.admin.setTagState(f.page, tag, 'active');
   await page.goto('/t/fixture-tag'); await loaded(page);
   expect((await f.db.query("SELECT tag_id,release_id FROM published_visit_contexts WHERE scope='live'")).rows).toEqual([{ tag_id: tag, release_id: f.release }]);
-  await f.admin.setTagState(f.shop, tag, 'disabled');
+  await f.admin.setTagState(f.page, tag, 'disabled');
   const response = page.waitForResponse('**/rating'); await openCard(page); await star(page, 4).click(); await sendButton(page).click();
   expect((await response).status()).toBe(403);
   expect((await f.db.query("SELECT count(*)::int n FROM rating_experiences WHERE scope='live'")).rows[0].n).toBe(0);
@@ -104,7 +104,7 @@ test('proof tamper, legacy bypass, suspended shop and cross-origin exchange are 
   const bad = await request.post('/api/v2/pages/visits', { headers: { ...headers, 'X-NFC-Render': proof + 'x' }, data: openBody() });
   expect(bad.status()).toBe(403); expect(await bad.json()).toEqual({ error: 'INVALID_RENDER_PROOF' });
   for (const url of ['/api/v2/shops/one/visits', '/api/shops/one/experience']) expect((await request.post(url, { headers, data: openBody() })).status()).toBe(404);
-  const cap = await f.admin.preview(f.shop, { kind: 'release', id: f.release });
+  const cap = await f.admin.preview(f.page, { kind: 'release', id: f.release });
   expect((await request.post('/preview/exchange', { headers: { Origin: 'https://invalid.example' }, data: { token: cap.token } })).status()).toBe(403);
   await f.admin.setShopState(f.shop, 'suspended');
   const response = page.waitForResponse('**/rating'); await openCard(page); await star(page, 5).click(); await sendButton(page).click();
@@ -124,7 +124,7 @@ const b2 = (patch: Partial<PageConfig> = {}): PageConfig => ({ ...defaultConfig(
   background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true }, ...patch });
 const v1 = (name: string) => { const { feedbackButton: _unused, ...rest } = defaultConfig(name); void _unused; return { ...rest, schemaVersion: 1, links: [] }; };
 async function release(f: Fixture, config: unknown, expected: number) {
-  const saved = await f.admin.saveDraft(f.shop, expected, config); await f.admin.publish(f.shop, saved); return saved + 1;
+  const saved = await f.admin.saveDraft(f.page, expected, config); await f.admin.publish(f.page, saved); return saved + 1;
 }
 const scale = (page: Page, selector: string) => page.locator(selector).first().evaluate(element => {
   const matrix = getComputedStyle(element).transform; return matrix === 'none' ? 1 : Number(matrix.slice(7).split(',')[0]);
@@ -394,9 +394,9 @@ async function templateShop(f: Fixture, key: TemplateKey, slug: string, patch: P
   const shop = randomUUID();
   await f.db.query('INSERT INTO shops(id,slug,name)VALUES($1,$2,$3)', [shop, slug, `Quán ${slug}`]);
   const template = await f.admin.createTemplate(key, 1);
-  await f.admin.createDraft(shop, template, { ...templateConfig(key), name: `Quán ${slug}`, googleUrl: 'https://maps.google.com/?cid=66', ...patch });
-  await f.admin.publish(shop, 1);
-  return shop;
+  const page = await f.admin.createPage(shop, template, { ...templateConfig(key), name: `Quán ${slug}`, googleUrl: 'https://maps.google.com/?cid=66', ...patch }, slug);
+  await f.admin.publish(page, 1);
+  return page;
 }
 const bigButtonShop = (f: Fixture) => templateShop(f, 'big-button', 'six');
 const googleStub = (page: Page) => page.route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
@@ -438,7 +438,7 @@ test('a page is dressed by the template version it was published on, never by an
   await expect(main).toHaveAttribute('data-template-version', '1');
   expect(await paper()).toBe('#f6f3ee');
   const second = await f.admin.createTemplate('big-button', 2);
-  await f.db.query('UPDATE page_drafts SET template_version_id=$2 WHERE shop_id=$1', [shop, second]);
+  await f.db.query('UPDATE page_drafts SET template_version_id=$2 WHERE page_id=$1', [shop.pageId, second]);
   await f.admin.publish(shop, 2);
   await page.reload(); await loaded(page);
   await expect(main).toHaveAttribute('data-template', 'big-button');
@@ -458,7 +458,7 @@ test('khuôn 6: a tap covers the page for 300 ms, then the same tab goes to Goog
   expect(Date.now() - started).toBeGreaterThanOrEqual(280);
   // The tap was queued before leaving and flushed on pagehide, so the same-tab exit does not lose it.
   await expect.poll(async () => (await f.db.query(`SELECT e.name FROM page_events e JOIN page_visits v ON v.id=e.visit_id
-    WHERE v.shop_id=$1 AND e.name='google_tapped'`, [shop])).rowCount).toBe(1);
+    WHERE v.shop_id=$1 AND e.name='google_tapped'`, [shop.shopId])).rowCount).toBe(1);
   // Back on the page, with or without the back-forward cache, the cover is gone.
   await page.goBack(); await loaded(page);
   await expect(page.locator('main[data-leaving]')).toHaveCount(0);
@@ -665,8 +665,8 @@ test('khuôn 1: a floating card whose top fades into the background, text only o
 test('an uploaded picture that is still waiting for review cannot be published; the live page keeps running', async ({ page, fixture: f }) => {
   const poster = 'https://media.example/waiting.jpg';
   await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by)VALUES($1,$2,'image','fixture')", [f.shop, poster]);
-  const saved = await f.admin.saveDraft(f.shop, 2, b2({ poster: { kind: 'image', url: poster } }));
-  await expect(f.admin.publish(f.shop, saved)).rejects.toThrow('MEDIA_PENDING');
+  const saved = await f.admin.saveDraft(f.page, 2, b2({ poster: { kind: 'image', url: poster } }));
+  await expect(f.admin.publish(f.page, saved)).rejects.toThrow('MEDIA_PENDING');
   await page.goto('/one'); await loaded(page);
   await expect(page.locator(`img[src="${poster}"]`)).toHaveCount(0);
   await expect(page.locator('[data-google]')).toBeVisible();

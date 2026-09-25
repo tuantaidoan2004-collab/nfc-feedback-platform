@@ -8,7 +8,7 @@ export async function GET(_request: Request, context: Context) {
   catch (error) { return ownerFailure(error); }
 }
 export async function POST(request: Request, context: Context) {
-  try { ownerGate(); ownerOrigin(request); return ownerJson(await new OwnerCards(database()).create(await ownerCredential(), (await context.params).shop, await ownerInput(request))); }
+  try { ownerGate(); ownerOrigin(request); return ownerJson(await new OwnerCards(database()).create(await ownerCredential(), (await context.params).shop, await ownerInput(request), new URL(request.url).searchParams.get('page'))); }
   catch (error) { return ownerFailure(error); }
 }
 export async function PATCH(request: Request, context: Context) {

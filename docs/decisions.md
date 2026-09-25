@@ -217,6 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
+### Xong gần nhất — P1 tách quán / trang, migration 024 (25/09)
+
+`shops` là quán, `pages` là trang (link, bản nháp, bản phát hành, thẻ, xem trước, nội dung). Trang cũ giữ nguyên link và
+khoá lượt ghé `direct:shop`; link vĩnh viễn (trigger). Góp ý mọi trang về một dashboard. Trình chỉnh và thẻ nhận
+`?page=`; giao diện danh sách trang là P3. **Migration 024 phải chạy trên Neon trước khi đẩy `main`.** Chi tiết
+`goi-va-trang.md` mục 10.
+
 ### Mô hình gói · trang · phiên bản — Tài chốt 25/09
 
 Quán có nhiều trang; mỗi trang một link, một khuôn + bản, một gói. Kho khuôn có giá (1–5 = 10k/tháng, khuôn 6 = 0đ),

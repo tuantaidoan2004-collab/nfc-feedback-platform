@@ -2,7 +2,8 @@ import { validateConfig, type PageConfig } from './config';
 import { assertPublishable } from './policy';
 
 /**
- * Hồ sơ của **tài khoản** — nội dung do chủ quán sở hữu (migration 022, `docs/decisions.md` mục 11).
+ * Hồ sơ của **trang** — nội dung do chủ quán sở hữu (migration 022; từ migration 024 mỗi TRANG một hàng, không phải mỗi
+ * quán, vì Tài chốt 25/09 nội dung nằm ở từng trang — `docs/goi-va-trang.md` mục 3).
  *
  * Khuôn là ổ cắm, tài khoản là phích. Bản chụp release giữ **diện mạo** của lần phát hành đó và không bao giờ
  * bị sửa; các trường thuộc về tài khoản thì lấy từ bảng `shop_profile` lúc đọc. Nhờ vậy đổi khuôn chỉ là đổi

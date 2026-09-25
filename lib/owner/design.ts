@@ -6,6 +6,8 @@ import { DEFAULT_FEEDBACK_BUTTON, PublishingError, isTemplateKey, validateConfig
 import { TEMPLATE_RELEASES, type TemplateRelease } from '../publishing/versions';
 import { r2Settings } from './media';
 import { recordActivity } from './activity';
+import { pageOf } from './pages';
+import type { PageRef } from '../publishing/repository';
 
 /**
  * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an
@@ -17,7 +19,7 @@ import { recordActivity } from './activity';
  * the platform ships for it, so the editor can offer a newer one. The shop never changes template here, only version.
  */
 export type TemplateState = { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[] };
-export type DesignState = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
+export type DesignState = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
   template: TemplateState };
 /** The versions shipped per template. Injected so a test can ship a second version the code does not have yet. */
 export type TemplateReleases = Record<string, readonly TemplateRelease[] | undefined>;
@@ -41,6 +43,7 @@ const translate = (error: unknown): never => {
     if (error.code === 'DRAFT_CONFLICT' || error.code === 'PREVIEW_SOURCE_CONFLICT') throw new OwnerError(409, 'DRAFT_CONFLICT');
     // A version the platform does not ship for this page's template (versions.ts).
     if (error.code === 'INVALID_TEMPLATE') throw new OwnerError(400, 'INVALID_TEMPLATE_VERSION');
+    if (error.code === 'PAGE_NOT_FOUND') throw new OwnerError(404, 'PAGE_NOT_FOUND');
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
     // Two separate answers, because the shop can fix them in two different ways (lát F-013).
     if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE') throw new OwnerError(400, error.code);
@@ -79,18 +82,22 @@ export class OwnerDesign {
    * the gap is the person's own thinking time and no lock can close it; `expectedRevision` is what keeps two editors
    * from overwriting each other there, and the check runs again on the way in.
    */
-  private write<T>(credential: OwnerCredential, slug: string, run: (db: PoolClient, access: OwnerAccess) => Promise<T>) {
-    return transaction(this.pool, async db => run(db, await authorize(db, credential, slug, 'design')));
+  private write<T>(credential: OwnerCredential, slug: string, page: string | null | undefined, run: (db: PoolClient, access: OwnerAccess, page: PageRef) => Promise<T>) {
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'design');
+      return run(db, access, await pageOf(db, access.shopId, page));
+    });
   }
 
-  async read(credential: OwnerCredential, slug: string): Promise<DesignState> {
-    const access = await this.access(credential, slug);
+  /** Every method takes the page by its link; absent means the shop's first page (lib/owner/pages.ts). */
+  async read(credential: OwnerCredential, slug: string, pageSlug?: string | null): Promise<DesignState> {
+    const access = await this.access(credential, slug), page = await pageOf(this.pool, access.shopId, pageSlug);
     const draft = (await this.pool.query(`SELECT d.revision,d.config,tv.template_key,tv.version FROM page_drafts d
-      JOIN template_versions tv ON tv.id=d.template_version_id WHERE d.shop_id=$1`, [access.shopId])).rows[0];
+      JOIN template_versions tv ON tv.id=d.template_version_id WHERE d.shop_id=$1 AND d.page_id=$2`, [page.shopId, page.pageId])).rows[0];
     if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
-    const live = (await this.pool.query(`SELECT r.id,r.config_snapshot,tv.version FROM shops s JOIN page_releases r ON r.id=s.active_release_id
-      JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.id=$1`, [access.shopId])).rows[0];
-    return { draft: { revision: Number(draft.revision), config: upgradeConfig(validateConfig(draft.config)) },
+    const live = (await this.pool.query(`SELECT r.id,r.config_snapshot,tv.version FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
+      JOIN template_versions tv ON tv.id=r.template_version_id WHERE p.shop_id=$1 AND p.id=$2`, [page.shopId, page.pageId])).rows[0];
+    return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config: upgradeConfig(validateConfig(draft.config)) },
       live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null,
       // Whether the upload buttons can work here: all R2 settings present.
       uploads: r2Settings() !== null,
@@ -98,20 +105,20 @@ export class OwnerDesign {
         versions: isTemplateKey(draft.template_key) ? this.releases[draft.template_key] ?? [] : [] } };
   }
 
-  async save(credential: OwnerCredential, slug: string, body: unknown) {
+  async save(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const data = input(body, ['expectedRevision', 'config']), expected = revisionOf(data.expectedRevision);
-    return this.write(credential, slug, async (db, access) => {
-      const revision = await this.admin(access, db).saveDraft(access.shopId, expected, data.config).catch(translate);
+    return this.write(credential, slug, pageSlug, async (db, access, page) => {
+      const revision = await this.admin(access, db).saveDraft(page, expected, data.config).catch(translate);
       await this.audit(db, access, 'impersonation.design.save', { revision });
       await recordActivity(db, access, 'design.save', `Bản nháp ${revision}`);
       return { revision };
     });
   }
 
-  async publish(credential: OwnerCredential, slug: string, body: unknown) {
+  async publish(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const expected = revisionOf(input(body, ['action', 'expectedRevision']).expectedRevision);
-    return this.write(credential, slug, async (db, access) => {
-      const published = await this.admin(access, db).publish(access.shopId, expected).catch(translate);
+    return this.write(credential, slug, pageSlug, async (db, access, page) => {
+      const published = await this.admin(access, db).publish(page, expected).catch(translate);
       await this.audit(db, access, 'impersonation.design.publish', { releaseId: published.releaseId });
       await recordActivity(db, access, 'design.publish', `Bản nháp ${published.draftRevision}`);
       return { releaseId: published.releaseId, revision: published.draftRevision };
@@ -122,13 +129,13 @@ export class OwnerDesign {
    * Moves the draft to another version of its template (versions.ts). Nothing reaches the guest page until Publish,
    * so a shop can try the new version in Preview and move back if it does not like it.
    */
-  async version(credential: OwnerCredential, slug: string, body: unknown) {
+  async version(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const data = input(body, ['action', 'expectedRevision', 'version']), expected = revisionOf(data.expectedRevision);
     if (!Number.isSafeInteger(data.version) || Number(data.version) < 1) throw new OwnerError(400, 'INVALID_DESIGN');
     const version = Number(data.version);
-    return this.write(credential, slug, async (db, access) => {
+    return this.write(credential, slug, pageSlug, async (db, access, page) => {
       const offered = (key: string) => isTemplateKey(key) ? (this.releases[key] ?? []).map(release => release.version) : [];
-      const result = await this.admin(access, db).setDraftTemplate(access.shopId, expected, version, offered).catch(translate);
+      const result = await this.admin(access, db).setDraftTemplate(page, expected, version, offered).catch(translate);
       // Choosing the version already in use changed nothing, so it leaves no line in the books.
       if (result.revision === expected) return result;
       await this.audit(db, access, 'impersonation.design.version', { version, revision: result.revision });
@@ -138,11 +145,11 @@ export class OwnerDesign {
   }
 
   /** A preview of the saved draft. The token goes straight into an HttpOnly cookie in the route, never into JSON. */
-  async preview(credential: OwnerCredential, slug: string, body: unknown) {
+  async preview(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const expected = revisionOf(input(body, ['action', 'expectedRevision']).expectedRevision);
     // A preview writes a row too, so it joins the same transaction rather than leaving an unrecorded one behind.
-    return this.write(credential, slug, async (db, access) => {
-      const preview = await this.admin(access, db).preview(access.shopId, { kind: 'draft', revision: expected }).catch(translate);
+    return this.write(credential, slug, pageSlug, async (db, access, page) => {
+      const preview = await this.admin(access, db).preview(page, { kind: 'draft', revision: expected }).catch(translate);
       await this.audit(db, access, 'impersonation.design.preview', { revision: expected });
       return preview;
     });

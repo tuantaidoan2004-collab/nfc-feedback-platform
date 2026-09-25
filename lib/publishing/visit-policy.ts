@@ -12,19 +12,31 @@ export function publishingVisitPolicy(c: RenderContext, previewToken?: string): 
   return {
     async guard(db, context) {
       if (context.shopId !== c.shopId || context.scope !== c.scope || context.entryKey !== c.entryKey) deny('RENDER_CONTEXT_MISMATCH');
+      // Lock order as in publishing: shop, then page, then card.
       const shop = (await db.query('SELECT publishing_state FROM shops WHERE id=$1 FOR SHARE', [c.shopId])).rows[0];
       if (!shop || (c.scope === 'live' ? shop.publishing_state !== 'active' : shop.publishing_state === 'suspended')) deny('PAGE_UNAVAILABLE');
-      if (c.tagId) {
-        const tag = (await db.query('SELECT state FROM tags WHERE shop_id=$1 AND id=$2 FOR SHARE', [c.shopId, c.tagId])).rows[0];
-        if (!tag || (c.scope === 'live' ? tag.state !== 'active' : tag.state === 'disabled')) deny('TAG_UNAVAILABLE');
-      }
-      if (c.releaseId && !(await db.query('SELECT 1 FROM page_releases WHERE shop_id=$1 AND id=$2', [c.shopId, c.releaseId])).rowCount) deny('RENDER_CONTEXT_MISMATCH');
-      let deadline: Date | undefined;
+      // Which page this visit is on (migration 024): the preview's page, or the page of the release it was drawn from.
+      let deadline: Date | undefined, pageId: string | undefined;
       if (c.previewId) {
         if (!previewToken || !/^[a-f0-9]{64}$/.test(previewToken)) deny('PREVIEW_UNAVAILABLE');
-        const preview = (await db.query('SELECT expires_at,source_release_id,tag_id FROM preview_sessions WHERE shop_id=$1 AND id=$2 AND token_hash=$3', [c.shopId, c.previewId, previewHash(previewToken)])).rows[0];
+        const preview = (await db.query('SELECT expires_at,source_release_id,tag_id,page_id FROM preview_sessions WHERE shop_id=$1 AND id=$2 AND token_hash=$3', [c.shopId, c.previewId, previewHash(previewToken)])).rows[0];
         if (!preview || preview.source_release_id !== c.releaseId || preview.tag_id !== c.tagId) deny('PREVIEW_UNAVAILABLE');
-        deadline = preview.expires_at;
+        deadline = preview.expires_at; pageId = preview.page_id;
+      }
+      if (c.releaseId) {
+        const release = (await db.query('SELECT page_id FROM page_releases WHERE shop_id=$1 AND id=$2', [c.shopId, c.releaseId])).rows[0];
+        if (!release || (pageId && release.page_id !== pageId)) deny('RENDER_CONTEXT_MISMATCH');
+        pageId = release.page_id;
+      }
+      const page = pageId ? (await db.query('SELECT state,entry_key FROM pages WHERE shop_id=$1 AND id=$2 FOR SHARE', [c.shopId, pageId])).rows[0] : undefined;
+      if (!page) deny('RENDER_CONTEXT_MISMATCH');
+      if (c.scope === 'live' && page.state !== 'active') deny('PAGE_UNAVAILABLE');
+      // A direct visit carries its own page's key; a key belonging to another page is a forged or stale context.
+      if (!c.tagId && !c.previewId && page.entry_key !== c.entryKey) deny('RENDER_CONTEXT_MISMATCH');
+      if (c.tagId) {
+        const tag = (await db.query('SELECT state,page_id FROM tags WHERE shop_id=$1 AND id=$2 FOR SHARE', [c.shopId, c.tagId])).rows[0];
+        if (!tag || (c.scope === 'live' ? tag.state !== 'active' : tag.state === 'disabled')) deny('TAG_UNAVAILABLE');
+        if (tag.page_id !== pageId) deny('RENDER_CONTEXT_MISMATCH');
       }
       if ('visitId' in context) await sameVisit(db, String(context.visitId));
       return deadline;

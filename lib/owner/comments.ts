@@ -82,7 +82,7 @@ export class OwnerComments {
       // The customer's own feedback, so a thread can open on its own — from a notification, outside the Data list.
       const experience = (await db.query(`SELECT e.session_id,to_char(e.first_interaction_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') first_rated_at,
           e.rating,e.feedback_topic topic,e.feedback_message message,e.feedback_phone phone,
-          COALESCE((SELECT COALESCE(NULLIF(t.location_label,''),CASE WHEN v.entry_key='direct:shop' THEN 'Trực tiếp' WHEN p.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END)
+          COALESCE((SELECT COALESCE(NULLIF(t.location_label,''),CASE WHEN v.entry_key LIKE 'direct:%' THEN 'Trực tiếp' WHEN p.tag_id IS NULL THEN 'Chưa rõ nguồn' ELSE 'Thẻ' END)
             FROM page_visits v LEFT JOIN published_visit_contexts p ON p.visit_id=v.id LEFT JOIN tags t ON t.id=p.tag_id
             WHERE v.session_id=e.session_id ORDER BY v.opened_at DESC LIMIT 1),'Chưa rõ nguồn') source_label
         FROM rating_experiences e WHERE e.shop_id=$1 AND e.session_id=$2 AND e.scope='live'`, [access.shopId, sessionId])).rows[0];

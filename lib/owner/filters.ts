@@ -35,8 +35,8 @@ export function cohort(shop: string, f: Filters) {
   const values: unknown[] = [shop,f.from,f.to];
   const conditions = ["v.shop_id=$1", "v.scope='live'", 'v.opened_at >= $2::timestamptz', 'v.opened_at < $3::timestamptz'];
   const add = (sql: string, value: unknown) => { values.push(value); conditions.push(sql.replace('?',`$${values.length}`)); };
-  if(f.source==='direct')conditions.push("v.entry_key='direct:shop'");
-  else if(f.source==='unknown')conditions.push("p.visit_id IS NULL AND v.entry_key<>'direct:shop'");
+  if(f.source==='direct')conditions.push("v.entry_key LIKE 'direct:%'");
+  else if(f.source==='unknown')conditions.push("p.visit_id IS NULL AND v.entry_key NOT LIKE 'direct:%'");
   else if(f.source)add('p.tag_id=?',f.source);
   if(f.release==='unknown')conditions.push('p.release_id IS NULL'); else if(f.release)add('p.release_id=?',f.release);
   if(f.rating)add('e.rating=?',f.rating);
