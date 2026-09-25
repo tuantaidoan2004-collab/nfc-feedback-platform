@@ -36,6 +36,15 @@ export const ownerFailure=(error:unknown)=>{
 };
 export function ownerOrigin(request:Request){const expected=process.env.APP_ORIGIN;
  if(!expected||new URL(expected).origin!==expected||request.headers.get('origin')!==expected||(request.headers.has('sec-fetch-site')&&request.headers.get('sec-fetch-site')!=='same-origin'))throw new OwnerError(403,'ORIGIN_NOT_ALLOWED');}
+/**
+ * Which page of the shop a write is about (migration 024): `page` in the JSON body, taken off before the body reaches
+ * the handler. Writes never read the query string (ownerInput refuses one), so a page cannot ride in on a URL.
+ */
+export function ownerPage(body:Record<string,unknown>):[Record<string,unknown>,string|null]{
+ const {page,...rest}=body;
+ if(page!==undefined&&typeof page!=='string')throw new OwnerError(400,'INVALID_INPUT');
+ return [rest,page??null];
+}
 export async function ownerInput(request:Request){
  if(new URL(request.url).search || request.headers.get('content-type')?.split(';')[0]!=='application/json')throw new OwnerError(400,'INVALID_INPUT');
  const reader=request.body?.getReader();if(!reader)throw new OwnerError(400,'INVALID_INPUT');const chunks:Uint8Array[]=[];let size=0;

@@ -8,15 +8,7 @@ import { BUTTON_FORMS, DEFAULT_FEEDBACK_BUTTON, defaultConfig, GLASS_TEMPLATES, 
 import { burstConfetti } from './confetti';
 import { settingsOnPage } from '@/lib/publishing/settings';
 import { FACES } from '@/lib/faces';
-import './guest-page.css';
-import './skin.css';
-// Each template version's frozen look (versions.ts). After skin.css, so a version's tokens override the defaults.
-import './skins/standard.v1.css';
-import './skins/minimal.v1.css';
-import './skins/glass.v1.css';
-import './skins/deco.v1.css';
-import './skins/spotlight.v1.css';
-import './skins/big-button.v1.css';
+import './guest-styles';
 import { documentFeedbackService, type DocumentFeedbackService } from '@/lib/client/document-feedback-service';
 import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
@@ -28,7 +20,9 @@ import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
  * the same for every visitor because no rating is asked before it. Private feedback lives behind a floating button
  * and opens a spotlight card with its own stars; the stars and the text are saved only when the customer presses Send.
  */
-type Props = { render?: RenderBinding; pageConfig?: PageConfig; template?: string; templateVersion?: number; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
+type Props = { render?: RenderBinding; pageConfig?: PageConfig; template?: string; templateVersion?: number;
+  /** A picture of the page for the dashboard's page list (lát P3): no visit is recorded, nothing moves, nothing plays. */
+  still?: boolean; slug: string; name: string; googleUrl: string | null; heroUrl: string | null; heroKind: 'image' | 'video' | null };
 const messages = {
   vi: {
     loading: 'Đang kết nối…', ready: 'Chọn sao, viết góp ý, hoặc cả hai.',
@@ -393,17 +387,17 @@ export default function ShopFeedbackV2(shop: Props) {
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
-      if (!active) return;
+      if (!active || shop.still) return;
       try { setService(documentFeedbackService(window, { shop: shop.slug, ...(shop.render ? { render: shop.render } : {}) })); }
       catch { setUnavailable(true); }
     });
     return () => { active = false; };
-  }, [shop.slug, shop.render]);
+  }, [shop.slug, shop.render, shop.still]);
   const client = useDocumentFeedback(service);
   const state = client.state?.queue.coordinator, current = state?.current;
   const snapshot = current?.snapshot, mutation = state?.mutation;
   const opening = state?.opens.find(entry => entry.event.loadKey === current?.event.loadKey);
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || !!shop.still;
   const hint = useBottomHint();
   const leaveMs = LEAVE_TRANSITION_MS.get(shop.template ?? '') ?? 0;
   const glass = GLASS_TEMPLATES.has(shop.template ?? '');

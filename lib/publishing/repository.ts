@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-import { PublishingError, TEMPLATE_V1, validateConfig } from './config';
+import { PublishingError, TEMPLATE_V1, isTemplateKey, templateConfig, validateConfig, type PageConfig, type TemplateKey } from './config';
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
@@ -33,6 +33,19 @@ async function tx<T>(pool: PublishingDb, run: (db: PoolClient) => Promise<T>): P
 }
 /** INTERNAL boundary. Caller must supply real authorization later. No administrative HTTP routes in this slice. */
 export type TemplateReleases = Record<string, readonly TemplateRelease[] | undefined>;
+/**
+ * The row of one template version, created on first use. Versions are platform data (versions.ts), so any caller that
+ * has already checked the version is shipped may ask for its row; a racing twin lands on the unique (key, version).
+ */
+export async function templateVersionRow(db: PublishingDb, key: string, version: number) {
+  await db.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3)
+    ON CONFLICT(template_key,version) DO NOTHING`, [key, version, JSON.stringify(TEMPLATE_V1.capabilities)]);
+  return (await db.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=$2', [key, version])).rows[0].id as string;
+}
+/** A page's content (migration 022): what stays when the page changes template. Everything else is the template's look. */
+export function contentOf(config: PageConfig) {
+  return { name: config.name, googleUrl: config.googleUrl, text: config.text, links: config.links, logo: config.logo, poster: config.poster };
+}
 export class PublishingAdmin {
   /** `releases`: the template versions the platform ships (versions.ts); injected only by tests that need a second one. */
   constructor(private pool: PublishingDb, private authorize: AuthorizePublishing, private releases: TemplateReleases = TEMPLATE_RELEASES) {}
@@ -95,13 +108,34 @@ export class PublishingAdmin {
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       if (!(this.releases[draft.template_key] ?? []).some(release => release.version === version)) error('INVALID_TEMPLATE');
       if (Number(draft.version) === version) return { revision: expected };
-      await db.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3)
-        ON CONFLICT(template_key,version) DO NOTHING`, [draft.template_key, version, JSON.stringify(TEMPLATE_V1.capabilities)]);
+      await templateVersionRow(db, draft.template_key, version);
       const { settings: previous, ...rest } = validateConfig(draft.config);
       const settings = convertSettings(settingsOf(this.releases, draft.template_key, version), previous);
       const config = validateConfig(rest.schemaVersion === 2 && settings ? { ...rest, settings } : rest);
       const updated = await db.query(`UPDATE page_drafts SET template_version_id=(SELECT id FROM template_versions WHERE template_key=$3 AND version=$4),
         config=$5,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`, [page.shopId, page.pageId, draft.template_key, version, config]);
+      return { revision: Number(updated.rows[0].revision) };
+    });
+  }
+  /**
+   * Puts the draft on ANOTHER template (Tài, 25/09: đổi khuôn giữ link, thẻ và dữ liệu). The page keeps its content;
+   * its look becomes the new template's skeleton at its newest version, with that version's own fields at their
+   * defaults. Nothing reaches guests until the draft is published.
+   */
+  async changeTemplate(page: PageRef, expected: number, key: string) {
+    await this.onPage('draft:template', page); revision(expected);
+    if (!isTemplateKey(key) || !this.releases[key]?.length) return error('INVALID_TEMPLATE');
+    const target: TemplateKey = key, version = this.releases[target]!.at(-1)!.version;
+    return tx(this.pool, async db => {
+      const draft = (await db.query(`SELECT d.revision,d.config,tv.template_key FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
+        WHERE d.shop_id=$1 AND d.page_id=$2 FOR UPDATE OF d`, [page.shopId, page.pageId])).rows[0];
+      if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
+      if (draft.template_key === target) return { revision: expected };
+      const settings = convertSettings(settingsOf(this.releases, target, version), undefined);
+      const config = validateConfig({ ...templateConfig(target), ...contentOf(validateConfig(draft.config)), ...(settings ? { settings } : {}) });
+      assertPublishable(config);
+      const updated = await db.query(`UPDATE page_drafts SET template_version_id=$3,config=$4,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`,
+        [page.shopId, page.pageId, await templateVersionRow(db, target, version), config]);
       return { revision: Number(updated.rows[0].revision) };
     });
   }

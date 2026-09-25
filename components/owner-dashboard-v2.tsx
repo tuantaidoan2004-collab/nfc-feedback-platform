@@ -8,6 +8,7 @@ import { faceFor } from '@/lib/faces';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
+import PagesPanel, { type PageList } from './pages-panel';
 import FeedbackThreads, { ThreadDialog, type Me } from './feedback-threads';
 import NotificationBell from './notification-bell';
 import AdminBadge from './admin-badge';
@@ -191,6 +192,29 @@ function AdminVisits({ visits }: { visits: Summary['adminVisits'] }) {
 type Range = { key: Period | 'custom'; from: string; to: string };
 const rangeFor = (key: Period): Range => ({ key, from: hcmDate(key === 'today' ? 0 : key === 'week' ? 6 : 29), to: hcmDate() });
 
+/**
+ * The design view (lát P3): the shop's pages on top; the editor and the cards below work on the page chosen there.
+ * If the page list cannot load, the editor still opens on the shop's first page.
+ */
+function DesignWorkspace({ slug, endpoint, origin, cards }: { slug: string; endpoint: string; origin: string; cards: boolean }) {
+  const [list, setList] = useState<PageList | null>(null), [failed, setFailed] = useState(false), [page, setPage] = useState<string | null>(null);
+  const load = useCallback(async (select?: string) => {
+    try {
+      const response = await fetch(`${endpoint}/pages`, { cache: 'no-store' });
+      if (!response.ok) { setFailed(true); return; }
+      setList(await response.json()); if (select) setPage(select);
+    } catch { setFailed(true); }
+  }, [endpoint]);
+  useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
+  const current = page ?? list?.pages[0]?.slug ?? null;
+  return <>
+    {!failed && <PagesPanel shop={slug} endpoint={endpoint} origin={origin} list={list} selected={current} onSelect={setPage} onChanged={load} />}
+    {(current || failed) && <DesignEditor key={current ?? 'first'} endpoint={endpoint} origin={origin} page={current}
+      pages={list?.pages ?? []} canManage={list?.canManage ?? false} onChanged={() => void load()} />}
+    {cards && <CardsPanel key={`cards-${list?.pages.length ?? 0}`} endpoint={endpoint} origin={origin} page={current} />}
+  </>;
+}
+
 export default function OwnerDashboard({ slug, name, customerUrl, impersonation }: { slug: string; name: string; customerUrl: string; impersonation: Impersonation | null }) {
   const router = useRouter();
   const endpoint = `/api/owner/v2/${encodeURIComponent(slug)}`;
@@ -371,8 +395,9 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {view === 'design' && (impersonation && !designOnly
         ? <section className={styles.panel} aria-label="Thiết kế & Link" data-panel="design"><h2>Thiết kế & Link</h2>
             <p className={styles.hint}>Phiên này chỉ để xem. Để chỉnh giao diện, mở phiên “Sửa giao diện”; chủ shop cần đặt mức hỗ trợ Khấc 2 hoặc Khấc 3.</p></section>
-        : <div data-panel="design">{may('design') && <DesignEditor endpoint={endpoint} customerUrl={customerUrl} />}
-            {may('cards') && <CardsPanel endpoint={endpoint} origin={customerUrl.replace(/\/[^/]*$/, '')} />}</div>)}
+        : <div data-panel="design">{may('design')
+            ? <DesignWorkspace slug={slug} endpoint={endpoint} origin={customerUrl.replace(/\/[^/]*$/, '')} cards={may('cards')} />
+            : may('cards') && <CardsPanel endpoint={endpoint} origin={customerUrl.replace(/\/[^/]*$/, '')} />}</div>)}
 
       {view === 'activity' && owner && <ActivityPanel endpoint={endpoint} />}
 

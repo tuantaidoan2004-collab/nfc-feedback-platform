@@ -90,7 +90,7 @@ dừng khẩn cấp, duyệt ảnh.
 |---|---|---|
 | P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang — **xong 25/09** (mục 10) | Có, lớn (024) |
 | P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng — **xong 25/09** (mục 11) | Không |
-| P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn | Nhỏ hoặc không |
+| P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn — **xong 25/09** (mục 12) | Nhỏ (025) |
 | P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin | Có |
 | P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản | Có |
 | P6 | **Số bản nền tảng + nhật ký thay đổi** | Không |
@@ -102,6 +102,8 @@ dừng khẩn cấp, duyệt ảnh.
 - Đổi từ khuôn 0đ sang khuôn có phí giữa kỳ: tính tiền từ lúc nào.
 - Một thẻ NFC có chuyển được từ trang này sang trang khác của cùng quán không.
 - Dữ liệu góp ý của trang đã đóng: xoá ngay hay giữ bao lâu (phải khớp trang chính sách quyền riêng tư).
+- **Khung "Thẻ NFC" còn ghi cách tính tiền cũ** (5 thẻ gồm trong gói, 8k/thẻ thêm — `lib/owner/cards.ts`
+  `cardMonthlyFee`, `commercial-model.md` §3), trái với mục 4. Sửa ở P5 (Tài chỉ ra qua ảnh 25/09).
 
 ## 10. P1 đã làm (25/09) — migration 024
 
@@ -150,3 +152,21 @@ dừng khẩn cấp, duyệt ảnh.
 - **Cách thêm một ô vào khuôn:** làm bản mới (mục 16 của `thiet-ke-va-khuon.md`), khai ô trong `settings` của bản đó, và
   tệp CSS của bản đó đọc `var(--s-<khoá>, <mặc định>)` hoặc `[data-s-<khoá>="…"]`. Test hợp đồng bắt CSS đọc ô không khai
   hoặc thiếu giá trị dự phòng. **Chưa khuôn nào có ô chung**; đường này mới được thử bằng bản 2 giả trong test.
+
+## 12. P3 đã làm (25/09) — migration 025
+
+- **Khung "Trang"** đầu mục Thiết kế & Link: mỗi trang một dòng — ảnh thu nhỏ, tên (chỉ chủ quán thấy; cột `pages.label`,
+  migration 025), link, khuôn + bản, "Đang chạy"/"Chưa phát hành". "Sửa trang này" đưa trình chỉnh **và** thẻ NFC sang
+  trang đó; thẻ mới thuộc trang đang chọn, bảng thẻ có cột Trang.
+- **Tạo trang** (chỉ chủ quán, vì mỗi trang là một gói): **Nhân bản** một trang (chép khuôn + bản, diện mạo, nội dung;
+  không chép thẻ) hoặc **Trang mới từ kho khuôn** (bộ xương trống, bản mới nhất). Trang mới là bản nháp ở một link mới
+  vĩnh viễn; lên trang khách khi bấm Phát hành như mọi thay đổi. Đổi tên trang: ai có quyền thiết kế.
+- **Trình chỉnh:** "Đổi sang khuôn khác" (chỉ chủ quán) giữ nội dung, lấy diện mạo bộ xương của khuôn mới và ô chung ở
+  mặc định; "Nhập dữ liệu từ trang khác" chép tên, link Google, câu hỏi, nút link, logo, poster vào bản nháp — chưa lưu,
+  chủ quán xem rồi bấm Lưu nháp.
+- **Ảnh thu nhỏ** là chính trang đó vẽ tĩnh trong một iframe (`/ZZZ/<quán>/thumb/<trang>`, `sandbox` không cho chạy
+  script): bản nháp, chỉ người có quyền thiết kế xem được, **không ghi lượt ghé**, không chạy video. Kính của khuôn 3
+  cần JavaScript để căn nên trong ảnh chỉ hiện lớp sương. Chỉ app này được nhúng nó (`frame-ancestors 'self'`); mọi
+  trang dashboard khác vẫn cấm nhúng.
+- **Ghi của dashboard mang trang trong thân JSON** (`page`), đọc thì `?page=` — xem gotcha "lỗi `?page=` của P1".
+- Khung "Khuôn" không còn bị bóp hẹp (mỗi bản một dòng).

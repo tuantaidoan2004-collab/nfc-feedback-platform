@@ -217,7 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — P2 bảng cài đặt theo bản khuôn (25/09)
+### Xong gần nhất — P3 danh sách trang, migration 025 (25/09)
+
+Dashboard có khung "Trang": ảnh thu nhỏ, tên, link, khuôn, trạng thái; nhân bản trang, trang mới từ kho (chỉ chủ quán),
+đổi khuôn, nhập dữ liệu từ trang khác; thẻ theo trang đang chọn. Kèm sửa lỗi của P1: ghi qua HTTP với `?page=` bị từ
+chối. **Migration 025 phải chạy trên Neon trước khi đẩy `main`.** Chi tiết `goi-va-trang.md` mục 12.
+
+### Trước đó — P2 bảng cài đặt theo bản khuôn (25/09, đã lên production — Claude kiểm `/urr6ud` 200, lượt ghé ghi được)
 
 Mỗi bản khuôn khai ô chủ quán được chỉnh; trình chỉnh chỉ vẽ ô đó, server từ chối phần còn lại. Khuôn 6 không ô nào;
 bảng của sáu bản 1 ở `goi-va-trang.md` mục 11 (Claude chọn, Tài đổi được). Ô chung (màu, thanh kéo…) đã có đường đi

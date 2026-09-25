@@ -8,6 +8,7 @@ import {OwnerAuth} from '../lib/owner/auth';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {OwnerDesign} from '../lib/owner/design';
 import {OwnerCards} from '../lib/owner/cards';
+import {OwnerPages} from '../lib/owner/pages';
 import {OwnerDashboard} from '../lib/owner/dashboard';
 import {parseFilters} from '../lib/owner/filters';
 import {PublishingAdmin,PublishingResolver,type PageRef} from '../lib/publishing/repository';
@@ -27,7 +28,7 @@ type F={db:Pool;shops:ShopProvisioning;actorId:string;admin:PublishingAdmin;reso
 const test=base.extend<{f:F}>({f:async({},provide)=>{
  const schema=`nfc_pages_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of [...BEFORE,'024_pages.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),actorId,admin:new PublishingAdmin(db,async()=>({actorId})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -167,4 +168,66 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   const back=(await db.query('SELECT s.active_release_id,(SELECT count(*)::int FROM shop_profile) profiles FROM shops s WHERE s.id=$1',[shop])).rows[0];
   expect(back.profiles).toBe(2);expect(back.active_release_id).not.toBe(release);
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
+});
+
+/** A manager of the shop with the default switches, design included (lib/owner/auth.ts MANAGER_DEFAULT). */
+async function manager(f:F,shopId:string){
+ const auth=new OwnerAuth(f.db),id=await auth.bootstrap('quan-ly','password-of-quan-ly',async()=>{});
+ await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[id,shopId]);
+ return (await auth.login('quan-ly','password-of-quan-ly')).token;
+}
+
+test('the page list: the owner copies a page or takes a template from the library, each a draft at a new permanent link',async({f})=>{
+ const shop=await shopOn(f,1),pages=new OwnerPages(f.db),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
+ expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'',state:'active',template:{key:'minimal',version:1},createdAt:expect.any(String)}]});
+ // A copy: same template version and draft, its own link and name, not live until published.
+ const before=(await design.read(shop.token,shop.slug)).draft.config;
+ const copy=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Phòng VIP'});
+ expect(copy.slug).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
+ expect((await design.read(shop.token,shop.slug,copy.slug)).draft.config).toEqual(before);
+ await expect(resolver.live({slug:copy.slug})).rejects.toThrow('PAGE_UNAVAILABLE');
+ await design.publish(shop.token,shop.slug,{action:'publish',expectedRevision:1},copy.slug);
+ expect((await resolver.live({slug:copy.slug})).config.name).toBe('Quán 1');
+ // From the library: the template's bare skeleton at its newest version, content to be brought in.
+ const fresh=await pages.create(shop.token,shop.slug,{template:'big-button',label:'Quầy bar'});
+ const state=await design.read(shop.token,shop.slug,fresh.slug);
+ expect([state.template.key,state.template.draft,state.draft.config.name,state.draft.config.links]).toEqual(['big-button',1,'YOUR SHOP',[]]);
+ expect((await pages.list(shop.token,shop.slug)).pages.map(p=>[p.label,p.state,p.template.key])).toEqual([['','active','minimal'],['Phòng VIP','active','minimal'],['Quầy bar','draft','big-button']]);
+ await pages.rename(shop.token,shop.slug,{page:fresh.slug,label:'  Quầy bar tầng 1 '});
+ expect((await pages.list(shop.token,shop.slug)).pages[2].label).toBe('Quầy bar tầng 1');
+ for(const body of [{template:'nope',label:''},{copy:'khong-co',label:''},{template:'minimal',label:'x'.repeat(61)},{template:'minimal'},{copy:shop.slug,template:'minimal',label:''},{page:shop.slug,label:'<b>'}])
+  await expect('page' in body?pages.rename(shop.token,shop.slug,body):pages.create(shop.token,shop.slug,body)).rejects.toMatchObject({status:expect.any(Number)});
+ expect((await f.db.query("SELECT target FROM shop_activity WHERE action='page.create' ORDER BY id")).rows.map(r=>r.target)).toEqual([`Phòng VIP (${copy.slug})`,`Quầy bar (${fresh.slug})`]);
+});
+
+test('only the owner makes pages or changes a template: each decides what the shop pays',async({f})=>{
+ const shop=await shopOn(f,1),token=await manager(f,shop.shopId),pages=new OwnerPages(f.db),design=new OwnerDesign(f.db);
+ expect((await pages.list(token,shop.slug)).canManage).toBe(false);
+ await expect(pages.create(token,shop.slug,{template:'minimal',label:''})).rejects.toMatchObject({status:403,code:'OWNER_ROLE_REQUIRED'});
+ const revision=(await design.read(token,shop.slug)).draft.revision;
+ await expect(design.template(token,shop.slug,{action:'template',expectedRevision:revision,template:'glass'})).rejects.toMatchObject({status:403,code:'OWNER_ROLE_REQUIRED'});
+ // Naming a page is not a payment decision: a manager with the design switch may.
+ await pages.rename(token,shop.slug,{page:shop.slug,label:'Sảnh chính'});
+ expect((await f.db.query('SELECT count(*)::int n FROM pages WHERE shop_id=$1',[shop.shopId])).rows[0].n).toBe(1);
+});
+
+test('a page moved to another template keeps its link, cards and content, and takes the new look',async({f})=>{
+ const shop=await shopOn(f,1),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
+ let state=await design.read(shop.token,shop.slug);
+ const content={...state.draft.config,name:'Quán Đổi Khuôn',googleUrl:'https://maps.google.com/?cid=99',
+  links:[{label:{vi:'Instagram',en:'Instagram'},url:'https://instagram.com/q',icon:'instagram' as const}]};
+ const {SERVICE_LABELS}=await import('../lib/publishing/policy');content.links[0].label={...SERVICE_LABELS[0]};
+ const saved=(await design.save(shop.token,shop.slug,{expectedRevision:state.draft.revision,config:content})).revision;
+ const moved=await design.template(shop.token,shop.slug,{action:'template',expectedRevision:saved,template:'glass'});
+ expect(moved.revision).toBe(saved+1);
+ state=await design.read(shop.token,shop.slug);
+ expect(state.template).toMatchObject({key:'glass',draft:1});
+ expect(state.draft.config).toMatchObject({name:'Quán Đổi Khuôn',googleUrl:'https://maps.google.com/?cid=99',links:content.links,
+  background:{kind:'gradient',colors:['#1B2B4A','#8FB3D9'],angle:160}});
+ // Nothing changed for guests until it is published; then the same link and card show the new template.
+ expect((await resolver.live({slug:shop.slug})).template).toBe('minimal');
+ await design.publish(shop.token,shop.slug,{action:'publish',expectedRevision:moved.revision});
+ const cards=new OwnerCards(f.db);await cards.update(shop.token,shop.slug,{id:(await cards.list(shop.token,shop.slug)).cards[0].id,state:'active'});
+ expect([(await resolver.live({slug:shop.slug})).template,(await resolver.live({code:shop.tagCode})).template]).toEqual(['glass','glass']);
+ await expect(design.template(shop.token,shop.slug,{action:'template',expectedRevision:moved.revision+1,template:'nope'})).rejects.toMatchObject({code:'INVALID_DESIGN'});
 });

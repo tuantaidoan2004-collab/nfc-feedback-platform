@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import { SERVICE_LABELS } from '@/lib/publishing/policy';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
-import { STEM_BACKGROUND, isTemplateKey } from '@/lib/publishing/config';
+import { STEM_BACKGROUND, TEMPLATE_KEYS, isTemplateKey } from '@/lib/publishing/config';
 import { TEMPLATE_NAMES, type TemplateRelease } from '@/lib/publishing/versions';
 import type { SettingField } from '@/lib/publishing/settings';
 import styles from './owner-app.module.css';
@@ -12,7 +12,7 @@ import styles from './owner-app.module.css';
  * Design & Link editor (lát D). Works on the saved draft: Save keeps it, Preview opens the saved draft in a new tab
  * exactly as it would publish, Publish makes it the live page. Media are https links until per-shop uploads exist.
  */
-type State = { draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
+type State = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
   template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] } };
 const ICONS: [LinkIcon, string][] = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['zalo', 'Zalo'], ['phone', 'Gọi điện'], ['booking', 'Đặt lịch'], ['link', 'Liên kết']];
 const PLANES: [FeedbackButton['icon'], string][] = [['plane', 'Máy bay giấy'], ['chat', 'Bong bóng chat'], ['mail', 'Phong bì']];
@@ -25,6 +25,8 @@ const ERRORS: Record<string, string> = {
   INVALID_TEMPLATE_VERSION: 'Bản khuôn này không còn. Đã tải lại danh sách bản.',
   SETTING_LOCKED: 'Khuôn này không cho đổi phần diện mạo đó. Đã tải lại bản nháp.',
   INVALID_SETTING: 'Có một tuỳ chỉnh của khuôn không hợp lệ. Đã tải lại bản nháp.',
+  OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop đổi được khuôn, vì khuôn quyết định giá của trang.',
+  PAGE_NOT_FOUND: 'Không tìm thấy trang này. Tải lại dashboard.',
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
   POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
@@ -103,23 +105,30 @@ function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string
   </label>;
 }
 
-export default function DesignEditor({ endpoint, customerUrl }: { endpoint: string; customerUrl: string }) {
+/** Content every page has, whatever its template (migration 022): what "Nhập dữ liệu từ trang khác" brings over. */
+const CONTENT = ['name', 'googleUrl', 'text', 'links', 'logo', 'poster'] as const;
+export default function DesignEditor({ endpoint, origin, page, pages = [], canManage = false, onChanged }: {
+  endpoint: string; origin: string; page: string | null; pages?: { slug: string; label: string }[]; canManage?: boolean; onChanged?: () => void;
+}) {
+  // Reads name the page in the query; writes carry it in the body (server/owner-v2.ts ownerPage).
+  const read = page ? `${endpoint}/design?page=${encodeURIComponent(page)}` : `${endpoint}/design`;
+  const withPage = (body: Record<string, unknown>) => page ? { ...body, page } : body;
   const [state, setState] = useState<State | null>(null);
   const [config, setConfig] = useState<PageConfig | null>(null);
   const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`${endpoint}/design`, { cache: 'no-store' });
+      const response = await fetch(read, { cache: 'no-store' });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) { setNotice(ERRORS[body.error] ?? (response.status === 401 ? 'Phiên đã hết hạn. Đăng nhập lại.' : 'Chưa tải được thiết kế.')); return; }
       setState(body); setConfig(body.draft.config); setDirty(false);
     } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
-  }, [endpoint]);
+  }, [read]);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   const change = (patch: Partial<PageConfig>) => { setConfig(current => current && { ...current, ...patch }); setDirty(true); setNotice(''); };
 
   const send = async (method: string, body: unknown) => {
-    const response = await fetch(`${endpoint}/design`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const response = await fetch(`${endpoint}/design`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withPage(body as Record<string, unknown>)) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       setNotice(ERRORS[data.error] ?? 'Chưa lưu được. Thử lại.');
@@ -155,11 +164,37 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
       }
       if (!window.confirm('Phát hành bản này? Khách sẽ thấy ngay trang mới.')) return;
       const result = await send('POST', { action: 'publish', expectedRevision: revision });
-      if (result) { setNotice('Đã phát hành. Khách thấy trang mới từ lần mở tiếp theo.'); await load(); }
+      if (result) { setNotice('Đã phát hành. Khách thấy trang mới từ lần mở tiếp theo.'); await load(); onChanged?.(); }
     } catch { tab?.close(); setNotice('Không thể kết nối. Vui lòng thử lại.'); }
     finally { setBusy(false); }
   };
 
+  /** Puts the page on another template, keeping its content; the guest page changes only on Publish. */
+  const switchTemplate = async (template: string) => {
+    if (!window.confirm('Đổi trang này sang khuôn khác? Nội dung giữ nguyên, diện mạo theo khuôn mới. Khách chỉ thấy sau khi Phát hành.')) return;
+    setBusy(true); setNotice('');
+    try {
+      const revision = await saved();
+      if (revision === null) return;
+      const result = await send('POST', { action: 'template', expectedRevision: revision, template });
+      await load(); onChanged?.();
+      if (result) setNotice('Bản nháp đã sang khuôn mới. Bấm Xem trước để thử; khách chỉ thấy sau khi Phát hành.');
+    } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
+    finally { setBusy(false); }
+  };
+  /** Copies another page's content into this draft, unsaved, for the owner to look over and save. */
+  const importFrom = async (source: string) => {
+    setBusy(true); setNotice('');
+    try {
+      const response = await fetch(`${endpoint}/design?page=${encodeURIComponent(source)}`, { cache: 'no-store' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) { setNotice(ERRORS[body.error] ?? 'Chưa tải được trang kia.'); return; }
+      const from = body.draft.config as PageConfig;
+      change(Object.fromEntries(CONTENT.map(key => [key, from[key]])) as Partial<PageConfig>);
+      setNotice(`Đã chép tên, link Google, câu hỏi, nút link, logo và poster từ trang ${source}. Kiểm tra rồi bấm Lưu nháp.`);
+    } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
+    finally { setBusy(false); }
+  };
   /** Moves the draft to another version of its template; the guest page changes only on Publish (versions.ts). */
   const switchVersion = async (version: number) => {
     setBusy(true); setNotice('');
@@ -174,6 +209,7 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
     finally { setBusy(false); }
   };
 
+  const customerUrl = state ? `${origin}/${state.page.slug}` : origin;
   if (!config || !state) return <section className={styles.panel} data-design-editor><h2>Thiết kế & Link</h2><p className={styles.hint}>{notice || 'Đang tải…'}</p></section>;
   const b = config.background, button = config.feedbackButton!;
   // What this template version lets the owner adjust (lib/publishing/settings.ts). Content is always editable.
@@ -205,13 +241,21 @@ export default function DesignEditor({ endpoint, customerUrl }: { endpoint: stri
         bản nháp dùng <strong>bản {state.template.draft}</strong>{state.template.live === null ? '.'
           : state.template.live === state.template.draft ? ', trang khách cũng đang chạy bản này.'
           : `; trang khách vẫn chạy bản ${state.template.live} cho tới khi bạn Phát hành.`}</p>
-      <ol className={styles.linkList}>{[...state.template.versions].reverse().map((release, index) =>
+      <ol className={styles.versionList}>{[...state.template.versions].reverse().map((release, index) =>
         <li key={release.version} data-template-version-row={release.version}>
           <p><strong>Bản {release.version}</strong>{index === 0 ? ' · mới nhất' : ''} · {release.date.split('-').reverse().join('/')}<br />{release.notes}</p>
           {release.version === state.template.draft
             ? <small>Bản nháp đang dùng</small>
             : <button type="button" disabled={busy} onClick={() => void switchVersion(release.version)}>Dùng bản {release.version}</button>}
         </li>)}</ol>
+      {canManage && <div className={styles.toolRow} data-template-switch><label>Đổi sang khuôn khác<select value={state.template.key}
+        disabled={busy} onChange={e => void switchTemplate(e.target.value)}>
+        {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}
+        {!isTemplateKey(state.template.key) && <option value={state.template.key}>{state.template.key}</option>}</select></label></div>}
+      {pages.length > 1 && <div className={styles.toolRow} data-import><label>Nhập dữ liệu từ trang khác<select value="" disabled={busy}
+        onChange={e => { if (e.target.value) void importFrom(e.target.value); }}><option value="">Chọn trang…</option>
+        {pages.filter(other => other.slug !== state.page.slug).map(other => <option key={other.slug} value={other.slug}>{other.label || other.slug} ({other.slug})</option>)}
+      </select></label></div>}
     </fieldset>
 
     <fieldset className={styles.panel}><legend>Thông tin</legend><div className={styles.grid2}>

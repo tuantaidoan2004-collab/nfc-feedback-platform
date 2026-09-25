@@ -363,3 +363,30 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
 .dialog header { display: flex; align-items: center; justify-content: space-between; }
 .dialog h2 { margin: 0; font-size: 18px; }
 @media (max-width: 900px) { .meRow { margin: 0 0 0 auto; } .inbox { left: auto; right: 0; transform: none; } }
+
+/* Khuôn: one version per row, its notes beside it (the link grid above squeezed the notes into one narrow column). */
+.versionList { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.versionList li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 12px; }
+.versionList p { margin: 0; flex: 1 1 320px; font-size: 14px; line-height: 1.5; }
+.versionList button { min-height: 40px; padding: 6px 12px; border: 1px solid #c3d0bf; border-radius: 10px; background: #fff; color: var(--ink); font-weight: 650; }
+.toolRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 12px; }
+.toolRow label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.toolRow select, .toolRow input { min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font: inherit; color: var(--ink); background: #fff; }
+.toolRow button { min-height: 42px; padding: 6px 14px; border: 1px solid #c3d0bf; border-radius: 10px; background: #fff; color: var(--ink); font-weight: 650; }
+
+/* Pages (lát P3): a picture of each page beside its link, template and state. */
+.pageList { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.pageRow { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px;
+  border: 1px solid var(--line); border-radius: 14px; }
+.pageRow[aria-current="true"] { border-color: var(--forest-2); box-shadow: inset 0 0 0 1px var(--forest-2); }
+.thumb { position: relative; width: 96px; height: 208px; overflow: hidden; border-radius: 12px; background: var(--mist); }
+.thumb iframe { position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0; transform: scale(.2462); transform-origin: 0 0; pointer-events: none; }
+.pageRow h3 { margin: 0; font-size: 16px; }
+.pageRow p { margin: 4px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.pageRow .rowButtons { flex-wrap: wrap; justify-content: flex-end; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 650; background: var(--mist); color: var(--ink); }
+@media (max-width: 700px) {
+  .pageRow { grid-template-columns: 96px minmax(0, 1fr); }
+  .pageRow .rowButtons { grid-column: 1 / -1; justify-content: flex-start; }
+}

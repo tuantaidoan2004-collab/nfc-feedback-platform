@@ -23,7 +23,7 @@ async function data(page:Page,period='7 ngày'){await page.locator('[data-view="
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
 // next dev compiles an API on its first call and reloads every open page (operations-gotchas.md): compile the ones the
 // dashboard calls after it has opened before any page exists. The answers (401 without a session) do not matter.
-test.beforeEach(async({request})=>{for(const api of ['team','activity','comments?session=x','cards'])await request.get(`/api/owner/v2/warm/${api}`);for(const api of ['profile','notifications'])await request.get(`/api/owner/v2/${api}`);});
+test.beforeEach(async({request})=>{for(const api of ['team','activity','comments?session=x','cards','pages'])await request.get(`/api/owner/v2/warm/${api}`);for(const api of ['profile','notifications'])await request.get(`/api/owner/v2/${api}`);});
 test('Publishing v2 customer→owner login→real metrics/filter/handling/export, responsive and logout',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // Guest page v2: the stars are in the private card, and Send saves the star and then the text.
@@ -418,4 +418,60 @@ test('two people reply at once: both replies stay, the thread reloads; the custo
  expect((await context.request.get('/api/owner/v2/one?scope=test')).status()).toBe(400);
  expect((await context.request.get(`/api/owner/v2/one?source=${randomUUID()}`)).status()).toBe(200);
  expect((await context.request.get('/api/owner/v2/one/export?format=../bad')).status()).toBe(400);
+});
+
+// Lát P3: the page list. Every write below goes through the real HTTP routes, where the page rides in the JSON body --
+// the path a repository test cannot see (lát P1 sent it in the query string, which the owner routes refuse).
+test('pages: a picture of each, copy one, make one from the library, bring content over, change template, cards follow the chosen page',async({page,f})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>void d.accept());
+ await login(page,f.users[0]);
+ await page.locator('[data-view="design"]').click();
+ const rows=page.locator('[data-pages] [data-page]');
+ await expect(rows).toHaveCount(1);
+ // The picture is the page drawn still: no visit is recorded for it, and only this app may frame it.
+ await expect(page.frameLocator('[data-page="one"] iframe').locator('main.guest')).toBeVisible();
+ await expect(page.locator('[data-page="one"] iframe')).toHaveAttribute('sandbox','allow-same-origin');
+ expect((await f.db.query('SELECT count(*)::int n FROM page_visits')).rows[0].n).toBe(0);
+ const thumb=await page.request.get('/ZZZ/one/thumb/one');
+ expect([thumb.status(),thumb.headers()['x-frame-options']]).toEqual([200,'SAMEORIGIN']);
+ expect(thumb.headers()['content-security-policy']).toContain("frame-ancestors 'self'");
+ expect((await page.request.get('/ZZZ/one/thumb/khong-co')).status()).toBe(404);
+
+ // Copy page one: a new draft at a new link, chosen at once.
+ await page.locator('[data-copy="one"]').click();
+ await expect(rows).toHaveCount(2);
+ const copy=(await rows.nth(1).getAttribute('data-page'))!;
+ await expect(rows.nth(1)).toHaveAttribute('aria-current','true');
+ await expect(page.locator('[data-page-state]').nth(1)).toHaveText('Chưa phát hành');
+ await page.getByLabel('Tên hiển thị',{exact:true}).fill('Phòng VIP');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp');
+ const names=async()=>(await f.db.query('SELECT p.slug,d.config->>\'name\' name FROM page_drafts d JOIN pages p ON p.id=d.page_id WHERE p.shop_id=$1 ORDER BY p.created_at',[f.shops[0]])).rows;
+ expect(await names()).toEqual([{slug:'one',name:'Shop one'},{slug:copy,name:'Phòng VIP'}]);
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+ await expect(page.locator('[data-page-state]').nth(1)).toHaveText('Đang chạy');
+ // A new card belongs to the chosen page.
+ await page.getByLabel('Tên thẻ mới',{exact:true}).fill('Bàn VIP');
+ await page.getByRole('button',{name:'Nhân bản thẻ',exact:true}).click();
+ // (A copy takes no cards with it, so the one card on that page is this one.)
+ await expect(page.locator('[data-cards] [data-card-page]',{hasText:copy})).toHaveCount(1);
+
+ // From the library: khuôn 6, nothing to adjust; its content comes from page one.
+ await page.locator('[data-new-page] select').selectOption('big-button');
+ await page.locator('[data-new-page] input').fill('Quầy bar');
+ await page.getByRole('button',{name:'Tạo trang',exact:true}).click();
+ await expect(rows).toHaveCount(3);
+ await expect(rows.nth(2)).toHaveAttribute('aria-current','true');
+ await expect(page.locator('[data-no-settings]')).toBeVisible();
+ await page.locator('[data-import] select').selectOption('one');
+ await expect(page.getByLabel('Tên hiển thị',{exact:true})).toHaveValue('Shop one');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp');
+ // And onto another template, keeping that content.
+ await page.locator('[data-template-switch] select').selectOption('glass');
+ await expect(page.locator('[data-template-state]')).toContainText('3 · Kính');
+ await expect(page.getByLabel('Tên hiển thị',{exact:true})).toHaveValue('Shop one');
+ await expect(page.locator('[data-setting="background"]')).toBeVisible();
+ expect(errors).toEqual([]);
 });

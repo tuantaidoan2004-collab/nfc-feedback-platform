@@ -153,6 +153,23 @@ export class OwnerDesign {
     });
   }
 
+  /**
+   * Puts the page on another template (Tài, 25/09), keeping its link, cards and content. Only the shop's owner, signed
+   * in as themself: the template decides the page's price (docs/goi-va-trang.md mục 4).
+   */
+  async template(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
+    const data = input(body, ['action', 'expectedRevision', 'template']), expected = revisionOf(data.expectedRevision);
+    if (!isTemplateKey(data.template)) throw new OwnerError(400, 'INVALID_DESIGN');
+    const key = data.template;
+    return this.write(credential, slug, pageSlug, async (db, access, page) => {
+      if (access.actor.kind !== 'owner' || access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
+      const result = await this.admin(access, db).changeTemplate(page, expected, key).catch(translate);
+      if (result.revision === expected) return result;
+      await recordActivity(db, access, 'design.template', `Bản nháp dùng khuôn ${key}`);
+      return result;
+    });
+  }
+
   /** A preview of the saved draft. The token goes straight into an HttpOnly cookie in the route, never into JSON. */
   async preview(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const expected = revisionOf(input(body, ['action', 'expectedRevision']).expectedRevision);

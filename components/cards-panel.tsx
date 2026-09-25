@@ -17,7 +17,7 @@ const ERRORS: Record<string, string> = {
   SHOP_UNAVAILABLE: 'Trang của shop chưa phát hành hoặc đang tạm khoá, nên chưa kích hoạt được thẻ.',
 };
 
-export default function CardsPanel({ endpoint, origin }: { endpoint: string; origin: string }) {
+export default function CardsPanel({ endpoint, origin, page = null }: { endpoint: string; origin: string; page?: string | null }) {
   const [list, setList] = useState<List | null>(null), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
   const load = useCallback(async () => {
@@ -55,16 +55,17 @@ export default function CardsPanel({ endpoint, origin }: { endpoint: string; ori
 
   return <section className={styles.panel} aria-label="Thẻ NFC" data-cards>
     <h2>Thẻ NFC</h2>
-    <p className={styles.hint}>Mỗi thẻ mở cùng một trang khách; số liệu được tách theo từng thẻ. Ghi đúng link của thẻ vào chip NFC, rồi kích hoạt và chạm thử.</p>
+    <p className={styles.hint}>Mỗi thẻ mở một trang của quán (cột Trang); số liệu được tách theo từng thẻ. Thẻ mới thuộc trang đang chọn ở trên. Ghi đúng link của thẻ vào chip NFC, rồi kích hoạt và chạm thử.</p>
     {list && <p className={styles.hint} data-card-fee>Đang hoạt động: <strong>{list.active}</strong> thẻ · {list.included} thẻ đầu đã gồm trong gói ·
       phí thẻ thêm hiện tại: <strong>{money(list.monthlyFee)}/tháng</strong></p>}
     <p role="status" className={styles.notice} data-cards-notice>{notice}</p>
     {list && <div className={styles.tableWrap}><table className={styles.table}>
-      <thead><tr><th>Mã</th><th>Tên thẻ</th><th>Trạng thái</th><th>Link ghi vào thẻ</th><th /></tr></thead>
+      <thead><tr><th>Mã</th><th>Tên thẻ</th><th>Trang</th><th>Trạng thái</th><th>Link ghi vào thẻ</th><th /></tr></thead>
       <tbody>{list.cards.map(card => <tr key={card.id} data-card={card.code}>
         <td><code>{card.code}</code></td>
         <td><input aria-label={`Tên thẻ ${card.code}`} defaultValue={card.label} maxLength={60} placeholder="Ví dụ: Bàn 3"
           onBlur={e => { const value = e.target.value.trim(); if (value && value !== card.label) void send('PATCH', { id: card.id, label: value }, 'Đã đổi tên thẻ.'); }} /></td>
+        <td data-card-page>{card.page}</td>
         <td><span className={styles.status} data-card-state={card.state}>{STATES[card.state]}</span></td>
         <td><button type="button" className={styles.noteButton} onClick={() => void copy(card)}>{link(card).replace(/^https?:\/\//, '')}</button></td>
         <td className={styles.rowButtons}>
@@ -74,7 +75,7 @@ export default function CardsPanel({ endpoint, origin }: { endpoint: string; ori
       </tr>)}</tbody>
     </table></div>}
     <form className={styles.actions} onSubmit={e => { e.preventDefault(); const label = name.trim() || `Thẻ ${(list?.cards.length ?? 0) + 1}`;
-      void send('POST', { label }, `Đã nhân bản thẻ "${label}". Thẻ mới chưa kích hoạt.`).then(ok => { if (ok) setName(''); }); }}>
+      void send('POST', page ? { label, page } : { label }, `Đã nhân bản thẻ "${label}"${page ? ` cho trang ${page}` : ''}. Thẻ mới chưa kích hoạt.`).then(ok => { if (ok) setName(''); }); }}>
       <label>Tên thẻ mới<input value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder="Ví dụ: Bàn 3" /></label>
       <button disabled={busy}>Nhân bản thẻ</button>
     </form>

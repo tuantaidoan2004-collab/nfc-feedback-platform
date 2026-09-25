@@ -397,3 +397,29 @@ bật như cũ.
 thẳng `main`" vẫn đúng, nhưng lệnh đẩy phải do Tài chạy, hoặc Tài thêm quyền `git push` cho repo này trong cài đặt quyền
 (`/permissions` trong một terminal `claude`). Claude đưa lệnh đẩy đã kèm các bước kiểm (cây sạch, `origin/main` là tổ
 tiên, in commit), không tìm đường vòng. Kiểm deploy thì dùng `vercel ls` (CLI đã đăng nhập trên máy) — máy không có `gh`.
+
+**Lỗi của P1 lọt qua vì test chỉ đi đường repository: ghi qua HTTP với `?page=` bị từ chối.** P1 cho trình chỉnh và
+thẻ nhận `?page=<link>` ở mọi lệnh ghi, và test repository gọi thẳng `OwnerDesign.save(…, page)` nên xanh. Nhưng
+`ownerInput` (server/owner-v2.ts) **từ chối mọi request ghi có query string** — kỷ luật đầu vào từ lát đầu. Qua HTTP thật,
+mọi lần lưu trang thứ hai sẽ ra 400. Không ai dính vì P1 chưa có giao diện gửi `?page=`; lộ ra khi viết route P3. Sửa:
+ghi mang `page` trong thân JSON (`ownerPage`), đọc mới dùng `?page=`; ca harness P3 đi đúng đường HTTP đó. Luật: **một
+tham số mới ở route thì phải có ít nhất một test đi qua route thật**, không chỉ qua lớp bên dưới. Lỗi của Claude, lát P1.
+
+**Ảnh thu nhỏ trong iframe làm `next dev` tải lại dashboard giữa ca test — và một lần xanh chưa phải bằng chứng.** P3
+nhúng ảnh mỗi trang bằng iframe tới một route vẽ trang khách. Dưới `next dev`, dashboard bị tải lại giữa ca, quay về
+"Tổng quan". Claude thử lần lượt: làm nóng route bằng request không đăng nhập (không đủ), mở một tab giữ route (tệ hơn),
+cho dashboard nạp sẵn CSS trang khách (`guest-styles.ts`) — harness owner xanh **một lần** và Claude đã ghi đó là nguyên
+nhân; chạy đủ 7 bộ thì owner và admin lại đỏ. **Một lần xanh của một ca chập chờn không chứng minh gì**: phải chạy lại
+vài lần. Nguyên nhân gốc: trang trong iframe **chạy JavaScript** của Next, gồm cả kết nối HMR tới dev server. Sửa đúng
+gốc: iframe có `sandbox="allow-same-origin"` (không `allow-scripts`) — ảnh là HTML + CSS server vẽ, không hydrate, không
+HMR, và thêm một lớp bảo đảm không ghi lượt ghé. Sau đó owner và admin xanh hai lần liền. Kèm theo: API mới
+`/api/owner/v2/<quán>/pages` và route ảnh phải nằm trong `warm()` của `integration-tests/run-local.mjs` — **route mới nào
+cũng phải vào danh sách đó**; CSS nạp sẵn giữ lại (vô hại, mọi selector nằm trong `.guest`). Production không có HMR
+nên không dính. Lỗi phán đoán của Claude, lát P3.
+
+**`hasText` không đọc giá trị trong ô `input`.** Ca harness P3 tìm hàng thẻ bằng `tr` có chữ "Bàn VIP", nhưng tên thẻ
+nằm trong `<input>` nên không bao giờ khớp. Kiểm bằng một cột chữ thường (cột Trang) hoặc `toHaveValue`.
+
+**Test truy vấn thẳng database phải lọc theo quán.** Ca harness P3 đếm bản nháp mà quên `WHERE shop_id`, nên kéo cả
+trang của shop "two" trong fixture. Fixture có hai quán chính là để bắt đúng loại quên này ở mã sản phẩm — test cũng
+phải theo.

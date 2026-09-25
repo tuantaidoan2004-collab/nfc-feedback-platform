@@ -101,8 +101,9 @@ test('every template version the platform ships has its own stylesheet, and ever
     expect([...releases.map(release => release.date)].sort(), `${key}: newest last`).toEqual(releases.map(release => release.date));
   }
   // A stylesheet the guest page does not import would leave that version's shops undressed without a sound.
-  const page = readFileSync('components/shop-feedback-v2.tsx', 'utf8');
-  for (const file of skinFiles) expect(page, file.name).toContain(`import './${file.name}';`);
+  const styles = readFileSync('components/guest-styles.ts', 'utf8');
+  for (const file of skinFiles) expect(styles, file.name).toContain(`import './${file.name}';`);
+  expect(readFileSync('components/shop-feedback-v2.tsx', 'utf8')).toContain("import './guest-styles';");
 });
 
 test('each version stylesheet dresses only its own template and version, and the platform skin dresses none', () => {
