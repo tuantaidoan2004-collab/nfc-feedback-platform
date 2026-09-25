@@ -423,3 +423,14 @@ nằm trong `<input>` nên không bao giờ khớp. Kiểm bằng một cột ch
 **Test truy vấn thẳng database phải lọc theo quán.** Ca harness P3 đếm bản nháp mà quên `WHERE shop_id`, nên kéo cả
 trang của shop "two" trong fixture. Fixture có hai quán chính là để bắt đúng loại quên này ở mã sản phẩm — test cũng
 phải theo.
+
+**Test migration dựng dữ liệu "trước migration" bằng mã mới thì đỏ vì mã mới, không vì migration.** Ca migration 026
+tạo trang cũ bằng `PublishingAdmin.publish`, mà `publish` của lát P4 đã đọc cột `pause_reason` — cột mà chính 026 mới
+thêm. Dữ liệu của thời trước migration phải viết bằng **SQL thô** (như ca 023, 024 đã làm), để phép thử chỉ khác đúng
+biến là migration. Và khi viết migration phải bỏ một ràng buộc PostgreSQL tự đặt tên (`pages_check1`), tìm nó **theo
+nội dung** trong `pg_constraint`, đừng gõ tên: tên tự sinh phụ thuộc thứ tự khai báo.
+
+**Chạy mỗi tệp test mới rồi commit — lần thứ hai trong một ngày.** Lát P2 và lát P4 đều chỉ chạy tệp test của lát trước
+khi commit; bảy bộ trên worktree tạm bắt được test cũ chưa theo (P4: bốn ca — hai ca migration 023/024 gọi mã mới trên
+schema chưa có 026, hai ca nhận câu trả lời mới `PAGE_NOT_FOUND` sớm hơn). Không có gì lên `main` nhờ bảy bộ, nhưng mỗi
+lần mất một vòng. Luật cho Claude: **trước khi commit, chạy cả bộ repository** (một phút rưỡi), không chỉ tệp mới.

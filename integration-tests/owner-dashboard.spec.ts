@@ -475,3 +475,17 @@ test('pages: a picture of each, copy one, make one from the library, bring conte
  await expect(page.locator('[data-setting="background"]')).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+// Lát P4: the owner's emergency stop, through the page list: at once, reported, and lifted by the owner.
+test('emergency stop: the owner stops a page with a note, guests see it paused, and the owner starts it again',async({page,f})=>{
+ await login(page,f.users[0]);
+ await page.locator('[data-view="design"]').click();
+ page.once('dialog',dialog=>void dialog.accept('Nút Google mở sai link'));
+ await page.locator('[data-pause="one"]').click();
+ await expect(page.locator('[data-page="one"] [data-page-state]')).toHaveText('Tạm ngừng');
+ expect(await (await page.request.get('/one')).text()).toContain('Trang tạm ngừng');
+ expect((await f.db.query('SELECT reason,state FROM page_incidents')).rows).toEqual([{reason:'Nút Google mở sai link',state:'open'}]);
+ await page.locator('[data-resume="one"]').click();
+ await expect(page.locator('[data-page="one"] [data-page-state]')).toHaveText('Đang chạy');
+ expect(await (await page.request.get('/one')).text()).not.toContain('Trang tạm ngừng');
+});

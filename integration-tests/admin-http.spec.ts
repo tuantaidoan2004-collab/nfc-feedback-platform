@@ -480,3 +480,28 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
  // Cross-origin decisions are refused like every other administrative write.
  expect((await page.request.post(`/gov/api/media/${first}`,{headers:{Origin:'https://evil.example'},data:{decision:'approve'}})).status()).toBe(403);
 });
+
+// Lát P4: an owner's emergency stop reaches /gov; the operator starts the page again and records how it was handled.
+test('page incidents: an emergency stop waits in /gov, is lifted, handled and recorded; the guest sees the page paused meanwhile',async({page,admin})=>{
+ const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id;
+ const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Tạm Dừng',ownerUsername:'quan-tam-dung',ownerEmail:'dung@example.com',googleUrl:''});
+ const {PublishingAdmin}=await import('../lib/publishing/repository');
+ await new PublishingAdmin(admin.db,async()=>({actorId:'owner:fixture'})).pausePage({shopId:shop.shopId,pageId:shop.pageId},'emergency');
+ const incident=(await admin.db.query("INSERT INTO page_incidents(shop_id,page_id,reported_by,reason)VALUES($1,$2,$3,'Nút Google mở sai link')RETURNING id",
+  [shop.shopId,shop.pageId,shop.ownerUserId])).rows[0].id as string;
+ const guest=await page.request.get(`/${shop.slug}`);
+ expect(guest.status()).toBe(200);expect(await guest.text()).toContain('Trang tạm ngừng');
+ expect((await page.request.get('/gov/api/incidents')).status()).toBe(401);
+ await signIn(page,admin.username,admin.app);
+ const row=page.locator(`[data-incident="${incident}"]`);
+ await expect(row).toContainText('Quán Tạm Dừng');await expect(row).toContainText('Nút Google mở sai link');
+ await expect(row.locator('[data-incident-state]')).toContainText('chủ quán dừng khẩn cấp');
+ await row.getByRole('button',{name:'Mở lại trang',exact:true}).click();
+ await expect(row.locator('[data-incident-state]')).toHaveText('đang chạy');
+ expect(await (await page.request.get(`/${shop.slug}`)).text()).not.toContain('Trang tạm ngừng');
+ page.once('dialog',dialog=>void dialog.accept('Đã gọi chủ quán, lỗi do link Google cũ'));
+ await row.getByRole('button',{name:'Đã xử lý',exact:true}).click();
+ await expect(page.locator('[data-incidents-empty]')).toBeVisible();
+ expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'page.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['page.resume','page.incident.resolve']);
+ expect((await page.request.post(`/gov/api/pages/${shop.pageId}`,{headers:{Origin:'https://evil.example'},data:{action:'close'}})).status()).toBe(403);
+});

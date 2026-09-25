@@ -91,7 +91,7 @@ dừng khẩn cấp, duyệt ảnh.
 | P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang — **xong 25/09** (mục 10) | Có, lớn (024) |
 | P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng — **xong 25/09** (mục 11) | Không |
 | P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn — **xong 25/09** (mục 12) | Nhỏ (025) |
-| P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin | Có |
+| P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin — **xong 25/09** (mục 13) | Có (026) |
 | P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản | Có |
 | P6 | **Số bản nền tảng + nhật ký thay đổi** | Không |
 | P7 | **App admin trên tên miền riêng** | Không |
@@ -170,3 +170,19 @@ dừng khẩn cấp, duyệt ảnh.
   trang dashboard khác vẫn cấm nhúng.
 - **Ghi của dashboard mang trang trong thân JSON** (`page`), đọc thì `?page=` — xem gotcha "lỗi `?page=` của P1".
 - Khung "Khuôn" không còn bị bóp hẹp (mỗi bản một dòng).
+
+## 13. P4 đã làm (25/09) — migration 026
+
+- **Bốn trạng thái**, chỉ đi theo đường vẽ sẵn (trigger): nháp → đang chạy ⇄ tạm ngừng; mọi trạng thái → đóng; đã đóng
+  thì không đổi gì nữa (kể cả tên, bản phát hành, thẻ mới).
+- **Tạm ngừng:** link và mọi thẻ của trang hiện "Trang tạm ngừng" (không có nút Google, vì không có trang); khách đang mở
+  trang không ghi thêm được gì; dữ liệu giữ nguyên. Chủ quán vẫn sửa, xem trước và phát hành được — bản mới chờ tới lúc
+  mở lại. Ba lý do: chủ quán dừng khẩn cấp · admin dừng · gói hết hạn (để P5 dùng).
+- **Tạm dừng khẩn cấp** (chỉ chủ quán): nút ở dòng trang, bắt ghi ngắn lỗi gì → trang dừng ngay và một báo cáo vào
+  `/gov` ("Báo cáo tạm dừng"). Chủ quán **tự mở lại** được lần dừng của mình; lần dừng do admin hay do gói thì không.
+- **Admin ở `/gov`:** thấy báo cáo (quán, trang, lỗi chủ quán ghi, trạng thái trang); "Mở lại trang"; "Đóng trang" (gõ
+  đúng mã trang để xác nhận); "Đã xử lý" kèm ghi chú đã làm gì. Xử lý báo cáo **không** tự mở trang. Mọi việc vào
+  `admin_audit`. **Cách đền bù vẫn chưa chốt** — ghi chú là chỗ ghi lại.
+- **Đóng:** link và thẻ trả **404**; không mở lại được; link không bao giờ cấp lại. **Dữ liệu chưa xoá** — bao lâu thì xoá
+  vẫn ở mục 9. Hôm nay chỉ admin đóng được; "Huỷ gói → hết kỳ → tạm ngừng 30 ngày → đóng" là P5.
+- Dashboard mở mặc định trang đầu tiên **chưa đóng**.

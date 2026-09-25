@@ -52,7 +52,7 @@ async function warm(origin) {
     '/api/owner/v2/one', '/api/owner/v2/one/summary', '/api/owner/v2/one/team', '/api/owner/v2/one/activity', '/api/owner/v2/one/cards',
     '/api/owner/v2/one/comments?session=x', '/api/owner/v2/profile', '/api/owner/v2/notifications', '/api/v2/pages/visits', '/gov/api/media',
     // The page list (lát P3): its API, and the route of the pictures it frames.
-    '/api/owner/v2/one/pages', '/ZZZ/one/thumb/one',
+    '/api/owner/v2/one/pages', '/ZZZ/one/thumb/one', '/gov/api/incidents', `/gov/api/incidents/${zero}`, `/gov/api/pages/${zero}`,
     // The behaviour beacon (lát mục 7). A route compiled on its first call makes `next dev` reload every open
     // page, and a beacon fires while another test has a half-filled login form on screen.
     `/api/v2/pages/visits/${zero}/events`, `/api/v2/shops/one/visits/${zero}/events`];
@@ -77,7 +77,7 @@ async function startApp(name, port, flag, builtApp) {
 }
 try {
   await admin.query(`CREATE SCHEMA ${schema}`);
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '021_erase_on_request.sql', ...(publishing ? ['003_publishing.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql', '024_pages.sql', '025_page_labels.sql'] : []), ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '021_erase_on_request.sql', ...(publishing ? ['003_publishing.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql'] : []), ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');

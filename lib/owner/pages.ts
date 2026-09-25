@@ -1,7 +1,7 @@
 import type { PoolClient, Pool } from 'pg';
 import { OwnerError, authorize, requirePermission, transaction, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordActivity } from './activity';
-import { PublishingAdmin, templateVersionRow, type PageRef, type TemplateReleases } from '../publishing/repository';
+import { PublishingAdmin, PublishingError, templateVersionRow, type PageRef, type PauseReason, type TemplateReleases } from '../publishing/repository';
 import { isTemplateKey, templateConfig } from '../publishing/config';
 import { TEMPLATE_RELEASES, settingsOf } from '../publishing/versions';
 import { convertSettings } from '../publishing/settings';
@@ -12,15 +12,17 @@ import { withShortCode } from '../short-code';
  * absent means the shop's first page, which is every shop's only page until the page list (lát P3) lets a shop make
  * more. A page of another shop is never found: the lookup names the shop the caller was authorized for.
  */
-export async function pageOf(db: PoolClient | Pool, shopId: string, slug?: string | null): Promise<PageRef & { slug: string }> {
+export async function pageOf(db: PoolClient | Pool, shopId: string, slug?: string | null): Promise<PageRef & { slug: string; state: PageSummary['state'] }> {
   if (slug !== undefined && slug !== null && !/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(slug)) throw new OwnerError(404, 'PAGE_NOT_FOUND');
-  const row = (await db.query(`SELECT id,slug FROM pages WHERE shop_id=$1 AND ($2::text IS NULL OR lower(slug)=lower($2))
-    ORDER BY created_at,id LIMIT 1`, [shopId, slug ?? null])).rows[0];
+  // With no link named, the first page that is not closed (a closed page takes no more edits, migration 026).
+  const row = (await db.query(`SELECT id,slug,state FROM pages WHERE shop_id=$1 AND ($2::text IS NULL OR lower(slug)=lower($2))
+    ORDER BY state='closed',created_at,id LIMIT 1`, [shopId, slug ?? null])).rows[0];
   if (!row) throw new OwnerError(404, 'PAGE_NOT_FOUND');
-  return { shopId, pageId: row.id, slug: row.slug };
+  return { shopId, pageId: row.id, slug: row.slug, state: row.state };
 }
 
-export type PageSummary = { slug: string; label: string; state: 'draft' | 'active'; template: { key: string; version: number }; createdAt: string };
+export type PageSummary = { slug: string; label: string; state: 'draft' | 'active' | 'paused' | 'closed'; pauseReason: PauseReason | null;
+  template: { key: string; version: number }; createdAt: string };
 const label = (value: unknown) => {
   if (typeof value !== 'string' || value.trim().length > 60 || /[\u0000-\u001f<>]/.test(value)) throw new OwnerError(400, 'INVALID_PAGE');
   return value.trim();
@@ -45,9 +47,9 @@ export class OwnerPages {
   async list(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'design');
-      const pages = (await db.query(`SELECT p.slug,p.label,p.state,tv.template_key,tv.version,p.created_at FROM pages p
+      const pages = (await db.query(`SELECT p.slug,p.label,p.state,p.pause_reason,tv.template_key,tv.version,p.created_at FROM pages p
         JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id
-        WHERE p.shop_id=$1 ORDER BY p.created_at,p.id`, [access.shopId])).rows.map(row => ({ slug: row.slug, label: row.label, state: row.state,
+        WHERE p.shop_id=$1 ORDER BY p.created_at,p.id`, [access.shopId])).rows.map(row => ({ slug: row.slug, label: row.label, state: row.state, pauseReason: row.pause_reason,
           template: { key: row.template_key, version: Number(row.version) }, createdAt: new Date(row.created_at).toISOString() })) as PageSummary[];
       return { pages, canManage: access.actor.kind === 'owner' && access.role === 'owner' };
     });
@@ -97,9 +99,54 @@ export class OwnerPages {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'write'); requirePermission(access, 'design');
       const page = await pageOf(db, access.shopId, typeof data.page === 'string' ? data.page : '-');
+      if (page.state === 'closed') throw new OwnerError(409, 'PAGE_CLOSED');
       await db.query('UPDATE pages SET label=$3 WHERE shop_id=$1 AND id=$2', [page.shopId, page.pageId, name]);
       await recordActivity(db, access, 'page.rename', `${name || page.slug} (${page.slug})`);
       return { slug: page.slug, label: name };
+    });
+  }
+}
+
+/** The publishing layer's refusals, as the dashboard answers them. */
+const lifecycle = (error: unknown): never => {
+  if (error instanceof PublishingError && ['PAGE_CLOSED', 'PAGE_NOT_LIVE', 'PAGE_NOT_PAUSED', 'PAUSE_NOT_YOURS'].includes(error.code)) throw new OwnerError(409, error.code);
+  throw error;
+};
+export class OwnerPageLifecycle {
+  constructor(private pool: Pool) {}
+  private admin(access: OwnerAccess, db: PoolClient) {
+    return new PublishingAdmin(db, async request => {
+      if (request.shopId !== access.shopId) throw new OwnerError(403, 'ACCESS_DENIED');
+      return { actorId: `owner:${access.userId}` };
+    });
+  }
+  /**
+   * The owner's emergency stop (Tài, 25/09): the page stops at once -- guests see "Trang tạm ngừng" -- its plan pauses
+   * with it, and a report goes to the administrators, who decide what the shop is owed. Owner only, like making a page.
+   */
+  async pause(credential: OwnerCredential, slug: string, body: unknown) {
+    const data = shape(body, ['action', 'page', 'reason']);
+    const reason = typeof data.reason === 'string' ? data.reason.trim() : '';
+    if (!reason || reason.length > 1000 || /[<>]/.test(reason)) throw new OwnerError(400, 'REASON_REQUIRED');
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'write'); requirePermission(access, 'design'); ownerOnly(access);
+      const page = await pageOf(db, access.shopId, typeof data.page === 'string' ? data.page : '-');
+      await this.admin(access, db).pausePage(page, 'emergency').catch(lifecycle);
+      const incident = (await db.query('INSERT INTO page_incidents(shop_id,page_id,reported_by,reason) VALUES($1,$2,$3,$4) RETURNING id',
+        [page.shopId, page.pageId, access.userId, reason])).rows[0].id as string;
+      await recordActivity(db, access, 'page.pause', `${page.slug}: ${reason}`.slice(0, 200));
+      return { slug: page.slug, state: 'paused' as const, incident };
+    });
+  }
+  /** The owner lifts their own emergency stop; a stop by an administrator or an unpaid plan is not theirs to lift. */
+  async resume(credential: OwnerCredential, slug: string, body: unknown) {
+    const data = shape(body, ['action', 'page']);
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'write'); requirePermission(access, 'design'); ownerOnly(access);
+      const page = await pageOf(db, access.shopId, typeof data.page === 'string' ? data.page : '-');
+      await this.admin(access, db).resumePage(page, ['emergency']).catch(lifecycle);
+      await recordActivity(db, access, 'page.resume', page.slug);
+      return { slug: page.slug, state: 'active' as const };
     });
   }
 }

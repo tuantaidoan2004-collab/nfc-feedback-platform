@@ -725,3 +725,20 @@ test('khuôn 6: the light on the orb follows the tilt of the phone, and the visi
   await page.waitForTimeout(200);
   expect(await tilt()).toEqual(['', '']);
 });
+
+// Lát P4: a paused page says so, with nothing of the page behind it; a closed page's link no longer exists.
+test('a paused page tells the guest it is paused; a closed page answers 404, for its link and its cards alike', async ({ page, fixture: f }) => {
+  const shop = await templateShop(f, 'minimal', 'dung');
+  const tag = await f.admin.createTag(shop, 'dung-card'); await f.admin.setTagState(shop, tag, 'active');
+  await f.admin.pausePage(shop, 'admin');
+  for (const path of ['/dung', '/t/dung-card']) {
+    const response = await page.goto(path);
+    expect(response!.status(), path).toBe(200);
+    await expect(page.locator('[data-page-paused] h1'), path).toHaveText('Trang tạm ngừng');
+    await expect(page.locator('[data-google]'), path).toHaveCount(0);
+  }
+  await f.admin.resumePage(shop, ['admin']);
+  await page.goto('/dung'); await loaded(page);
+  await f.admin.closePage(shop);
+  for (const path of ['/dung', '/t/dung-card']) expect((await page.goto(path))!.status(), path).toBe(404);
+});

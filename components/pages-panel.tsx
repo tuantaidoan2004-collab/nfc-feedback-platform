@@ -17,8 +17,12 @@ const ERRORS: Record<string, string> = {
   OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop tạo được trang mới, vì mỗi trang là một gói.',
   IMPERSONATION_READ_ONLY: 'Quản trị không tạo hay đổi tên trang của shop.',
   INVALID_PAGE: 'Tên trang tối đa 60 ký tự.',
+  REASON_REQUIRED: 'Cần ghi lỗi gì (tối đa 1000 ký tự) để nền tảng xử lý.',
+  PAGE_NOT_LIVE: 'Trang chưa chạy nên không cần tạm dừng.', PAGE_CLOSED: 'Trang này đã đóng.',
+  PAUSE_NOT_YOURS: 'Trang do nền tảng tạm dừng; liên hệ nền tảng để mở lại.',
 };
 const templateName = (key: string) => isTemplateKey(key) ? TEMPLATE_NAMES[key] : key;
+const STATE: Record<PageSummary['state'], string> = { draft: 'Chưa phát hành', active: 'Đang chạy', paused: 'Tạm ngừng', closed: 'Đã đóng' };
 
 export default function PagesPanel({ shop, endpoint, origin, list, selected, onSelect, onChanged }: {
   shop: string; endpoint: string; origin: string; list: PageList | null; selected: string | null;
@@ -37,7 +41,7 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
     finally { setBusy(false); }
   };
   if (!list) return <section className={styles.panel} aria-label="Trang" data-pages><h2>Trang</h2><p className={styles.hint}>Đang tải…</p></section>;
-  const current = selected ?? list.pages[0]?.slug;
+  const current = selected ?? (list.pages.find(page => page.state !== 'closed') ?? list.pages[0])?.slug;
   return <section className={styles.panel} aria-label="Trang" data-pages>
     <h2>Trang ({list.pages.length})</h2>
     <p className={styles.hint}>Mỗi trang là một link riêng, với khuôn, nội dung và thẻ NFC riêng. Chọn một trang để sửa nó và thẻ của nó ở bên dưới.
@@ -51,15 +55,22 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
         <h3>{page.label || templateName(page.template.key)}</h3>
         <p><a href={`${origin}/${page.slug}`} target="_blank" rel="noreferrer">{origin.replace(/^https?:\/\//, '')}/{page.slug}</a></p>
         <p>{templateName(page.template.key)} · bản {page.template.version} · <span className={styles.badge} data-page-state={page.state}>
-          {page.state === 'active' ? 'Đang chạy' : 'Chưa phát hành'}</span></p>
+          {STATE[page.state]}{page.state === 'paused' && page.pauseReason !== 'emergency' ? ' (do nền tảng)' : ''}</span></p>
       </div>
       <div className={styles.rowButtons}>
-        <button type="button" disabled={page.slug === current} onClick={() => onSelect(page.slug)}>{page.slug === current ? 'Đang sửa' : 'Sửa trang này'}</button>
-        <button type="button" disabled={busy} data-rename={page.slug} onClick={() => {
+        {page.state !== 'closed' && <button type="button" disabled={page.slug === current} onClick={() => onSelect(page.slug)}>{page.slug === current ? 'Đang sửa' : 'Sửa trang này'}</button>}
+        {/* Tài, 25/09: an emergency stop for when something is wrong -- at once, with a report to the platform. */}
+        {list.canManage && page.state === 'active' && <button type="button" disabled={busy} data-pause={page.slug} onClick={() => {
+          const reason = window.prompt('Tạm dừng trang này ngay? Khách quét sẽ thấy "Trang tạm ngừng", dữ liệu giữ nguyên, và nền tảng nhận báo cáo.\nGhi ngắn lỗi gì:');
+          if (reason) void send('POST', { action: 'pause', page: page.slug, reason }, () => 'Đã tạm dừng trang và gửi báo cáo cho nền tảng. Bấm "Mở lại" khi đã ổn.');
+        }}>Tạm dừng khẩn cấp</button>}
+        {list.canManage && page.state === 'paused' && page.pauseReason === 'emergency' && <button type="button" disabled={busy} data-resume={page.slug}
+          onClick={() => void send('POST', { action: 'resume', page: page.slug }, () => 'Đã mở lại trang: khách thấy trang như trước.')}>Mở lại</button>}
+        {page.state !== 'closed' && <button type="button" disabled={busy} data-rename={page.slug} onClick={() => {
           const name = window.prompt('Tên trang (chỉ bạn thấy, ví dụ "Phòng VIP")', page.label);
           if (name !== null) void send('PATCH', { page: page.slug, label: name }, () => 'Đã đổi tên trang.');
-        }}>Đổi tên</button>
-        {list.canManage && <button type="button" disabled={busy} data-copy={page.slug}
+        }}>Đổi tên</button>}
+        {list.canManage && page.state !== 'closed' && <button type="button" disabled={busy} data-copy={page.slug}
           onClick={() => void send('POST', { copy: page.slug, label: page.label ? `${page.label} (bản sao)`.slice(0, 60) : '' },
             data => `Đã nhân bản thành trang mới ${data.slug}. Sửa rồi bấm Phát hành để khách thấy.`)}>Nhân bản</button>}
       </div>

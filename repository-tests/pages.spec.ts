@@ -28,7 +28,7 @@ type F={db:Pool;shops:ShopProvisioning;actorId:string;admin:PublishingAdmin;reso
 const test=base.extend<{f:F}>({f:async({},provide)=>{
  const schema=`nfc_pages_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),actorId,admin:new PublishingAdmin(db,async()=>({actorId})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -103,9 +103,9 @@ test('a card belongs to one page, opens that page, and goes live only on a live 
 test("another shop's page is out of reach from every door",async({f})=>{
  const one=await shopOn(f,1),two=await shopOn(f,2);
  const borrowed={shopId:two.shopId,pageId:one.pageId};
- await expect(f.admin.saveDraft(borrowed,2,templateConfig('minimal'))).rejects.toThrow('DRAFT_CONFLICT');
+ await expect(f.admin.saveDraft(borrowed,2,templateConfig('minimal'))).rejects.toThrow('PAGE_NOT_FOUND');
  await expect(f.admin.publish(borrowed,2)).rejects.toThrow('PAGE_NOT_FOUND');
- await expect(f.admin.preview(borrowed,{kind:'draft',revision:2})).rejects.toThrow('PREVIEW_SOURCE_CONFLICT');
+ await expect(f.admin.preview(borrowed,{kind:'draft',revision:2})).rejects.toThrow('PAGE_NOT_FOUND');
  await expect(f.admin.createTag(borrowed,'borrowed1')).rejects.toThrow();
  await expect(f.admin.publish({shopId:two.shopId,pageId:'not-a-uuid'},2)).rejects.toThrow('PAGE_NOT_FOUND');
  // Through the dashboard: shop two cannot name shop one's page.
@@ -152,6 +152,8 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   expect(live.context).toEqual(before);
   const again=await new VisitRatingRepository(db,undefined,publishingVisitPolicy(live.context)).registerVisit(live.context,randomUUID(),'load',hash(live.context));
   expect(again.session.sessionId).toBe(visit.session.sessionId);
+  // Today's publishing code needs the migrations after 024 too.
+  for(const file of ['025_page_labels.sql','026_page_lifecycle.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   await new PublishingAdmin(db,async()=>({actorId:'fixture'})).publish({shopId:shop,pageId:page.id},2);
 
   // One page per shop comes back out; a shop with two pages refuses and changes nothing.
@@ -163,6 +165,7 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   await db.query('ALTER TABLE pages DISABLE TRIGGER pages_identity');
   await db.query('DELETE FROM shop_profile WHERE page_id=$1',[second.pageId]);await db.query('DELETE FROM page_drafts WHERE page_id=$1',[second.pageId]);
   await db.query('DELETE FROM pages WHERE id=$1',[second.pageId]);await db.query('ALTER TABLE pages ENABLE TRIGGER pages_identity');
+  await db.query(`BEGIN;${await readFile('db/rollback/026_page_lifecycle.sql','utf8')}COMMIT;`);
   await db.query(`BEGIN;${rollback}COMMIT;`);
   expect((await db.query("SELECT to_regclass('pages') t")).rows[0].t).toBeNull();
   const back=(await db.query('SELECT s.active_release_id,(SELECT count(*)::int FROM shop_profile) profiles FROM shops s WHERE s.id=$1',[shop])).rows[0];
@@ -179,7 +182,7 @@ async function manager(f:F,shopId:string){
 
 test('the page list: the owner copies a page or takes a template from the library, each a draft at a new permanent link',async({f})=>{
  const shop=await shopOn(f,1),pages=new OwnerPages(f.db),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
- expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'',state:'active',template:{key:'minimal',version:1},createdAt:expect.any(String)}]});
+ expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'',state:'active',pauseReason:null,template:{key:'minimal',version:1},createdAt:expect.any(String)}]});
  // A copy: same template version and draft, its own link and name, not live until published.
  const before=(await design.read(shop.token,shop.slug)).draft.config;
  const copy=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Phòng VIP'});

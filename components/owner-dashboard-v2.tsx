@@ -206,7 +206,7 @@ function DesignWorkspace({ slug, endpoint, origin, cards }: { slug: string; endp
     } catch { setFailed(true); }
   }, [endpoint]);
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
-  const current = page ?? list?.pages[0]?.slug ?? null;
+  const current = page ?? (list?.pages.find(item => item.state !== 'closed') ?? list?.pages[0])?.slug ?? null;
   return <>
     {!failed && <PagesPanel shop={slug} endpoint={endpoint} origin={origin} list={list} selected={current} onSelect={setPage} onChanged={load} />}
     {(current || failed) && <DesignEditor key={current ?? 'first'} endpoint={endpoint} origin={origin} page={current}

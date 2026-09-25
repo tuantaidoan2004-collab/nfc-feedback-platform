@@ -217,7 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — P3 danh sách trang, migration 025 (25/09)
+### Xong gần nhất — P4 vòng đời trang, migration 026 (25/09)
+
+Trang: nháp → đang chạy ⇄ tạm ngừng → đóng. Tạm ngừng: khách thấy "Trang tạm ngừng", dữ liệu giữ. Nút tạm dừng khẩn
+cấp của chủ quán gửi báo cáo vào `/gov`; admin mở lại, đóng, ghi đã xử lý. Đóng: 404, vĩnh viễn, dữ liệu chưa xoá.
+**Migration 026 phải chạy trên Neon trước khi đẩy `main`.** Chi tiết `goi-va-trang.md` mục 13.
+
+### Trước đó — P3 danh sách trang, migration 025 (25/09, đã lên production — Claude kiểm `/urr6ud` 200, route mới đúng header)
 
 Dashboard có khung "Trang": ảnh thu nhỏ, tên, link, khuôn, trạng thái; nhân bản trang, trang mới từ kho (chỉ chủ quán),
 đổi khuôn, nhập dữ liệu từ trang khác; thẻ theo trang đang chọn. Kèm sửa lỗi của P1: ghi qua HTTP với `?page=` bị từ

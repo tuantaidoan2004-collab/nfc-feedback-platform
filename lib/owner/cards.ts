@@ -49,7 +49,9 @@ export class OwnerCards {
     const name = label(shape(body, ['label']).label);
     const { access, page } = await transaction(this.pool, async db => {
       const a = await authorize(db, credential, slug, 'write'); requirePermission(a, 'cards');
-      return { access: a, page: await pageOf(db, a.shopId, pageSlug) };
+      const page = await pageOf(db, a.shopId, pageSlug);
+      if (page.state === 'closed') throw new OwnerError(409, 'PAGE_CLOSED');
+      return { access: a, page };
     });
     const card = await withShortCode(async code => ({ ...(await this.pool.query(`INSERT INTO tags(shop_id,page_id,public_code,location_label) VALUES($1,$2,$3,$4)
       RETURNING id,public_code code,location_label label,state`, [page.shopId, page.pageId, code, name])).rows[0], page: page.slug }) as Card);

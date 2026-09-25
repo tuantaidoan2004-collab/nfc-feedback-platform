@@ -30,7 +30,8 @@ export function publishingVisitPolicy(c: RenderContext, previewToken?: string): 
       }
       const page = pageId ? (await db.query('SELECT state,entry_key FROM pages WHERE shop_id=$1 AND id=$2 FOR SHARE', [c.shopId, pageId])).rows[0] : undefined;
       if (!page) deny('RENDER_CONTEXT_MISMATCH');
-      if (c.scope === 'live' && page.state !== 'active') deny('PAGE_UNAVAILABLE');
+      // Live visits need a live page; a preview may run on a paused page (the owner fixing it), never on a closed one.
+      if ((c.scope === 'live' && page.state !== 'active') || page.state === 'closed') deny('PAGE_UNAVAILABLE');
       // A direct visit carries its own page's key; a key belonging to another page is a forged or stale context.
       if (!c.tagId && !c.previewId && page.entry_key !== c.entryKey) deny('RENDER_CONTEXT_MISMATCH');
       if (c.tagId) {

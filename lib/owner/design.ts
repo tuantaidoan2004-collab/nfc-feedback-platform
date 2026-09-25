@@ -44,6 +44,7 @@ const translate = (error: unknown): never => {
     // A version the platform does not ship for this page's template (versions.ts).
     if (error.code === 'INVALID_TEMPLATE') throw new OwnerError(400, 'INVALID_TEMPLATE_VERSION');
     if (error.code === 'PAGE_NOT_FOUND') throw new OwnerError(404, 'PAGE_NOT_FOUND');
+    if (error.code === 'PAGE_CLOSED') throw new OwnerError(409, 'PAGE_CLOSED');
     if (error.code === 'INVALID_SETTING') throw new OwnerError(400, 'INVALID_SETTING');
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
     // Two separate answers, because the shop can fix them in two different ways (lát F-013).

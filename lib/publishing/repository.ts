@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
+export { PublishingError } from './config';
 import { PublishingError, TEMPLATE_V1, isTemplateKey, templateConfig, validateConfig, type PageConfig, type TemplateKey } from './config';
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
@@ -14,6 +15,8 @@ export type AuthorizePublishing = (request: { action: string; shopId?: string })
  * id from another shop matches nothing. Authorization is on the shop, as before.
  */
 export type PageRef = { shopId: string; pageId: string };
+/** Why a page is paused (migration 026): the owner's emergency stop, an administrator, or an unpaid plan (lát P5). */
+export type PauseReason = 'emergency' | 'admin' | 'billing';
 const error = (code: string): never => { throw new PublishingError(code); };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pageRef = (page: PageRef) => { if (!page || !UUID.test(page.shopId) || !UUID.test(page.pageId)) error('PAGE_NOT_FOUND'); };
@@ -61,6 +64,12 @@ export class PublishingAdmin {
     if (!principal?.actorId?.trim()) error('PUBLISH_FORBIDDEN'); return principal.actorId;
   }
   private async onPage(action: string, page: PageRef) { pageRef(page); return this.actor(action, page.shopId); }
+  /** The page, share-locked, refusing a closed one: a closed page changes no more (migration 026). */
+  private async openPage(db: PublishingDb, page: PageRef, lock: 'SHARE' | 'UPDATE' = 'SHARE') {
+    const row = (await db.query(`SELECT state,pause_reason FROM pages WHERE shop_id=$1 AND id=$2 FOR ${lock}`, [page.shopId, page.pageId])).rows[0];
+    if (!row) error('PAGE_NOT_FOUND'); if (row.state === 'closed') error('PAGE_CLOSED');
+    return row as { state: 'draft' | 'active' | 'paused'; pause_reason: PauseReason | null };
+  }
   async createTemplate(templateKey: string, version: number) {
     await this.actor('template:create'); if (!/^[a-z][a-z0-9-]{0,63}$/.test(templateKey) || !Number.isSafeInteger(version) || version < 1) error('INVALID_TEMPLATE');
     return (await this.pool.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3) RETURNING id`,
@@ -86,6 +95,7 @@ export class PublishingAdmin {
     // must not take a page published yesterday off the air (lát F-013).
     await this.onPage('draft:save', page); revision(expected); const config = validateConfig(input); assertPublishable(config);
     return tx(this.pool, async db => {
+      await this.openPage(db, page);
       const draft = (await db.query('SELECT revision,template_version_id FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [page.shopId, page.pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       await this.checkSettings(db, draft.template_version_id, config);
@@ -103,6 +113,7 @@ export class PublishingAdmin {
     await this.onPage('draft:template', page); revision(expected);
     if (!Number.isSafeInteger(version) || version < 1) error('INVALID_TEMPLATE');
     return tx(this.pool, async db => {
+      await this.openPage(db, page);
       const draft = (await db.query(`SELECT d.revision,d.config,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
         WHERE d.shop_id=$1 AND d.page_id=$2 FOR UPDATE OF d`, [page.shopId, page.pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
@@ -127,6 +138,7 @@ export class PublishingAdmin {
     if (!isTemplateKey(key) || !this.releases[key]?.length) return error('INVALID_TEMPLATE');
     const target: TemplateKey = key, version = this.releases[target]!.at(-1)!.version;
     return tx(this.pool, async db => {
+      await this.openPage(db, page);
       const draft = (await db.query(`SELECT d.revision,d.config,tv.template_key FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
         WHERE d.shop_id=$1 AND d.page_id=$2 FOR UPDATE OF d`, [page.shopId, page.pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
@@ -139,6 +151,36 @@ export class PublishingAdmin {
       return { revision: Number(updated.rows[0].revision) };
     });
   }
+  /**
+   * Vòng đời trang (migration 026, `goi-va-trang.md` mục 5). Paused: guests see "Trang tạm ngừng", nothing is lost, and
+   * the page can be resumed. Only a live page pauses. Who may resume depends on why it paused -- the caller says which
+   * reasons it may lift (the owner lifts only their own emergency stop; an unpaid plan lifts only by paying, lát P5).
+   */
+  async pausePage(page: PageRef, reason: PauseReason) {
+    await this.onPage('page:pause', page); if (!['emergency', 'admin', 'billing'].includes(reason)) error('INVALID_STATE');
+    return tx(this.pool, async db => {
+      if ((await this.openPage(db, page, 'UPDATE')).state !== 'active') error('PAGE_NOT_LIVE');
+      await db.query("UPDATE pages SET state='paused',paused_at=clock_timestamp(),pause_reason=$3 WHERE shop_id=$1 AND id=$2", [page.shopId, page.pageId, reason]);
+    });
+  }
+  async resumePage(page: PageRef, allowed: readonly PauseReason[]) {
+    await this.onPage('page:resume', page);
+    return tx(this.pool, async db => {
+      const row = await this.openPage(db, page, 'UPDATE');
+      if (row.state !== 'paused') error('PAGE_NOT_PAUSED');
+      if (!allowed.includes(row.pause_reason!)) error('PAUSE_NOT_YOURS');
+      await db.query("UPDATE pages SET state='active',paused_at=NULL,pause_reason=NULL WHERE shop_id=$1 AND id=$2", [page.shopId, page.pageId]);
+      return { reason: row.pause_reason! };
+    });
+  }
+  /** Closed for good: the link answers "không tồn tại" and is never issued again. The data stays (goi-va-trang.md mục 9). */
+  async closePage(page: PageRef) {
+    await this.onPage('page:close', page);
+    return tx(this.pool, async db => {
+      await this.openPage(db, page, 'UPDATE');
+      await db.query("UPDATE pages SET state='closed',closed_at=clock_timestamp(),paused_at=NULL,pause_reason=NULL WHERE shop_id=$1 AND id=$2", [page.shopId, page.pageId]);
+    });
+  }
   async publish(page: PageRef, expected: number) {
     const actor = await this.onPage('release:publish', page); revision(expected);
     const { shopId, pageId } = page;
@@ -146,7 +188,7 @@ export class PublishingAdmin {
       // Lock order everywhere: shop, then page, then what hangs off the page.
       const shop = (await db.query('SELECT publishing_state FROM shops WHERE id=$1 FOR UPDATE', [shopId])).rows[0];
       if (!shop) error('SHOP_NOT_FOUND'); if (shop.publishing_state === 'suspended') error('SHOP_SUSPENDED');
-      if (!(await db.query('SELECT 1 FROM pages WHERE shop_id=$1 AND id=$2 FOR UPDATE', [shopId, pageId])).rowCount) error('PAGE_NOT_FOUND');
+      await this.openPage(db, page, 'UPDATE');
       const draft = (await db.query('SELECT * FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [shopId, pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       // Checked again on the way out: a draft written before this rule existed cannot be published under it.
@@ -167,7 +209,8 @@ export class PublishingAdmin {
         [shopId, pageId, config.name, config.googleUrl, config.text.question.vi, config.text.question.en,
          JSON.stringify(config.links), config.logo ? JSON.stringify(config.logo) : null,
          config.poster ? JSON.stringify(config.poster) : null]);
-      await db.query("UPDATE pages SET active_release_id=$3,state='active' WHERE shop_id=$1 AND id=$2", [shopId, pageId, release]);
+      // A draft goes live; a paused page takes the new release and stays paused until it is resumed (migration 026).
+      await db.query("UPDATE pages SET active_release_id=$3,state=CASE WHEN state='draft' THEN 'active' ELSE state END WHERE shop_id=$1 AND id=$2", [shopId, pageId, release]);
       // The shop is open once any of its pages is: owners sign in to an active shop (lib/owner/auth.ts).
       await db.query("UPDATE shops SET publishing_state='active' WHERE id=$1", [shopId]);
       await db.query('UPDATE page_drafts SET revision=revision+1 WHERE shop_id=$1 AND page_id=$2', [shopId, pageId]);
@@ -187,7 +230,10 @@ export class PublishingAdmin {
   }
   async createTag(page: PageRef, publicCode: string) {
     await this.onPage('tag:create', page);
-    return (await this.pool.query('INSERT INTO tags(shop_id,page_id,public_code) VALUES($1,$2,$3) RETURNING id', [page.shopId, page.pageId, publicCode])).rows[0].id as string;
+    return tx(this.pool, async db => {
+      await this.openPage(db, page);
+      return (await db.query('INSERT INTO tags(shop_id,page_id,public_code) VALUES($1,$2,$3) RETURNING id', [page.shopId, page.pageId, publicCode])).rows[0].id as string;
+    });
   }
   async setTagState(page: PageRef, tagId: string, state: 'tested' | 'active' | 'disabled', previewId?: string) {
     await this.onPage('tag:state', page); if (!['tested','active','disabled'].includes(state)) error('INVALID_STATE');
@@ -207,6 +253,7 @@ export class PublishingAdmin {
     if (!Number.isInteger(ttlSeconds) || ttlSeconds < 1 || ttlSeconds > 3600) error('INVALID_EXPIRY');
     const { shopId, pageId } = page;
     return tx(this.pool, async db => {
+      await this.openPage(db, page);
       const row = source.kind === 'draft'
         ? (await db.query('SELECT template_version_id,config AS config_snapshot,revision FROM page_drafts WHERE shop_id=$1 AND page_id=$2 AND revision=$3 FOR SHARE', [shopId, pageId, source.revision])).rows[0]
         : (await db.query('SELECT template_version_id,config_snapshot FROM page_releases WHERE shop_id=$1 AND page_id=$2 AND id=$3', [shopId, pageId, source.id])).rows[0];
@@ -236,7 +283,11 @@ export class PublishingResolver {
           tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
         JOIN template_versions tv ON tv.id=r.template_version_id LEFT JOIN shop_profile pr ON pr.page_id=p.id WHERE t.public_code=$1`, [target.code])).rows[0];
-    if (!row || row.publishing_state !== 'active' || row.page_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
+    if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
+    // A closed page does not exist any more; a paused one says so, rather than looking broken (migration 026).
+    if (row.page_state === 'closed') error('PAGE_CLOSED');
+    if (row.page_state === 'paused') error('PAGE_PAUSED');
+    if (row.page_state !== 'active') error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : row.entry_key };
     // The template key and its version travel with the page so the skin dresses each skeleton exactly as it was
     // published (versions.ts); neither changes the DOM.
@@ -245,10 +296,10 @@ export class PublishingResolver {
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT v.*,p.slug,s.publishing_state,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
+    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
       JOIN shops s ON s.id=v.shop_id JOIN pages p ON p.id=v.page_id JOIN template_versions tv ON tv.id=v.template_version_id
       LEFT JOIN tags t ON t.shop_id=v.shop_id AND t.id=v.tag_id WHERE v.token_hash=$1 AND v.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
-    if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled') error('PREVIEW_UNAVAILABLE');
+    if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled' || row.page_state === 'closed') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
     // Xem trước KHÔNG ghép hồ sơ, có chủ ý: nó tồn tại để chủ quán thấy **đúng bản nháp sắp phát
     // hành**. Ghép hồ sơ vào đây thì sửa tên xong xem trước vẫn ra tên cũ, và cái nút xem trước mất nghĩa.

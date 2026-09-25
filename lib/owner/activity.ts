@@ -16,6 +16,8 @@ export const ACTIONS: Record<string, string> = {
   'design.template': 'Đổi khuôn của bản nháp',
   'page.create': 'Tạo trang',
   'page.rename': 'Đổi tên trang',
+  'page.pause': 'Tạm dừng khẩn cấp trang',
+  'page.resume': 'Mở lại trang',
   'media.upload': 'Tải ảnh/video lên',
   'card.create': 'Nhân bản thẻ',
   'card.rename': 'Đổi tên thẻ',

@@ -53,7 +53,8 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | K7 | **Bản khuôn**: mỗi khuôn một số bản, bản phát hành ghim bản, CSS mỗi bản đóng băng (`components/skins/`), chủ quán tự chuyển bản trong trình chỉnh | V | — | **Xong 25/09**, không migration. `thiet-ke-va-khuon.md` mục 16. Số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi: **chưa** |
 | P1 | **Tách quán / trang** (migration 024): `pages` dưới `shops`; link, bản nháp, bản phát hành, thẻ, xem trước, nội dung theo trang; link vĩnh viễn | L | — | **Xong 25/09**, 024 đã chạy cả hai branch Neon. P2–P7 ở `goi-va-trang.md` mục 8 |
 | P2 | **Bảng cài đặt theo bản khuôn**: ô có sẵn + ô chung; trình chỉnh đọc bảng; server từ chối ô khuôn không mở | V | — | **Xong 25/09**, không migration. `goi-va-trang.md` mục 11 |
-| P3 | **Danh sách trang**: ảnh thu nhỏ, tên trang (025), nhân bản, trang mới từ kho, đổi khuôn, nhập dữ liệu, thẻ theo trang | V | — | **Xong 25/09**, chờ Tài chạy 025. `goi-va-trang.md` mục 12 |
+| P3 | **Danh sách trang**: ảnh thu nhỏ, tên trang (025), nhân bản, trang mới từ kho, đổi khuôn, nhập dữ liệu, thẻ theo trang | V | — | **Xong 25/09**, 025 đã chạy cả hai branch, đã lên production. `goi-va-trang.md` mục 12 |
+| P4 | **Vòng đời trang** (026): tạm ngừng / đóng, tạm dừng khẩn cấp + báo cáo ở `/gov`, admin mở lại / đóng | V | — | **Xong 25/09**, chờ Tài chạy 026. `goi-va-trang.md` mục 13 |
 | K5 | **Khuôn 5 · Ánh sáng tụ**: nền tối, quầng sáng ở nút Google, chấm nhoè theo khoảng cách | V | — | **Xong 23/09** |
 | A34 | **Ba khuôn có tranh** (Hero · Chia đôi · Nhập vai) | V | — | Chờ ảnh của Tài, bản kê ở `anh-can-cho-ao-khoac.md` |
 | A35 | **Lớp trang trí có ràng buộc** cho khuôn 4 — kéo thả trong vùng an toàn loại trừ dải CTA, toạ độ theo phần trăm | L | Canva | Bản đầy đủ kiểu bảng trắng **không làm**; xem `thiet-ke-va-khuon.md` mục 12 |

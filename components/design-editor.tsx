@@ -27,6 +27,7 @@ const ERRORS: Record<string, string> = {
   INVALID_SETTING: 'Có một tuỳ chỉnh của khuôn không hợp lệ. Đã tải lại bản nháp.',
   OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop đổi được khuôn, vì khuôn quyết định giá của trang.',
   PAGE_NOT_FOUND: 'Không tìm thấy trang này. Tải lại dashboard.',
+  PAGE_CLOSED: 'Trang này đã đóng vĩnh viễn nên không sửa được nữa.',
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
   POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',

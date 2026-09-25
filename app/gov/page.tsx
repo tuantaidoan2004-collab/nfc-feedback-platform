@@ -9,6 +9,8 @@ import AdminShops, { type ShopRow } from '@/components/admin-shops';
 import AdminMedia from '@/components/admin-media';
 import { MediaReview, type MediaForReview } from '@/lib/admin/media-review';
 import AdminTwoFactor from '@/components/admin-two-factor';
+import AdminIncidents from '@/components/admin-incidents';
+import { PageIncidents, type IncidentForReview } from '@/lib/admin/page-incidents';
 import styles from '@/components/admin.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -16,13 +18,14 @@ export const metadata = { robots: { index: false, follow: false } };
 
 export default async function Page() {
   if (!adminEnabled()) notFound();
-  let principal: AdminPrincipal | null = null, shops: ShopRow[] = [], media: MediaForReview[] = [], unavailable = false;
+  let principal: AdminPrincipal | null = null, shops: ShopRow[] = [], media: MediaForReview[] = [], incidents: IncidentForReview[] = [], unavailable = false;
   try {
     principal = await new AdminAuth(database()).access(await adminSessionToken(), true);
     // The list is only fetched once the second factor is on; before that this page shows nothing else anyway.
     if (principal.twoFactor) {
       shops = await new ShopProvisioning(database()).list() as ShopRow[];
       media = await new MediaReview(database()).pending();
+      incidents = await new PageIncidents(database()).open();
     }
   }
   // A rejected session sends the visitor to the form; a database problem must not, or the two pages loop.
@@ -39,6 +42,7 @@ export default async function Page() {
       <div><p>QUẢN TRỊ NỀN TẢNG</p><h1>Xin chào, {principal.username}</h1></div>
       <AdminSignOut/>
     </div>
+    <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
     <AdminMedia initial={media}/>
     <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null} testAccountAllowed={nfcEnv() !== 'production'}/>
   </main>;
