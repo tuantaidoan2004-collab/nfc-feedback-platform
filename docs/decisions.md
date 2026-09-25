@@ -203,7 +203,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 
 ### Đang ở đâu
 
-- **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–023** (Tài báo 24/09).
+- **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–024** (Tài báo 25/09, cả preview).
   `main` có khuôn 6 hạt ngọc (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
 - Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
@@ -221,8 +221,9 @@ móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì gi�
 
 `shops` là quán, `pages` là trang (link, bản nháp, bản phát hành, thẻ, xem trước, nội dung). Trang cũ giữ nguyên link và
 khoá lượt ghé `direct:shop`; link vĩnh viễn (trigger). Góp ý mọi trang về một dashboard. Trình chỉnh và thẻ nhận
-`?page=`; giao diện danh sách trang là P3. **Migration 024 phải chạy trên Neon trước khi đẩy `main`.** Chi tiết
-`goi-va-trang.md` mục 10.
+`?page=`; giao diện danh sách trang là P3. Tài báo 25/09, nguyên văn: *"đã chạy xong cả hai"* (024 trên Neon production và
+preview), rồi **Tài tự đẩy `main`** (`52a51f2`). Claude kiểm production: `/urr6ud` 200, lượt ghé ghi được (`POST
+/api/v2/pages/visits` 200). Chi tiết `goi-va-trang.md` mục 10.
 
 ### Mô hình gói · trang · phiên bản — Tài chốt 25/09
 

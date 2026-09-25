@@ -392,3 +392,8 @@ liên quan tới trang. Sửa đúng là tính ô theo lúc gọi đăng nhập 
 `page_releases` và `preview_sessions`, hai bảng mà trigger của 003 cấm `UPDATE`. `ALTER TABLE … DISABLE TRIGGER`, cập nhật,
 `ENABLE TRIGGER` ngay — `scripts/migrate.mjs` chạy cả lượt trong một transaction, nên lỗi ở bất kỳ đâu thì trigger vẫn
 bật như cũ.
+
+**Chế độ tự động của Claude Code chặn `git push` lên `main`** (25/09, lát P1: "Production Deploy"). Luật cũ "xong thì đẩy
+thẳng `main`" vẫn đúng, nhưng lệnh đẩy phải do Tài chạy, hoặc Tài thêm quyền `git push` cho repo này trong cài đặt quyền
+(`/permissions` trong một terminal `claude`). Claude đưa lệnh đẩy đã kèm các bước kiểm (cây sạch, `origin/main` là tổ
+tiên, in commit), không tìm đường vòng. Kiểm deploy thì dùng `vercel ls` (CLI đã đăng nhập trên máy) — máy không có `gh`.
