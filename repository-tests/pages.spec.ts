@@ -28,7 +28,7 @@ type F={db:Pool;shops:ShopProvisioning;actorId:string;admin:PublishingAdmin;reso
 const test=base.extend<{f:F}>({f:async({},provide)=>{
  const schema=`nfc_pages_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),actorId,admin:new PublishingAdmin(db,async()=>({actorId})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -147,8 +147,8 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   expect((await db.query('SELECT count(*)::int n FROM pages')).rows[0].n).toBe(1);
   for(const table of ['page_drafts','page_releases','tags','preview_sessions','shop_profile'])
    expect((await db.query(`SELECT count(*)::int n FROM ${table} WHERE page_id=$1`,[page.id])).rows[0].n,table).toBe(1);
-  // Today's code needs the migrations after 024 too (027 renames the content table it reads).
-  for(const file of ['025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  // Today's code needs the migrations after 024 too (027 renames the content table it reads, 028 drops the old tables).
+  for(const file of ['025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   // The same link still opens the same page, and a guest who came before keeps the same session and erase key.
   const live=await new PublishingResolver(db).live({slug:'cu'});
   expect(live.context).toEqual(before);
@@ -163,9 +163,9 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   expect((await db.query('SELECT count(*)::int n FROM pages')).rows[0].n).toBe(2);
   expect(second.pageId).toBeTruthy();
   await db.query('ALTER TABLE pages DISABLE TRIGGER pages_identity');
-  await db.query('DELETE FROM shop_profile WHERE page_id=$1',[second.pageId]);await db.query('DELETE FROM page_drafts WHERE page_id=$1',[second.pageId]);
+  await db.query('DELETE FROM page_profile WHERE page_id=$1',[second.pageId]);await db.query('DELETE FROM page_drafts WHERE page_id=$1',[second.pageId]);
   await db.query('DELETE FROM pages WHERE id=$1',[second.pageId]);await db.query('ALTER TABLE pages ENABLE TRIGGER pages_identity');
-  for(const later of ['027_page_debt.sql','026_page_lifecycle.sql'])await db.query(`BEGIN;${await readFile(`db/rollback/${later}`,'utf8')}COMMIT;`);
+  for(const later of ['028_retire_legacy.sql','027_page_debt.sql','026_page_lifecycle.sql'])await db.query(`BEGIN;${await readFile(`db/rollback/${later}`,'utf8')}COMMIT;`);
   await db.query(`BEGIN;${rollback}COMMIT;`);
   expect((await db.query("SELECT to_regclass('pages') t")).rows[0].t).toBeNull();
   const back=(await db.query('SELECT s.active_release_id,(SELECT count(*)::int FROM shop_profile) profiles FROM shops s WHERE s.id=$1',[shop])).rows[0];
@@ -273,5 +273,41 @@ test("migration 027 retires the shop's old release column and names the content 
   await db.query(`BEGIN;${await readFile('db/rollback/027_page_debt.sql','utf8')}COMMIT;`);
   expect((await db.query('SELECT active_release_id FROM shops WHERE id=$1',[shop])).rows[0].active_release_id).toBe(releases[1]);
   expect((await db.query("SELECT to_regclass('shop_profile')::text t,to_regclass('page_profile')::text p")).rows[0]).toEqual({t:'shop_profile',p:null});
+ }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
+});
+
+test('migration 028 retires the legacy tables, stops on data it would lose, and removes caphe-demo only when nothing points at it',async()=>{
+ const schema=`nfc_pages_028_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:3});
+ try{await root.query(`CREATE SCHEMA ${schema}`);
+  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  const demo=randomUUID(),other=randomUUID(),sql=await readFile('db/migrations/028_retire_legacy.sql','utf8');
+  await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'caphe-demo','Cà Phê Demo'),($2,'khac','Quán Khác')",[demo,other]);
+  const c=await db.connect();
+  try{
+   // Each refusal is the same schema plus one row, in a transaction thrown away afterwards.
+   for(const [setup,message] of [["INSERT INTO experiences(shop_id,token_hash)VALUES($1,'x')",'bảng experiences còn dữ liệu'],
+    ['INSERT INTO owner_users DEFAULT VALUES','bảng owner_users còn dữ liệu'],["UPDATE shops SET hero_key='old/hero.jpg' WHERE id=$1",'ảnh bìa đời cũ']]){
+    await c.query('BEGIN');await c.query(setup,setup.includes('$1')?[other]:[]);
+    await expect(c.query(sql),message).rejects.toThrow(message);await c.query('ROLLBACK');
+   }
+   // One row anywhere pointing at the demo shop keeps it; the rest of the migration still runs.
+   await c.query('BEGIN');
+   await c.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by)VALUES($1,'https://media.example/demo.jpg','image','fixture')",[demo]);
+   await c.query(sql);
+   expect((await c.query("SELECT slug FROM shops ORDER BY slug")).rows.map(r=>r.slug)).toEqual(['caphe-demo','khac']);
+   expect((await c.query("SELECT to_regclass('experiences')::text t")).rows[0].t).toBeNull();
+   await c.query('ROLLBACK');
+  }finally{c.release();}
+  // Nothing points at it: it goes, and only it.
+  await db.query(sql);
+  expect((await db.query('SELECT slug FROM shops ORDER BY slug')).rows.map(r=>r.slug)).toEqual(['khac']);
+  expect((await db.query("SELECT to_regclass('experiences')::text e,to_regclass('memberships')::text m,to_regclass('owner_sessions')::text s,to_regclass('owner_users')::text u,to_regclass('shop_profile')::text v,to_regclass('page_profile')::text p")).rows[0])
+   .toEqual({e:null,m:null,s:null,u:null,v:null,p:'page_profile'});
+  expect((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema=$1 AND table_name='shops' AND column_name LIKE 'hero%'",[schema])).rows[0].n).toBe(0);
+  // Rolled back, the old shapes come back empty, and 027's own rollback still runs after it.
+  await db.query(`BEGIN;${await readFile('db/rollback/028_retire_legacy.sql','utf8')}COMMIT;`);
+  expect((await db.query('SELECT (SELECT count(*)::int FROM experiences) e,(SELECT count(*)::int FROM owner_users) u,(SELECT count(*)::int FROM shop_profile) v')).rows[0]).toEqual({e:0,u:0,v:0});
+  await db.query(`BEGIN;${await readFile('db/rollback/027_page_debt.sql','utf8')}COMMIT;`);
+  expect((await db.query("SELECT to_regclass('shop_profile')::text t")).rows[0].t).toBe('shop_profile');
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 });

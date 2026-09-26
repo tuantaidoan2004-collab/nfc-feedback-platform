@@ -460,3 +460,19 @@ thêm gỡ N **trước** chúng; mọi chỗ gọi mã sản phẩm trên một
 `/urr6ud` là shop khuôn mẫu ("YOUR SHOP", khuôn 1); Googy dùng khuôn 6. Lộ ra khi in tiêu đề trang (26/09). Việc kiểm vẫn
 đúng về kỹ thuật, nhưng tên sai và mỗi lần kiểm ghi một lượt ghé vào shop khuôn mẫu. Luật: in **tiêu đề và khuôn** của
 trang mình kiểm, và ghi đúng nó là gì — đừng đặt tên theo trí nhớ.
+
+**zsh: glob không đặt trong nháy là lỗi, không phải "không khớp".** Lát A3, lần thứ ba cùng một loại (trước là biến không
+nháy): `grep -rn … --include=*.ts` trong zsh báo `no matches found: --include=*.ts` và **không chạy grep**, nên kết quả
+rỗng trông như "không có chỗ nào dùng". Rồi một vòng lặp đặt `['\"]` trong chuỗi nháy kép, zsh đọc thành biểu thức số
+học. Luật cho Claude: `--include='*.ts'` luôn có nháy; tìm kiếm có nhiều dấu nháy thì viết một đoạn `node -e` ngắn thay
+cho shell; và đọc dòng lỗi đầu tiên trước khi tin một kết quả rỗng.
+
+**PL/pgSQL: `EXECUTE` không đặt `FOUND`.** Migration 028 kiểm "bảng còn dòng không" bằng SQL động; bản nháp đầu viết
+`EXECUTE 'SELECT 1 FROM …'; IF FOUND THEN RAISE …` — `FOUND` giữ giá trị cũ, chốt chặn sẽ không bao giờ bật và migration
+xoá cả bảng có dữ liệu. Bắt được lúc đọc lại, trước khi chạy. Viết `EXECUTE … INTO biến`. Ca test 028 thử phá từng chốt
+(tắt chốt → test phải đỏ) để chứng minh chốt thật sự chặn.
+
+**Harness chờ `/one` trả 200 để biết server đã lên.** Lát A3 làm trang khách khi cờ tắt thành 404, nên app cờ tắt (3318)
+và bản build production (3319) sẽ không bao giờ "lên" — harness sẽ đợi 30 giây rồi báo `did not start`, trông như server
+hỏng. Bắt được lúc đọc harness, trước khi chạy. Điểm kiểm sống phải là trang **luôn** 200 bất kể cờ: giờ là `/dieu-khoan`. Bỏ một đường lùi thì rà cả những chỗ
+dùng đường đó làm tín hiệu.

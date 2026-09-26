@@ -389,3 +389,10 @@ Báo cáo: [`security-review-c3.md`](security-review-c3.md). Tóm tắt: quét t
 hơn 50 đường). **Một phát hiện, thấp, đã sửa bằng test đỏ trước:** F-C3-1 — bộ đếm chống bot đếm theo id lượt ghé của
 quán khác. Mặt trận 2 chỉ rà phần bộ đếm; **mặt trận 3 (media/R2) chưa rà**. Vẫn là người viết tự rà: nếu có bên độc
 lập, làm lại mặt trận 1.
+
+## A3 dọn mã cũ — Claude làm theo bản rà của Astra (`f819c0c`), 26/09/2026
+
+Làm đúng thứ tự Astra đề xuất sau khi Tài đếm dữ liệu đời cũ trên cả hai branch (đều 0): nhóm demo và nhóm server đời
+cũ gỡ cùng lát, test lifecycle giữ nguyên nhưng "trang rời đi" đổi từ `/t/demo` sang `/dieu-khoan`, test 404 cho các
+route đã gỡ. Khác với ghi chú của Astra ("giữ các bảng"): Tài chốt xoá, nên migration 028 xoá bốn bảng — kèm chốt chặn
+dừng nếu có dòng. Phần còn lại tách thành **A3b** (`roadmap-slices.md`).

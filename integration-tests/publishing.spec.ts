@@ -111,11 +111,11 @@ test('proof tamper, legacy bypass, suspended shop and cross-origin exchange are 
   expect((await response).status()).toBe(403);
   expect((await f.db.query('SELECT count(*)::int n FROM rating_experiences')).rows[0].n).toBe(0);
 });
-test('publishing gate off and demo retain legacy behavior', async ({ page, request, fixture: f }) => {
+test('publishing gate off: no page, no write path, nothing recorded', async ({ page, request, fixture: f }) => {
+  // Lát A3: nothing falls back to the cookie-era page any more; with the gate off the link does not exist.
   expect((await request.post('http://127.0.0.1:3318/api/v2/pages/visits', { data: {} })).status()).toBe(404);
-  await page.goto('http://127.0.0.1:3318/one'); await expect(page.getByText('Legacy fixture', { exact: true }).first()).toBeVisible();
-  await page.goto('/t/demo'); await expect(star(page, 5)).toBeEnabled();
-  await star(page, 5).click();
+  expect((await page.goto('http://127.0.0.1:3318/one'))!.status()).toBe(404);
+  await expect(page.getByText('Legacy fixture', { exact: true })).toHaveCount(0);
   expect((await f.db.query('SELECT count(*)::int n FROM page_visits')).rows[0].n).toBe(0);
 });
 

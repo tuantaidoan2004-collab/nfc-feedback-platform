@@ -8,7 +8,7 @@
     "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "playwright test"
+    "test": "playwright test --config=playwright.contracts.config.ts"
   },
   "engines": {
     "node": ">=22.0.0"

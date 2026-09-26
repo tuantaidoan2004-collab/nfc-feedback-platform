@@ -21,7 +21,7 @@ type F={db:Pool;shops:ShopProvisioning;review:MediaReview;actorId:string;schema:
 const test=base.extend<{f:F}>({f:async({},provide)=>{
  const schema=`nfc_media_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of [...BEFORE,'023_media_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of [...BEFORE,'023_media_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),review:new MediaReview(db),actorId,schema});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -101,7 +101,7 @@ test('migration 023 approves the pictures already on pages, and its rollback rem
    {url:'https://media.example/old/p.jpg',kind:'image',state:'approved',uploaded_by:'backfill-023'},
    {url:'https://media.example/old/p.mp4',kind:'video',state:'approved',uploaded_by:'backfill-023'}]);
   // So that page can be published again as it is.
-  for(const file of ['024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of ['024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const page=(await db.query('SELECT id FROM pages WHERE shop_id=$1',[shop])).rows[0].id;
   await new PublishingAdmin(db,async()=>({actorId:'fixture'})).publish({shopId:shop,pageId:page},2);
   // Constraints: a refusal needs a reason; a decision needs a time; lengths are checked with length(), not regex counts.

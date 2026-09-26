@@ -165,7 +165,7 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
 });
 test('cards: nhân bản thẻ, confirm before switching on, the card opens the page, off closes it',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- const warm=await context.newPage();await warm.goto('/t/demo');await warm.goto('/t/zzzzz');await warm.close();
+ const warm=await context.newPage();await warm.goto('/t/zzzzz');await warm.close();
  await login(page,f.users[0]);
  await page.locator('[data-view="design"]').click();
  const panel=page.locator('[data-cards]');
@@ -400,7 +400,8 @@ test('unauthorized/expired/revoked/cross-shop read write export and origin prote
  await f.db.query("UPDATE owner_auth_sessions_v2 SET created_at=clock_timestamp()-interval '9 hours',expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1",[sessionHash(cookie.value)]);
  await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();await expect(page.getByRole('link',{name:'Đăng nhập lại'})).toBeVisible();expect((await context.request.get('/api/owner/v2/one/export')).status()).toBe(401);
  await page.goto('/ZZZ/one');await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
- await page.goto('/t/demo');await expect(page.getByRole('button',{name:'5 sao',exact:true})).toBeEnabled();await page.goto('/demo/dashboard');await expect(page.getByRole('heading').first()).toBeVisible();
+ // The cookie-era dashboard and the sample one are gone (lát A3).
+ for(const path of ['/demo/dashboard','/api/owner/one'])expect((await context.request.get(path)).status(),path).toBe(404);
 });
 test('two people reply at once: both replies stay, the thread reloads; the customer\'s revision history is untouched',async({page,context,f})=>{
  await addExperience(f.db);await login(page,f.users[0]);

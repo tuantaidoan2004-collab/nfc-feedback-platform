@@ -4,20 +4,21 @@ Phần đầu tệp là **bản đồ dùng hằng ngày**: vào đâu, đăng n
 
 ## Đường vào
 
-Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–021**.
+Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–028** (số mới nhất luôn ở khối "TIẾP TỤC TỪ ĐÂY" của `decisions.md`).
 
 **Hàm chạy ở `sin1` (Singapore)**, cùng vùng với Neon. Trước 21/09 nó chạy ở `iad1` (Washington DC) nên mỗi truy vấn là một vòng Thái Bình Dương ~250ms; xem `decisions.md` mục 8. Kiểm bằng `curl -s -D - -o /dev/null <url> | grep x-vercel-id` → phải thấy `::sin1::`.
 
 **Đừng bật proxy Cloudflare (đám mây cam)** cho các bản ghi DNS này: nó thay IP khách bằng IP Cloudflare và làm tầng chặn bot của lát A1 đếm mọi khách của mọi quán như một địa chỉ.
 
-Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`**, deploy từ nhánh `feat/local-app-foundation`, database là branch Neon preview (cũng đã 001–021). Alias này chỉ di chuyển theo **deployment do Git kích hoạt**; `vercel deploy` từ CLI không di chuyển nó (bẫy ở `platform-admin.md`).
+Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`**, deploy từ nhánh `feat/local-app-foundation`, database là branch Neon preview (cùng số migration với production). Alias này chỉ di chuyển theo **deployment do Git kích hoạt**; `vercel deploy` từ CLI không di chuyển nó (bẫy ở `platform-admin.md`).
 
 | Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (21/09) |
 |---|---|---|---|
 | `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu | admin **`tai`** + **mã 6 số** từ ứng dụng xác thực (đã đăng ký 21/09; 10 mã dự phòng Tài giữ) | **Dùng được** |
-| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Có**: shop khuôn `urr6ud` (`@yourshop`) và `caphe-demo` (nháp) |
+| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Có**: shop khuôn `urr6ud` (`@yourshop`) và các shop Tài tạo (xem `/gov`). `caphe-demo` (shop giả, nháp) bị xoá ở migration 028 |
 | `/<slug>` | Trang khách | không cần | **Có**: `/urr6ud`. Cảnh báo "Nguy hiểm" của Chrome trên tên miền cũ **đã hết** sau khi chuyển `.com` |
 | `/t/<mã>` | Link ghi vào thẻ NFC | không cần | **Chưa ghi thẻ nào.** Lô thẻ đầu **phải** mang `.com`; mã thẻ chứa cả tên miền và không sửa được sau khi ghi |
+| `/` | Cửa trước của tên miền | không cần | Trang tĩnh ngắn: đây là gì, ai vận hành, link Quyền riêng tư / Điều khoản. Trước 26/09 nó chuyển sang trang demo 4Râu (dữ liệu giả) — đã gỡ ở lát A3 |
 | `/owner/login` | Trang đăng nhập chủ shop | — | Không có `?next=` thì chỉ hiện dòng "Mở đường dẫn dashboard của shop để đăng nhập". **Cố ý, không phải lỗi**: nó cần biết đăng nhập để vào đâu. Vào thẳng `/ZZZ/<slug>`, nó tự đẩy sang đây kèm đích |
 
 Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đổi `r` thành dấu hỏi, `s` thành dấu sắc, nên mật khẩu đúng vẫn báo sai (bẫy ở `operations-gotchas.md`).

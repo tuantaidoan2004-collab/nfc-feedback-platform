@@ -45,9 +45,9 @@ try {
   } catch (error) { report.macOS = { available: false, blocker: error.message }; }
   if (session) {
     // Warm the other local route before Safari attaches its development HMR connection.
-    await fetch('http://127.0.0.1:3317/t/demo');
+    await fetch('http://127.0.0.1:3317/dieu-khoan');
     await call('/timeouts', { implicit: 0, pageLoad: 15000, script: 10000 });
-    await db.query('TRUNCATE visit_sessions, experiences CASCADE');
+    await db.query('TRUNCATE visit_sessions CASCADE');
     await navigate('/one'); await ready(); assert.deepEqual(await count(), { opens: 1, sessions: 1, experiences: 0 });
     report.macOS.passed.push('initial open exactly once');
     const invitation = await js("return document.querySelector('.google-invitation').textContent");
@@ -69,14 +69,14 @@ try {
     await call('/refresh', {}); await ready(); assert.deepEqual(await count(), { opens: 2, sessions: 1, experiences: 1 });
     report.macOS.passed.push('reload keeps server experience/session');
     await js("window.testLifecycle=[];for(const name of ['pagehide','pageshow','visibilitychange'])window.addEventListener(name,e=>window.testLifecycle.push({name,persisted:e.persisted,trusted:e.isTrusted,visibility:document.visibilityState}));return true;");
-    await navigate('/t/demo'); await until("return location.pathname==='/t/demo' && !!document.querySelector('.stars')");
+    await navigate('/dieu-khoan'); await until("return location.pathname==='/dieu-khoan' && !!document.querySelector('.legal')");
     await call('/back', {}); await until("return location.pathname==='/one'"); await ready();
     await until("return document.querySelector('.rating-receipt')?.textContent.includes('2/5')");
     report.macOS.historyEvents = await js('return window.testLifecycle ?? null');
     report.macOS.historyRows = (await db.query('SELECT navigation_kind FROM page_visits ORDER BY opened_at')).rows.map(row => row.navigation_kind);
     assert.equal((await count()).sessions, 1);
     try {
-      await call('/forward', {}); await until("return location.pathname==='/t/demo'");
+      await call('/forward', {}); await until("return location.pathname==='/dieu-khoan'");
       await call('/back', {}); await until("return location.pathname==='/one'"); await ready(); assert.equal((await count()).sessions, 1);
       report.macOS.passed.push('actual back/forward maintains session');
     } catch (error) {

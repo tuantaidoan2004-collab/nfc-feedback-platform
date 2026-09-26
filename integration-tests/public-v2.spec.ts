@@ -8,14 +8,12 @@ const test = base.extend<{ db: Pool }>({
   db: async ({}, provideFixture) => {
     const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
     try {
-      await db.query('TRUNCATE visit_sessions, experiences CASCADE');
+      await db.query('TRUNCATE visit_sessions CASCADE');
       await provideFixture(db);
     } finally { await db.end(); }
   },
 });
 const star = (page: Page, n: number) => page.getByRole('button', { name: `${n} sao`, exact: true });
-// Legacy pages (gate off, demo, production gate) still save a star on tap.
-async function ratedLegacy(page: Page, n: number) { await star(page, n).click(); await expect(page.locator('.rating-receipt')).toContainText(`${n}/5`); }
 // Guest page v2: stars live in the private card and are saved only by Send.
 const loaded = (page: Page) => expect(page.locator('main[data-ready]')).toBeVisible();
 async function ready(page: Page) { await page.goto('/one'); await loaded(page); }
@@ -30,7 +28,7 @@ async function thanked(page: Page) {
   await page.locator('[data-thanks] button').click(); await expect(page.locator('#private-card')).toHaveCount(0);
 }
 async function rated(page: Page, n: number) { await openCard(page); await star(page, n).click(); await sendButton(page).click(); await thanked(page); }
-async function count(db: Pool, table: 'page_visits' | 'visit_sessions' | 'rating_experiences' | 'experiences') {
+async function count(db: Pool, table: 'page_visits' | 'visit_sessions' | 'rating_experiences') {
   return (await db.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n;
 }
 async function experience(db: Pool) {
@@ -101,7 +99,7 @@ test('real page: one initial open, stars and text saved together by Send, reload
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: info.outputPath('public-v2.png'), fullPage: true });
-  expect(errors).toEqual([]); expect(await count(db, 'experiences')).toBe(0);
+  expect(errors).toEqual([]);
 });
 
 test('lost feedback response keeps text, explicit retry replays one immutable intent then thanks', async ({ page, db }) => {
@@ -178,29 +176,32 @@ test('unknown initial open retries same event and enables stars only after confi
   expect(await count(db, 'page_visits')).toBe(1);
 });
 
-test('gate off retains legacy and v2 endpoint returns 404', async ({ page, request, db }) => {
-  const v2: string[] = [];
-  page.on('request', r => { if (r.url().includes('/api/v2/')) v2.push(r.url()); });
-  await page.goto('http://127.0.0.1:3318/one');
-  await expect(star(page, 5)).toBeEnabled(); await ratedLegacy(page, 5);
-  expect(v2).toEqual([]); expect(await count(db, 'visit_sessions')).toBe(0);
-  expect(await count(db, 'experiences')).toBeGreaterThan(0);
+test('gate off: no guest page and no write path at all', async ({ page, request, db }) => {
+  // Lát A3: the cookie-era page that used to answer with the gate off is gone. A closed gate is a 404, not a fallback.
+  const api: string[] = [];
+  page.on('request', r => { if (r.url().includes('/api/')) api.push(r.url()); });
+  expect((await page.goto('http://127.0.0.1:3318/one'))!.status()).toBe(404);
+  expect(api).toEqual([]); expect(await count(db, 'visit_sessions')).toBe(0);
   // The owner surfaces on the production build are asserted by 'production gate stays closed even with flag
   // true', which the harness runs after it builds and starts that app. Asserting them here could never pass:
   // this phase runs before the build exists.
-  const off = await request.post('http://127.0.0.1:3318/api/v2/shops/one/visits', { data: {} });
-  expect(off.status()).toBe(404);
+  for (const path of ['/api/v2/shops/one/visits', '/api/shops/one/experience'])
+    expect((await request.post(`http://127.0.0.1:3318${path}`, { data: {} })).status(), path).toBe(404);
+  expect((await request.get('http://127.0.0.1:3318/ZZZ/one')).status()).toBe(404);
 });
 
-test('demo remains browser-only with development gate on', async ({ page, db }) => {
+test('the retired demo and cookie-era routes are gone; the front door says where you are', async ({ page, request, db }) => {
+  for (const path of ['/demo/dashboard', '/api/owner/one']) expect((await request.get(path)).status(), path).toBe(404);
+  // `/t/demo` is now only a card code nobody was given; the sample barbershop it used to draw is gone.
+  expect(await (await request.get('/t/demo')).text()).not.toContain('4Râu');
+  expect((await request.post('/api/shops/one/experience', { data: {} })).status()).toBe(404);
   const api: string[] = [];
   page.on('request', r => { if (r.url().includes('/api/')) api.push(r.url()); });
-  await page.goto('/t/demo'); await ratedLegacy(page, 2);
-  await page.locator('#message').fill('Browser demo text');
-  await page.getByRole('button', { name: 'Gửi góp ý', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('bản thử');
+  expect((await page.goto('/'))!.status()).toBe(200); await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Trang của quán, mở từ thẻ NFC' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Quyền riêng tư' })).toBeVisible();
   expect(api).toEqual([]);
-  for (const table of ['visit_sessions', 'rating_experiences', 'experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
+  for (const table of ['visit_sessions', 'rating_experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
 });
 
 test('Next HTTP saves private feedback without a rating and never echoes text', async ({ request, db }) => {
@@ -253,13 +254,11 @@ test('production gate stays closed even with flag true', async ({ page, request,
   test.skip(process.env.NFC_TEST_PRODUCTION !== 'true', 'Requires harness production build');
   const v2: string[] = [];
   page.on('request', r => { if (r.url().includes('/api/v2/')) v2.push(r.url()); });
-  await page.goto('http://127.0.0.1:3319/one');
-  await expect(star(page, 5)).toBeEnabled(); await ratedLegacy(page, 5);
+  expect((await page.goto('http://127.0.0.1:3319/one'))!.status()).toBe(404);
   expect(v2).toEqual([]); expect(await count(db, 'visit_sessions')).toBe(0);
   const ownerShell=await request.get('http://127.0.0.1:3319/ZZZ/one');expect(ownerShell.headers()['cache-control']).toContain('no-store');
   for(const path of ['/api/owner/v2/one','/api/owner/v2/one/export','/owner/login?next=%2FZZZ%2Fone'])expect((await request.get(`http://127.0.0.1:3319${path}`)).status()).toBe(404);
   expect((await request.post('http://127.0.0.1:3319/api/owner/v2/login',{data:{}})).status()).toBe(404);
-  expect(await count(db, 'experiences')).toBeGreaterThan(0);
   for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
 });
 

@@ -51,7 +51,7 @@ test('3E real history back/forward: actual BFCache and visibility match every st
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Page.enable'); cdp.on('Page.backForwardCacheNotUsed', event => blocked.push(event));
   await ready(page); await rate(page, 5);
-  await page.goto('/t/demo'); await page.goBack({ waitUntil: 'commit' }); await loaded(page);
+  await page.goto('/dieu-khoan'); await page.goBack({ waitUntil: 'commit' }); await loaded(page);
   await page.waitForLoadState('networkidle');
   await page.goForward({ waitUntil: 'commit' }); await expect(page.getByRole('button', { name: /Google Maps/ })).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -164,7 +164,7 @@ test.describe('3E foreground visibility', () => {
     const cdp = await context.newCDPSession(page), browserCdp = await browser.newBrowserCDPSession();
     const { targetInfo } = await cdp.send('Target.getTargetInfo');
     const added = context.waitForEvent('page');
-    const { targetId } = await browserCdp.send('Target.createTarget', { url: 'http://127.0.0.1:3317/t/demo', browserContextId: targetInfo.browserContextId, newWindow: false });
+    const { targetId } = await browserCdp.send('Target.createTarget', { url: 'http://127.0.0.1:3317/dieu-khoan', browserContextId: targetInfo.browserContextId, newWindow: false });
     const other = await added; await browserCdp.send('Target.activateTarget', { targetId });
     const hidden = await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('hidden').then(() => true, () => false);
     if (!hidden) {

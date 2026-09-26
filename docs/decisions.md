@@ -204,7 +204,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–027 cả hai
-  branch** (Tài báo 26/09). `main` = nhánh = `4e15cd0` (dọn nợ P1) + commit tài liệu này.
+  branch** (Tài báo 26/09); **028 (lát A3) chờ Tài chạy trên Neon rồi mới đẩy `main`**. `main` = `4e15cd0` (dọn nợ P1).
 - **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy,
   rồi Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
 - **`/urr6ud` trên production là shop KHUÔN MẪU ("YOUR SHOP", khuôn 1), không phải Googy** (Googy dùng khuôn 6). Các báo
@@ -215,16 +215,9 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 
 ### Việc đang dở — đọc trước khi làm tiếp (26/09)
 
-1. **Lát kế tiếp: A3 dọn mã cũ.** Tài đã đếm trên cả hai branch: `experiences`, `memberships`, `owner_users`,
-   `owner_sessions` đều **0**; shop có `hero_key` **0**; **một shop không có trang ở cả hai branch: `caphe-demo`** ("Cà Phê
-   Demo", draft, không phải khuôn — shop demo dựng tay từ trước). Kế hoạch, theo thứ tự Astra ghi ở `roadmap-slices.md` A3:
-   (a) gỡ nhánh dự phòng khi cờ v2 tắt — `app/api/owner/[shop]`, `app/api/shops/[shop]/experience`, trang khách đời 1
-   (`components/shop-feedback.tsx`), `shop-dashboard.tsx`, `owner-dashboard.tsx` (đời 1), `lib/demo-store.ts`, `app/demo`,
-   `/t/demo`, `server/shops.ts` + `server/auth.ts` `requireOwner`, nhánh cờ-tắt trong `app/[shop]/page.tsx`,
-   `app/ZZZ/[shop]/page.tsx` và đường không-publishing của `server/visit-v2-api.ts`; viết lại các test chạy chế độ cờ tắt
-   (harness public: "publishing gate off and demo retain legacy behavior", "production gate"). (b) **Migration 028**: xoá
-   view `shop_profile` (027 hẹn), bốn bảng đời cũ, cột `shops.hero_key/hero_kind`; bảng nào còn dòng thì migration dừng.
-   `caphe-demo`: hỏi Tài đóng hay để (không có link, khách không vào được). Mức nỗ lực cao; có migration → dừng đưa lệnh Neon.
+1. **A3 dọn mã cũ: mã xong 26/09, migration 028 chờ Neon.** Tài chạy 028 trên cả hai branch → báo → mới đẩy `main`.
+   Sau khi chạy, kiểm `SELECT count(*) FROM shops WHERE slug='caphe-demo'` = 0 trên từng branch; nếu còn 1 là có bảng trỏ
+   tới nó và 028 đã cố ý giữ lại (hỏi Claude). Việc còn lại của A3 là **A3b** (một đường trang khách, `roadmap-slices.md`).
 2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
    mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
 3. Sau A3: **tốc độ trang khách (E6)** trước quán đầu tiên; **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách hứa
@@ -251,7 +244,16 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — dọn nợ P1, migration 027 (26/09)
+### Xong gần nhất — A3 dọn mã cũ, migration 028 (26/09, chờ Neon)
+
+Gỡ trang khách đời cookie (`/api/shops`), dashboard đời `owner_sessions` (`/api/owner/[shop]`, `server/auth.ts`), trang
+demo `/t/demo` + `/demo/dashboard` + `lib/demo-store.ts`, và nhánh lùi khi cờ tắt: cờ tắt giờ là **404**. `/` thành trang
+tĩnh ngắn (trước là demo 4Râu với dữ liệu giả). Migration 028 kiểm lại bốn bảng đời cũ rỗng và không shop nào có ảnh bìa
+cũ (còn thì **dừng**), rồi xoá chúng cùng view `shop_profile` và cột `hero_*`; xoá shop giả `caphe-demo` (Tài: "shop giả")
+chỉ khi không bảng nào trỏ tới nó. Các test từng dùng `/t/demo` làm "trang rời đi" giờ dùng `/dieu-khoan`. Còn lại: A3b.
+**Migration 028 phải chạy trên Neon trước khi đẩy `main`.**
+
+### Trước đó — dọn nợ P1, migration 027 (26/09)
 
 Bỏ cột `shops.active_release_id` (bản phát hành đang chạy thuộc trang từ 024); bảng nội dung đổi tên `shop_profile` →
 `page_profile`, để lại view `shop_profile` cho khoảng chờ deploy — **migration kế tiếp phải xoá view này**. **Migration 027

@@ -28,7 +28,7 @@ type F={db:Pool;shops:ShopProvisioning;actorId:string;resolver:PublishingResolve
 const test=base.extend<{f:F}>({f:async({},provide)=>{
  const schema=`nfc_life_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of [...BEFORE,'026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of [...BEFORE,'026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),actorId,resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
