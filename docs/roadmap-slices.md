@@ -107,9 +107,10 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | E3 | Tương phản chữ nhạt đạt WCAG AA |
 | E4 | Dùng bàn phím trong popup, hộp nổi, menu ⋮ |
 | E5 | Chế độ tối |
-| E6 | Đo Core Web Vitals trang khách trên 4G; nén video nền mặc định (3 MB) |
+| E6 | ~~Đo Core Web Vitals trang khách trên 4G~~ **xong 26/09** ([`toc-do-trang-khach.md`](toc-do-trang-khach.md)): bảy trang production đều "tốt" (LCP 0,6–1,5 s, CLS 0); video nền gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu — trang có video dùng được từ 2,5 s xuống 2,0 s. Nén video chuyển sang E9 |
 | E7 | Nhấn nút ⓘ, "Phản hồi" đủ cỡ chạm 44px trên điện thoại |
 | E8 | ~~Hỏi Tài lại câu "Chỉ quản lý của quán thấy số này"~~ Tài giữ nguyên câu hiện tại (21/09) |
+| E9 | **Video tải lên cho điện thoại**: chủ quán tải video Full HD / 4K (tới 30 MB) — Tài muốn chiều (26/09). Trang đã không chậm vì nó (E6), nhưng khách tiêu 4G cho cả tệp. Hướng: lúc tải lên, trình duyệt của chủ quán làm thêm một bản nhẹ cho điện thoại (WebCodecs, miễn phí), trang khách chọn bản theo màn hình; kèm nén video mặc định 3 MB. Không dịch vụ trả phí |
 
 ## F. Việc của Tài (không phải code)
 

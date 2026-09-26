@@ -253,6 +253,8 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   const revision = await release(f, b2({ links: [{ label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
     { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] }), 2);
+  // E6: the video is not in the first HTML (it would share the guest's 4G with the scripts); it joins once the page has loaded.
+  expect(await (await page.request.get('/one')).text()).not.toContain('<video');
   await page.goto('/one'); await loaded(page);
   const video = page.locator('video.guest-bg-media');
   await expect(video).toHaveAttribute('src', STEM_BACKGROUND.video);
@@ -273,6 +275,7 @@ test('v2: background video, still, watermark, poster frame and logo come from th
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await loaded(page);
+  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
   await expect(video).toHaveCount(0);
   await expect(page.locator('img.guest-bg-media')).toBeVisible();
   await expect(page.locator('.guest-watermark-track')).toHaveCSS('animation-name', 'none');
@@ -282,6 +285,7 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   // and an uploaded video shows the first frame the editor captured (lát F5).
   await page.addInitScript(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Low Power Mode', 'NotAllowedError')); });
   await page.reload(); await loaded(page);
+  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
   await expect(page.locator('video.guest-bg-media')).toHaveCount(0);
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
   await expect(page.locator('[data-video-blocked]')).toHaveCount(1);
@@ -293,6 +297,7 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   const next = await release(f, b2({ background: { kind: 'media', media: uploaded, loop: true },
     poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), revision);
   await page.reload(); await loaded(page);
+  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
   await expect(page.locator('video')).toHaveCount(0);
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', 'https://media.example/bg.jpg');
   await expect(page.locator('img[data-poster-still]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
@@ -308,6 +313,17 @@ test('v2: background video, still, watermark, poster frame and logo come from th
  * The behaviour log, end to end through a real browser on the path a real card leads to (lát mục 7). Every other
  * test here proves what the customer gets; this one proves the shop finds out what the customer did.
  */
+
+test('E6: a phone set to save data keeps the still and never fetches the background video', async ({ page, fixture: f }) => {
+  await release(f, b2(), 2);
+  const videos: string[] = []; page.on('request', r => { if (r.url().endsWith('.mp4')) videos.push(r.url()); });
+  await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }));
+  await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
+  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
+  await expect(page.locator('video')).toHaveCount(0);
+  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
+  expect(videos).toEqual([]);
+});
 test('what the customer did reaches the log, through the published page, without holding anything up', async ({ page, fixture: f }) => {
   // Scoped to this test's own visit. Beacons are fire-and-forget, so one from an earlier test can still be in
   // flight; a test that assumed an empty table would be reading someone else's page.

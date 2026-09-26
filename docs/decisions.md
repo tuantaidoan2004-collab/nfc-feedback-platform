@@ -217,12 +217,12 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 
 1. **A3 xong, đã lên production 26/09** (Claude kiểm: `/` trang mới, route cũ 404, `/urr6ud` 200 + lượt ghé 200).
    **`caphe-demo`**: 028 cố ý giữ vì có bảng trỏ tới. Tài đếm 26/09: production chỉ 2 dòng `shop_roles` (vai mặc định
-   015 tạo cho mọi shop); preview thêm 4 `visit_sessions` (thử 16–17/09). Claude đưa câu xoá có chốt (đã thử trên database
-   tạm) cho production. Preview: đề xuất để nguyên — xoá phiên ghé phải tắt trigger chống sửa bản ghi, không đáng cho
+   015 tạo cho mọi shop); preview thêm 4 `visit_sessions` (thử 16–17/09). Câu xoá có chốt (đã thử trên database tạm) **Tài chạy trên
+   production 26/09: `caphe_con_lai = 0`**. Preview: đề xuất để nguyên — xoá phiên ghé phải tắt trigger chống sửa bản ghi, không đáng cho
    branch thử; shop không có trang nên không ai vào được. Việc còn lại: **A3b**.
 2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
    mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
-3. Sau A3: **tốc độ trang khách (E6)** trước quán đầu tiên; **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách hứa
+3. **E6 tốc độ trang khách: xong 26/09** (`toc-do-trang-khach.md`; video nặng của chủ quán = E9). Tiếp: **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách hứa
    12 tháng mà chưa có gì xoá); rồi P6, P7, P5b (thu tiền) tuỳ nhu cầu.
 4. **Việc của Tài còn treo:** xoay mật khẩu đã lộ (F4) · xem tab Actions + bật bảo vệ `main` (F5) · thử sáu khuôn trên
    iPhone/Android thật + lỗi Googy "Chưa kết nối được" (chưa tái hiện).
@@ -246,7 +246,15 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — A3 dọn mã cũ, migration 028 (26/09, đã lên production)
+### Xong gần nhất — E6 tốc độ trang khách (26/09)
+
+Đo bằng `scripts/measure-guest.mjs` (Chrome thật, 4G chậm, CPU ×4, không ghi lượt ghé): bảy trang production đều "tốt"
+(LCP 0,6–1,5 s, CLS 0). Rủi ro thật là video nền: `<video preload="auto">` trong HTML đầu chia 4G với JS. Giờ video gắn
+sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu; trang có video dùng được 2,5 s → 2,0 s. Tài (26/09): video
+Full HD / 4K của chủ quán phải được chiều → lát **E9** (bản nhẹ cho điện thoại, làm ngay trong trình duyệt chủ quán).
+**Không migration.**
+
+### Trước đó — A3 dọn mã cũ, migration 028 (26/09, đã lên production)
 
 Gỡ trang khách đời cookie (`/api/shops`), dashboard đời `owner_sessions` (`/api/owner/[shop]`, `server/auth.ts`), trang
 demo `/t/demo` + `/demo/dashboard` + `lib/demo-store.ts`, và nhánh lùi khi cờ tắt: cờ tắt giờ là **404**. `/` thành trang

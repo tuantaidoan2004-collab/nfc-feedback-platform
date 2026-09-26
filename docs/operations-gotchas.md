@@ -487,3 +487,12 @@ tới lần điều hướng tiếp theo, không chỉ dòng có URL.
 khớp và cột số dòng ra NULL ở cả 16 bảng — Tài mất một vòng trên hai branch. Câu đúng: `tableforest=true` và
 `xpath('//n/text()')`, đã thử trên Postgres tạm (đặt một hàng `media_assets` → ra đúng `media_assets | 1`). Luật cho
 Claude: câu SQL nào đưa Tài chạy trên Neon thì chạy thử trên một database tạm trước, kể cả câu chỉ đọc.
+
+**`pkill -f server.js` không tắt server Next đã chạy.** Lát E6: server standalone đổi tên tiến trình thành `next-server
+(…)`, nên `pkill -f ".next/standalone/server.js"` không khớp gì. Server cũ giữ cổng, server mới báo `EADDRINUSE` rồi
+thoát, và phép đo chạy vào **bản build cũ** — HTML trỏ tới JS đã bị build mới xoá, trang không bao giờ sẵn sàng. Tắt
+theo cổng: `kill $(lsof -tiTCP:<cổng> -sTCP:LISTEN)`, rồi kiểm cổng trống trước khi chạy lại. Lỗi của Claude.
+
+**Trả lời giả cho API trang khách phải đúng hình dạng thật.** Lúc đo E6, bản giả của `POST …/visits` cho `visit.sessionId`
+khác `session.id`; bộ kiểm của trình duyệt (`lib/client/visit-fetch-transport.ts`) từ chối, trang không bao giờ
+`data-ready` và phép đo hết giờ — trông như trang hỏng. Đọc bộ kiểm trước khi viết bản giả.

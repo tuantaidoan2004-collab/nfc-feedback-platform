@@ -224,17 +224,37 @@ function useTiltLight(enabled: boolean) {
   }, [enabled]);
 }
 
+/**
+ * Whether the background video may start (E6, 26/09). Not in the server's HTML and not before the page has loaded: a
+ * video in the first HTML is fetched while the HTML is still being read, and on 4G it shares the line with the
+ * scripts that make the stars work (measured: 264 KB of video in the first three seconds, stars usable at 2.5 s). The
+ * still, which is the video's first frame, shows meanwhile. Never when the visitor asked their phone to save data.
+ * `settled` says the choice is made, so a test can tell "no video" from "no video yet".
+ */
+function useLateVideo() {
+  const [state, setState] = useState({ allowed: false, settled: false });
+  useEffect(() => {
+    const saveData = !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    let timer = 0;
+    const go = () => { timer = window.setTimeout(() => setState({ allowed: !saveData, settled: true }), 0); };
+    if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
+    return () => { window.removeEventListener('load', go); window.clearTimeout(timer); };
+  }, []);
+  return state;
+}
+
 function Background({ config, reduced, scene }: { config: ReturnType<typeof defaultConfig>; reduced: boolean; scene: boolean }) {
   const b = config.background;
   const [blocked, plays] = useVideoPlays();
+  const late = useLateVideo();
   // A template that paints its own scene owns this layer entirely: no inline colour, no video to download.
   if (scene) return <div className="guest-bg" aria-hidden="true" />;
   const style = b.kind === 'solid' ? { background: b.color }
     : b.kind === 'gradient' ? { background: `linear-gradient(${b.angle}deg, ${b.colors[0]}, ${b.colors[1]})` } : undefined;
   const still = b.kind === 'media' ? stillFor(b.media) : null;
-  return <div className="guest-bg" style={style} aria-hidden="true" data-video-blocked={blocked || undefined}>
+  return <div className="guest-bg" style={style} aria-hidden="true" data-video-blocked={blocked || undefined} data-video-settled={late.settled || undefined}>
     {still && <img className="guest-bg-media" src={still} alt="" />}
-    {b.kind === 'media' && b.media.kind === 'video' && !reduced && !blocked &&
+    {b.kind === 'media' && b.media.kind === 'video' && !reduced && !blocked && late.allowed &&
       <video ref={plays} className="guest-bg-media" src={b.media.url} poster={still ?? undefined} autoPlay muted loop={b.loop} playsInline preload="auto" />}
     {config.watermark.enabled && <div className="guest-watermark">
       <div className="guest-watermark-track">{Array.from({ length: 48 }, (_, i) => <span key={i}>{config.watermark.text}</span>)}</div>
@@ -369,8 +389,9 @@ function LegalFooter({ p, ready, erase }: { p: (typeof pageCopy)[Language]; read
     const result = await erase();
     setStep(result.kind === 'erased' ? 'erased' : result.kind === 'nothing' ? 'nothing' : 'error');
   }
+  // No prefetch (E6): the two legal pages were fetched during start-up, on the guest's 4G, for a link few ever open.
   return <footer className="guest-legal" data-legal>
-    <p><Link href="/quyen-rieng-tu">{p.privacy}</Link> · <Link href="/dieu-khoan">{p.terms}</Link>
+    <p><Link href="/quyen-rieng-tu" prefetch={false}>{p.privacy}</Link> · <Link href="/dieu-khoan" prefetch={false}>{p.terms}</Link>
       {step === 'idle' && <> · <button type="button" disabled={!ready} onClick={() => setStep('ask')}>{p.erase}</button></>}</p>
     {step === 'ask' && <p role="alertdialog" aria-label={p.erase}>{p.eraseAsk}{' '}
       <button type="button" data-erase-confirm onClick={() => void confirm()}>{p.eraseYes}</button> · <button type="button" onClick={() => setStep('idle')}>{p.eraseNo}</button></p>}
@@ -590,7 +611,7 @@ export default function ShopFeedbackV2(shop: Props) {
               <label htmlFor="phone">{p.phone}</label>
               <input id="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={24} disabled={locked} value={phone} placeholder={p.phoneHint}
                 onChange={e => { setPhone(e.target.value); setValidation(null); }} />
-              <p className="guest-fineprint"><Link href="/quyen-rieng-tu#so-dien-thoai">{p.phonePolicy}</Link></p>
+              <p className="guest-fineprint"><Link href="/quyen-rieng-tu#so-dien-thoai" prefetch={false}>{p.phonePolicy}</Link></p>
               <button className="guest-send" disabled={!canSend}>{t.send}</button>
               {statusLine}{retryButtons}
             </form>}
