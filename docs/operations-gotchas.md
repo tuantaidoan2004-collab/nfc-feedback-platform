@@ -496,3 +496,8 @@ theo cổng: `kill $(lsof -tiTCP:<cổng> -sTCP:LISTEN)`, rồi kiểm cổng tr
 **Trả lời giả cho API trang khách phải đúng hình dạng thật.** Lúc đo E6, bản giả của `POST …/visits` cho `visit.sessionId`
 khác `session.id`; bộ kiểm của trình duyệt (`lib/client/visit-fetch-transport.ts`) từ chối, trang không bao giờ
 `data-ready` và phép đo hết giờ — trông như trang hỏng. Đọc bộ kiểm trước khi viết bản giả.
+
+**Đếm byte bằng `Network.dataReceived` trên HTTP/2 ra 0.** Lúc kiểm production sau E6, `scripts/measure-guest.mjs` báo
+tổng tải 0–113 KB cho trang 219 KB: trên HTTP/2 Chrome để `encodedDataLength` của `dataReceived` bằng 0. Trên máy
+(HTTP/1.1) số đúng nên không lộ. Tổng byte lấy từ `loadingFinished`; `dataReceived.dataLength` chỉ dùng cho video đang
+tải dở. Các mốc thời gian của lượt đo đó vẫn đúng. Lỗi của Claude, sửa trong cùng lát.

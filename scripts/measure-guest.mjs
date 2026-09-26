@@ -31,8 +31,12 @@ for (const slug of slugs) for (let n = 0; n < runs; n++) {
   // Counted as bytes arrive, not when a request finishes: a video streams in ranges and may never "finish" in the window.
   const urls = {}; let video = { first: -1, kb: 0, at3s: 0 }; const start = Date.now();
   cdp.on('Network.requestWillBeSent', e => { urls[e.requestId] = e.request.url; if (e.request.url.endsWith('.mp4') && video.first < 0) video.first = Date.now() - start; });
-  cdp.on('Network.dataReceived', e => { const t = types[e.requestId]; if (t) bytes[t] = (bytes[t] ?? 0) + e.encodedDataLength;
-    if (urls[e.requestId]?.endsWith('.mp4')) { video.kb += e.encodedDataLength / 1024; if (Date.now() - start < 3000) video.at3s += e.encodedDataLength / 1024; } });
+  // Totals come from loadingFinished: over HTTP/2 Chrome reports 0 in dataReceived.encodedDataLength. The video, which
+  // may never finish inside the window, is timed by dataReceived.dataLength (decoded, close to encoded for mp4).
+  cdp.on('Network.loadingFinished', e => { const t = types[e.requestId]; if (t && !urls[e.requestId]?.endsWith('.mp4')) bytes[t] = (bytes[t] ?? 0) + e.encodedDataLength; });
+  cdp.on('Network.dataReceived', e => { if (!urls[e.requestId]?.endsWith('.mp4')) return; const t = types[e.requestId];
+    if (t) bytes[t] = (bytes[t] ?? 0) + e.dataLength;
+    video.kb += e.dataLength / 1024; if (Date.now() - start < 3000) video.at3s += e.dataLength / 1024; });
   await page.addInitScript(() => {
     window.__e6 = { lcp: 0, lcpEl: '', cls: 0, tbt: 0 };
     new PerformanceObserver(l => { for (const e of l.getEntries()) { window.__e6.lcp = e.startTime; window.__e6.lcpEl = (e.element?.tagName ?? '') + '.' + (e.element?.className?.toString?.() ?? '').split(' ')[0] + (e.url ? ' ' + e.url.split('/').pop() : ''); } }).observe({ type: 'largest-contentful-paint', buffered: true });

@@ -28,6 +28,13 @@ Thẻ `<video preload="auto">` nằm trong HTML đầu, nên trình duyệt xin 
 Bước hai không làm trang nhanh hơn; nó bớt hai request (~8 KB) khách không cần. Ảnh tĩnh (khung đầu của video) hiện
 suốt lúc chờ, nên khách không thấy khác gì ngoài việc nút bấm được sớm hơn. Máy bật "tiết kiệm dữ liệu" không tải video.
 
+## Production sau lát (26/09, bản `8i41u5dhc`)
+
+HTML đầu của cả bảy trang không còn `<video>`. Hai trang pháp lý không còn bị tải trước: YOUR SHOP 229 → **219 KB**, Bammy
+186 → **176 KB**. LCP 0,75–1,5 s, CLS 0, dùng được 2,0–2,8 s (hai lượt lệch vì mạng: TTFB 1,4 s lúc hàm nguội, một FCP
+3,2 s). Chưa shop nào trên production dùng video nền, nên mốc "dùng được" không đổi ở đây — thay đổi đó chỉ thấy trên
+trang có video (bảng trên). Mở thật `/urr6ud`: `POST /api/v2/pages/visits` 200, không lỗi trang.
+
 ## Còn lại
 
 - **Video chủ quán tải lên (tới 30 MB, Full HD / 4K):** Tài muốn chiều khách (26/09). Nhờ gắn sau khi tải xong, video to
