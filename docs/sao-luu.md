@@ -69,7 +69,7 @@ Repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 |---|---|
 | `NEON_BACKUP_URL` | chuỗi kết nối của `backup_reader` (bước 1) |
 | `BACKUP_PASSPHRASE` | mật khẩu sao lưu (bước 3) |
-| `R2_BACKUP_ACCOUNT_ID` | Account ID của Cloudflare |
+| `R2_BACKUP_ACCOUNT_ID` | Account ID của Cloudflare (hoặc, với kho S3 khác: `R2_BACKUP_ENDPOINT` + `R2_BACKUP_REGION`, xem `tu-chay.md`) |
 | `R2_BACKUP_ACCESS_KEY_ID` | Access Key ID (bước 2) |
 | `R2_BACKUP_SECRET_ACCESS_KEY` | Secret Access Key (bước 2) |
 | `R2_BACKUP_BUCKET` | `nfc-backups` |

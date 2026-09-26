@@ -11,7 +11,6 @@ trước khi đẩy `main`).
 
 | # | Việc | Cỡ | Ghi chú |
 |---|---|---|---|
-| **I1** | **Tự chạy được, không cần Vercel:** biến `endpoint` cho kho S3 (hôm nay ghép cứng R2 ở 4 chỗ) · cấu hình proxy tin cậy cho IP khách · Dockerfile + `docker-compose` (app + Postgres + kho S3) · sổ tay tự chạy · job CI chạy ca "production gate" trên image | V | Không dịch vụ trả phí. `kien-truc-nen-tang.md` mục 4 |
 | **M1** | **Gói khuôn:** gom định nghĩa mỗi khuôn (hôm nay rải `config.ts` · `versions.ts` · `pricing.ts` · `skins/*.css` · `guest-styles.ts`) về một thư mục + manifest; registry sinh từ đó | V | Không đổi hành vi, không mig. Mở cửa cho designer |
 | **M2** | **Module hiệu ứng:** tách kính (khuôn 3), chuyển cảnh và ánh sáng theo nghiêng (khuôn 6) khỏi `shop-feedback-v2.tsx`; manifest khai hiệu ứng dùng | V | Không đổi hành vi, không mig |
 | **M3** | **Section:** `PageConfig` v3 = khuôn@bản + cài đặt + danh sách section; poster và hàng link thành section đầu; lời mời Google, góp ý, chân pháp lý là lõi cố định | L | **Mig.** Bản phát hành cũ vẫn đọc được |
@@ -32,6 +31,7 @@ trước khi đẩy `main`).
 | D8 | Staging dữ liệu giả, sổ tay sự cố, cảnh báo chi phí | V | Khi có người thứ hai trong đội |
 | A19 | Hệ thiết kế dashboard: token, thành phần; gom CSS đời cũ (`app/globals.css`) | L | |
 | — | Cập nhật `integration-tests/safari-local.mjs` theo đường trang khách duy nhất (A3b) | N | Chạy tay, ngoài 7 bộ |
+| — | Sao lưu bằng cron trên máy tự chạy (script đã nhận mọi PostgreSQL và kho S3) | N | `tu-chay.md` mục Giới hạn |
 
 ## 3. Thương mại và vận hành nền tảng
 
@@ -101,4 +101,4 @@ liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi khuôn (022) · A33 sáu khoá khuôn · A36 lớp da · K1–K6 sáu khuôn · K7
 bản khuôn · P1 quán/trang (024) · P2 bảng cài đặt · P3 danh sách trang (025) · P4 vòng đời trang (026) · P5a hiện giá · P1d
 dọn nợ P1 (027) · C3 mặt trận 1 cách ly dữ liệu · B2 mã sao lưu · B4 tên miền `.com` + R2 tên miền riêng · E6 tốc độ trang
-khách · E9 video chỉ ở poster, nén 720p · dòng sự kiện hành vi (020).
+khách · E9 video chỉ ở poster, nén 720p · dòng sự kiện hành vi (020) · I1 tự chạy được không cần Vercel (`tu-chay.md`).

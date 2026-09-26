@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OwnerError, sessionHash, transaction, username, type OwnerCredential } from './auth';
-import { presignUrl } from '../media/sigv4';
-import { r2Settings, UPLOAD_EXPIRES_SECONDS, type R2Settings } from './media';
+import { presignObject, storageSettings, type StorageSettings } from '../media/storage';
+import { UPLOAD_EXPIRES_SECONDS } from './media';
 
 /**
  * Account profiles (lát F2, Tài 2026-09-18): every person in a shop has an account that reads like a social
@@ -32,7 +32,7 @@ function text(value: unknown, max: number) {
 }
 
 export class OwnerProfiles {
-  constructor(private pool: Pool, private settings: R2Settings | null = r2Settings(), private now: () => Date = () => new Date()) {}
+  constructor(private pool: Pool, private settings: StorageSettings | null = storageSettings(), private now: () => Date = () => new Date()) {}
 
   /** The signed-in person, never a stand-in: the impersonation cookie belongs to the shop's paths, not to a person. */
   private async user(db: PoolClient, credential: OwnerCredential, lock = false) {
@@ -98,9 +98,8 @@ export class OwnerProfiles {
     const u = await transaction(this.pool, db => this.user(db, credential));
     if (!this.settings) throw new OwnerError(503, 'UPLOADS_NOT_CONFIGURED');
     const key = `users/${u.id}/${randomUUID()}.${ext}`;
-    const upload = presignUrl({ method: 'PUT', host: `${this.settings.accountId}.r2.cloudflarestorage.com`, path: `/${this.settings.bucket}/${key}`,
-      region: 'auto', service: 's3', accessKeyId: this.settings.accessKeyId, secretAccessKey: this.settings.secretAccessKey,
-      date: this.now(), expiresSeconds: UPLOAD_EXPIRES_SECONDS, headers: { 'content-type': type as string, 'content-length': String(size) } });
+    const upload = presignObject(this.settings, 'PUT', key,
+      { date: this.now(), expiresSeconds: UPLOAD_EXPIRES_SECONDS, headers: { 'content-type': type as string, 'content-length': String(size) } });
     return { upload, url: `${this.settings.publicOrigin}/${key}`, kind: 'image' as const, headers: { 'Content-Type': type as string } };
   }
 }

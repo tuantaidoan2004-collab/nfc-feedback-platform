@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 import { presignUrl } from '../lib/media/sigv4.ts';
+import { storageHost, storageSettings } from '../lib/media/storage-settings.ts';
 import { open, pgEnvironment } from './backup-crypto.mjs';
 
 const need = name => { const value = process.env[name]; if (!value) throw new Error(`${name} is required`); return value; };
@@ -22,9 +23,10 @@ if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(target).hostname)) thr
 
 let sealed;
 if (source.startsWith('r2:')) {
-  const account = need('R2_BACKUP_ACCOUNT_ID'), bucket = need('R2_BACKUP_BUCKET');
-  const url = presignUrl({ method: 'GET', host: `${account}.r2.cloudflarestorage.com`, path: `/${bucket}/${source.slice(3)}`, region: 'auto', service: 's3',
-    accessKeyId: need('R2_BACKUP_ACCESS_KEY_ID'), secretAccessKey: need('R2_BACKUP_SECRET_ACCESS_KEY'), date: new Date(), expiresSeconds: 600 });
+  const store = storageSettings(process.env, 'R2_BACKUP');
+  if (!store) throw new Error('R2_BACKUP_* settings are incomplete');
+  const url = presignUrl({ method: 'GET', ...storageHost(store), path: `/${store.bucket}/${source.slice(3)}`, region: store.region, service: 's3',
+    accessKeyId: store.accessKeyId, secretAccessKey: store.secretAccessKey, date: new Date(), expiresSeconds: 600 });
   const response = await fetch(url);
   if (!response.ok) throw new Error(`R2 refused the download: ${response.status}`);
   sealed = Buffer.from(await response.arrayBuffer());

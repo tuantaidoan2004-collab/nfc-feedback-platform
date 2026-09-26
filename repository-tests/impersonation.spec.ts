@@ -404,11 +404,20 @@ test('cards: anyone running the shop adds and renames; only the owner switches o
 });
 
 test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s folder; editors only; support recorded',async({f})=>{
- const {OwnerMedia,r2Settings}=await import('../lib/owner/media');
+ const {OwnerMedia}=await import('../lib/owner/media');const {storageSettings:r2Settings}=await import('../lib/media/storage');
  const env={R2_ACCOUNT_ID:'a'.repeat(32),R2_ACCESS_KEY_ID:'AKFIXTURE',R2_SECRET_ACCESS_KEY:'secret-fixture',R2_BUCKET:'nfc-media',MEDIA_PUBLIC_ORIGIN:'https://media.example.com/'};
  expect(r2Settings(env)).toMatchObject({publicOrigin:'https://media.example.com'});
  for(const missing of ['R2_ACCOUNT_ID','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','MEDIA_PUBLIC_ORIGIN'])expect(r2Settings({...env,[missing]:''})).toBeNull();
  expect(r2Settings({...env,MEDIA_PUBLIC_ORIGIN:'http://media.example.com'})).toBeNull();
+ // Lát I1: any S3-compatible store by endpoint, no Cloudflare account needed; plain http only on this machine.
+ const own={...env,R2_ACCOUNT_ID:'',STORAGE_ENDPOINT:'http://127.0.0.1:9000',STORAGE_REGION:'us-east-1'};
+ const local=await new OwnerMedia(f.db,r2Settings(own),()=>new Date('2026-09-18T10:00:00Z')).presign(f.users[0].token,'one',{type:'image/png',size:10});
+ expect(local.upload).toMatch(/^http:\/\/127\.0\.0\.1:9000\/nfc-media\/shops\//);expect(new URL(local.upload).searchParams.get('X-Amz-Credential')).toContain('/us-east-1/s3/');
+ expect(r2Settings({...own,STORAGE_ENDPOINT:'http://minio.example.com:9000'})).toBeNull();
+ expect(r2Settings({...own,STORAGE_ENDPOINT:'https://s3.ap-southeast-1.amazonaws.com'})).toMatchObject({endpoint:'https://s3.ap-southeast-1.amazonaws.com'});
+ // A path-style store serves public objects under the bucket's path; a query or a stray path segment is refused.
+ expect(r2Settings({...own,MEDIA_PUBLIC_ORIGIN:'https://media.example.com/nfc-media/'})).toMatchObject({publicOrigin:'https://media.example.com/nfc-media'});
+ for(const bad of ['https://media.example.com/?x=1','https://media.example.com/a b','javascript:alert(1)'])expect(r2Settings({...own,MEDIA_PUBLIC_ORIGIN:bad}),bad).toBeNull();
  const media=new OwnerMedia(f.db,r2Settings(env),()=>new Date('2026-09-18T10:00:00Z'));
  const signed=await media.presign(f.users[0].token,'one',{type:'image/png',size:12345});
  expect(signed.kind).toBe('image');expect(signed.headers).toEqual({'Content-Type':'image/png'});
@@ -437,6 +446,7 @@ test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s fold
  expect(queued).toEqual([{url:signed.url,kind:'image',content_type:'image/png',size_bytes:12345,uploaded_by:`owner:${f.users[0].id}`,state:'pending'}]);
  expect(signed.review).toBe('pending');
  expect((await f.db.query("SELECT count(*)::int n FROM media_assets WHERE uploaded_by=$1",[`admin:${f.adminId}`])).rows[0].n).toBe(1);
- // Only the three uploads that were signed (the PNG, the MP4, the design-session JPEG) queue; every refused request leaves nothing.
- expect((await f.db.query("SELECT count(*)::int n FROM media_assets")).rows[0].n).toBe(3);
+ // Only the four uploads that were signed (the PNG to the local store, the PNG, the MP4, the design-session JPEG) queue;
+ // every refused request leaves nothing.
+ expect((await f.db.query("SELECT count(*)::int n FROM media_assets")).rows[0].n).toBe(4);
 });

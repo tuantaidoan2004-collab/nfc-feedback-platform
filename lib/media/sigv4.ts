@@ -1,12 +1,13 @@
 import { createHash, createHmac } from 'node:crypto';
 
 /**
- * AWS Signature Version 4 query-string presigning, which Cloudflare R2's S3 API accepts (region "auto"). Written
+ * AWS Signature Version 4 query-string presigning, which every S3-compatible store accepts (R2, S3, MinIO). Written
  * with node:crypto instead of an SDK: one function, checked against AWS's published example in
  * tests/contracts/sigv4.spec.ts.
  */
 export type PresignInput = {
-  method: 'GET' | 'PUT'; host: string; path: string; region: string; service: string;
+  /** `host` may carry a port; `scheme` is https except for a store on this machine (lib/media/storage.ts). */
+  method: 'GET' | 'PUT'; host: string; scheme?: 'https' | 'http'; path: string; region: string; service: string;
   accessKeyId: string; secretAccessKey: string; date: Date; expiresSeconds: number;
   /** Extra headers the client must send exactly, e.g. content-type and content-length; host is always signed. */
   headers?: Record<string, string>;
@@ -36,5 +37,5 @@ export function presignUrl(input: PresignInput) {
   const toSign = ['AWS4-HMAC-SHA256', stamp, scope, sha256(canonicalRequest)].join('\n');
   const key = hmac(hmac(hmac(hmac(`AWS4${input.secretAccessKey}`, day), input.region), input.service), 'aws4_request');
   const signature = createHmac('sha256', key).update(toSign, 'utf8').digest('hex');
-  return `https://${input.host}${canonicalPath}?${canonicalQuery}&X-Amz-Signature=${signature}`;
+  return `${input.scheme ?? 'https'}://${input.host}${canonicalPath}?${canonicalQuery}&X-Amz-Signature=${signature}`;
 }

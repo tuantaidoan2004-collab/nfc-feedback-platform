@@ -386,7 +386,16 @@ test('the address tier runs only behind a proxy that sets the header, never on o
   const address = '203.0.113.9';
   const bucket = `address:${db.shopId}:${createHash('sha256').update(`nfc-guest-address-v1\0${address}`).digest('hex')}`;
   await seed(db, bucket, 600);
-  const reply = await db.api(request(token, command(), { 'x-vercel-forwarded-for': `${address}, 10.0.0.1` }), { shop: 'one', visitId: visit.id }, 'rating');
+  // Lát I1: a header the visitor sent is not an address. Unconfigured, even Vercel's own header name is ignored here --
+  // off Vercel anyone can send it -- so nothing is marked.
+  const spoofed = await db.api(request(token, command(), { 'x-vercel-forwarded-for': address, 'x-forwarded-for': address, 'x-real-ip': address }),
+    { shop: 'one', visitId: visit.id }, 'rating');
+  expect(spoofed.status).toBe(200); expect(await marks(db)).toEqual([null]);
+  // Behind the operator's own proxy, which overwrites the one header it is told to trust, the address counts.
+  const before = process.env.NFC_CLIENT_IP_HEADER; process.env.NFC_CLIENT_IP_HEADER = 'x-real-ip';
+  let reply: Response;
+  try { reply = await db.api(request(token, { ...command(), expectedRevision: 1 }, { 'x-real-ip': address }), { shop: 'one', visitId: visit.id }, 'rating'); }
+  finally { if (before === undefined) delete process.env.NFC_CLIENT_IP_HEADER; else process.env.NFC_CLIENT_IP_HEADER = before; }
   expect(reply.status).toBe(200);
   expect(await marks(db)).toEqual(['address_rate']);
   // The address is counted, not kept: what is in the table cannot be read back as an address.

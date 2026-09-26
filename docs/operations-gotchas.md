@@ -512,3 +512,15 @@ chỉ trong harness. Neon áp theo thứ tự tên tệp (`scripts/migrate.mjs` 
 vì harness `public` (nơi có ca xoá) không có 003, còn harness `publishing` (có 003) không có ca xoá. Lộ ra ở lát A3b khi
 gộp hai đường. Luật: danh sách migration trong fixture phải giữ **thứ tự tên tệp**; migration nào thay thứ của migration
 trước thì kiểm cả hai cùng có mặt trong ít nhất một bộ.
+
+**Ngoài Vercel, IP khách giả được bằng một header tự gửi.** Lát I1 (26/09) tìm ra: `clientAddress` đọc lần lượt
+`x-vercel-forwarded-for`, `x-real-ip`, `x-forwarded-for`. Trên Vercel không sao — Vercel ghi đè. Nhưng tự chạy thì khách
+tự gửi được cả ba, nên một script đổi "địa chỉ" mỗi lần và né tầng đếm theo địa chỉ của A1. Sửa: chỉ tin **một** header
+mà môi trường khai (`NFC_CLIENT_IP_HEADER`, hoặc tự nhận Vercel qua `VERCEL=1`); không khai thì không đếm theo địa chỉ.
+Test cũ chứng minh "đếm được khi có header" nhưng không có ca "header khách tự gửi phải bị bỏ qua" — ca đó giờ có.
+Bài học chung: một header chỉ đáng tin khi **thứ đứng trước app** ghi đè nó; test phải có ca giả mạo, không chỉ ca đúng.
+
+**Viết sai kỳ vọng trong test mới, hai lần một lát.** Lát I1: (1) thêm một lần xin link tải lên vào ca `impersonation`
+mà quên nó cũng xếp một ảnh vào hàng chờ duyệt (đếm 3 → 4); (2) viết "không bị đánh dấu" là `[]` trong khi `marks()` trả
+một dòng mỗi phiên, phiên chưa đánh dấu là `null`. Cả hai đỏ ngay ở lần chạy đầu, không phải lỗi mã. Đọc helper trước
+khi viết kỳ vọng dựa vào nó. Lỗi của Claude.

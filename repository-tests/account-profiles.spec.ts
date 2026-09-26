@@ -20,7 +20,7 @@ const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({}
   await provide(await ownerFixture(db));
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
-const r2={accountId:'0'.repeat(32),accessKeyId:'key',secretAccessKey:'secret',bucket:'nfc-media',publicOrigin:'https://media.example'};
+const r2={endpoint:`https://${'0'.repeat(32)}.r2.cloudflarestorage.com`,region:'auto',accessKeyId:'key',secretAccessKey:'secret',bucket:'nfc-media',publicOrigin:'https://media.example'};
 const blank={displayName:null,bio:null,avatarUrl:null,coverUrl:null};
 
 test('sign in with the @handle, the bare handle or the email, in any case; one limit per account',async({f})=>{

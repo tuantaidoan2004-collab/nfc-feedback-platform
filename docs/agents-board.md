@@ -403,3 +403,10 @@ F-013 đã đóng 21/09 (nhãn nút cố định + dây bẫy chữ tự do). L�
 (luật 3)** — chốt danh sách host thay vì chỉ `https://`, vì nút trỏ được sang trang riêng hỏi sao trước; từ chối tham số
 `rating/stars/text…` (không khẳng định Google hiểu chúng, chỉ là luật sản phẩm) — và **hướng dẫn dashboard + tờ bàn
 giao** (`/huong-dan-google`). Luật 8/10 vẫn chờ A16/C1 có luồng thật, như Astra ghi.
+
+## F-I1 · Trung bình khi tự chạy · IP khách giả được bằng header tự gửi — Claude, 26/09, đã sửa
+
+`server/guest-limits.ts` `clientAddress` đọc `x-vercel-forwarded-for` ?? `x-real-ip` ?? `x-forwarded-for`. Trên Vercel an
+toàn (Vercel ghi đè); ngoài Vercel thì khách tự gửi header, né tầng đếm theo địa chỉ (A1). Sửa trong lát I1: chỉ tin một
+header do môi trường khai (`NFC_CLIENT_IP_HEADER` / tự nhận `VERCEL=1`). Ca test giả mạo trong `visit-v2-api.spec.ts`; đã
+thử phá (trả về cách cũ → ca đỏ). Production trên Vercel không đổi hành vi. Astra rà lại nếu có dịp.

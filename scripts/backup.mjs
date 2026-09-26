@@ -2,14 +2,16 @@
 //
 //   pg_dump (read-only role) → seal (backup-crypto.mjs) → PUT to the private R2 backup bucket → GET it back and compare
 //
-// Needs: NEON_BACKUP_URL (the read-only role's connection string), BACKUP_PASSPHRASE, and R2_BACKUP_ACCOUNT_ID,
-// R2_BACKUP_ACCESS_KEY_ID, R2_BACKUP_SECRET_ACCESS_KEY, R2_BACKUP_BUCKET. PG_DUMP names the pg_dump binary (default
+// Needs: NEON_BACKUP_URL (the read-only role's connection string, any PostgreSQL), BACKUP_PASSPHRASE, and R2_BACKUP_ACCESS_KEY_ID,
+// R2_BACKUP_SECRET_ACCESS_KEY, R2_BACKUP_BUCKET with either R2_BACKUP_ACCOUNT_ID (Cloudflare R2) or R2_BACKUP_ENDPOINT
+// (+ R2_BACKUP_REGION) for any other S3-compatible store. PG_DUMP names the pg_dump binary (default
 // `pg_dump`); it must be at least the server's major version. With BACKUP_OUT set, the sealed file is written there
 // instead of uploaded -- for trying the chain on a local database. Nothing secret is ever printed.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { presignUrl } from '../lib/media/sigv4.ts';
+import { storageHost, storageSettings } from '../lib/media/storage-settings.ts';
 import { checkPassphrase, open, pgEnvironment, seal } from './backup-crypto.mjs';
 
 const need = name => { const value = process.env[name]; if (!value) throw new Error(`${name} is required`); return value; };
@@ -43,9 +45,11 @@ if (process.env.BACKUP_OUT) {
   await writeFile(process.env.BACKUP_OUT, sealed);
   console.log(`Wrote ${process.env.BACKUP_OUT}: dump ${plain.length} bytes, sealed ${sealed.length} bytes, sha256 ${sha(sealed)}`);
 } else {
-  const account = need('R2_BACKUP_ACCOUNT_ID'), bucket = need('R2_BACKUP_BUCKET');
-  const signed = (method, headers) => presignUrl({ method, host: `${account}.r2.cloudflarestorage.com`, path: `/${bucket}/${name}`, region: 'auto',
-    service: 's3', accessKeyId: need('R2_BACKUP_ACCESS_KEY_ID'), secretAccessKey: need('R2_BACKUP_SECRET_ACCESS_KEY'), date: new Date(),
+  // Any S3-compatible store (lib/media/storage-settings.ts): R2 from R2_BACKUP_ACCOUNT_ID, or R2_BACKUP_ENDPOINT.
+  const store = storageSettings(process.env, 'R2_BACKUP');
+  if (!store) throw new Error('R2_BACKUP_* settings are incomplete');
+  const signed = (method, headers) => presignUrl({ method, ...storageHost(store), path: `/${store.bucket}/${name}`, region: store.region,
+    service: 's3', accessKeyId: store.accessKeyId, secretAccessKey: store.secretAccessKey, date: new Date(),
     expiresSeconds: 600, headers });
   const put = await fetch(signed('PUT', { 'content-type': 'application/octet-stream', 'content-length': String(sealed.length) }),
     { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: sealed });

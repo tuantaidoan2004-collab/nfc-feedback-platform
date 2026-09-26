@@ -93,19 +93,17 @@ test rời (`tests/contracts/skin.spec.ts`, `google-policy.spec.ts`); gom thành
 Mục tiêu (từ `mvp-architecture.md`, 09/09, và Tài 26/09): cùng mã chạy được trên một máy Node/Docker bất kỳ; mỗi dịch vụ
 thuê chỉ là **một lựa chọn cấu hình**, không phải một phụ thuộc trong mã.
 
-| Phần | Hôm nay | Thay bằng | Còn thiếu để tự chạy |
-|---|---|---|---|
-| Ứng dụng | Vercel | Máy Node bất kỳ / Docker | Bản build `standalone` đã có và harness đã chạy nó (ca "production gate"). **Thiếu:** Dockerfile, `docker-compose` (app + Postgres + kho S3), sổ tay tự chạy, một lần chạy thật ngoài Vercel |
-| Database | Neon | PostgreSQL bất kỳ | Không thiếu: migration SQL chuẩn, sao lưu bằng `pg_dump` |
-| Ảnh/video | Cloudflare R2 | S3, MinIO, bất kỳ kho tương thích S3 | **Mã ghép cứng** `<account>.r2.cloudflarestorage.com` ở 4 chỗ (`lib/owner/media.ts`, `lib/owner/profile.ts`, `scripts/backup.mjs`, `scripts/restore-backup.mjs`) → cần biến `endpoint` |
-| IP khách (chặn bot, A1) | Tin header của Vercel | Sau nginx/Caddy | **Thiếu** cấu hình "proxy tin cậy"; ngoài Vercel hiện không tin được header nào (`server/guest-limits.ts`) |
-| Việc định kỳ (sao lưu) | GitHub Actions | cron bất kỳ | Không thiếu: script tự đứng |
-| Tên miền, DNS | Cloudflare | Bất kỳ | Không thiếu |
-| Email, Zalo | Chưa có | Qua adapter khi làm | Làm qua adapter ngay từ đầu (B5, B7) |
-| Trang Quyền riêng tư | Ghi tên Vercel, Neon, R2 | — | Sửa chữ khi đổi nhà cung cấp |
+**Lát I1 xong 26/09** — sổ tay [`tu-chay.md`](tu-chay.md), `Dockerfile`, `deploy/docker-compose.yml`, job CI `self-host`.
 
-Lát **I1 · Tự chạy được** (không dịch vụ trả phí): biến endpoint cho kho S3 · cấu hình proxy tin cậy · Dockerfile +
-`docker-compose` · sổ tay tự chạy · một job CI dựng image và chạy ca "production gate" trên nó.
+| Phần | Hôm nay (production) | Tự chạy | Trạng thái |
+|---|---|---|---|
+| Ứng dụng | Vercel | `Dockerfile` (bản build standalone) | **Có**, CI dựng và kiểm mỗi lần đẩy |
+| Database | Neon | PostgreSQL trong compose, hoặc bất kỳ | **Có** — migration SQL chuẩn |
+| Ảnh/video | Cloudflare R2 | MinIO trong compose, S3, bất kỳ kho S3 | **Có** — `STORAGE_ENDPOINT` (`lib/media/storage-settings.ts`); không đặt thì vẫn là R2 |
+| IP khách (chặn bot) | Header của Vercel | Header proxy của mình ghi đè (`NFC_CLIENT_IP_HEADER`) | **Có** — và đóng một lỗ: trước I1, ngoài Vercel khách tự gửi header để giả IP |
+| Sao lưu | GitHub Actions → R2 | Mọi PostgreSQL → mọi kho S3 (`R2_BACKUP_ENDPOINT`) | Script **có**; chạy bằng cron trên máy chủ là việc nhỏ còn lại |
+| Tên miền, DNS | Cloudflare | Bất kỳ | Không phụ thuộc |
+| Email, Zalo | Chưa có | — | Làm qua adapter khi tới (B5, B7) |
 
 ## 5. Sẵn sàng cho đội ngũ
 
@@ -124,7 +122,7 @@ Lát **I1 · Tự chạy được** (không dịch vụ trả phí): biến endp
 | Web là tổ hợp module; kho khuôn như Canva, mỗi khuôn một cách chỉnh | 26/09 | Đích ở mục 3; M1–M6 chưa làm |
 | Trang = "web của quán bản thu nhỏ": ô sự kiện khi lướt xuống, link YouTube xem trước | 26/09 | M4, cùng A16 |
 | Khung poster tự theo khổ video, bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu thay video | 26/09 | M4 — đợt cải tổ UI/UX |
-| Tự chạy được không cần thuê Vercel; tạo việc làm cho coder, designer | 09/09 · 26/09 | I1 và mục 5 |
+| Tự chạy được không cần thuê Vercel; tạo việc làm cho coder, designer | 09/09 · 26/09 | **I1 xong 26/09**; đội ngũ ở mục 5 |
 | "Hôm nay ở quán", trò "săn" bé nhồi bông, dấu thương hiệu nền tảng, "quanh đây có gì" | 20/09 | A16, F6, D7 — chưa làm |
 | Kho khuôn có trạng thái thử → mở; khuôn theo ngành; ba khuôn có tranh | 25/09 · 20/09 | M5, A22, A34 (chờ ảnh) |
 | Lớp trang trí kéo thả có ràng buộc cho khuôn 4 | 23/09 | A35 |
@@ -144,7 +142,7 @@ Lát **I1 · Tự chạy được** (không dịch vụ trả phí): biến endp
 
 ## 7. Đề xuất thứ tự tiếp theo
 
-1. **I1 · Tự chạy được** — nhỏ, gỡ ba chỗ buộc cứng; từ đó mọi lát sau đều chạy được ngoài Vercel.
+1. ~~**I1 · Tự chạy được**~~ — **xong 26/09** ([`tu-chay.md`](tu-chay.md)).
 2. **M1 · Gói khuôn** rồi **M2 · Module hiệu ứng** — không đổi hành vi, không migration; mở cửa cho designer.
 3. **Cột `purpose` cho số điện thoại** — nhỏ, có migration; phải có trước bất kỳ section nào xin số.
 4. **M3 · Section** — bước có migration lớn nhất của đợt này.

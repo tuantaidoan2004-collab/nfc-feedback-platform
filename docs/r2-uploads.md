@@ -11,6 +11,7 @@ Tài có tài khoản Cloudflare R2 và yêu cầu làm mọi thứ liên quan. 
 3. Trình duyệt gửi tệp **thẳng lên R2**; tệp không đi qua app. Khoá nằm dưới thư mục riêng của shop: `shops/<id shop>/<uuid>.<đuôi>`.
 4. Link công khai (`MEDIA_PUBLIC_ORIGIN/…`) được điền vào ô. Chưa bấm Lưu nháp hay Phát hành thì khách chưa thấy gì.
 
+- **Kho nào cũng được** từ lát I1: không đặt `STORAGE_ENDPOINT` thì là R2 theo `R2_ACCOUNT_ID`; đặt thì là S3, MinIO hay kho tương thích S3 bất kỳ (`docs/tu-chay.md`).
 - Nhận: ảnh JPG, PNG, WebP tối đa **5 MB**; video MP4 (chỉ cho poster) tối đa **50 MB** — trình duyệt nén về 720p trước khi tải lên (`lib/client/shrink-video.ts`); trình duyệt không nén được thì gửi bản gốc.
 - Chủ shop, quản lý, và quản trị trong phiên "Sửa giao diện" (khấc 2, 3) tải lên được; mỗi lần quản trị tải lên được ghi sổ `impersonation.design.upload` thay mặt chủ shop.
 - Thiếu biến nào trong năm biến dưới đây thì nút tải lên ẩn đi, ghi "Tải lên cần bật kho lưu trữ R2"; vẫn dán link https được.

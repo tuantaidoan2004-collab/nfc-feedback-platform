@@ -37,13 +37,25 @@ const CEILING = 10;
 const TOO_FAST_MS = { rating: 400, feedback: 800 } as const satisfies Record<'rating' | 'feedback', number>;
 
 /**
- * Vercel overwrites `x-forwarded-for` and refuses to pass an external one through, stating plainly that this is to
- * prevent IP spoofing, so on Vercel the address can be trusted. Anywhere else it cannot, and there is no header at
- * all when the harness runs: then the address tier simply does not run. It must never fall back to one shared
- * "unknown" bucket -- that is exactly how F-002's platform-wide limit became a way to lock real people out.
+ * The one header that carries the guest's address, trusted only because something in front of the app overwrites it
+ * on every request (lát I1). A header a visitor can simply send proves nothing: before I1 this read three headers in
+ * turn, so on any host but Vercel a script could send `x-forwarded-for` and step around the address tier.
+ *
+ *   - `NFC_CLIENT_IP_HEADER` names it when the app runs behind the operator's own proxy -- which must set it itself,
+ *     e.g. nginx `proxy_set_header X-Real-IP $remote_addr;` with `NFC_CLIENT_IP_HEADER=x-real-ip`.
+ *   - On Vercel (it sets `VERCEL=1` itself): `x-vercel-forwarded-for`, which Vercel overwrites to prevent spoofing.
+ *   - Neither: no address. The address tier then simply does not run -- it must never fall back to one shared
+ *     "unknown" bucket; that is exactly how F-002's platform-wide limit became a way to lock real people out.
  */
-export function clientAddress(request: Request): string | null {
-  const raw = request.headers.get('x-vercel-forwarded-for') ?? request.headers.get('x-real-ip') ?? request.headers.get('x-forwarded-for');
+export function addressHeader(env: Record<string, string | undefined> = process.env): string | null {
+  const named = env.NFC_CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (named) return /^[a-z0-9-]{1,64}$/.test(named) ? named : null;
+  return env.VERCEL === '1' ? 'x-vercel-forwarded-for' : null;
+}
+
+export function clientAddress(request: Request, env: Record<string, string | undefined> = process.env): string | null {
+  const header = addressHeader(env);
+  const raw = header ? request.headers.get(header) : null;
   const first = raw?.split(',')[0].trim();
   return first && first.length <= 45 && /^[0-9a-f:.]+$/i.test(first) ? first : null;
 }

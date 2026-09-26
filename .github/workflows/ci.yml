@@ -137,3 +137,46 @@ jobs:
           name: integration-${{ matrix.name }}-results
           path: test-results/
           retention-days: 7
+
+  selfhost:
+    # Lát I1: the whole platform from the Dockerfile and deploy/docker-compose.yml on a bare runner -- PostgreSQL and
+    # MinIO in containers, nothing rented -- then scripts/selfhost-smoke.mjs against it (docs/tu-chay.md).
+    name: self-host (Docker, no rented service)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: a throwaway configuration
+        run: |
+          {
+            echo "DB_PASSWORD=$(openssl rand -hex 16)"
+            echo "STORE_USER=nfcstore"
+            echo "STORE_PASSWORD=$(openssl rand -hex 16)"
+            echo "APP_ORIGIN=http://127.0.0.1:3000"
+            echo "NFC_RENDER_SIGNING_KEY=$(openssl rand -hex 32)"
+            echo "NFC_TOTP_KEY=$(openssl rand -hex 32)"
+            echo "STORAGE_ENDPOINT=http://127.0.0.1:9000"
+            echo "MEDIA_PUBLIC_ORIGIN=http://127.0.0.1:9000/nfc-media"
+          } > deploy/.env
+      - run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+      - name: wait for the app
+        run: |
+          for i in $(seq 1 90); do
+            curl -fsS -o /dev/null http://127.0.0.1:3000/dieu-khoan && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: smoke checks
+        run: |
+          set -a; . deploy/.env; set +a
+          R2_ACCESS_KEY_ID="$STORE_USER" R2_SECRET_ACCESS_KEY="$STORE_PASSWORD" R2_BUCKET=nfc-media STORAGE_REGION=us-east-1 \
+            node scripts/selfhost-smoke.mjs
+      - name: every migration applied
+        run: |
+          test "$(docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec -T db psql -U nfc -d nfc -Atc 'SELECT count(*) FROM schema_migrations')" \
+            = "$(ls db/migrations/*.sql | wc -l | tr -d ' ')"
+      - name: why it failed
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs --no-color --tail=200

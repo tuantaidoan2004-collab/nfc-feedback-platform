@@ -5,7 +5,7 @@ import { PublishingAdmin } from '../publishing/repository';
 import { DEFAULT_FEEDBACK_BUTTON, PublishingError, isTemplateKey, validateConfig, type PageConfig } from '../publishing/config';
 import { TEMPLATE_RELEASES, settingsOf, type TemplateRelease } from '../publishing/versions';
 import { lockedChange, type SettingField } from '../publishing/settings';
-import { r2Settings } from './media';
+import { storageSettings } from '../media/storage';
 import { recordActivity } from './activity';
 import { pageOf } from './pages';
 import type { PageRef, TemplateReleases } from '../publishing/repository';
@@ -102,7 +102,7 @@ export class OwnerDesign {
     return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config: upgradeConfig(validateConfig(draft.config)) },
       live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null,
       // Whether the upload buttons can work here: all R2 settings present.
-      uploads: r2Settings() !== null,
+      uploads: storageSettings() !== null,
       template: { key: draft.template_key, draft: Number(draft.version), live: live ? Number(live.version) : null,
         versions: isTemplateKey(draft.template_key) ? this.releases[draft.template_key] ?? [] : [],
         // What the editor draws for this page: its draft's template version's table (settings.ts).

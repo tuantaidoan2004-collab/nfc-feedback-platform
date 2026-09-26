@@ -173,7 +173,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `b4f7105` (E9) + commit tài liệu chưa đẩy.
+  branch**. `main` = `b4f7105` (E9); chưa đẩy: tài liệu duyệt toàn bộ + I1.
 - **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy, rồi
   Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
 - **`/urr6ud` là shop KHUÔN MẪU** ("YOUR SHOP", khuôn 1), không phải Googy. Tài bấm "Đưa khuôn về mặc định mới" 26/09:
@@ -189,7 +189,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 3. **Video chỉ ở poster**, nền không bao giờ là video (E9).
 4. **Quyết định mới sửa hoặc xoá ý cũ** ở mọi tài liệu, không để chồng lên (cách làm của Tài).
 
-Đề xuất thứ tự (chờ Tài chọn): **I1** tự chạy được → **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
+**I1 tự chạy được: xong 26/09** (`tu-chay.md`). Tiếp: **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
 
 ### Luật triển khai (Tài nới 23/09)
