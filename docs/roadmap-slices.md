@@ -66,7 +66,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | # | Lát | Cỡ | Điều kiện | Học từ |
 |---|---|---|---|---|
 | B1 | **Sao lưu thật**: Neon gói trả phí (quay ngược 7–30 ngày) + **diễn tập khôi phục** một lần, ghi thời gian | V | Tài nâng gói Neon | AWS |
-| B2 | **Bản sao thứ hai mỗi đêm**: `pg_dump` bằng GitHub Actions đẩy ra R2 | V | Tài thêm secrets vào GitHub | AWS |
+| B2 | **Bản sao thứ hai mỗi đêm**: `pg_dump` bằng GitHub Actions đẩy ra R2 — **mã xong 26/09** (`docs/sao-luu.md`), chờ Tài tạo tài khoản + secrets rồi chạy thử và diễn tập khôi phục | V | Tài thêm secrets vào GitHub | AWS |
 | B3 | **Giám sát lỗi + kiểm tra sống + cảnh báo** về Zalo/email | V | Tài tạo tài khoản dịch vụ giám sát | AWS CloudWatch |
 | B4 | **Tên miền `.com` trên Cloudflare** → R2 tên miền riêng (bỏ `r2.dev`), đổi `APP_ORIGIN`, chuyển hướng 308 | V | Tài mua `.com` | Canva |
 | B5 | **Email giao dịch**: tự đặt lại mật khẩu, lời mời thành viên, báo đăng nhập mới, **báo cáo tuần** | L | Tài chọn dịch vụ email, cần `.com` | Telegram, Salesforce |

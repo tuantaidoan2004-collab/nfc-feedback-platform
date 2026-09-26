@@ -443,3 +443,9 @@ không liên quan. Trước khi đọc lỗi từng ca, `lsof -iTCP:55439 -sTCP:
 mới dựng lại cho trang mới; gõ trong khoảng đó thì chữ vào trình chỉnh đang bị thay. Ca harness P3 đỏ một lần vì thế
 (lúc máy chậm hơn). Test chờ `[data-design-page="<trang mới>"]` trước khi gõ. Với người thật khoảng này dưới một giây;
 nếu có người báo mất chữ thì khoá ô nhập trong lúc chuyển trang.
+
+**`gen_random_uuid()` trong một `LATERAL (SELECT …)` không phụ thuộc hàng thì chỉ chạy một lần.** Lúc dựng dữ liệu thử
+cho sao lưu, `INSERT … SELECT g FROM shops s, LATERAL (SELECT gen_random_uuid() g) x` cho hai trang cùng một id → trùng
+khoá. PostgreSQL coi subquery không tham chiếu hàng ngoài là hằng. Viết `SELECT gen_random_uuid() g, … FROM shops` để mỗi
+hàng một id. Cùng lượt: một câu seed sai kiểu (`uuid` nhận số) — và `psql` không `-1` nên câu trước đã commit, câu sau
+không; đọc lại số dòng trước khi tin dữ liệu thử. Lỗi của Claude, lát sao lưu, không ảnh hưởng mã.

@@ -227,7 +227,13 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — C3 mặt trận 1: rà cách ly dữ liệu (26/09)
+### Xong gần nhất — sao lưu miễn phí (26/09, chờ Tài làm các bước tài khoản)
+
+Mỗi đêm GitHub Actions `pg_dump` production bằng người dùng chỉ-đọc, mã hoá, lên bucket R2 riêng, tải ngược về so mã băm;
+khôi phục chỉ vào database trên máy. Đã thử trọn chuỗi trên máy. **Chưa chạy thật:** cần Tài tạo người dùng chỉ-đọc,
+bucket + khoá R2, mật khẩu sao lưu, sáu secret — từng bước ở `docs/sao-luu.md`. **Không migration.**
+
+### Trước đó — C3 mặt trận 1: rà cách ly dữ liệu (26/09, đã lên production)
 
 Không thấy đường nào để quán này đọc hay sửa dữ liệu quán khác (ma trận test hơn 50 đường, quét tĩnh SQL, cổng 59
 route). Một chỗ thấp đã sửa: bộ đếm chống bot đếm theo id lượt ghé của quán khác (F-C3-1). Chưa rà: media/R2 (mặt trận

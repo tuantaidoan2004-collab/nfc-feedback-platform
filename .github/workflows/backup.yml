@@ -1,0 +1,42 @@
+name: Nightly backup
+
+# docs/sao-luu.md. Every night at 02:00 Vietnam time, and by hand from the Actions tab ("Run workflow"): the production
+# database is dumped with a read-only role, sealed with a passphrase, uploaded to a private R2 bucket, then read back and
+# compared. The bucket's own lifecycle rule deletes copies after 30 days. Nothing here can write to the database.
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.19.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # pg_dump must be at least the server's major version; the runner's own client is older than Neon's server.
+      - name: PostgreSQL 18 client
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-18
+      - name: Dump, seal, upload, read back
+        env:
+          NEON_BACKUP_URL: ${{ secrets.NEON_BACKUP_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          R2_BACKUP_ACCOUNT_ID: ${{ secrets.R2_BACKUP_ACCOUNT_ID }}
+          R2_BACKUP_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          R2_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+          PG_DUMP: /usr/lib/postgresql/18/bin/pg_dump
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backup.mjs
