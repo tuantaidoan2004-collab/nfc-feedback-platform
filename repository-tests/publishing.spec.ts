@@ -143,6 +143,27 @@ test('the Google rules stop a page being written, and never stop one already pub
 });
 
 /**
+ * E9 (Tài 26/09): a page background is never a video. Wherever a page is written it becomes the video's own first frame
+ * (or the default gradient without one); a draft from before still saves and publishes, and nothing is refused.
+ */
+test('a video background becomes its first frame wherever a page is written',async({fixture:f})=>{
+ const template=await f.admin.createTemplate('no-video-bg',1);
+ const video={kind:'video' as const,url:'https://media.example/bg.mp4',still:'https://media.example/bg.jpg'};
+ for(const url of [video.url,video.still])
+  await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",[f.shop,url,url.endsWith('.mp4')?'video':'image']);
+ const draft=async()=>(await f.db.query('SELECT config FROM page_drafts WHERE page_id=$1',[f.page.pageId])).rows[0].config.background;
+ f.page=await f.admin.createPage(f.shop,template,{...defaultConfig(),background:{kind:'media',media:video,loop:true}},'one');
+ expect(await draft()).toEqual({kind:'media',media:{kind:'image',url:video.still},loop:true});
+ // No first frame to fall back on: the default gradient.
+ await f.admin.saveDraft(f.page,1,{...defaultConfig(),background:{kind:'media',media:{kind:'video',url:video.url},loop:true}});
+ expect(await draft()).toEqual(defaultConfig().background);
+ // A draft written before the rule still publishes; the release carries the still, not the video.
+ await f.db.query("UPDATE page_drafts SET config=jsonb_set(config,'{background}',$1::jsonb),revision=9 WHERE page_id=$2",[JSON.stringify({kind:'media',media:video,loop:true}),f.page.pageId]);
+ await f.admin.publish(f.page,9);
+ expect((await new PublishingResolver(f.db).live({slug:'one'})).config.background).toEqual({kind:'media',media:{kind:'image',url:video.still},loop:true});
+});
+
+/**
  * A7 (26/09): the Google button leads to Google. Pointed at a shop's own page it could ask for stars first and pass
  * only the happy guests on -- review gating through the platform's own button (google-policy.md rules 1-3).
  */

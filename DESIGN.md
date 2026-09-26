@@ -234,7 +234,7 @@ dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đ�
 
 | # | id | Tên | Cấu hình hiện có |
 |---|---|---|---|
-| 1 | `standard` | Bản gốc | nền video, nhân bản từ shop khuôn — **có diện mạo** (thẻ trôi), xem dưới |
+| 1 | `standard` | Bản gốc | nền ảnh (ảnh tĩnh mặc định), nhân bản từ shop khuôn — **có diện mạo** (thẻ trôi), xem dưới |
 | 2 | `minimal` | Tối giản | `full-bleed`, nền đặc `#140F22` — **có diện mạo**, xem dưới |
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
 | 4 | `deco` | Thẻ trang trí | `full-bleed`, nền đặc `#1A1326` — **có diện mạo** (chồng thẻ), xem dưới |

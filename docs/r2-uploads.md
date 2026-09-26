@@ -11,7 +11,7 @@ Tài có tài khoản Cloudflare R2 và yêu cầu làm mọi thứ liên quan. 
 3. Trình duyệt gửi tệp **thẳng lên R2**; tệp không đi qua app. Khoá nằm dưới thư mục riêng của shop: `shops/<id shop>/<uuid>.<đuôi>`.
 4. Link công khai (`MEDIA_PUBLIC_ORIGIN/…`) được điền vào ô. Chưa bấm Lưu nháp hay Phát hành thì khách chưa thấy gì.
 
-- Nhận: ảnh JPG, PNG, WebP tối đa **5 MB**; video MP4 tối đa **30 MB**.
+- Nhận: ảnh JPG, PNG, WebP tối đa **5 MB**; video MP4 (chỉ cho poster) tối đa **50 MB** — trình duyệt nén về 720p trước khi tải lên (`lib/client/shrink-video.ts`); trình duyệt không nén được thì gửi bản gốc.
 - Chủ shop, quản lý, và quản trị trong phiên "Sửa giao diện" (khấc 2, 3) tải lên được; mỗi lần quản trị tải lên được ghi sổ `impersonation.design.upload` thay mặt chủ shop.
 - Thiếu biến nào trong năm biến dưới đây thì nút tải lên ẩn đi, ghi "Tải lên cần bật kho lưu trữ R2"; vẫn dán link https được.
 - Chưa có: dọn tệp không còn dùng; tạo ảnh tĩnh cho video tải lên (video tải lên chưa có ảnh thay thế khi máy tiết kiệm pin).

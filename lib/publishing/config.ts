@@ -36,7 +36,8 @@ function localized(value: unknown) { keys(value, ['vi', 'en']); text(value.vi, 1
 /**
  * Media shipped inside the app, addressed by a fixed path rather than an https URL. Only these exact paths are
  * accepted, so a configuration can never point the page at an arbitrary path on the site. Uploaded media stays
- * https-only until per-shop storage exists.
+ * https-only until per-shop storage exists. The video path is kept only so pages published before 26/09 still read;
+ * the file itself is gone (a page background is never a video now -- `withoutVideoBackground`).
  */
 export const STEM_BACKGROUND = { video: '/media/stem-background.mp4', still: '/media/stem-background.jpg' } as const;
 const BUILT_IN_MEDIA: Record<string, 'image' | 'video'> = { [STEM_BACKGROUND.video]: 'video', [STEM_BACKGROUND.still]: 'image' };
@@ -105,6 +106,18 @@ export function defaultConfig(name = 'YOUR BRAND'): PageConfig {
     googleUrl: 'https://maps.google.com/', links: structuredClone(DEFAULT_LINKS), feedbackButton: { ...DEFAULT_FEEDBACK_BUTTON } };
 }
 /**
+ * A page background is never a video (Tài 26/09/2026): a clip cropped into a phone screen is heavy and loses its
+ * quality, and video belongs in the poster, like an advert. Applied wherever a page is written -- created, copied,
+ * saved, published -- so a page from before keeps working: its background becomes the video's own first frame, or
+ * the default gradient when it has none. Never applied on read; the guest page simply shows the still.
+ */
+export function withoutVideoBackground(config: PageConfig): PageConfig {
+  const b = config.background;
+  if (b.kind !== 'media' || b.media.kind !== 'video') return config;
+  const still = b.media.still ?? (b.media.url === STEM_BACKGROUND.video ? STEM_BACKGROUND.still : undefined);
+  return { ...config, background: still ? { kind: 'media', media: { kind: 'image', url: still }, loop: b.loop } : defaultConfig().background };
+}
+/**
  * The six templates Tài chose on 2026-09-23 (`docs/thiet-ke-va-khuon.md` mục 12). A template is a bare skeleton:
  * it owns layout, background and effects, never an account's content, and no shop or sign-in is attached to it.
  * Content comes from the account at render time (`page_profile`, migrations 022/024/027). `standard` is khuôn 1 and keeps
@@ -118,8 +131,9 @@ export const isTemplateKey = (value: unknown): value is TemplateKey =>
 const skeleton = (layout: PageConfig['layout'], background: PageConfig['background']): PageConfig => ({
   ...defaultConfig('YOUR SHOP'), layout, background, links: [], watermark: { text: 'YOUR LOGO', enabled: false, motion: 'diagonal-linear' } });
 const SKELETONS = new Map<TemplateKey, () => PageConfig>([
-  // Khuôn 1: what the template shop starts as, the default page with the moving background Tài chose on 2026-09-17.
-  ['standard', () => ({ ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } })],
+  // Khuôn 1: what the template shop starts as. Its background is the still of the stem clip it once played (Tài 26/09:
+  // a background is never a video; depth, gradients and motion come from the design itself).
+  ['standard', () => ({ ...defaultConfig('YOUR SHOP'), background: { kind: 'media', media: { kind: 'image', url: STEM_BACKGROUND.still }, loop: true } })],
   // Khuôn 2: one dark card on a dark ground (Tài's reference "Minimal Dark Card", 24/09); the page itself is full-bleed.
   ['minimal', () => skeleton('full-bleed', { kind: 'solid', color: '#140F22' })],
   ['glass', () => skeleton('full-bleed', { kind: 'gradient', colors: ['#1B2B4A', '#8FB3D9'], angle: 160 })],

@@ -62,7 +62,7 @@ nếu phá là **chủ quán**, không phải nền tảng.
 
 Xếp theo mức thiệt hại, đây là thứ thiết kế phải tránh trước khi lo đẹp:
 
-1. Trang tải chậm trên 4G. **Đo 22/09: video nền mặc định 3 MB, chiếm 88% cả trang.**
+1. Trang tải chậm trên 4G. Nền trang vì thế **không bao giờ là video** (Tài 26/09); video chỉ ở poster, nén 720p và chờ trang tải xong (`docs/toc-do-trang-khach.md`).
 2. Nút Google phải cuộn mới thấy.
 3. Chữ quá nhạt trên nền ảnh, đọc không ra dưới nắng.
 4. Vùng chạm nhỏ hơn ngón tay.

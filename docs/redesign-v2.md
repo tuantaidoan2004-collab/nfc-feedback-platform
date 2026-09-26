@@ -12,7 +12,7 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 | Bố cục trang khách | Hai lựa chọn: **tràn màn hình** (đang có) và **dạng thẻ** (gọn hơn) |
 | Google | **Luôn là nút nổi bật nhất**, có chữ nhấn như bản cũ. Không điền sẵn số sao (chốt 17/09) |
 | Phản hồi riêng | Nút **luôn hiện**, **gửi được khi chưa chấm sao**. API đã đổi ở lát B1 |
-| Video nền | File mp4 Tài gửi (720×1280, 20 giây, H.264, 3 MB). Tạm đặt trong mã nguồn làm nền mặc định của khuôn cho tới khi có R2 |
+| Nền | **Ảnh, không bao giờ là video** (Tài 26/09). Khuôn 1 dùng ảnh tĩnh `stem-background.jpg`; video chỉ ở poster |
 | QR | Không làm |
 
 ## Hành vi trang khách v2
@@ -24,7 +24,7 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 5. **Gửi xong:** hiện popup cảm ơn kiểu 3D nảy (giống hiệu ứng trên Canva) kèm pháo giấy. Dự kiến dùng `canvas-confetti` (MIT, nhỏ); popup chỉ cần CSS. Người đã bật "giảm chuyển động" thì bỏ hiệu ứng, chỉ hiện chữ cảm ơn.
 6. **Bấm Google:** khách rời sang Google như hiện tại.
 7. **Về sau:** khi khách đã xong phần đánh giá **nội bộ**, trang chuyển sang một màn "Cảm ơn quý khách", rồi trở lại bình thường khi hết phiên 15 phút.
-8. **Chuyển động:** video nền chạy lặp, không tiếng, phát trực tiếp trong trang (`playsinline`). Có ảnh tĩnh thay thế khi iPhone ở chế độ tiết kiệm pin; có chế độ tĩnh cho người đã bật "giảm chuyển động".
+8. **Chuyển động:** đến từ thiết kế của khuôn (gradient, hạt, chiều sâu), không từ video nền. Video poster chạy lặp, không tiếng (`playsinline`), chỉ sau khi trang tải xong; ảnh khung đầu thay thế khi máy tiết kiệm pin hay tiết kiệm dữ liệu; có chế độ tĩnh cho người đã bật "giảm chuyển động".
 
 ### Hai giới hạn đã nêu với Tài
 
@@ -63,9 +63,9 @@ Tải ảnh và video riêng cho từng shop cần **Cloudflare R2**; đó là v
 ## Lát A — shop khuôn — xong 2026-09-17
 
 - **Migration 009:** cột `shops.is_template` và unique index cho tối đa một khuôn. Rollback từ chối khi khuôn đang tồn tại.
-- `ShopProvisioning.ensureTemplate()` tạo khuôn "YOUR SHOP" với `templateConfig()`: cấu hình mặc định cộng nền là video Tài gửi. Nút Tạo shop sao chép **bản phát hành đang chạy** của khuôn, rồi thay tên và link Google của shop mới. Khuôn được đọc **trước** khi ghi bất cứ thứ gì cho shop mới.
+- `ShopProvisioning.ensureTemplate()` tạo khuôn "YOUR SHOP" với `templateConfig()`: cấu hình mặc định cộng nền là ảnh tĩnh mặc định. Nút Tạo shop sao chép **bản phát hành đang chạy** của khuôn, rồi thay tên và link Google của shop mới. Khuôn được đọc **trước** khi ghi bất cứ thứ gì cho shop mới.
 - Sửa khuôn thì các shop tạo **sau đó** theo cấu hình mới; shop tạo trước giữ nguyên. Không sao chép lượt ghé, thẻ hay chủ shop.
-- Video nằm ở `public/media/stem-background.mp4` (3 MB), kèm ảnh tĩnh `stem-background.jpg`. Validator nhận đúng **hai đường dẫn nội bộ này**, và mỗi đường dẫn chỉ với loại media của nó; mọi media khác vẫn phải là `https`.
+- Ảnh nền mặc định nằm ở `public/media/stem-background.jpg`. Tệp video cùng tên đã xoá 26/09; validator vẫn nhận đường dẫn video cũ để trang phát hành trước đó còn đọc được (trang khách chỉ hiện ảnh tĩnh). Mọi media khác phải là `https`.
 - `/gov`: nút **Tạo shop khuôn** (hiện khi chưa có khuôn); dòng khuôn ghi **KHUÔN**, không có chủ, không có nút; số "Shop đang có" không đếm khuôn.
 - **Chưa thấy video trên trang khách.** Renderer hiện tại chưa vẽ nền, watermark, logo hay nút từ cấu hình; lát B làm việc này. Ngoài ra preview đang tắt `NFC_PUBLISHING_ENABLED`, nên trang khách vẫn chạy đường cũ, không đọc cấu hình.
 - Chưa có: sửa khuôn trong giao diện (lát D). Hiện khuôn chỉ sửa được qua thư viện.
@@ -168,7 +168,7 @@ Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, �
 ## Lát D — Thiết kế & Link và công tắc 4 vị trí — 2026-09-18
 
 **Trình chỉnh** (dashboard → Thiết kế & Link, `components/design-editor.tsx`, `lib/owner/design.ts`, `GET/PUT/POST /api/owner/v2/<shop>/design`):
-- Chỉnh tên hiển thị, link Google, bố cục (tràn màn hình / dạng thẻ), poster và logo (dán link https; tải lên chờ R2), nền (video mặc định / chuyển màu / một màu), watermark, nút góp ý riêng (hình, màu, viền) và tối đa 6 nút link (loại, chữ tiếng Việt và tiếng Anh, link; đổi thứ tự, xoá). Trang v1 mở ra được tự nâng lên v2.
+- Chỉnh tên hiển thị, link Google, bố cục (tràn màn hình / dạng thẻ), poster và logo (dán link https; tải lên chờ R2), nền (ảnh mặc định / ảnh của shop / chuyển màu / một màu), watermark, nút góp ý riêng (hình, màu, viền) và tối đa 6 nút link (loại, chữ tiếng Việt và tiếng Anh, link; đổi thứ tự, xoá). Trang v1 mở ra được tự nâng lên v2.
 - **Lưu nháp · Xem trước · Phát hành.** Xem trước và Phát hành tự lưu trước nếu còn thay đổi. Xem trước mở tab mới đúng bản nháp như khi phát hành; token xem trước chỉ nằm trong cookie HttpOnly do server đặt, không bao giờ nằm trong JSON. Phát hành hỏi xác nhận. Máy chủ vẫn kiểm từng ô như trước (link https, `tel:` chỉ cho nút gọi, màu `#RRGGBB`).
 - Chủ shop và quản lý đều chỉnh được. Release ghi người tạo là `owner:<id>` hoặc `admin:<id>`.
 - Thẻ theo bàn và kích hoạt thẻ để lát E.

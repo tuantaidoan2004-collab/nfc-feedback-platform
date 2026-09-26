@@ -135,7 +135,8 @@ test('the template shop is created once, even when asked at the same time, and r
  expect(new Set(made.map(t=>t.shopId)).size).toBe(1);
  const row=(await f.db.query(`SELECT s.name,s.publishing_state,r.config_snapshot FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.is_template`)).rows;
  expect(row).toEqual([{name:'YOUR SHOP',publishing_state:'active',config_snapshot:templateConfig()}]);
- expect(row[0].config_snapshot.background).toEqual({kind:'media',media:{kind:'video',url:'/media/stem-background.mp4'},loop:true});
+ // A background is a picture, never a video (Tài 26/09): khuôn 1 starts on the still of the clip it once played.
+ expect(row[0].config_snapshot.background).toEqual({kind:'media',media:{kind:'image',url:'/media/stem-background.jpg'},loop:true});
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.create'")).rows[0].n).toBe(1);
  expect((await f.db.query('SELECT count(*)::int n FROM owner_memberships_v2')).rows[0].n).toBe(0);
  // The database refuses a second template even if the code were bypassed.

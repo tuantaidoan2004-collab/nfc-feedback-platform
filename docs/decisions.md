@@ -222,8 +222,8 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
    branch thử; shop không có trang nên không ai vào được. Việc còn lại: **A3b**.
 2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
    mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
-3. **E6 tốc độ trang khách: xong 26/09** (`toc-do-trang-khach.md`; video nặng của chủ quán = E9). **Phần dữ liệu dời lại**
-   (mục "Dời phần dữ liệu" dưới); hạn giữ dữ liệu có hạn chót 9/2027. **A7, A3b xong 26/09.** Tiếp: E9 → P6/P7/P5b khi cần.
+3. **E6/E9 tốc độ và video: xong 26/09** (`toc-do-trang-khach.md`). **Phần dữ liệu dời lại**
+   (mục "Dời phần dữ liệu" dưới); hạn giữ dữ liệu có hạn chót 9/2027. **A7, A3b, E6, E9 xong 26/09.** Tiếp: P6/P7/P5b khi cần; section + ô sự kiện (A16) cùng đợt cải tổ UI/UX.
 4. **Việc của Tài còn treo:** xoay mật khẩu đã lộ (F4) · xem tab Actions + bật bảo vệ `main` (F5) · thử sáu khuôn trên
    iPhone/Android thật + lỗi Googy "Chưa kết nối được" (chưa tái hiện).
 5. **Hai việc tách riêng đang chờ** (nút trong app): ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`), ca impersonation
@@ -243,8 +243,8 @@ bên, tới lúc đó brainstorm lại:** A9 số liệu theo ngày, A10 so sán
 chuẩn ngành, D3 AI tóm tắt, C1 Google Business Profile. Trang khách **vẫn ghi** lượt ghé, sao, góp ý, hành vi như hiện
 nay (ghi gần như không tốn; phân tích để sau). **Không nằm trong phần dời:** sao lưu B2 (chống mất dữ liệu — xong trước
 quán thật đầu tiên) và **hạn giữ dữ liệu**: trang Quyền riêng tư hứa "tối đa 12 tháng kể từ lần ghé", dữ liệu production
-cũ nhất ~21/09/2026 → **hạn chót tháng 9/2027** phải có việc xoá tự động. Thứ tự kế tiếp: **A7** → A3b → E9 → P6/P7/P5b
-khi cần.
+cũ nhất ~21/09/2026 → **hạn chót tháng 9/2027** phải có việc xoá tự động. A7, A3b, E9 đã xong 26/09;
+tiếp theo P6/P7/P5b khi cần.
 
 ### Thứ tự tiếp theo — Tài chốt 26/09 (sau khi rà toàn bộ lát còn lại)
 
@@ -256,15 +256,18 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — E9a video poster chờ trang tải xong (26/09)
+### Xong gần nhất — E9 video chỉ ở poster (26/09)
 
-Như video nền ở E6: video poster không nằm trong HTML đầu, gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ
-liệu; lúc chờ là khung đầu của video (hoặc khung trống cùng cỡ). Tài 26/09: video chủ yếu vào poster và **ô sự kiện khi
-khách lướt xuống**, sau này có thể **link YouTube xem trước** — "web của quán bản thu nhỏ". Tài cũng đưa ý kiến trúc
-(Gemini): khuôn là dữ liệu JSON, bộ chỉnh sửa lõi dùng chung, trang ghép từ **section**. Đánh giá của Claude: phần lõi
-đã có (trang là JSON, bản khuôn khai ô chỉnh qua bảng cài đặt P2, trang khách không tải mã trình chỉnh); phần thiếu là
-**section**, nên làm thành lát riêng khi ô sự kiện tới (A16), với hai rào của mình: lời mời Google không phải section và
-luôn cố định; không khung kéo-thả trắng (`PRODUCT.md`). E9b (bản nhẹ cho điện thoại) chờ Tài chọn. **Không migration.**
+Tài chốt: **nền trang không bao giờ là video** (chiều sâu và chuyển động đến từ thiết kế khuôn — ảnh hero, gradient
+chuyển động, mixed media, hạt/lưới tương tác, đợt cải tổ UI/UX); **video chỉ ở poster**, như quảng cáo: 720p đủ đẹp, dài
+cũng được, tải dần như YouTube, đừng bó hẹp. Làm: trình duyệt chủ quán nén video về 720p trước khi tải lên (trần 50 MB
+sau nén, không giới hạn độ dài); video poster gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu; nền video
+của trang cũ thành ảnh khung đầu (lúc đọc chỉ hiện ảnh, lúc ghi đổi hẳn); khuôn 1 dùng ảnh nền mặc định; tệp video mặc
+định 3 MB đã xoá. **Sau, cùng lát section (A16):** khung poster tự theo khổ video, bo góc, tuỳ chỉnh kiểu Canva; ô sự
+kiện khi khách lướt xuống; link YouTube xem trước — "web của quán bản thu nhỏ". Ý kiến trúc Tài đưa (Gemini: khuôn là
+dữ liệu JSON, bộ chỉnh lõi dùng chung, trang ghép từ section): phần lõi đã có (trang là JSON, bản khuôn khai ô chỉnh qua
+bảng cài đặt P2, trang khách không tải mã trình chỉnh); phần thiếu là section, làm cùng A16 với hai rào: lời mời Google
+không phải section và luôn cố định; không khung kéo-thả trắng (`PRODUCT.md`). **Không migration.** Đo: `toc-do-trang-khach.md`.
 
 ### Trước đó — A3b một đường trang khách (26/09)
 
@@ -282,14 +285,6 @@ sang trang riêng hỏi sao trước — lọc đánh giá qua chính nút của
 biên ghi, trang đã phát hành vẫn chạy. Hướng dẫn cho shop: trang in `/huong-dan-google`, khung luật ở trang chủ
 dashboard, nhắc gửi kèm ở khung bàn giao `/gov`, dòng chỉ chỗ lấy link Google trong trình chỉnh. Bảy shop production đều
 dùng `https://maps.google.com/` nên không shop nào bị chặn. **Không migration.** Chi tiết `google-policy.md` mục 3c.
-
-### Trước đó — E6 tốc độ trang khách (26/09)
-
-Đo bằng `scripts/measure-guest.mjs` (Chrome thật, 4G chậm, CPU ×4, không ghi lượt ghé): bảy trang production đều "tốt"
-(LCP 0,6–1,5 s, CLS 0). Rủi ro thật là video nền: `<video preload="auto">` trong HTML đầu chia 4G với JS. Giờ video gắn
-sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu; trang có video dùng được 2,5 s → 2,0 s. Tài (26/09): video
-Full HD / 4K của chủ quán phải được chiều → lát **E9** (bản nhẹ cho điện thoại, làm ngay trong trình duyệt chủ quán).
-**Không migration.**
 
 ### Trước đó — A3 dọn mã cũ, migration 028 (26/09, đã lên production)
 

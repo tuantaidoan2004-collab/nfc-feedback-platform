@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
+import { shrinkVideo } from '@/lib/client/shrink-video';
 import { SERVICE_LABELS } from '@/lib/publishing/policy';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
 import { STEM_BACKGROUND, TEMPLATE_KEYS, isTemplateKey } from '@/lib/publishing/config';
@@ -33,12 +34,14 @@ const ERRORS: Record<string, string> = {
   POLICY_GOOGLE_URL: 'Link đánh giá Google phải là link của Google: link "Nhận thêm đánh giá" trong Google Business Profile (g.page/r/…), link chia sẻ Google Maps (maps.app.goo.gl/…) hoặc trang của quán trên Google Maps. Không dùng link tới trang khác, và không thêm số sao hay câu mẫu vào link.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
 };
+/** Which background choice a page is on. A video (only on pages from before 26/09) shows as a shop picture. */
+const backgroundChoice = (b: PageConfig['background']) => b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.still ? 'default' : 'upload';
 const mediaOf = (value: string, kind: MediaRef['kind']): MediaRef | null => value.trim() ? { kind, url: value.trim() } : null;
 const UPLOAD_ERRORS: Record<string, string> = {
   MEDIA_PENDING: 'Ảnh hoặc video mới đang chờ nền tảng duyệt. Trang hiện tại vẫn chạy như cũ; phát hành lại sau khi ảnh được duyệt, hoặc bỏ ảnh đó ra để phát hành ngay.',
   MEDIA_REJECTED: 'Một ảnh hoặc video trên trang đã bị từ chối. Hãy thay bằng ảnh khác rồi phát hành lại.',
   MEDIA_UNKNOWN: 'Trang đang dùng một ảnh không tải lên qua nền tảng. Hãy tải ảnh lên từ trình chỉnh trang để được duyệt.',
-  UNSUPPORTED_MEDIA: 'Chỉ nhận ảnh JPG, PNG, WebP hoặc video MP4.', MEDIA_TOO_LARGE: 'Ảnh tối đa 5 MB, video tối đa 30 MB.',
+  UNSUPPORTED_MEDIA: 'Chỉ nhận ảnh JPG, PNG, WebP hoặc video MP4.', MEDIA_TOO_LARGE: 'Ảnh tối đa 5 MB; video tối đa 50 MB sau khi nén về 720p.',
   UPLOADS_NOT_CONFIGURED: 'Kho lưu trữ chưa được bật.', SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện.',
 };
 
@@ -84,10 +87,19 @@ function Upload({ endpoint, accept, label, enabled, onDone }: { endpoint: string
       setState('Đang chuẩn bị ảnh…');
       try {
         // A phone camera's picture is re-drawn to a size the guest page can actually use before it goes anywhere
-        // (lát A6). A video is untouched: shrinking one in a browser tab is a different problem.
-        const shrunk = await shrinkImage(file, POSTER);
-        setState(shrinkNotice(shrunk) || 'Đang tải lên…');
-        const uploaded = await put(endpoint, shrunk.blob, shrunk.type);
+        // (lát A6). A video is re-recorded at 720p in this tab (lát E9): it plays through once, so it takes as long
+        // as the clip; a browser that cannot record MP4 sends the original.
+        let body: { blob: Blob; type: string };
+        if (file.type === 'video/mp4') {
+          setState('Đang nén video về 720p… giữ tab này mở.');
+          const video = await shrinkVideo(file, undefined, share => setState(`Đang nén video về 720p… ${Math.round(share * 100)}% · giữ tab này mở.`));
+          body = video ?? { blob: file, type: file.type };
+          setState(video ? `Đã nén video ${Math.round(video.from / 1048576)} MB → ${Math.max(1, Math.round(video.to / 1048576))} MB. Đang tải lên…` : 'Đang tải lên…');
+        } else {
+          const shrunk = await shrinkImage(file, POSTER);
+          body = shrunk; setState(shrinkNotice(shrunk) || 'Đang tải lên…');
+        }
+        const uploaded = await put(endpoint, body.blob, body.type);
         if ('error' in uploaded) { setState(uploaded.error ?? 'Chưa tải lên được.'); return; }
         // A video also gets its first frame as a still, for phones that will not play it.
         let still: string | undefined;
@@ -285,21 +297,23 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
         <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải poster lên" enabled={state.uploads} onDone={media => change({ poster: media })} />
         <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp" label="Tải logo lên" enabled={state.uploads} onDone={media => change({ logo: { kind: 'image', url: media.url } })} />
       </div>
-    </div><p className={styles.hint}>Tải lên: ảnh JPG, PNG, WebP tối đa 5 MB; video MP4 tối đa 30 MB. Cũng có thể dán link https.</p></fieldset>
+    </div><p className={styles.hint}>Tải lên: ảnh JPG, PNG, WebP tối đa 5 MB. Poster có thể là video MP4 quay thẳng từ điện thoại, dài bao nhiêu
+      cũng được: trình duyệt nén về 720p trước khi tải lên (mất khoảng bằng độ dài video, giữ tab mở). Cũng có thể dán link https.</p></fieldset>
 
     {(backgroundField || offers('watermark')) && <fieldset className={styles.panel} data-setting="background"><legend>{backgroundField ? 'Nền' : 'Watermark'}</legend><div className={styles.grid2}>
-      {backgroundField && <label>Kiểu nền<select value={b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.video ? 'video' : 'upload'} onChange={e => {
+      {/* A background is a picture, never a video (Tài 26/09): video belongs in the poster. An older page's video
+          background is turned into its own first frame when the page is saved (withoutVideoBackground). */}
+      {backgroundField && <label>Kiểu nền<select value={backgroundChoice(b)} onChange={e => {
         const kind = e.target.value;
         change({ background: kind === 'solid' ? { kind: 'solid', color: '#214034' } : kind === 'gradient' ? { kind: 'gradient', colors: ['#214034', '#EFF2E8'], angle: 135 }
           : kind === 'upload' ? { kind: 'media', media: { kind: 'image', url: 'https://' }, loop: true }
-          : { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true } });
-      }}>{([['video', 'Video mặc định', 'media'], ['upload', 'Ảnh hoặc video của shop', 'media'], ['gradient', 'Chuyển màu', 'gradient'], ['solid', 'Một màu', 'solid']] as const)
-          .filter(([value, , kind]) => backgroundField.allow.includes(kind) || value === (b.kind !== 'media' ? b.kind : b.media.url === STEM_BACKGROUND.video ? 'video' : 'upload'))
+          : { kind: 'media', media: { kind: 'image', url: STEM_BACKGROUND.still }, loop: true } });
+      }}>{([['default', 'Ảnh mặc định', 'media'], ['upload', 'Ảnh của shop', 'media'], ['gradient', 'Chuyển màu', 'gradient'], ['solid', 'Một màu', 'solid']] as const)
+          .filter(([value, , kind]) => backgroundField.allow.includes(kind) || value === backgroundChoice(b))
           .map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
-      {backgroundField && b.kind === 'media' && b.media.url !== STEM_BACKGROUND.video && <>
-        <label>Link ảnh hoặc video nền<input type="url" value={b.media.url} onChange={e => change({ background: { ...b, media: { kind: b.media.kind, url: e.target.value.trim() } } })} /></label>
-        <label>Loại<select value={b.media.kind} onChange={e => change({ background: { ...b, media: { kind: e.target.value as MediaRef['kind'], url: b.media.url } } })}><option value="image">Ảnh</option><option value="video">Video (chạy lặp, không tiếng)</option></select></label>
-        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp,video/mp4" label="Tải nền lên" enabled={state.uploads} onDone={media => change({ background: { kind: 'media', media, loop: true } })} />
+      {backgroundField && backgroundChoice(b) === 'upload' && b.kind === 'media' && <>
+        <label>Link ảnh nền<input type="url" value={b.media.url} onChange={e => change({ background: { ...b, media: { kind: 'image', url: e.target.value.trim() } } })} /></label>
+        <Upload endpoint={endpoint} accept="image/jpeg,image/png,image/webp" label="Tải ảnh nền lên" enabled={state.uploads} onDone={media => change({ background: { kind: 'media', media, loop: true } })} />
       </>}
       {backgroundField && b.kind === 'solid' && <label>Màu nền<input type="color" value={b.color} onChange={e => change({ background: { kind: 'solid', color: e.target.value.toUpperCase() } })} /></label>}
       {backgroundField && b.kind === 'gradient' && <>

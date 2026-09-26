@@ -21,10 +21,11 @@ const TYPES = new Map<string, { kind: 'image' | 'video'; ext: string; max: numbe
   ['image/jpeg', { kind: 'image', ext: 'jpg', max: 5 * 1024 * 1024 }],
   ['image/png', { kind: 'image', ext: 'png', max: 5 * 1024 * 1024 }],
   ['image/webp', { kind: 'image', ext: 'webp', max: 5 * 1024 * 1024 }],
-  ['video/mp4', { kind: 'video', ext: 'mp4', max: 30 * 1024 * 1024 }],
+  // A poster clip after the editor has re-recorded it at 720p (lát E9): about four minutes at 1.5 Mbps.
+  ['video/mp4', { kind: 'video', ext: 'mp4', max: 50 * 1024 * 1024 }],
 ]);
 /** Second lock on the same door: whatever a rule says, nothing above this is ever signed. */
-const MAX_UPLOAD = 30 * 1024 * 1024;
+const MAX_UPLOAD = 50 * 1024 * 1024;
 export const UPLOAD_EXPIRES_SECONDS = 300;
 
 /** All five settings or none: a half-configured bucket answers "not configured" instead of failing mid-upload. */

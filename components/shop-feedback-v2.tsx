@@ -225,11 +225,11 @@ function useTiltLight(enabled: boolean) {
 }
 
 /**
- * Whether the background video may start (E6, 26/09). Not in the server's HTML and not before the page has loaded: a
+ * Whether the poster video may start (E6/E9, 26/09). Not in the server's HTML and not before the page has loaded: a
  * video in the first HTML is fetched while the HTML is still being read, and on 4G it shares the line with the
- * scripts that make the stars work (measured: 264 KB of video in the first three seconds, stars usable at 2.5 s). The
- * still, which is the video's first frame, shows meanwhile. Never when the visitor asked their phone to save data.
- * `settled` says the choice is made, so a test can tell "no video" from "no video yet".
+ * scripts that make the stars work (measured with a 3 MB clip: stars usable at 2.5 s, 2.0 s once it waited). The
+ * video's first frame shows meanwhile. Never when the visitor asked their phone to save data. `settled` says the
+ * choice is made, so a test can tell "no video" from "no video yet".
  */
 function useLateVideo() {
   const [state, setState] = useState({ allowed: false, settled: false });
@@ -243,19 +243,16 @@ function useLateVideo() {
   return state;
 }
 
-function Background({ config, reduced, scene }: { config: ReturnType<typeof defaultConfig>; reduced: boolean; scene: boolean }) {
+function Background({ config, scene }: { config: ReturnType<typeof defaultConfig>; scene: boolean }) {
   const b = config.background;
-  const [blocked, plays] = useVideoPlays();
-  const late = useLateVideo();
-  // A template that paints its own scene owns this layer entirely: no inline colour, no video to download.
+  // A template that paints its own scene owns this layer entirely: no inline colour, no picture to download.
   if (scene) return <div className="guest-bg" aria-hidden="true" />;
   const style = b.kind === 'solid' ? { background: b.color }
     : b.kind === 'gradient' ? { background: `linear-gradient(${b.angle}deg, ${b.colors[0]}, ${b.colors[1]})` } : undefined;
+  // A background is a picture, never a video (Tài 26/09): a page published earlier with a video shows its first frame.
   const still = b.kind === 'media' ? stillFor(b.media) : null;
-  return <div className="guest-bg" style={style} aria-hidden="true" data-video-blocked={blocked || undefined} data-video-settled={late.settled || undefined}>
+  return <div className="guest-bg" style={style} aria-hidden="true">
     {still && <img className="guest-bg-media" src={still} alt="" />}
-    {b.kind === 'media' && b.media.kind === 'video' && !reduced && !blocked && late.allowed &&
-      <video ref={plays} className="guest-bg-media" src={b.media.url} poster={still ?? undefined} autoPlay muted loop={b.loop} playsInline preload="auto" />}
     {config.watermark.enabled && <div className="guest-watermark">
       <div className="guest-watermark-track">{Array.from({ length: 48 }, (_, i) => <span key={i}>{config.watermark.text}</span>)}</div>
     </div>}
@@ -269,8 +266,8 @@ function Poster({ poster, label }: { poster: MediaRef | null; label: string }) {
   const late = useLateVideo();
   if (!poster) return <div className="guest-poster guest-poster-empty"><span>{label}</span></div>;
   if (poster.kind === 'video' && (blocked || !late.allowed)) return poster.still
-    ? <img className="guest-poster" src={poster.still} alt="" data-poster-still />
-    : <div className="guest-poster" aria-hidden="true" data-poster-waiting />;
+    ? <img className="guest-poster" src={poster.still} alt="" data-poster-still data-video-settled={late.settled || undefined} data-video-blocked={blocked || undefined} />
+    : <div className="guest-poster" aria-hidden="true" data-poster-waiting data-video-settled={late.settled || undefined} />;
   return poster.kind === 'video'
     ? <video ref={plays} className="guest-poster" src={poster.url} poster={poster.still} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
     : <img className="guest-poster" src={poster.url} alt="" />;
@@ -565,7 +562,7 @@ export default function ShopFeedbackV2(shop: Props) {
     ref={page} data-leaving={leaving ? '' : undefined} data-button={orb ? 'orb' : undefined}
     {...own.attributes}
     style={{ ...sceneTokens(config.background), ...own.style, ...(leaving ? { '--leave-x': `${leaving.x}px`, '--leave-y': `${leaving.y}px` } : {}) } as CSSProperties}>
-    <Background config={config} reduced={reduced} scene={glass} />
+    <Background config={config} scene={glass} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
       <Poster poster={config.poster} label={p.poster} />

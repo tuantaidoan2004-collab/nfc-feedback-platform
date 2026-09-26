@@ -107,10 +107,10 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | E3 | Tương phản chữ nhạt đạt WCAG AA |
 | E4 | Dùng bàn phím trong popup, hộp nổi, menu ⋮ |
 | E5 | Chế độ tối |
-| E6 | ~~Đo Core Web Vitals trang khách trên 4G~~ **xong 26/09** ([`toc-do-trang-khach.md`](toc-do-trang-khach.md)): bảy trang production đều "tốt" (LCP 0,6–1,5 s, CLS 0); video nền gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu — trang có video dùng được từ 2,5 s xuống 2,0 s. Nén video chuyển sang E9 |
+| E6 | ~~Đo Core Web Vitals trang khách trên 4G~~ **xong 26/09** ([`toc-do-trang-khach.md`](toc-do-trang-khach.md)): bảy trang production đều "tốt" (LCP 0,6–1,5 s, CLS 0); video (nay chỉ ở poster) gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu |
 | E7 | Nhấn nút ⓘ, "Phản hồi" đủ cỡ chạm 44px trên điện thoại |
 | E8 | ~~Hỏi Tài lại câu "Chỉ quản lý của quán thấy số này"~~ Tài giữ nguyên câu hiện tại (21/09) |
-| E9 | **Video tải lên cho điện thoại** — Tài 26/09: video của chủ quán chủ yếu vào **poster** và **ô sự kiện khi khách lướt xuống**; sau này có thể thêm link YouTube xem trước ("web của quán bản thu nhỏ"). **E9a xong 26/09:** video poster cũng gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu. **E9b còn:** bản nhẹ cho điện thoại làm ngay trong trình duyệt chủ quán lúc tải lên (+ migration nối bản nhẹ với bản gốc để duyệt một lần), hoặc chỉ hạ trần dung lượng — chờ Tài chọn |
+| E9 | ~~**Video cho điện thoại**~~ **xong 26/09** (Tài): nền trang **không bao giờ là video**; video chỉ ở **poster**, như quảng cáo — trình duyệt chủ quán nén về 720p trước khi tải lên, không giới hạn độ dài (trần 50 MB sau nén), trang khách tải dần sau khi trang xong. Trang cũ có video nền: lúc ghi đổi thành ảnh khung đầu, lúc đọc chỉ hiện ảnh. **Sau, trong đợt cải tổ UI/UX:** khung poster tự theo khổ video (ngang/dọc), bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới tương tác); link YouTube xem trước; ô sự kiện khi khách lướt xuống — cùng lát **section** (A16) |
 
 ## F. Việc của Tài (không phải code)
 

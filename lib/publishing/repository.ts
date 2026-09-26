@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export { PublishingError } from './config';
-import { PublishingError, TEMPLATE_V1, isTemplateKey, templateConfig, validateConfig, type PageConfig, type TemplateKey } from './config';
+import { PublishingError, TEMPLATE_V1, isTemplateKey, templateConfig, validateConfig, withoutVideoBackground, type PageConfig, type TemplateKey } from './config';
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
@@ -81,7 +81,7 @@ export class PublishingAdmin {
    */
   async createPage(shopId: string, templateId: string, input: unknown, slug: string): Promise<PageRef> {
     await this.actor('page:create', shopId); if (!UUID.test(shopId)) error('SHOP_NOT_FOUND');
-    const config = validateConfig(input); assertPublishable(config);
+    const config = withoutVideoBackground(validateConfig(input)); assertPublishable(config);
     return tx(this.pool, async db => {
       await this.checkSettings(db, templateId, config);
       const pageId = (await db.query(`INSERT INTO pages(id,shop_id,slug,entry_key) SELECT g,$1,$2,'direct:page:'||g FROM (SELECT gen_random_uuid() g) n
@@ -93,7 +93,7 @@ export class PublishingAdmin {
   async saveDraft(page: PageRef, expected: number, input: unknown) {
     // The product's Google rules are checked where a shop writes, never where a page is read: a rule added today
     // must not take a page published yesterday off the air (lát F-013).
-    await this.onPage('draft:save', page); revision(expected); const config = validateConfig(input); assertPublishable(config);
+    await this.onPage('draft:save', page); revision(expected); const config = withoutVideoBackground(validateConfig(input)); assertPublishable(config);
     return tx(this.pool, async db => {
       await this.openPage(db, page);
       const draft = (await db.query('SELECT revision,template_version_id FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [page.shopId, page.pageId])).rows[0];
@@ -192,7 +192,7 @@ export class PublishingAdmin {
       const draft = (await db.query('SELECT * FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [shopId, pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       // Checked again on the way out: a draft written before this rule existed cannot be published under it.
-      const config = validateConfig(draft.config); assertPublishable(config); await this.checkSettings(db, draft.template_version_id, config);
+      const config = withoutVideoBackground(validateConfig(draft.config)); assertPublishable(config); await this.checkSettings(db, draft.template_version_id, config);
       // Every picture and video on the page must have passed review (migration 023). The page already live stays live.
       await assertMediaApproved(db, shopId, config);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,

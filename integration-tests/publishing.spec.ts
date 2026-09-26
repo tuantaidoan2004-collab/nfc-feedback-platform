@@ -121,7 +121,7 @@ test('publishing gate off: no page, no write path, nothing recorded', async ({ p
 
 // Lát B2–B3: guest page v2. The fixture publishes draft revision 1, so the next save expects revision 2.
 const b2 = (patch: Partial<PageConfig> = {}): PageConfig => ({ ...defaultConfig('Quán Thử'), googleUrl: 'https://maps.google.com/?cid=42',
-  background: { kind: 'media', media: { kind: 'video', url: STEM_BACKGROUND.video }, loop: true }, ...patch });
+  background: { kind: 'media', media: { kind: 'image', url: STEM_BACKGROUND.still }, loop: true }, ...patch });
 const v1 = (name: string) => { const { feedbackButton: _unused, ...rest } = defaultConfig(name); void _unused; return { ...rest, schemaVersion: 1, links: [] }; };
 async function release(f: Fixture, config: unknown, expected: number) {
   const saved = await f.admin.saveDraft(f.page, expected, config); await f.admin.publish(f.page, saved); return saved + 1;
@@ -249,19 +249,14 @@ test('v2: pressing sinks links to 96% and the plane to 70%; buttons and plane fo
   await page.waitForTimeout(900);
   expect(await scale(page, '#private-feedback')).toBeCloseTo(1, 2);
 });
-test('v2: background video, still, watermark, poster frame and logo come from the configuration; v1 still renders', async ({ page, fixture: f }) => {
+test('v2: background picture, watermark, poster frame and logo come from the configuration; v1 still renders', async ({ page, fixture: f }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   const revision = await release(f, b2({ links: [{ label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
     { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] }), 2);
-  // E6: the video is not in the first HTML (it would share the guest's 4G with the scripts); it joins once the page has loaded.
-  expect(await (await page.request.get('/one')).text()).not.toContain('<video');
-  await page.goto('/one'); await loaded(page);
-  const video = page.locator('video.guest-bg-media');
-  await expect(video).toHaveAttribute('src', STEM_BACKGROUND.video);
-  await expect(video).toHaveAttribute('poster', STEM_BACKGROUND.still);
-  for (const attribute of ['autoplay', 'loop', 'playsinline']) await expect(video).toHaveAttribute(attribute, '');
-  expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(true);
+  await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
+  // A background is a picture, never a video (Tài 26/09).
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
+  await expect(page.locator('video')).toHaveCount(0);
   await expect(page.locator('.guest-watermark-track span').first()).toHaveText('YOUR LOGO');
   await expect(page.locator('.guest-poster-empty')).toHaveText('POSTER SỰ KIỆN');
   // Chữ tắt dựng từ tên quán. Tên quán thuộc tài khoản (022), nhưng `publish()` ghi nội dung xuống hồ sơ
@@ -275,32 +270,33 @@ test('v2: background video, still, watermark, poster frame and logo come from th
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await loaded(page);
-  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
-  await expect(video).toHaveCount(0);
   await expect(page.locator('img.guest-bg-media')).toBeVisible();
   await expect(page.locator('.guest-watermark-track')).toHaveCSS('animation-name', 'none');
   await expect(page.locator('#private-feedback')).toHaveCSS('animation-name', 'none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  // A phone that refuses to play (iPhone Low Power Mode, Android Battery or Data Saver): the video goes, the still stays,
-  // and an uploaded video shows the first frame the editor captured (lát F5).
-  await page.addInitScript(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Low Power Mode', 'NotAllowedError')); });
-  await page.reload(); await loaded(page);
-  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
-  await expect(page.locator('video.guest-bg-media')).toHaveCount(0);
-  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
-  await expect(page.locator('[data-video-blocked]')).toHaveCount(1);
-  const uploaded = { kind: 'video' as const, url: 'https://media.example/bg.mp4', still: 'https://media.example/bg.jpg' };
+
   // Cửa duyệt ảnh (migration 023): uploaded media is published only once approved.
-  for (const url of [uploaded.url, uploaded.still, 'https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
+  const old = { kind: 'video' as const, url: 'https://media.example/bg.mp4', still: 'https://media.example/bg.jpg' };
+  for (const url of [old.url, old.still, 'https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
     await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
       [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
-  const next = await release(f, b2({ background: { kind: 'media', media: uploaded, loop: true },
-    poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), revision);
-  await page.reload(); await loaded(page);
-  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
-  await expect(page.locator('video')).toHaveCount(0);
+  // A page published before 26/09 with a video background -- written straight to the release, as it was then: the guest
+  // sees the video's first frame and no video at all.
+  const draft = (await f.db.query('SELECT template_version_id FROM page_drafts WHERE page_id=$1', [f.page.pageId])).rows[0];
+  const before = (await f.db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by)
+    VALUES($1,$2,$3,$4,$5,'fixture') RETURNING id`, [f.shop, f.page.pageId, draft.template_version_id,
+    JSON.stringify(b2({ background: { kind: 'media', media: old, loop: true } })), revision])).rows[0].id;
+  await f.db.query('UPDATE pages SET active_release_id=$2 WHERE id=$1', [f.page.pageId, before]);
+  await page.reload(); await loaded(page); await page.waitForLoadState('load');
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', 'https://media.example/bg.jpg');
-  await expect(page.locator('img[data-poster-still]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
+  await expect(page.locator('video')).toHaveCount(0);
+  // A phone that refuses to play (iPhone Low Power Mode, Android Battery or Data Saver): the poster video goes, and the
+  // first frame the editor captured stays (lát F5).
+  const next = await release(f, b2({ poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), revision);
+  await page.addInitScript(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Low Power Mode', 'NotAllowedError')); });
+  await page.reload(); await loaded(page); await page.waitForLoadState('load');
+  await expect(page.locator('img[data-poster-still][data-video-blocked]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
+  await expect(page.locator('video')).toHaveCount(0);
   await release(f, v1('Bản cũ'), next);
   await page.reload(); await loaded(page);
   await expect(page.locator('main')).toHaveAttribute('data-schema', '1');
@@ -309,12 +305,7 @@ test('v2: background video, still, watermark, poster frame and logo come from th
   expect(errors).toEqual([]);
 });
 
-/**
- * The behaviour log, end to end through a real browser on the path a real card leads to (lát mục 7). Every other
- * test here proves what the customer gets; this one proves the shop finds out what the customer did.
- */
-
-test('E6/E9: a phone set to save data keeps the stills and never fetches the background or poster video', async ({ page, fixture: f }) => {
+test('E9: a phone set to save data keeps the poster still and never fetches its video', async ({ page, fixture: f }) => {
   for (const url of ['https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
     await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
       [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
@@ -322,10 +313,9 @@ test('E6/E9: a phone set to save data keeps the stills and never fetches the bac
   const videos: string[] = []; page.on('request', r => { if (r.url().endsWith('.mp4')) videos.push(r.url()); });
   await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }));
   await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
-  await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
+  // Settled: the choice is made, so "no video" here means never, not not-yet.
+  await expect(page.locator('img[data-poster-still][data-video-settled]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
   await expect(page.locator('video')).toHaveCount(0);
-  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
-  await expect(page.locator('img[data-poster-still]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
   expect(videos).toEqual([]);
 });
 
@@ -346,6 +336,10 @@ test('E9: the poster video is not in the first HTML, and joins once the page has
   await expect.poll(() => asked.length).toBeGreaterThan(0);
   expect(loadedAt).toBeGreaterThan(0); expect(asked[0]).toBeGreaterThanOrEqual(loadedAt);
 });
+/**
+ * The behaviour log, end to end through a real browser on the path a real card leads to (lát mục 7). Every other
+ * test here proves what the customer gets; this one proves the shop finds out what the customer did.
+ */
 test('what the customer did reaches the log, through the published page, without holding anything up', async ({ page, fixture: f }) => {
   // Scoped to this test's own visit. Beacons are fire-and-forget, so one from an earlier test can still be in
   // flight; a test that assumed an empty table would be reading someone else's page.
