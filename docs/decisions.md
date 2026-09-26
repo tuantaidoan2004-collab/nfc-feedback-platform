@@ -41,16 +41,17 @@ lại tới khi cách thu thập lên được cấp có giá trị thật (Tài
 **Đừng đánh đổi tốc độ lấy thêm lớp bảo mật** khi lớp đó không chặn thứ gì đang thật sự hở (Tài, 21/09). Bảo mật
 đã làm: 2FA admin, cô lập shop, chặn bot trang khách, hàng rào chính sách Google. Đủ cho giai đoạn này.
 
-## 4. Bốn nền móng, và cấp độ hiện tại
+## 4. Bốn nền móng, và cấp độ hiện tại (cập nhật 26/09)
 
-Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đứng vững. Đây là thứ thay cho danh sách 26 lát rời rạc.
+Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đứng vững. Hướng nâng của cả hệ thống: **tổ hợp module** —
+[`kien-truc-nen-tang.md`](kien-truc-nen-tang.md).
 
-| Nền móng | Cấp hiện tại | Cấp tiếp theo nghĩa là gì | Chặn cái gì phía sau |
-|---|---|---|---|
-| **Trang khách** | Chạy thật, đúng luật Google (có hàng rào CTA), chặn bot, nén ảnh, phát sự kiện hành vi | Tốc độ trang khách và nhiều cỡ ảnh. (Trang pháp lý + nút tự xoá: **xong ở A5**, 21/09) | Không còn P0 nào chặn việc ghi thẻ |
-| **Dữ liệu** | **Cấp 2 — dòng sự kiện đã thu** (21/09, migration 020) | Đọc nó: bộ số liệu chuẩn, bảng tổng hợp, so sánh bản phát hành (A8/A9/A10 gộp làm một) | Chặn engine và mọi số liệu so sánh. **Chưa đáng đọc khi chưa có khách thật** |
-| **Quản trị `/gov`** | Sơ sài: tạo shop, cấp link. Có 2FA bắt buộc | Điều hành thật: tìm, xem, số liệu nền tảng | Chờ **dữ liệu thật** chảy vào, không chỉ chờ bảng có sẵn |
-| **Vận hành** | CI 7 bộ, production chạy từ `main` | Sao lưu thật, giám sát lỗi | Cần Tài mở tài khoản dịch vụ |
+| Nền móng | Cấp hiện tại | Cấp tiếp theo |
+|---|---|---|
+| **Trang khách** | Chạy thật, một đường duy nhất (trang đã phát hành), đúng luật Google, chặn bot, "tốt" trên 4G, video chỉ ở poster | Section và gói khuôn (M1–M4) |
+| **Dữ liệu** | Bề nổi cho chủ quán; dòng sự kiện hành vi đang thu (020) | **Dời** — đọc dòng sự kiện khi đã có khách thật (Tài 26/09) |
+| **Quản trị `/gov`** | Tạo quán, cấp link, duyệt ảnh, báo cáo tạm dừng, 2FA | Điều hành thật khi có dữ liệu (A21); tên miền riêng (P7) |
+| **Vận hành** | CI 7 bộ, production từ `main`, mã sao lưu xong | Tự chạy được không cần Vercel (I1); sao lưu chạy thật (Tài) |
 
 ## 5. Luật cứng — không lát nào phá
 
@@ -65,50 +66,16 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 
 ## 6. Còn chưa quyết
 
-- **Dòng sự kiện hành vi trông như thế nào** — bảng gì, ghi lúc nào, giữ bao lâu, ai đọc được. Đây là quyết định
-  tiếp theo, mục 7 nói rõ.
-- **Ai đọc dòng sự kiện, và đọc ra cái gì** — A8/A9/A10 gộp lại. Chưa đáng làm khi chưa có khách thật.
-- **Số điện thoại có hai mục đích khác nhau** (gọi lại vì khiếu nại · sau này có thể là sự kiện/quay thưởng). Hai
-  loại **không được** nằm chung một cột, nếu không nền tảng vĩnh viễn không tôn trọng được "tôi chỉ muốn được gọi
-  lại". Cần một cột `purpose` ngay từ khi còn một loại. Chưa làm.
-- **Xoá dữ liệu quá hạn** — hoãn có chủ ý, xem mục 3.
+Bảng đầy đủ các quyết định lớn chưa thực hiện ở [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md) mục 6. Những điểm
+Tài phải chốt: đền bù khi tạm dừng khẩn cấp · thẻ chuyển giữa các trang · dữ liệu trang đã đóng giữ bao lâu · khi nào
+bắt đầu thu tiền. Đã quyết mà chưa làm: **cột `purpose` cho số điện thoại** (21/09 — phải có trước section nào xin số)
+và **hạn giữ dữ liệu** (hạn chót 9/2027).
 
-## 7. Quyết định tiếp theo — dòng sự kiện hành vi, trước khi ghi tấm thẻ đầu tiên
+## 7. Dòng sự kiện hành vi — đã làm 21/09 (migration 020)
 
-**Claude đề xuất 21/09/2026, chờ Tài chốt.**
-
-Tài nêu `/gov` còn sơ sài, và đúng. Nhưng `/gov` sơ sài là **triệu chứng**, không phải bệnh: nó chẳng có gì để
-hiện vì bên dưới chưa có gì. Làm giao diện `/gov` trước là dựng bảng điều khiển trên một cái giếng cạn.
-
-Lý do đi từ gốc, và nó chỉ đúng **ngay lúc này**:
-
-- Production **chưa có shop nào, chưa có thẻ nào, chưa có khách nào**. Tới giờ chưa mất một dòng dữ liệu nào.
-- Tấm thẻ đầu tiên được ghi là lúc hành vi bắt đầu xảy ra — và **hành vi không ghi thì mất vĩnh viễn**. Không có
-  migration nào lấy lại được.
-- Vậy cửa sổ để làm việc này **không tốn gì** đang mở, và nó đóng vào ngày anh đưa tấm thẻ đầu tiên cho một quán.
-
-Và nó gom ba lát đang rời rạc về một nền: **A8** (theo dõi lượt bấm), **A9** (bộ số liệu chuẩn), **A10** (so sánh
-bản phát hành) đều chỉ là **ba cách đọc** cùng một dòng sự kiện. Làm nền trước thì ba lát kia thành ba truy vấn;
-làm ngược lại thì thành ba hệ thống nhỏ không nói chuyện được với nhau — đúng kiểu rời rạc Tài vừa phê bình.
-
-**Nội dung lát, mức cơ bản nhất chạy được:**
-
-- Một bảng **chỉ ghi thêm**: shop · bản phát hành · thẻ · phiên · lượt ghé · tên sự kiện · thời điểm · một payload
-  nhỏ có kiểu.
-- Sự kiện cấp cơ bản: **mở trang · bấm Google · mở khung góp ý · chọn sao · gửi · bỏ giữa chừng**. Kèm khoảng thời
-  gian giữa các bước — đó chính là QoE. Kèm bản phát hành đang chạy — đó chính là content metadata.
-- **Không bao giờ** có nội dung cá nhân trong payload: không lời nhắn, không số điện thoại. Payload là hình dạng
-  hành vi, không phải nội dung.
-- Ghi theo kiểu **bắn rồi quên**, gộp lô, không chặn thao tác của khách. Pool production chỉ có 3 kết nối.
-- Dùng lại cơ chế chặn bot của A1, không dựng cái mới.
-
-**Cái lát này cố ý chưa làm:** không biểu đồ, không `/gov`, không engine. Chỉ là cái giếng. Đọc nó là lát sau.
-
-**Rủi ro thật, nói trước:** thêm một lượt ghi cho mỗi thao tác của khách là thêm tải lên đúng đường nóng nhất của
-sản phẩm. Nếu đo ra nó làm chậm trang khách thì phải lùi về ghi ít sự kiện hơn, chứ không phải bỏ chặn bot.
-
-**Sau lát này thì `/gov` mới đáng làm** — lúc đó nó có số liệu nền tảng thật để hiện, chứ không phải một trang
-tạo shop.
+Lát "cái giếng" đề xuất ở đây đã xong: bảng chỉ ghi thêm, sự kiện mở trang · bấm Google · mở khung góp ý · chọn sao ·
+gửi · bỏ giữa chừng, không bao giờ mang nội dung cá nhân, gửi kiểu bắn rồi quên. **Đọc nó** (A8–A10) dời lại tới khi
+có khách thật (Tài 26/09).
 
 ## 8. Kiến trúc dữ liệu — tính từ gốc, 21/09/2026
 
@@ -197,312 +164,53 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình khuôn*
 | **13** | Hai luật dùng chung mọi khuôn: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi khuôn, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-26
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-26 (sau buổi duyệt toàn bộ)
 
-Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên rồi khối này; chi tiết ở tệp được trỏ.
+Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên, rồi [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md)
+(logic gốc, đích kiến trúc module, tự chạy được, đội ngũ), rồi khối này. Việc còn lại: [`roadmap-slices.md`](roadmap-slices.md).
+Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-archive.md).
 
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch** (Tài báo 26/09). `main` = nhánh = `e9cc752` (A3) + commit tài liệu sau đó.
-- **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy,
-  rồi Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
-- **`/urr6ud` trên production là shop KHUÔN MẪU ("YOUR SHOP", khuôn 1), không phải Googy** (Googy dùng khuôn 6). Các báo
-  cáo 25–26/09 gọi nhầm nó là Googy; mỗi lần kiểm production ghi một lượt ghé vào shop khuôn mẫu.
-- **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
-- **Hai branch Neon khác nhau — slug bên này không có bên kia.**
-- C3 mặt trận 1 **đã làm** (26/09, `security-review-c3.md`); mặt trận 3 (media/R2) chưa.
-
-### Việc đang dở — đọc trước khi làm tiếp (26/09)
-
-1. **A3 xong, đã lên production 26/09** (Claude kiểm: `/` trang mới, route cũ 404, `/urr6ud` 200 + lượt ghé 200).
-   **`caphe-demo`**: 028 cố ý giữ vì có bảng trỏ tới. Tài đếm 26/09: production chỉ 2 dòng `shop_roles` (vai mặc định
-   015 tạo cho mọi shop); preview thêm 4 `visit_sessions` (thử 16–17/09). Câu xoá có chốt (đã thử trên database tạm) **Tài chạy trên
-   production 26/09: `caphe_con_lai = 0`**. Preview: đề xuất để nguyên — xoá phiên ghé phải tắt trigger chống sửa bản ghi, không đáng cho
-   branch thử; shop không có trang nên không ai vào được. Việc còn lại: **A3b**.
-2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
-   mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
-3. **E6/E9 tốc độ và video: xong 26/09** (`toc-do-trang-khach.md`). **Phần dữ liệu dời lại**
-   (mục "Dời phần dữ liệu" dưới); hạn giữ dữ liệu có hạn chót 9/2027. **A7, A3b, E6, E9 xong 26/09.** Tiếp: P6/P7/P5b khi cần; section + ô sự kiện (A16) cùng đợt cải tổ UI/UX.
-4. **Việc của Tài còn treo:** xoay mật khẩu đã lộ (F4) · xem tab Actions + bật bảo vệ `main` (F5) · thử sáu khuôn trên
-   iPhone/Android thật + lỗi Googy "Chưa kết nối được" (chưa tái hiện).
-5. **Hai việc tách riêng đang chờ** (nút trong app): ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`), ca impersonation
-   không đứng một mình (`admin-http.spec.ts` ~240).
-
-### Sáu áo khoác dựng thử đã bị xoá (Tài, 23/09)
-
-Ba bản không tranh, bản Áp phích và ba bản có tranh đều là bản thử tìm hướng; chúng được thay bằng **lát sáu
-khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `components/coat-viewer.*`, `app/xem/` và mọi
-móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
-`thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
-
-### Dời phần dữ liệu — Tài chốt 26/09 (tối)
-
-Tài: *"tất cả lát về dữ liệu mình làm sau … sau khi mọi thứ khác hoàn thiện ổn hơn thì mới chuyển qua data"*. **Để qua
-bên, tới lúc đó brainstorm lại:** A9 số liệu theo ngày, A10 so sánh bản phát hành, D1 kho phân tích / tầng lạnh R2, D2
-chuẩn ngành, D3 AI tóm tắt, C1 Google Business Profile. Trang khách **vẫn ghi** lượt ghé, sao, góp ý, hành vi như hiện
-nay (ghi gần như không tốn; phân tích để sau). **Không nằm trong phần dời:** sao lưu B2 (chống mất dữ liệu — xong trước
-quán thật đầu tiên) và **hạn giữ dữ liệu**: trang Quyền riêng tư hứa "tối đa 12 tháng kể từ lần ghé", dữ liệu production
-cũ nhất ~21/09/2026 → **hạn chót tháng 9/2027** phải có việc xoá tự động. A7, A3b, E9 đã xong 26/09;
-tiếp theo P6/P7/P5b khi cần.
-
-### Thứ tự tiếp theo — Tài chốt 26/09 (sau khi rà toàn bộ lát còn lại)
-
-**Tài, song song:** xoay mật khẩu đã lộ (F4) · xem tab Actions trên GitHub + bật bảo vệ nhánh `main` (F5) · thử sáu
-khuôn trên iPhone/Android thật + thử lại lỗi Googy "Chưa kết nối được".
-**Claude, theo thứ tự:** (1) **C3 — rà cách ly dữ liệu** giữa các quán trên mô hình trang · (2) **sao lưu miễn phí**
-(`pg_dump` mỗi đêm bằng GitHub Actions lên R2 + thử khôi phục) · (3) **dọn nợ P1 + A3 mã cũ** · (4) **tốc độ trang
-khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách đang hứa 12 tháng mà
-chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
-nào cũng được.
-
-### Xong gần nhất — E9 video chỉ ở poster (26/09)
-
-Tài chốt: **nền trang không bao giờ là video** (chiều sâu và chuyển động đến từ thiết kế khuôn — ảnh hero, gradient
-chuyển động, mixed media, hạt/lưới tương tác, đợt cải tổ UI/UX); **video chỉ ở poster**, như quảng cáo: 720p đủ đẹp, dài
-cũng được, tải dần như YouTube, đừng bó hẹp. Làm: trình duyệt chủ quán nén video về 720p trước khi tải lên (trần 50 MB
-sau nén, không giới hạn độ dài); video poster gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ liệu; nền video
-của trang cũ thành ảnh khung đầu (lúc đọc chỉ hiện ảnh, lúc ghi đổi hẳn); khuôn 1 dùng ảnh nền mặc định; tệp video mặc
-định 3 MB đã xoá. **Sau, cùng lát section (A16):** khung poster tự theo khổ video, bo góc, tuỳ chỉnh kiểu Canva; ô sự
-kiện khi khách lướt xuống; link YouTube xem trước — "web của quán bản thu nhỏ". Ý kiến trúc Tài đưa (Gemini: khuôn là
-dữ liệu JSON, bộ chỉnh lõi dùng chung, trang ghép từ section): phần lõi đã có (trang là JSON, bản khuôn khai ô chỉnh qua
-bảng cài đặt P2, trang khách không tải mã trình chỉnh); phần thiếu là section, làm cùng A16 với hai rào: lời mời Google
-không phải section và luôn cố định; không khung kéo-thả trắng (`PRODUCT.md`). **Không migration.** Đo: `toc-do-trang-khach.md`.
-
-### Trước đó — A3b một đường trang khách (26/09)
-
-Trang khách chỉ còn một đường: trang đã phát hành, mọi lệnh ghi của khách phải mang proof của trang đó. Gỡ các route
-`/api/v2/shops/<slug>/…` (tin slug trong URL), `visitV2Api`, `server/shops.ts`; publishing tắt thì trang khách 404.
-Harness `public` giờ chạy trên trang đã phát hành — lần đầu nút **"Xoá dữ liệu của tôi" được test trên đúng đường thẻ
-thật dùng**. Lộ ra một lỗi của harness (không phải production): harness áp 021 trước 003, nên trigger chặn sửa của 003
-quay lại và lệnh xoá trả 503; Neon áp theo thứ tự tên tệp nên đúng. **Không migration.** CSS đời cũ gộp vào A19. `integration-tests/safari-local.mjs` (chạy tay, ngoài 7 bộ) chưa
-theo: nó mở `/one` mà chưa dựng trang đã phát hành — sửa khi chạy lại Safari.
-
-### Trước đó — A7 tuân thủ Google cho shop (26/09)
-
-Phần còn lại sau bản rà của Astra: **nút Google chỉ dẫn tới Google** (trước đó chỉ cần `https://`, nên shop trỏ được nút
-sang trang riêng hỏi sao trước — lọc đánh giá qua chính nút của mình) và không mang tham số điền sẵn sao/câu chữ; kiểm ở
-biên ghi, trang đã phát hành vẫn chạy. Hướng dẫn cho shop: trang in `/huong-dan-google`, khung luật ở trang chủ
-dashboard, nhắc gửi kèm ở khung bàn giao `/gov`, dòng chỉ chỗ lấy link Google trong trình chỉnh. Bảy shop production đều
-dùng `https://maps.google.com/` nên không shop nào bị chặn. **Không migration.** Chi tiết `google-policy.md` mục 3c.
-
-### Trước đó — A3 dọn mã cũ, migration 028 (26/09, đã lên production)
-
-Gỡ trang khách đời cookie (`/api/shops`), dashboard đời `owner_sessions` (`/api/owner/[shop]`, `server/auth.ts`), trang
-demo `/t/demo` + `/demo/dashboard` + `lib/demo-store.ts`, và nhánh lùi khi cờ tắt: cờ tắt giờ là **404**. `/` thành trang
-tĩnh ngắn (trước là demo 4Râu với dữ liệu giả). Migration 028 kiểm lại bốn bảng đời cũ rỗng và không shop nào có ảnh bìa
-cũ (còn thì **dừng**), rồi xoá chúng cùng view `shop_profile` và cột `hero_*`; xoá shop giả `caphe-demo` (Tài: "shop giả")
-chỉ khi không bảng nào trỏ tới nó — trên Neon nó **được giữ** (có bảng trỏ tới). Các test từng dùng `/t/demo` làm "trang rời đi" giờ dùng `/dieu-khoan`. Còn lại: A3b. Tài chạy 028 trên cả hai branch trước khi đẩy `main` (`e9cc752`).
-
-### Trước đó — dọn nợ P1, migration 027 (26/09)
-
-Bỏ cột `shops.active_release_id` (bản phát hành đang chạy thuộc trang từ 024); bảng nội dung đổi tên `shop_profile` →
-`page_profile`, để lại view `shop_profile` cho khoảng chờ deploy — **migration kế tiếp phải xoá view này**. **Migration 027
-phải chạy trên Neon trước khi đẩy `main`.** A3 (mã cũ) tách riêng: cần Tài đếm dữ liệu đời cũ trên từng branch trước.
-
-### Trước đó — sao lưu miễn phí (26/09, chờ Tài làm các bước tài khoản)
-
-Mỗi đêm GitHub Actions `pg_dump` production bằng người dùng chỉ-đọc, mã hoá, lên bucket R2 riêng, tải ngược về so mã băm;
-khôi phục chỉ vào database trên máy. Đã thử trọn chuỗi trên máy. **Chưa chạy thật:** cần Tài tạo người dùng chỉ-đọc,
-bucket + khoá R2, mật khẩu sao lưu, sáu secret — từng bước ở `docs/sao-luu.md`. **Không migration.**
-
-### Trước đó — C3 mặt trận 1: rà cách ly dữ liệu (26/09, đã lên production)
-
-Không thấy đường nào để quán này đọc hay sửa dữ liệu quán khác (ma trận test hơn 50 đường, quét tĩnh SQL, cổng 59
-route). Một chỗ thấp đã sửa: bộ đếm chống bot đếm theo id lượt ghé của quán khác (F-C3-1). Chưa rà: media/R2 (mặt trận
-3), phần lớn mặt trận 2. **Không migration.** Báo cáo `security-review-c3.md`. Bước kế tiếp: sao lưu miễn phí.
-
-### Trước đó — P5 phần hiện giá (26/09, đã lên production — Claude kiểm `/urr6ud` 200)
-
-Giá theo trang (khuôn 1–5 10k/tháng, khuôn 6 0đ, hai suất miễn phí) hiện trong dashboard và `/gov`, **chưa thu phí**
-(Tài: cần cảm nhận khách trước). Thẻ NFC bỏ hẳn phí. Đổi khuôn có phí: tính từ kỳ sau. **Không migration.**
-Chi tiết `goi-va-trang.md` mục 14; phần thu tiền để khi Tài quyết.
-
-### Trước đó — P4 vòng đời trang, migration 026 (25/09, đã lên production — Claude kiểm `/urr6ud` 200, route admin mới có mặt)
-
-Trang: nháp → đang chạy ⇄ tạm ngừng → đóng. Tạm ngừng: khách thấy "Trang tạm ngừng", dữ liệu giữ. Nút tạm dừng khẩn
-cấp của chủ quán gửi báo cáo vào `/gov`; admin mở lại, đóng, ghi đã xử lý. Đóng: 404, vĩnh viễn, dữ liệu chưa xoá.
-**Migration 026 phải chạy trên Neon trước khi đẩy `main`.** Chi tiết `goi-va-trang.md` mục 13.
-
-### Trước đó — P3 danh sách trang, migration 025 (25/09, đã lên production — Claude kiểm `/urr6ud` 200, route mới đúng header)
-
-Dashboard có khung "Trang": ảnh thu nhỏ, tên, link, khuôn, trạng thái; nhân bản trang, trang mới từ kho (chỉ chủ quán),
-đổi khuôn, nhập dữ liệu từ trang khác; thẻ theo trang đang chọn. Kèm sửa lỗi của P1: ghi qua HTTP với `?page=` bị từ
-chối. **Migration 025 phải chạy trên Neon trước khi đẩy `main`.** Chi tiết `goi-va-trang.md` mục 12.
-
-### Trước đó — P2 bảng cài đặt theo bản khuôn (25/09, đã lên production — Claude kiểm `/urr6ud` 200, lượt ghé ghi được)
-
-Mỗi bản khuôn khai ô chủ quán được chỉnh; trình chỉnh chỉ vẽ ô đó, server từ chối phần còn lại. Khuôn 6 không ô nào;
-bảng của sáu bản 1 ở `goi-va-trang.md` mục 11 (Claude chọn, Tài đổi được). Ô chung (màu, thanh kéo…) đã có đường đi
-đủ nhưng chưa khuôn nào dùng. **Không migration.**
-
-### Trước đó — P1 tách quán / trang, migration 024 (25/09)
-
-`shops` là quán, `pages` là trang (link, bản nháp, bản phát hành, thẻ, xem trước, nội dung). Trang cũ giữ nguyên link và
-khoá lượt ghé `direct:shop`; link vĩnh viễn (trigger). Góp ý mọi trang về một dashboard. Trình chỉnh và thẻ nhận
-`?page=`; giao diện danh sách trang là P3. Tài báo 25/09, nguyên văn: *"đã chạy xong cả hai"* (024 trên Neon production và
-preview), rồi **Tài tự đẩy `main`** (`52a51f2`). Claude kiểm production: `/urr6ud` 200, lượt ghé ghi được (`POST
-/api/v2/pages/visits` 200). Chi tiết `goi-va-trang.md` mục 10.
-
-### Mô hình gói · trang · phiên bản — Tài chốt 25/09
-
-Quán có nhiều trang; mỗi trang một link, một khuôn + bản, một gói. Kho khuôn có giá (1–5 = 10k/tháng, khuôn 6 = 0đ),
-hai suất miễn phí mỗi quán, link đã đóng không bao giờ cấp lại, nút tạm dừng khẩn cấp báo về admin. Dashboard cập nhật
-riêng; khuôn nối với dashboard qua **bảng cài đặt** của từng bản. Toàn bộ và thứ tự lát P1–P7: **`docs/goi-va-trang.md`**.
-Lát kế tiếp đề xuất: **P1 tách quán / trang** (migration lớn).
-
-### Xong gần nhất — bản khuôn (25/09)
-
-Mỗi khuôn một số bản; bản phát hành ghim bản; CSS mỗi bản là một tệp đóng băng (`components/skins/<khoá>.v<bản>.css`,
-mã băm giữ trong test). Chủ quán thấy khung "Khuôn" trong trình chỉnh: bản nháp dùng bản nào, trang khách chạy bản nào,
-nút "Dùng bản N" chỉ đổi bản nháp rồi Xem trước / Phát hành như thường. Sửa lỗi / bảo mật / luật Google sửa thẳng mọi
-bản. Hôm nay mọi khuôn mới có bản 1, nên khách chưa thấy gì khác. **Không migration** (`template_versions` có từ 003).
-Chi tiết `thiet-ke-va-khuon.md` mục 16. **Còn lại:** số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi.
-
-### Trước đó — khuôn 6 làm lại: nút hạt ngọc (24/09)
-
-Tài chốt: một nút G bốn màu, chữ chạy vòng quanh, nền trắng sữa, vệt sáng gương, con quay hồi chuyển. Chi tiết
-`DESIGN.md` mục 9. **Không migration.** Kèm hai test hàng rào: góp ý riêng gửi được ở **cả sáu khuôn**, và khách tải
-lại trang sau khi shop phát hành lại vẫn gửi được.
-
-**Lỗi Tài báo — thẻ góp ý mở được nhưng không bấm được gì, "Chưa kết nối được" (shop Googy, Chrome iPhone):** chưa tái
-hiện. Đã loại: bố cục (WebKit + Chrome giả lập iPhone chạm trúng nút, mở thẻ, chọn sao, gõ chữ trên production
-`/urr6ud`), riêng từng khuôn (test sáu khuôn), phát hành lại rồi tải lại (test). **Nghi phạm còn lại:** link "Xem trước"
-đã quá 15 phút — trang vẫn hiện nhưng mọi thao tác bị từ chối với đúng câu đó. Chờ Tài thử trên trang thật.
-
-**Vercel preview đang dựng bình thường** (ảnh tab Deployments Tài gửi 24/09: mỗi commit trên nhánh có bản Preview
-"Ready", link nhánh `quitesensational-review-bio-git-feat-local-app-ea8fd5-mount-pro.vercel.app`). Vấn đề "preview kẹt ở
-build 6722" ghi ngày 23/09 **không còn**; không rõ nó tự hết lúc nào.
-
-**Số phiên bản (Tài giao Claude quyết, 24/09):** nền tảng `năm.tháng.lần` (vd `26.9.3`); khuôn là số nguyên riêng mỗi
-khuôn, ghim theo bản phát hành của shop, shop tự chọn cập nhật. Sửa lỗi / bảo mật / luật Google thì không cho chọn.
-
-### Trước đó — cửa duyệt ảnh, migration 023 (24/09)
-
-Mọi ảnh/video shop tải lên chờ admin duyệt ở `/gov` trước khi phát hành được; trang đang chạy vẫn chạy. Tài báo
-24/09, nguyên văn: *"đã chạy xong cả hai"* (023 trên Neon production và preview) — Claude không có credential nên
-không tự kiểm được. Sau đó mới đẩy `main`. Chi tiết `thiet-ke-va-khuon.md` mục 10.
-
-### Trước đó — khuôn 1 · thẻ trôi (24/09) — đủ sáu khuôn
-
-Tài chốt ý 1 + 2: thẻ trôi, mép trên mờ dần trên một dải làm nhoè nền; nền thở theo cuộn (phóng + tối dần trên toàn
-quãng cuộn). Giữ màu bản gốc, đổi bố cục. **Mọi shop hiện có dùng khuôn 1** nên chúng đổi diện mạo theo. **Không
-migration.** Sáu khuôn đều đã có diện mạo; **chưa khuôn nào thử trên iPhone/Android thật**.
-
-### Trước đó — khuôn 2 · Tối giản (24/09)
-
-Theo ảnh "Minimal Dark Card": thẻ tối, quầng tím mờ quanh thẻ (nhoè tĩnh, không backdrop-filter), nền vẽ bằng SVG,
-link lưới ô đều theo số lượng. Không tạo ảnh (không có công cụ; RunComfy trả phí chưa mở). **Không migration.**
-Khuôn 1 làm tiếp theo (ý 1 + 2).
-
-### Trước đó — khuôn 4 · Chồng thẻ (24/09)
-
-Theo ảnh Tài gửi: thẻ nghiêng trên thẻ poster (chưa có poster thì thẻ hồng mặt cười), link hàng dọc, nút Google trắng
-(token mới `--c-btn-fill`, chữ nút đọc `--c-on-brand`). Bỏ câu "SMALL REVIEW BIG SUPPORT" vì luật Google. **Không
-migration.** Tài cũng đã giao hướng cho khuôn 1 (thẻ trôi trên ảnh nền, mờ dần khi cuộn — ảnh "Hero Bold") và khuôn 2
-(thẻ tối tối giản, quầng mờ quanh thẻ — ảnh "Minimal Dark Card"; cho phép tự tạo ảnh).
-
-### Trước đó — khuôn 3 · Kính (23/09)
-
-Kính khúc xạ thật, **cùng kết quả ở Chrome, Safari, Firefox**: tự vẽ cảnh sau kính, mỗi tấm kính mang bản sao đã
-căn, bẻ bằng `filter` (không `backdrop-filter`), cảnh cuộn cùng trang nên bộ lọc chạy một lần. Đo: lệch 0px ở cả ba
-lõi, vùng kính lệch ~4/255, cuộn không chậm đi khi CPU hãm 6 lần. Ngoại lệ `<svg>` vô hình Tài chốt. Chưa thử máy
-thật. Chi tiết `thiet-ke-va-khuon.md` mục 15. **Không migration.**
-
-### Trước đó — khuôn 5 · Ánh sáng tụ (23/09)
-
-Khuôn tối đầu tiên: quầng sáng hổ phách là bóng của chính nút Google, lưới chấm nét gần nút và nhoè khi ra xa. Nó làm
-lộ bốn chỗ CSS gốc viết cứng màu sáng (viên link, ô nhập, nút Gửi, bóng nút Google) — đã nối token. Chữ dòng mời góp ý
-giờ cố định để A2 đứng được ở khuôn tối; có test so khuôn 5 với khuôn 6. **Không migration.**
-
-### Trước đó — khuôn 6 · Nút lớn (23/09)
-
-Khuôn đầu tiên có diện mạo: nút Google 112px giữa màn hình, chuyển cảnh 300ms rồi **cùng tab** sang Google
-(`LEAVE_TRANSITION_MS`). Nút Google mọi khuôn giờ pha màu từ `--c-brand`. Chi tiết `DESIGN.md` mục 9.
-**Không migration.** Shop tạo trước lát này với khoá `big-button` giữ bản chụp cũ (nền trắng full-bleed) tới lần phát hành sau.
-
-### Trước đó — A36 lớp da (23/09)
-
-`components/skin.css`: tên + mặc định mọi token `--c-*` (mặc định = diện mạo cũ, trang không đổi màu), quãng cuộn
-dư A1, `--c-floor`, cách bày link 1–6. Nút máy bay giữ ở `guest-page.css` và được test khoá. `coats.css` còn mang
-theo cả cách bày link (`f1a071e`) — mất cùng nó, giờ đã dựng lại. **Không migration.** Chi tiết `DESIGN.md` mục 4, 9.
-
-### Trước đó — A33 sáu khoá khuôn (23/09)
-
-Sáu khoá `standard · minimal · glass · deco · spotlight · big-button`, mỗi khoá một cấu hình và một hàng
-`template_versions` (tạo lúc cần), ô chọn khuôn ở `/gov`, trang khách mang `data-template`. **Không migration.**
-Khuôn là bộ xương, không gắn tài khoản (Tài, 23/09). **Chưa khuôn nào có diện mạo riêng** — và lớp da (token
-`--c-*`, hai luật dùng chung) đã mất cùng `coats.css`; xem `DESIGN.md` mục 9.
-
-### Trước đó — lát khuôn/tài khoản (23/09, `5375358`)
-
-`shop_profile` (migration 022) + lớp ghép lúc đọc. **Nội dung thuộc tài khoản, diện mạo thuộc khuôn.** Đổi khuôn
-không mất tên, link Google, danh sách link, logo, ảnh. `publish()` ghi nội dung xuống hồ sơ trong cùng
-transaction; `live()` ghép hồ sơ, `preview()` thì không. Bảy bộ test xanh có output.
-
-Trước đó: `PRODUCT.md`, `DESIGN.md`, hệ áo khoác trang khách (`components/coats.css`), bàn xem `/xem` (chỉ ngoài
-production). Chi tiết ở [`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md).
-
-### Việc kế, theo thứ tự
-
-1. **Thử sáu khuôn trên iPhone và Android thật** (Tài) — trước khi giao quán đầu tiên. Khuôn 4 phần kéo thả trang trí
-   là A35.
-2. **Ba khuôn có tranh** — chờ ảnh của Tài; bản kê ở [`anh-can-cho-ao-khoac.md`](anh-can-cho-ao-khoac.md).
-3. ~~Cửa duyệt ảnh~~ — xong 24/09 (023).
-4. **C3 + sao lưu** — trước khách trả tiền.
-5. `/gov` đúng nghĩa; tính năng theo lời shop thật.
-
-### Luật triển khai — Tài nới 23/09
-
-**Không bắt buộc xem preview trước mỗi lần.** Các phiên trước đẩy thẳng `main` và hiệu quả token tốt hơn nhiều.
-Mặc định từ giờ: làm xong → 7 bộ test xanh → đẩy `main`. Preview chỉ dùng khi Tài yêu cầu, hoặc khi lát đụng vào
-thứ khó hoàn tác.
-
-**Hai luật không nới:**
-- **Có migration thì Tài chạy Neon trước, rồi mới đẩy `main`.** Lát 022 cho thấy vì sao: mã mới
-  `LEFT JOIN shop_profile`, database chưa migrate là trang khách sập.
-- **Không báo test xanh khi chưa có output.** Lệnh 7 bộ ở `operations-gotchas.md`.
-
-**Vercel không dựng nhánh preview — chưa tìm ra nguyên nhân (23/09).** Preview kẹt ở build
-`6722-8da949b4…` từ 22/09; production dựng lại bình thường mỗi lần đẩy `main`.
-
-Đã loại trừ, có bằng chứng:
-
-| Nghi ngờ | Kết quả |
-|---|---|
-| Lỗi mã / `next/font` trong `app/xem` | **Không.** Route đã xoá, preview vẫn kẹt |
-| Ignored Build Step | **Không.** Behavior = `Automatic` |
-| Preview không theo dõi nhánh | **Không.** Preview theo `All unassigned git branches` |
-| Deployment Checks (`Lint`, `TypeCheck`) đỏ | **Không.** `eslint .` và `next typegen && tsc --noEmit` đều exit 0 trên toàn repo |
-| Nhánh chưa lên GitHub | **Không.** `git ls-remote` xác nhận nhánh đi trước `main` |
-
-**Hai phép thử đầu của Claude vô giá trị vì thiết kế sai**: chúng đẩy cùng một commit lên cả hai nhánh, mà
-Vercel dựng mỗi SHA một lần — chính ô Ignored Build Step ghi rõ *"Vercel skips builds for commits with a
-previously deployed SHA"*. Phép thử đúng (commit chỉ trên nhánh, SHA riêng) cho kết quả: preview vẫn không dựng.
-
-**Chỗ duy nhất chưa nhìn:** tab **Deployments** (thanh trên cùng, không phải Settings), lọc nhánh
-`feat/local-app-foundation`. Không có dòng nào ⇒ webhook không tới Vercel ⇒ sửa bằng **Disconnect rồi Connect
-lại** repo ở Settings → Git.
-
-**Không chặn việc gì.** Luật triển khai đã nới: xong → 7 bộ xanh → đẩy `main`.
-
-Việc nhỏ đi kèm: **Settings → Functions → Function Region** đặt **Singapore (`sin1`)** cho cả **Preview**; hiện
-nó vẫn chạy `iad1`, nên mọi phép đo tốc độ trên preview chậm giả tạo ~250ms mỗi truy vấn.
+  branch**. `main` = `b4f7105` (E9) + commit tài liệu chưa đẩy.
+- **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy, rồi
+  Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
+- **`/urr6ud` là shop KHUÔN MẪU** ("YOUR SHOP", khuôn 1), không phải Googy. Tài bấm "Đưa khuôn về mặc định mới" 26/09:
+  khuôn mẫu giờ dùng ảnh nền mặc định, không poster. Mỗi lần kiểm production ghi một lượt ghé vào shop này.
+- **Chưa ghi thẻ NFC nào, chưa có khách thật.** Hai branch Neon khác nhau — slug bên này không có bên kia.
+
+### Hướng đi — Tài 26/09
+
+1. **Tạm dừng lát mới; đã duyệt lại toàn bộ** → `kien-truc-nen-tang.md`. Web là **tổ hợp module** (section · loại ô ·
+   hiệu ứng · gói khuôn), kho khuôn như Canva; **tự chạy được không cần Vercel**; sẵn sàng cho coder và designer.
+2. **Phần dữ liệu dời lại** (đọc dòng sự kiện, kho phân tích, AI…) — brainstorm lại khi mọi thứ khác ổn. Không dời: sao
+   lưu, và **hạn giữ dữ liệu — hạn chót 9/2027**.
+3. **Video chỉ ở poster**, nền không bao giờ là video (E9).
+4. **Quyết định mới sửa hoặc xoá ý cũ** ở mọi tài liệu, không để chồng lên (cách làm của Tài).
+
+Đề xuất thứ tự (chờ Tài chọn): **I1** tự chạy được → **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
+thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
+
+### Luật triển khai (Tài nới 23/09)
+
+Xong → 7 bộ test xanh có output nguyên văn → đẩy `main`; không cần xem preview trước. **Không nới:** có migration thì
+Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa có output. Lệnh 7 bộ ở `operations-gotchas.md`.
 
 ### Việc còn treo của Tài
 
-- **Tạo shop thật đầu tiên và ghi thẻ NFC** — kiểm đường dẫn trong dashboard là `.com` trước khi ghi.
-- Bảo vệ nhánh `main` (cần GitHub Team) · Neon trả phí (B1) · giám sát lỗi (B3) · Zalo OA (B7).
-- Luật sư duyệt bản nháp pháp lý (C2).
+Sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · F5 bảo vệ nhánh `main` · thử sáu khuôn trên điện thoại thật (kèm lỗi
+Googy "Chưa kết nối được") · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
+~3% (`admin-auth.spec.ts:217`), ca impersonation không đứng một mình (`admin-http.spec.ts` ~240).
 
 ### Thứ tự đọc cho phiên mới
 
 1. `AGENTS.md`
-2. **`decisions.md` mục 1–8 rồi khối này** ← bạn đang ở đây
+2. **`decisions.md` mục 1–8**, rồi `docs/kien-truc-nen-tang.md`, rồi khối này ← bạn đang ở đây
 3. `docs/operations-gotchas.md` — mọi bẫy đã dính, **lệnh 7 bộ test**
 4. `docs/google-policy.md` — luật cứng, thắng mọi thứ
 5. Chỉ khi làm giao diện/khuôn: `PRODUCT.md`, `DESIGN.md`, `docs/thiet-ke-va-khuon.md`
-6. Chỉ khi cần: `docs/roadmap-slices.md`, `docs/production-launch.md` mục "Đường vào", `docs/agents-board.md`
+6. Chỉ khi cần: `docs/roadmap-slices.md` (việc còn lại), `docs/production-launch.md` mục "Đường vào", `docs/agents-board.md`
 
 ### Dựng môi trường
 

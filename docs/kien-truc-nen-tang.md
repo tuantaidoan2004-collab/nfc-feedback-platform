@@ -1,0 +1,153 @@
+# Nền tảng như một ứng dụng lớn — logic gốc, đích kiến trúc, việc còn lại
+
+Duyệt lại toàn bộ ngày 26/09/2026, theo yêu cầu của Tài: dừng làm lát mới; đọc lại mọi quyết định từ đầu; hiểu lại logic
+hệ thống — kho khuôn như Canva, mỗi khuôn một cách chỉnh, web là **tổ hợp các module tính năng**; giữ khả năng **tự chạy
+không cần thuê Vercel hay các dịch vụ tương tự**; và chuẩn bị để sau này Tài **thuê coder và designer** làm việc trên hệ
+thống. Tệp này là nguồn cho hướng đi đó. Luật Google (`google-policy.md`) vẫn đứng trên tất cả.
+
+Danh sách lát còn lại (cập nhật tới 26/09) ở [`roadmap-slices.md`](roadmap-slices.md).
+
+---
+
+## 1. Logic gốc — một trang
+
+- **Sản phẩm:** khách chạm thẻ NFC hay quét mã ở quán → mở **trang của quán**, về lâu dài là *"web của quán bản thu
+  nhỏ"* (poster như quảng cáo, sự kiện, link, video…). Trên trang luôn có **lời mời đánh giá Google giống hệt nhau với
+  mọi khách** và **thêm** một đường góp ý riêng cho quán. Không chọn lọc khách, không đổi quà lấy đánh giá.
+- **Người dùng:** khách của quán (quan trọng nhất, dưới 30 giây, 4G) · chủ quán và nhân viên (dashboard) · người vận hành
+  nền tảng (`/gov`). Sắp tới thêm hai nhóm **làm ra** sản phẩm: **designer** (làm khuôn) và **coder** (làm module).
+- **Ba lớp, cập nhật độc lập** (`goi-va-trang.md` mục 1): **nền tảng** (một bản cho mọi người) · **khuôn** (mỗi khuôn nhiều
+  bản, trang ghim bản) · **nội dung** (thuộc trang, đổi khuôn không mất).
+- **Quán → trang → bản phát hành → thẻ.** Một quán nhiều trang; mỗi trang một link vĩnh viễn, một khuôn@bản, cài đặt, nội
+  dung, bản nháp và các bản phát hành **bất biến**; thẻ trỏ vào trang.
+- **Dữ liệu hai cấp:** bề nổi cho chủ quán xem · hành vi cho "engine" sau này (đang thu từ 21/09; đọc để sau — Tài 26/09).
+- **Kinh doanh:** giá theo khuôn/trang, hai suất miễn phí mỗi quán, thẻ bán riêng; **chưa thu phí** (Tài 26/09).
+
+## 2. Hôm nay đã "module" tới đâu — đánh giá thật
+
+Ý Tài đưa (Gemini): khuôn là **dữ liệu**, một **bộ chỉnh lõi** dùng chung, trang ghép từ **thành phần**, trang thật không
+tải mã chỉnh. So với mã hôm nay:
+
+| Nguyên tắc | Hôm nay | Đánh giá |
+|---|---|---|
+| Trang là dữ liệu (JSON) | `PageConfig` lưu trong bản nháp và bản phát hành | **Đúng** |
+| Khuôn có phiên bản, đóng băng | `template_versions` + CSS mỗi bản (`components/skins/<khoá>.v<bản>.css`) | **Đúng** |
+| Bộ chỉnh lõi đọc khai báo của khuôn | Bảng cài đặt mỗi bản khuôn (P2); trình chỉnh vẽ ô theo bảng | **Đúng cho phần diện mạo.** Phần nội dung (tên, poster, logo, link) vẫn viết cứng |
+| Trang thật không tải mã chỉnh | Trang khách ~153 KB JS, không có trình chỉnh | **Đúng** |
+| Trang ghép từ thành phần | Bố cục **cố định**: poster → logo → tên → Google → link → góp ý | **Chưa có.** Không thêm được "ô sự kiện", "video YouTube" mà không sửa lõi |
+| Hành vi riêng của khuôn là module | Kính (khuôn 3), chuyển cảnh 300 ms và ánh sáng theo độ nghiêng (khuôn 6) nằm **chung** trong `components/shop-feedback-v2.tsx` (~600 dòng) | **Chưa.** Thêm khuôn có hiệu ứng = sửa component lõi của mọi khuôn |
+| Một khuôn là một gói | Định nghĩa một khuôn rải **5 chỗ**: `config.ts` (bộ xương) · `versions.ts` (bản + bảng cài đặt) · `pricing.ts` (giá) · `skins/*.css` · `guest-styles.ts` (nạp CSS) | **Chưa.** Designer không làm khuôn được nếu không sửa TypeScript |
+
+Kết luận: nền móng đúng nhánh; phần thiếu là **section**, **module hiệu ứng** và **gói khuôn**. Không cần viết lại — nâng
+dần theo đúng nhánh đang có (luật "tư duy từ gốc, nâng cấp tuyến tính").
+
+## 3. Đích kiến trúc — tổ hợp module
+
+### 3.1 Bốn loại module
+
+| Loại | Là gì | Ví dụ | Ai làm |
+|---|---|---|---|
+| **Section** (khối nội dung) | Một khối trên trang khách: lược đồ dữ liệu + cách vẽ + các ô chỉnh nó cần | Poster · Hàng link · Sự kiện ("Hôm nay ở quán") · Video/YouTube xem trước · Thực đơn | Coder |
+| **Loại ô** (field type) | Một loại ô trong bộ chỉnh lõi | Màu · thanh kéo · lựa chọn · bật/tắt · ảnh · video · chữ hai thứ tiếng · danh sách link | Coder |
+| **Hiệu ứng** (effect) | Một mẩu JS nhỏ, khuôn bật bằng tên | Kính khúc xạ · chuyển cảnh khi rời · ánh sáng theo nghiêng · hạt/lưới tương tác · gradient chuyển động | Coder |
+| **Gói khuôn** (template package) | Một thư mục: `manifest` (tên, giá, trạng thái thử/mở, section cho phép và vùng đặt, ô cài đặt, hiệu ứng dùng) + CSS đóng băng theo bản + ảnh xem trước | Sáu khuôn hôm nay; khuôn theo ngành (A22); khuôn có tranh (A34) | **Designer** |
+
+Trình chỉnh lõi **không biết khuôn nào có gì**: đọc manifest và lược đồ section rồi tự vẽ ô (mở rộng đúng cái P2 đã làm).
+Trang khách vẽ từ JSON phía server và **chỉ tải mã của section và hiệu ứng trang đó dùng**.
+
+### 3.2 Trang = khuôn@bản + cài đặt + danh sách section
+
+```
+page = { template: "glass@2", settings: {...}, sections: [ {type:"poster",...}, {type:"event",...}, {type:"links",...} ] }
+```
+
+**Lõi cố định, không phải section:** lời mời Google, nút góp ý riêng, chân trang pháp lý và nút "Xoá dữ liệu của tôi".
+Chúng luôn có mặt, cùng chỗ, với mọi khách — đó là cách luật Google đứng vững *theo cấu tạo* chứ không nhờ cẩn thận.
+
+### 3.3 Hai rào của riêng nền tảng này
+
+1. **Luật Google theo cấu tạo:** section không được đẩy lời mời Google ra khỏi màn hình đầu, không được đặt nội dung ưu
+   đãi cạnh nó, và chữ tự do của mọi section đi qua cùng hàng rào ở biên ghi (`lib/publishing/policy.ts`).
+2. **Không khung vẽ trắng** (`PRODUCT.md`): chủ quán **chọn** section từ danh sách ngắn và xếp thứ tự trong vùng khuôn cho
+   phép; kéo thả tự do chỉ có ở lớp trang trí có ràng buộc (A35).
+
+### 3.4 Kiểm tự động cho mỗi gói khuôn
+
+Mỗi gói khuôn phải qua, trong CI, trước khi vào kho: nút Google trọn trong màn hình đầu · tương phản ≥ 4,5:1 · nút Google
+nổi hơn nút góp ý · CSS thêm ≤ 40 KB · CSS chỉ đọc ô đã khai · không thêm/bớt/đổi thứ tự nút lõi. Phần lớn đã có dưới dạng
+test rời (`tests/contracts/skin.spec.ts`, `google-policy.spec.ts`); gom thành **một lệnh kiểm gói** để designer tự chạy.
+
+### 3.5 Thứ tự nâng — mỗi bước lên production được, không bước nào viết lại
+
+| # | Bước | Thay đổi thấy được | Migration |
+|---|---|---|---|
+| **M1** | **Gói khuôn:** gom 5 chỗ định nghĩa khuôn về một thư mục/manifest mỗi khuôn; registry sinh từ đó | Không (cùng hành vi) — nhưng từ đây designer làm khuôn không đụng TypeScript | Không |
+| **M2** | **Module hiệu ứng:** tách kính, chuyển cảnh, ánh sáng theo nghiêng khỏi component lõi; manifest khuôn khai hiệu ứng dùng | Không | Không |
+| **M3** | **Section:** `PageConfig` v3 = danh sách section; poster và hàng link thành hai section đầu; trang v2 vẫn đọc được | Chủ quán bật/tắt, xếp thứ tự section trong vùng cho phép | Có (chuyển dữ liệu nháp; bản phát hành cũ giữ nguyên) |
+| **M4** | **Section mới + đợt cải tổ UI/UX:** Sự kiện (A16), Video/YouTube xem trước, khung poster tự theo khổ video/ảnh và bo góc, nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới) | Có | Tuỳ section |
+| **M5** | **Kho khuôn thử → mở:** gói khuôn mới vào kho ở trạng thái thử (admin thấy), rồi mở; giá lấy từ manifest | `/gov` và kho khuôn | Có thể |
+| **M6** | **Lệnh kiểm gói khuôn** + trang xem trước gói cho designer | Công cụ nội bộ | Không |
+
+## 4. Tự chạy được, không cần thuê dịch vụ
+
+Mục tiêu (từ `mvp-architecture.md`, 09/09, và Tài 26/09): cùng mã chạy được trên một máy Node/Docker bất kỳ; mỗi dịch vụ
+thuê chỉ là **một lựa chọn cấu hình**, không phải một phụ thuộc trong mã.
+
+| Phần | Hôm nay | Thay bằng | Còn thiếu để tự chạy |
+|---|---|---|---|
+| Ứng dụng | Vercel | Máy Node bất kỳ / Docker | Bản build `standalone` đã có và harness đã chạy nó (ca "production gate"). **Thiếu:** Dockerfile, `docker-compose` (app + Postgres + kho S3), sổ tay tự chạy, một lần chạy thật ngoài Vercel |
+| Database | Neon | PostgreSQL bất kỳ | Không thiếu: migration SQL chuẩn, sao lưu bằng `pg_dump` |
+| Ảnh/video | Cloudflare R2 | S3, MinIO, bất kỳ kho tương thích S3 | **Mã ghép cứng** `<account>.r2.cloudflarestorage.com` ở 4 chỗ (`lib/owner/media.ts`, `lib/owner/profile.ts`, `scripts/backup.mjs`, `scripts/restore-backup.mjs`) → cần biến `endpoint` |
+| IP khách (chặn bot, A1) | Tin header của Vercel | Sau nginx/Caddy | **Thiếu** cấu hình "proxy tin cậy"; ngoài Vercel hiện không tin được header nào (`server/guest-limits.ts`) |
+| Việc định kỳ (sao lưu) | GitHub Actions | cron bất kỳ | Không thiếu: script tự đứng |
+| Tên miền, DNS | Cloudflare | Bất kỳ | Không thiếu |
+| Email, Zalo | Chưa có | Qua adapter khi làm | Làm qua adapter ngay từ đầu (B5, B7) |
+| Trang Quyền riêng tư | Ghi tên Vercel, Neon, R2 | — | Sửa chữ khi đổi nhà cung cấp |
+
+Lát **I1 · Tự chạy được** (không dịch vụ trả phí): biến endpoint cho kho S3 · cấu hình proxy tin cậy · Dockerfile +
+`docker-compose` · sổ tay tự chạy · một job CI dựng image và chạy ca "production gate" trên nó.
+
+## 5. Sẵn sàng cho đội ngũ
+
+- **Designer** làm **gói khuôn** (CSS + manifest + ảnh), không đụng TypeScript; tự chạy lệnh kiểm gói (M1, M6).
+- **Coder** làm **module** (section, loại ô, hiệu ứng) và lõi, theo ranh giới thư mục rõ; mỗi module có README ngắn và test.
+- **Quy trình như ứng dụng lớn:** mọi thay đổi qua PR + review + 7 bộ test (CI đã có — A4); bảo vệ nhánh `main` (F5);
+  migration đánh số, chạy trước khi đẩy code; số bản nền tảng + nhật ký thay đổi (P6); mỗi quyết định một ADR, sổ tay vận
+  hành, hướng dẫn người mới (A25); môi trường staging dữ liệu giả (D8).
+- **Tài liệu nguồn:** tệp này (kiến trúc) · `PRODUCT.md` (cho ai) · `DESIGN.md` (trông thế nào) · `google-policy.md` (luật
+  cứng) · `goi-va-trang.md` (quán, trang, gói) · `operations-gotchas.md` (bẫy đã dính).
+
+## 6. Quyết định lớn Tài đã nêu mà chưa thực hiện (từ 09/09 tới 26/09)
+
+| Quyết định / ý lớn | Nêu khi | Trạng thái |
+|---|---|---|
+| Web là tổ hợp module; kho khuôn như Canva, mỗi khuôn một cách chỉnh | 26/09 | Đích ở mục 3; M1–M6 chưa làm |
+| Trang = "web của quán bản thu nhỏ": ô sự kiện khi lướt xuống, link YouTube xem trước | 26/09 | M4, cùng A16 |
+| Khung poster tự theo khổ video, bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu thay video | 26/09 | M4 — đợt cải tổ UI/UX |
+| Tự chạy được không cần thuê Vercel; tạo việc làm cho coder, designer | 09/09 · 26/09 | I1 và mục 5 |
+| "Hôm nay ở quán", trò "săn" bé nhồi bông, dấu thương hiệu nền tảng, "quanh đây có gì" | 20/09 | A16, F6, D7 — chưa làm |
+| Kho khuôn có trạng thái thử → mở; khuôn theo ngành; ba khuôn có tranh | 25/09 · 20/09 | M5, A22, A34 (chờ ảnh) |
+| Lớp trang trí kéo thả có ràng buộc cho khuôn 4 | 23/09 | A35 |
+| App admin trên tên miền riêng | 25/09 | P7 |
+| Số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi | 25/09 | P6 |
+| Thu tiền: kỳ tháng, chuyển khoản QR, admin xác nhận, huỷ → tạm ngừng 30 ngày → đóng | 25/09 | P5b — Tài: chưa thu, cần cảm nhận khách trước |
+| Đền bù khi chủ quán tạm dừng khẩn cấp | 25/09 | Tài: bàn sau |
+| Một thẻ NFC chuyển được giữa các trang của cùng quán không | 25/09 | Chưa chốt |
+| Dữ liệu trang đã đóng: xoá ngay hay giữ bao lâu | 25/09 | Chưa chốt (đi cùng hạn giữ dữ liệu) |
+| Số điện thoại có hai mục đích (gọi lại vì khiếu nại · sự kiện/quay thưởng) → cần cột `purpose` **trước khi có loại thứ hai** | 21/09 | **Chưa làm** — phải làm trước A16 nếu A16 xin số |
+| Hạn giữ dữ liệu: trang chính sách hứa tối đa 12 tháng | 21/09 | Dời; **hạn chót 9/2027** |
+| Đọc dòng sự kiện hành vi (engine, số liệu, so sánh bản) | 21/09 | Dời (Tài 26/09) |
+| Dashboard tiếng Anh ("Review Landing Pages") | 18/09 | A24 |
+| Quên mật khẩu tự gửi email; báo cáo tuần | 18/09 | B5 — chờ dịch vụ email |
+| 2FA cho chủ quán, danh sách phiên đăng nhập | 20/09 | A12, A11 |
+| Nhận diện nền tảng, nhãn hiệu, luật sư | 20/09 | F1, F2, F6 |
+
+## 7. Đề xuất thứ tự tiếp theo
+
+1. **I1 · Tự chạy được** — nhỏ, gỡ ba chỗ buộc cứng; từ đó mọi lát sau đều chạy được ngoài Vercel.
+2. **M1 · Gói khuôn** rồi **M2 · Module hiệu ứng** — không đổi hành vi, không migration; mở cửa cho designer.
+3. **Cột `purpose` cho số điện thoại** — nhỏ, có migration; phải có trước bất kỳ section nào xin số.
+4. **M3 · Section** — bước có migration lớn nhất của đợt này.
+5. **M4 · Đợt cải tổ UI/UX** cùng A16 — lúc này sự kiện, YouTube, poster tự khổ chỉ là section mới.
+
+Song song phía Tài: sao lưu (`sao-luu.md`), F4, F5, thử sáu khuôn trên điện thoại thật, quán thật đầu tiên.
