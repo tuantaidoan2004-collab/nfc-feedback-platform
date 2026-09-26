@@ -197,18 +197,42 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình khuôn*
 | **13** | Hai luật dùng chung mọi khuôn: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi khuôn, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-25
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-26
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên rồi khối này; chi tiết ở tệp được trỏ.
 
 ### Đang ở đâu
 
-- **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–024** (Tài báo 25/09, cả preview).
-  `main` có khuôn 6 hạt ngọc (24/09). Preview cùng nhánh `feat/local-app-foundation`, Neon cũng đã 022.
+- **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–027 cả hai
+  branch** (Tài báo 26/09). `main` = nhánh = `4e15cd0` (dọn nợ P1) + commit tài liệu này.
+- **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy,
+  rồi Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
+- **`/urr6ud` trên production là shop KHUÔN MẪU ("YOUR SHOP", khuôn 1), không phải Googy** (Googy dùng khuôn 6). Các báo
+  cáo 25–26/09 gọi nhầm nó là Googy; mỗi lần kiểm production ghi một lượt ghé vào shop khuôn mẫu.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Đừng suy ra khách thật từ bất cứ đâu.
-- Preview có ba shop: `8irrsv53fiva` (*cà phê Dê*, active) · `caphe-demo` (draft) · `pripi01r8e9u` (khuôn).
-  Production có `urr6ud`. **Hai branch Neon khác nhau — slug bên này không có bên kia.**
-- **Astra dừng**: OpenAI không cho làm C3. C3 (cô lập dữ liệu giữa các shop) **chuyển sang Claude**, chưa làm.
+- **Hai branch Neon khác nhau — slug bên này không có bên kia.**
+- C3 mặt trận 1 **đã làm** (26/09, `security-review-c3.md`); mặt trận 3 (media/R2) chưa.
+
+### Việc đang dở — đọc trước khi làm tiếp (26/09)
+
+1. **Lát kế tiếp: A3 dọn mã cũ.** Tài đã đếm trên cả hai branch: `experiences`, `memberships`, `owner_users`,
+   `owner_sessions` đều **0**; shop có `hero_key` **0**; **một shop không có trang ở cả hai branch: `caphe-demo`** ("Cà Phê
+   Demo", draft, không phải khuôn — shop demo dựng tay từ trước). Kế hoạch, theo thứ tự Astra ghi ở `roadmap-slices.md` A3:
+   (a) gỡ nhánh dự phòng khi cờ v2 tắt — `app/api/owner/[shop]`, `app/api/shops/[shop]/experience`, trang khách đời 1
+   (`components/shop-feedback.tsx`), `shop-dashboard.tsx`, `owner-dashboard.tsx` (đời 1), `lib/demo-store.ts`, `app/demo`,
+   `/t/demo`, `server/shops.ts` + `server/auth.ts` `requireOwner`, nhánh cờ-tắt trong `app/[shop]/page.tsx`,
+   `app/ZZZ/[shop]/page.tsx` và đường không-publishing của `server/visit-v2-api.ts`; viết lại các test chạy chế độ cờ tắt
+   (harness public: "publishing gate off and demo retain legacy behavior", "production gate"). (b) **Migration 028**: xoá
+   view `shop_profile` (027 hẹn), bốn bảng đời cũ, cột `shops.hero_key/hero_kind`; bảng nào còn dòng thì migration dừng.
+   `caphe-demo`: hỏi Tài đóng hay để (không có link, khách không vào được). Mức nỗ lực cao; có migration → dừng đưa lệnh Neon.
+2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
+   mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
+3. Sau A3: **tốc độ trang khách (E6)** trước quán đầu tiên; **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách hứa
+   12 tháng mà chưa có gì xoá); rồi P6, P7, P5b (thu tiền) tuỳ nhu cầu.
+4. **Việc của Tài còn treo:** xoay mật khẩu đã lộ (F4) · xem tab Actions + bật bảo vệ `main` (F5) · thử sáu khuôn trên
+   iPhone/Android thật + lỗi Googy "Chưa kết nối được" (chưa tái hiện).
+5. **Hai việc tách riêng đang chờ** (nút trong app): ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`), ca impersonation
+   không đứng một mình (`admin-http.spec.ts` ~240).
 
 ### Sáu áo khoác dựng thử đã bị xoá (Tài, 23/09)
 

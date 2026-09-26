@@ -455,3 +455,8 @@ Lát dọn nợ P1 (027) bỏ `shops.active_release_id`; ca "rollback003" chạy
 ấy — nên đỏ vì cột không còn. Ca migration 024 gọi `PublishingResolver` (đọc `page_profile`) trước khi áp 027. Cả hai là
 thứ tự trong test, không phải lỗi migration. Luật: khi thêm migration N, `grep` mọi `db/rollback/` được gọi trong test và
 thêm gỡ N **trước** chúng; mọi chỗ gọi mã sản phẩm trên một schema cũ phải áp đủ migration tới N trước.
+
+**Gọi nhầm tên shop khi kiểm production.** Từ 25/09 Claude báo "trang Googy `/urr6ud`" sau mỗi lần deploy, nhưng
+`/urr6ud` là shop khuôn mẫu ("YOUR SHOP", khuôn 1); Googy dùng khuôn 6. Lộ ra khi in tiêu đề trang (26/09). Việc kiểm vẫn
+đúng về kỹ thuật, nhưng tên sai và mỗi lần kiểm ghi một lượt ghé vào shop khuôn mẫu. Luật: in **tiêu đề và khuôn** của
+trang mình kiểm, và ghi đúng nó là gì — đừng đặt tên theo trí nhớ.
