@@ -476,3 +476,8 @@ xoá cả bảng có dữ liệu. Bắt được lúc đọc lại, trước khi
 và bản build production (3319) sẽ không bao giờ "lên" — harness sẽ đợi 30 giây rồi báo `did not start`, trông như server
 hỏng. Bắt được lúc đọc harness, trước khi chạy. Điểm kiểm sống phải là trang **luôn** 200 bất kể cờ: giờ là `/dieu-khoan`. Bỏ một đường lùi thì rà cả những chỗ
 dùng đường đó làm tín hiệu.
+
+**Đổi đích của một bước điều hướng mà không đọc bước sau.** Lát A3 thay `/t/demo` bằng `/dieu-khoan` làm "trang rời đi"
+trong ca BFCache, nhưng dòng kế tiếp (`goForward`) kiểm nút "Google Maps" — nút của trang demo, tức của **trang đích**.
+Bảy bộ bắt được (harness public đỏ một ca). Luật cho Claude: thay một URL trong test thì đọc hết các dòng dùng trang đó
+tới lần điều hướng tiếp theo, không chỉ dòng có URL.

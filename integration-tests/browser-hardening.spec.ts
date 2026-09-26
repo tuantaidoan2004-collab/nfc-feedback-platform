@@ -53,7 +53,7 @@ test('3E real history back/forward: actual BFCache and visibility match every st
   await ready(page); await rate(page, 5);
   await page.goto('/dieu-khoan'); await page.goBack({ waitUntil: 'commit' }); await loaded(page);
   await page.waitForLoadState('networkidle');
-  await page.goForward({ waitUntil: 'commit' }); await expect(page.getByRole('button', { name: /Google Maps/ })).toBeVisible();
+  await page.goForward({ waitUntil: 'commit' }); await expect(page.getByRole('heading', { name: 'Điều khoản sử dụng' })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.goBack({ waitUntil: 'commit' }); await loaded(page); await page.waitForLoadState('networkidle');
   expect(await latest(db)).toMatchObject({ rating: 5, revision: 1 });
