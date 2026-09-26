@@ -130,6 +130,8 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  expect(setupUrl).toContain('/owner/setup/');
  const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
+ // What the shop would pay (lát P5): one running page on a free place.
+ await expect(page.locator('tr',{has:page.getByRole('cell',{name:slug})}).locator('[data-shop-monthly]')).toHaveText('1 trang · 0đ/tháng');
  // The chosen skeleton is the release's template, and it reaches the guest page as a skin hook only.
  expect((await admin.db.query(`SELECT tv.template_key FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id
    JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.slug=$1`,[slug])).rows).toEqual([{template_key:'glass'}]);

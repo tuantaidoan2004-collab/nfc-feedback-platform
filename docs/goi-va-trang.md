@@ -92,7 +92,7 @@ dừng khẩn cấp, duyệt ảnh.
 | P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng — **xong 25/09** (mục 11) | Không |
 | P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn — **xong 25/09** (mục 12) | Nhỏ (025) |
 | P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin — **xong 25/09** (mục 13) | Có (026) |
-| P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản | Có |
+| P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản — **phần hiện giá xong 26/09** (mục 14); phần thu tiền để sau | Có (phần thu) |
 | P6 | **Số bản nền tảng + nhật ký thay đổi** | Không |
 | P7 | **App admin trên tên miền riêng** | Không |
 
@@ -102,8 +102,8 @@ dừng khẩn cấp, duyệt ảnh.
 - Đổi từ khuôn 0đ sang khuôn có phí giữa kỳ: tính tiền từ lúc nào.
 - Một thẻ NFC có chuyển được từ trang này sang trang khác của cùng quán không.
 - Dữ liệu góp ý của trang đã đóng: xoá ngay hay giữ bao lâu (phải khớp trang chính sách quyền riêng tư).
-- **Khung "Thẻ NFC" còn ghi cách tính tiền cũ** (5 thẻ gồm trong gói, 8k/thẻ thêm — `lib/owner/cards.ts`
-  `cardMonthlyFee`, `commercial-model.md` §3), trái với mục 4. Sửa ở P5 (Tài chỉ ra qua ảnh 25/09).
+- ~~Khung "Thẻ NFC" còn ghi cách tính tiền cũ~~ — đã bỏ ở P5 (26/09): thẻ không tính phí trong app.
+- ~~Đổi khuôn 0đ sang khuôn có phí giữa kỳ tính từ lúc nào~~ — **kỳ sau** (Tài, 26/09).
 
 ## 10. P1 đã làm (25/09) — migration 024
 
@@ -186,3 +186,19 @@ dừng khẩn cấp, duyệt ảnh.
 - **Đóng:** link và thẻ trả **404**; không mở lại được; link không bao giờ cấp lại. **Dữ liệu chưa xoá** — bao lâu thì xoá
   vẫn ở mục 9. Hôm nay chỉ admin đóng được; "Huỷ gói → hết kỳ → tạm ngừng 30 ngày → đóng" là P5.
 - Dashboard mở mặc định trang đầu tiên **chưa đóng**.
+
+## 14. P5 phần hiện giá (26/09) — không migration, **chưa thu phí**
+
+Tài, 26/09: thẻ NFC không tính phí trong app ("chỉ là vật chứa link", bán riêng); trang **chưa thu phí thật** — cần cảm
+nhận của khách trước. Đổi khuôn có phí thì tính từ **kỳ sau**. Nên phần này chỉ hiện giá:
+
+- **Bảng giá** ở `lib/publishing/pricing.ts`: khuôn 1–5 10.000đ/tháng, khuôn 6 0đ; hai suất miễn phí cho hai trang có
+  phí **đang chạy** lâu nhất (khuôn 6 không chiếm suất; nháp, tạm ngừng, đóng không tính, không giữ suất); giá theo khuôn
+  **đang chạy trên trang khách**. "Lâu nhất" đo bằng lúc tạo trang — chưa có mốc "bắt đầu chạy".
+- **Dashboard:** mỗi dòng trang ghi giá ("Miễn phí (suất miễn phí)", "Miễn phí (khuôn miễn phí)", "10.000đ/tháng", hoặc
+  "…/tháng khi chạy" với trang nháp); tổng dự kiến kèm dòng **"Chưa thu phí trong giai đoạn thử"**; kho khuôn ghi giá
+  cạnh tên.
+- **`/gov`:** cột "Trang · dự kiến" cho từng quán.
+- **Thẻ NFC:** bỏ hẳn phí (hàm `cardMonthlyFee`, số "5 thẻ gồm trong gói"); khung thẻ chỉ còn số thẻ đang hoạt động.
+- **Chưa làm (khi Tài quyết thu):** kỳ tháng, admin bấm "đã nhận" chuyển khoản, huỷ gói → hết kỳ → tạm ngừng 30 ngày
+  (lý do `billing` đã có từ 026) → đóng, và mốc "bắt đầu chạy". Cần migration.

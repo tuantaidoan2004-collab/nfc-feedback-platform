@@ -163,13 +163,13 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`design-${width}.png`),fullPage:true});}
  expect(errors).toEqual([]);
 });
-test('cards: nhân bản thẻ, see the fee before switching on, the card opens the page, off closes it',async({page,context,f},info)=>{
+test('cards: nhân bản thẻ, confirm before switching on, the card opens the page, off closes it',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const warm=await context.newPage();await warm.goto('/t/demo');await warm.goto('/t/zzzzz');await warm.close();
  await login(page,f.users[0]);
  await page.locator('[data-view="design"]').click();
  const panel=page.locator('[data-cards]');
- await expect(panel.locator('[data-card-fee]')).toContainText('Đang hoạt động: 0 thẻ');
+ await expect(panel.locator('[data-card-count]')).toHaveText('Đang hoạt động: 0 thẻ.');
  await panel.getByLabel('Tên thẻ mới',{exact:true}).fill('Bàn 3');
  await panel.getByRole('button',{name:'Nhân bản thẻ',exact:true}).click();
  await expect(panel.locator('[data-cards-notice]')).toContainText('Đã nhân bản thẻ "Bàn 3"');
@@ -181,8 +181,9 @@ test('cards: nhân bản thẻ, see the fee before switching on, the card opens 
  let asked='';page.once('dialog',dialog=>{asked=dialog.message();void dialog.accept();});
  await row.getByRole('button',{name:'Kích hoạt',exact:true}).click();
  await expect(row.locator('[data-card-state]')).toHaveText('Đang hoạt động');
- expect(asked).toContain('nằm trong 5 thẻ đã gồm trong gói');
- await expect(panel.locator('[data-card-fee]')).toContainText('Đang hoạt động: 1 thẻ');
+ // Cards carry no fee in the app any more (Tài, 26/09): the confirmation says what happens, not what it costs.
+ expect(asked).toContain('Khách chạm thẻ là mở trang ngay.');expect(asked).not.toMatch(/phí|gói|đ\/tháng/);
+ await expect(panel.locator('[data-card-count]')).toHaveText('Đang hoạt động: 1 thẻ.');
  await customer.reload();await expect(customer.locator('main[data-ready]')).toBeVisible();
  await expect(customer.getByRole('heading',{name:'Shop one',exact:true})).toBeVisible();
  page.once('dialog',dialog=>void dialog.accept());
@@ -428,6 +429,10 @@ test('pages: a picture of each, copy one, make one from the library, bring conte
  await page.locator('[data-view="design"]').click();
  const rows=page.locator('[data-pages] [data-page]');
  await expect(rows).toHaveCount(1);
+ // Prices are shown, and nothing is charged yet (lát P5).
+ await expect(page.locator('[data-pages-price]')).toContainText('Chưa thu phí');
+ await expect(page.locator('[data-page="one"] [data-page-price]')).toHaveText('Miễn phí (suất miễn phí)');
+ await expect(page.locator('[data-new-page] select option[value="big-button"]')).toHaveText('6 · Nút lớn — miễn phí');
  // The picture is the page drawn still: no visit is recorded for it, and only this app may frame it.
  await expect(page.frameLocator('[data-page="one"] iframe').locator('main.guest')).toBeVisible();
  await expect(page.locator('[data-page="one"] iframe')).toHaveAttribute('sandbox','allow-same-origin');
@@ -443,6 +448,8 @@ test('pages: a picture of each, copy one, make one from the library, bring conte
  const copy=(await rows.nth(1).getAttribute('data-page'))!;
  await expect(rows.nth(1)).toHaveAttribute('aria-current','true');
  await expect(page.locator('[data-page-state]').nth(1)).toHaveText('Chưa phát hành');
+ // Type only once the editor has moved to the new page, or the words land in the one it is leaving.
+ await expect(page.locator(`[data-design-page="${copy}"]`)).toBeVisible();
  await page.getByLabel('Tên hiển thị',{exact:true}).fill('Phòng VIP');
  await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
  await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp');
@@ -463,6 +470,7 @@ test('pages: a picture of each, copy one, make one from the library, bring conte
  await page.getByRole('button',{name:'Tạo trang',exact:true}).click();
  await expect(rows).toHaveCount(3);
  await expect(rows.nth(2)).toHaveAttribute('aria-current','true');
+ await expect(page.locator(`[data-design-page="${(await rows.nth(2).getAttribute('data-page'))!}"]`)).toBeVisible();
  await expect(page.locator('[data-no-settings]')).toBeVisible();
  await page.locator('[data-import] select').selectOption('one');
  await expect(page.getByLabel('Tên hiển thị',{exact:true})).toHaveValue('Shop one');

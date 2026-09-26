@@ -434,3 +434,12 @@ nội dung** trong `pg_constraint`, đừng gõ tên: tên tự sinh phụ thu�
 khi commit; bảy bộ trên worktree tạm bắt được test cũ chưa theo (P4: bốn ca — hai ca migration 023/024 gọi mã mới trên
 schema chưa có 026, hai ca nhận câu trả lời mới `PAGE_NOT_FOUND` sớm hơn). Không có gì lên `main` nhờ bảy bộ, nhưng mỗi
 lần mất một vòng. Luật cho Claude: **trước khi commit, chạy cả bộ repository** (một phút rưỡi), không chỉ tệp mới.
+
+**162 ca đỏ trong 2 ms là database tắt, không phải mã hỏng.** Lát P5 chạy bộ repository ngay sau khi dọn lát P4 — lúc
+dọn đã tắt Postgres test cổng 55439. Mọi ca đỏ gần như tức thì. Dấu hiệu: thời gian mỗi ca ~2 ms và đỏ cả những tệp
+không liên quan. Trước khi đọc lỗi từng ca, `lsof -iTCP:55439 -sTCP:LISTEN`.
+
+**Gõ vào trình chỉnh ngay sau "Nhân bản" có thể rơi vào trang cũ.** Sau khi tạo trang, danh sách tải lại rồi trình chỉnh
+mới dựng lại cho trang mới; gõ trong khoảng đó thì chữ vào trình chỉnh đang bị thay. Ca harness P3 đỏ một lần vì thế
+(lúc máy chậm hơn). Test chờ `[data-design-page="<trang mới>"]` trước khi gõ. Với người thật khoảng này dưới một giây;
+nếu có người báo mất chữ thì khoá ô nhập trong lúc chuyển trang.

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { CODE_ALPHABET, shortCode, withShortCode } from '../../lib/short-code';
-import { cardMonthlyFee } from '../../lib/owner/cards';
 test('short codes use only unambiguous characters, evenly', () => {
   expect(CODE_ALPHABET).not.toMatch(/[01ilo]/);
   const seen = new Map<string, number>();
@@ -21,7 +20,4 @@ test('a code that spells an account route is never handed out (migration 014)', 
   const tried: string[] = [];
   const code = await withShortCode(async candidate => { tried.push(candidate); return candidate; }, (() => { const queue = ['setup', 'abcde']; return () => queue.shift()!; })());
   expect(code).toBe('abcde'); expect(tried).toEqual(['abcde']);
-});
-test('card fee follows the price list: five included, 8k to twenty, 5k after', () => {
-  expect([0, 5, 6, 20, 21, 25].map(cardMonthlyFee)).toEqual([0, 0, 8000, 120000, 125000, 145000]);
 });

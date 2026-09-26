@@ -223,7 +223,7 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
   const move = (index: number, by: number) => {
     const links = [...config.links], [item] = links.splice(index, 1); links.splice(index + by, 0, item); change({ links });
   };
-  return <section aria-label="Thiết kế & Link" data-design-editor>
+  return <section aria-label="Thiết kế & Link" data-design-editor data-design-page={state.page.slug}>
     <div className={styles.panel}>
       <div className={styles.editorBar}>
         <p className={styles.hint} data-draft-state>{dirty ? 'Có thay đổi chưa lưu.' : `Bản nháp số ${state.draft.revision}.`} Khách chỉ thấy bản đã <strong>Phát hành</strong>. Trang khách: <a href={customerUrl} target="_blank" rel="noreferrer">mở trang đang chạy</a></p>

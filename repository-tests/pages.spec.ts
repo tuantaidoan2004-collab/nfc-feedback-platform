@@ -182,7 +182,8 @@ async function manager(f:F,shopId:string){
 
 test('the page list: the owner copies a page or takes a template from the library, each a draft at a new permanent link',async({f})=>{
  const shop=await shopOn(f,1),pages=new OwnerPages(f.db),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
- expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'',state:'active',pauseReason:null,template:{key:'minimal',version:1},createdAt:expect.any(String)}]});
+ expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,monthly:0,pages:[{slug:shop.slug,label:'',state:'active',pauseReason:null,template:{key:'minimal',version:1},createdAt:expect.any(String),
+  price:{slug:shop.slug,list:10000,monthly:0,billable:true,free:'slot'}}]});
  // A copy: same template version and draft, its own link and name, not live until published.
  const before=(await design.read(shop.token,shop.slug)).draft.config;
  const copy=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Phòng VIP'});
@@ -200,7 +201,15 @@ test('the page list: the owner copies a page or takes a template from the librar
  expect((await pages.list(shop.token,shop.slug)).pages[2].label).toBe('Quầy bar tầng 1');
  for(const body of [{template:'nope',label:''},{copy:'khong-co',label:''},{template:'minimal',label:'x'.repeat(61)},{template:'minimal'},{copy:shop.slug,template:'minimal',label:''},{page:shop.slug,label:'<b>'}])
   await expect('page' in body?pages.rename(shop.token,shop.slug,body):pages.create(shop.token,shop.slug,body)).rejects.toMatchObject({status:expect.any(Number)});
- expect((await f.db.query("SELECT target FROM shop_activity WHERE action='page.create' ORDER BY id")).rows.map(r=>r.target)).toEqual([`Phòng VIP (${copy.slug})`,`Quầy bar (${fresh.slug})`]);
+ // Prices (lát P5, nothing charged yet): two running paid pages take the free places, khuôn 6 is free, a third costs 10k.
+ let listed=await pages.list(shop.token,shop.slug);
+ expect([listed.monthly,listed.pages.map(p=>[p.price.monthly,p.price.free,p.price.billable])]).toEqual([0,[[0,'slot',true],[0,'slot',true],[0,'template',false]]]);
+ const third=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Bàn 3'});
+ await design.publish(shop.token,shop.slug,{action:'publish',expectedRevision:1},third.slug);
+ listed=await pages.list(shop.token,shop.slug);
+ expect([listed.monthly,listed.pages.at(-1)!.price]).toEqual([10000,{slug:third.slug,list:10000,monthly:10000,billable:true,free:null}]);
+ expect((await f.shops.list()).find(row=>row.id===shop.shopId)).toMatchObject({pages:4,monthly:10000});
+ expect((await f.db.query("SELECT target FROM shop_activity WHERE action='page.create' ORDER BY id")).rows.map(r=>r.target)).toEqual([`Phòng VIP (${copy.slug})`,`Quầy bar (${fresh.slug})`,`Bàn 3 (${third.slug})`]);
 });
 
 test('only the owner makes pages or changes a template: each decides what the shop pays',async({f})=>{

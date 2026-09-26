@@ -217,7 +217,13 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — P4 vòng đời trang, migration 026 (25/09)
+### Xong gần nhất — P5 phần hiện giá (26/09)
+
+Giá theo trang (khuôn 1–5 10k/tháng, khuôn 6 0đ, hai suất miễn phí) hiện trong dashboard và `/gov`, **chưa thu phí**
+(Tài: cần cảm nhận khách trước). Thẻ NFC bỏ hẳn phí. Đổi khuôn có phí: tính từ kỳ sau. **Không migration.**
+Chi tiết `goi-va-trang.md` mục 14; phần thu tiền để khi Tài quyết.
+
+### Trước đó — P4 vòng đời trang, migration 026 (25/09, đã lên production — Claude kiểm `/urr6ud` 200, route admin mới có mặt)
 
 Trang: nháp → đang chạy ⇄ tạm ngừng → đóng. Tạm ngừng: khách thấy "Trang tạm ngừng", dữ liệu giữ. Nút tạm dừng khẩn
 cấp của chủ quán gửi báo cáo vào `/gov`; admin mở lại, đóng, ghi đã xử lý. Đóng: 404, vĩnh viễn, dữ liệu chưa xoá.

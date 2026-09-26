@@ -7,18 +7,12 @@ import { pageOf } from './pages';
 /**
  * The shop's NFC cards (lát E, 2026-09-18). "Nhân bản thẻ" makes another card for the same page: one page, many
  * cards, each with its own short code and name, so figures split by card. Anyone who runs the shop may add, rename
- * and switch a card off; only the owner switches a card on, because active cards are what the shop pays for.
+ * and switch a card off; only the owner switches a card on, because a live card sends guests straight to the page.
  * Support never changes cards, at any switch position.
  */
 export type CardState = 'prepared' | 'tested' | 'active' | 'disabled';
 export type Card = { id: string; code: string; label: string; state: CardState; page: string };
 
-/** Price list of commercial-model.md §3: five active cards come with the plan, then 8k each to 20, then 5k. */
-export const INCLUDED_CARDS = 5;
-export function cardMonthlyFee(activeCards: number) {
-  const tier1 = Math.max(0, Math.min(activeCards, 20) - INCLUDED_CARDS), tier2 = Math.max(0, activeCards - 20);
-  return tier1 * 8000 + tier2 * 5000;
-}
 const label = (value: unknown) => {
   if (typeof value !== 'string' || !value.trim() || value.trim().length > 60 || /[\u0000-\u001f<>]/.test(value)) throw new OwnerError(400, 'INVALID_CARD');
   return value.trim();
@@ -39,8 +33,9 @@ export class OwnerCards {
       const cards = (await db.query(`SELECT t.id,t.public_code code,t.location_label label,t.state,p.slug page FROM tags t JOIN pages p ON p.id=t.page_id
         WHERE t.shop_id=$1 ORDER BY t.state='disabled',t.public_code`, [access.shopId])).rows as Card[];
       const active = cards.filter(card => card.state === 'active').length;
-      return { cards, active, included: INCLUDED_CARDS, monthlyFee: cardMonthlyFee(active), nextFee: cardMonthlyFee(active + 1) - cardMonthlyFee(active),
-        canActivate: access.actor.kind === 'owner' && access.role === 'owner' };
+      // No fee per card (Tài, 26/09): a card only holds a link and is sold on its own. What a shop pays is per page
+      // (lib/publishing/pricing.ts).
+      return { cards, active, canActivate: access.actor.kind === 'owner' && access.role === 'owner' };
     });
   }
 

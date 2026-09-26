@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { TEMPLATE_KEYS, isTemplateKey } from '@/lib/publishing/config';
 import { TEMPLATE_NAMES } from '@/lib/publishing/versions';
+import { FREE_PAGES, TEMPLATE_PRICES, vnd, type Price } from '@/lib/publishing/pricing';
 import type { PageSummary } from '@/lib/owner/pages';
 import styles from './owner-app.module.css';
 // Same stylesheets as the framed pictures, so framing one adds no new global CSS (see guest-styles.ts).
@@ -12,7 +13,7 @@ import './guest-styles';
  * is live. Choosing one points the editor and the cards below at it. The owner makes new pages two ways -- a copy of
  * the chosen page, or a template fresh from the library -- and each starts as a draft at its own permanent link.
  */
-export type PageList = { pages: PageSummary[]; canManage: boolean };
+export type PageList = { pages: PageSummary[]; monthly: number; canManage: boolean };
 const ERRORS: Record<string, string> = {
   OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop tạo được trang mới, vì mỗi trang là một gói.',
   IMPERSONATION_READ_ONLY: 'Quản trị không tạo hay đổi tên trang của shop.',
@@ -22,6 +23,9 @@ const ERRORS: Record<string, string> = {
   PAUSE_NOT_YOURS: 'Trang do nền tảng tạm dừng; liên hệ nền tảng để mở lại.',
 };
 const templateName = (key: string) => isTemplateKey(key) ? TEMPLATE_NAMES[key] : key;
+/** What one page costs a month (lib/publishing/pricing.ts). Nothing is charged yet; the panel says so. */
+const priceLabel = (price: Price) => price.free === 'template' ? 'Miễn phí (khuôn miễn phí)' : price.free === 'slot' ? 'Miễn phí (suất miễn phí)'
+  : price.billable ? `${vnd(price.monthly)}/tháng` : `${vnd(price.list)}/tháng khi chạy`;
 const STATE: Record<PageSummary['state'], string> = { draft: 'Chưa phát hành', active: 'Đang chạy', paused: 'Tạm ngừng', closed: 'Đã đóng' };
 
 export default function PagesPanel({ shop, endpoint, origin, list, selected, onSelect, onChanged }: {
@@ -46,6 +50,8 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
     <h2>Trang ({list.pages.length})</h2>
     <p className={styles.hint}>Mỗi trang là một link riêng, với khuôn, nội dung và thẻ NFC riêng. Chọn một trang để sửa nó và thẻ của nó ở bên dưới.
       Trang mới là bản nháp: khách chỉ thấy sau khi bạn bấm <strong>Phát hành</strong>.</p>
+    <p className={styles.hint} data-pages-price>Dự kiến: <strong>{vnd(list.monthly)}/tháng</strong> · {FREE_PAGES} trang có phí đầu tiên được miễn,
+      khuôn miễn phí không tính vào đó. <strong>Chưa thu phí</strong> trong giai đoạn thử.</p>
     <ul className={styles.pageList}>{list.pages.map(page => <li key={page.slug} className={styles.pageRow} data-page={page.slug} aria-current={page.slug === current}>
       <div className={styles.thumb} aria-hidden="true">
         {/* A picture, so no script runs in it: server HTML and CSS only -- nothing hydrates, nothing is recorded. */}
@@ -56,6 +62,7 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
         <p><a href={`${origin}/${page.slug}`} target="_blank" rel="noreferrer">{origin.replace(/^https?:\/\//, '')}/{page.slug}</a></p>
         <p>{templateName(page.template.key)} · bản {page.template.version} · <span className={styles.badge} data-page-state={page.state}>
           {STATE[page.state]}{page.state === 'paused' && page.pauseReason !== 'emergency' ? ' (do nền tảng)' : ''}</span></p>
+        <p data-page-price>{priceLabel(page.price)}</p>
       </div>
       <div className={styles.rowButtons}>
         {page.state !== 'closed' && <button type="button" disabled={page.slug === current} onClick={() => onSelect(page.slug)}>{page.slug === current ? 'Đang sửa' : 'Sửa trang này'}</button>}
@@ -77,7 +84,7 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
     </li>)}</ul>
     {list.canManage && <div className={styles.toolRow} data-new-page>
       <label>Trang mới từ kho khuôn<select value={template} onChange={e => setTemplate(e.target.value)}>
-        {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}</select></label>
+        {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]} — {TEMPLATE_PRICES[key] ? `${vnd(TEMPLATE_PRICES[key])}/tháng` : 'miễn phí'}</option>)}</select></label>
       <label>Tên trang<input value={label} maxLength={60} placeholder="Ví dụ: Quầy bar" onChange={e => setLabel(e.target.value)} /></label>
       <button type="button" disabled={busy} onClick={() => void send('POST', { template, label },
         data => { setLabel(''); return `Đã tạo trang mới ${data.slug} từ khuôn ${templateName(template)}. Dùng "Nhập dữ liệu từ trang khác" để lấy nội dung của quán.`; })}>Tạo trang</button>

@@ -3,12 +3,15 @@ import { useState } from 'react';
 import styles from './admin.module.css';
 import { TEMPLATE_KEYS } from '@/lib/publishing/config';
 import { TEMPLATE_NAMES } from '@/lib/publishing/versions';
+import { vnd } from '@/lib/publishing/pricing';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
   tags: number; active_tags: number;
   owner_user_id: string | null; owner_username: string | null; owner_email: string | null; last_seen: string | null;
   support_level: 'off' | 'view' | 'edit' | 'full';
+  /** Pages, and what they would cost a month (lát P5, nothing charged yet). */
+  pages: number; monthly: number;
 };
 /** The owner's four positions, as the operator sees them (migration 012). */
 const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
@@ -182,7 +185,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
         <button type="button" onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
       <div className={styles.wide}>
         <table className={styles.table}>
-          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
+          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang · dự kiến</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
               <td>{row.is_template && <><strong>KHUÔN</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
@@ -192,6 +195,7 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
                 ? row.owner_username ? <>{row.owner_username} <em>(tài khoản test)</em></> : <em>chưa có tài khoản, dùng để nhân bản</em>
                 : row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
               <td>{row.active_tags}/{row.tags} hoạt động</td>
+              <td data-shop-monthly={row.monthly}>{row.pages} trang · {row.is_template ? '—' : `${vnd(row.monthly)}/tháng`}</td>
               <td>{row.publishing_state}</td>
               <td data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
               <td>{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>

@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
 import { PublishingError, isTemplateKey, templateConfig, validateConfig, type TemplateKey } from '../publishing/config';
 import { latestVersion } from '../publishing/versions';
+import { priceSheet } from '../publishing/pricing';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
@@ -242,6 +243,17 @@ export class ShopProvisioning {
 
   /** What the administrative table shows: one row per shop, with what is needed to act on it. */
   async list() {
+    const shops = await this.shopRows();
+    // What each shop would pay each month (lát P5; nothing is charged yet): its pages, priced by the template guests see.
+    const pages = (await this.pool.query(`SELECT p.shop_id,p.slug,p.state,p.created_at,COALESCE(lt.template_key,tv.template_key) template_key FROM pages p
+      JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id
+      LEFT JOIN page_releases r ON r.id=p.active_release_id LEFT JOIN template_versions lt ON lt.id=r.template_version_id`)).rows;
+    return shops.map(shop => {
+      const own = pages.filter(page => page.shop_id === shop.id);
+      return { ...shop, pages: own.length, monthly: priceSheet(own.map(page => ({ slug: page.slug, state: page.state, templateKey: page.template_key, createdAt: page.created_at }))).monthly };
+    });
+  }
+  private async shopRows() {
     return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,s.is_template,
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id) tags,
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id AND t.state='active') active_tags,

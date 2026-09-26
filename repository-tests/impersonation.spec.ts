@@ -379,7 +379,8 @@ test('cards: anyone running the shop adds and renames; only the owner switches o
  await cards.update(f.users[1].token,'one',{id:made.id,label:'Bàn 4'});
  await expect(cards.update(f.users[1].token,'one',{id:made.id,state:'active'})).rejects.toThrow('OWNER_ROLE_REQUIRED');
  const before=await cards.list(f.users[0].token,'one');
- expect(before).toMatchObject({canActivate:true,included:5});
+ // No fee per card any more (Tài, 26/09): the list carries none.
+ expect(before).toMatchObject({canActivate:true});expect(Object.keys(before).sort()).toEqual(['active','canActivate','cards']);
  await cards.update(f.users[0].token,'one',{id:made.id,state:'active'});
  expect((await new PublishingResolver(f.db).live({code:made.code})).context.tagId).toBe(made.id);
  const after=await cards.list(f.users[0].token,'one');

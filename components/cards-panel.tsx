@@ -7,11 +7,10 @@ import styles from './owner-app.module.css';
  * NFC cards (lát E). One page, many cards: "Nhân bản thẻ" adds another card that opens the same page, with its own
  * short code and name so the Data view can split figures by card. The link shown is what gets written to the chip.
  */
-type List = { cards: Card[]; active: number; included: number; monthlyFee: number; nextFee: number; canActivate: boolean };
+type List = { cards: Card[]; active: number; canActivate: boolean };
 const STATES: Record<Card['state'], string> = { prepared: 'Chưa kích hoạt', tested: 'Đã thử', active: 'Đang hoạt động', disabled: 'Đã tắt' };
-const money = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
 const ERRORS: Record<string, string> = {
-  OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop kích hoạt được thẻ, vì thẻ đang hoạt động được tính phí.',
+  OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop kích hoạt được thẻ.',
   IMPERSONATION_READ_ONLY: 'Quản trị không thay đổi thẻ của shop.',
   INVALID_CARD: 'Tên thẻ cần từ 1 đến 60 ký tự.',
   SHOP_UNAVAILABLE: 'Trang của shop chưa phát hành hoặc đang tạm khoá, nên chưa kích hoạt được thẻ.',
@@ -46,18 +45,15 @@ export default function CardsPanel({ endpoint, origin, page = null }: { endpoint
   };
   const activate = (card: Card) => {
     if (!list) return;
-    const fee = list.nextFee, total = list.monthlyFee + fee;
-    const cost = fee === 0 ? `Thẻ này nằm trong ${list.included} thẻ đã gồm trong gói, không tính thêm.`
-      : `Thẻ này tính thêm ${money(fee)}/tháng. Phí thẻ hằng tháng sẽ là ${money(total)}.`;
-    if (!window.confirm(`Kích hoạt thẻ ${card.label} (${card.code})?\n${cost}\nKhách chạm thẻ là mở trang ngay.`)) return;
+    // Cards carry no fee in the app (Tài, 26/09): a card only holds a link, and is sold on its own.
+    if (!window.confirm(`Kích hoạt thẻ ${card.label} (${card.code})?\nKhách chạm thẻ là mở trang ngay.`)) return;
     void send('PATCH', { id: card.id, state: 'active' }, `Đã kích hoạt thẻ ${card.code}. Chạm thử thẻ để chắc link đã ghi đúng.`);
   };
 
   return <section className={styles.panel} aria-label="Thẻ NFC" data-cards>
     <h2>Thẻ NFC</h2>
     <p className={styles.hint}>Mỗi thẻ mở một trang của quán (cột Trang); số liệu được tách theo từng thẻ. Thẻ mới thuộc trang đang chọn ở trên. Ghi đúng link của thẻ vào chip NFC, rồi kích hoạt và chạm thử.</p>
-    {list && <p className={styles.hint} data-card-fee>Đang hoạt động: <strong>{list.active}</strong> thẻ · {list.included} thẻ đầu đã gồm trong gói ·
-      phí thẻ thêm hiện tại: <strong>{money(list.monthlyFee)}/tháng</strong></p>}
+    {list && <p className={styles.hint} data-card-count>Đang hoạt động: <strong>{list.active}</strong> thẻ.</p>}
     <p role="status" className={styles.notice} data-cards-notice>{notice}</p>
     {list && <div className={styles.tableWrap}><table className={styles.table}>
       <thead><tr><th>Mã</th><th>Tên thẻ</th><th>Trang</th><th>Trạng thái</th><th>Link ghi vào thẻ</th><th /></tr></thead>
