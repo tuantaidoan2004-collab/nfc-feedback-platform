@@ -8,7 +8,8 @@ nào. "Dùng được" = mốc trang có `data-ready` (sao và nút góp ý ho�
 
 | | LCP | CLS | Dùng được | Tải |
 |---|---|---|---|---|
-| Khuôn có ảnh poster (YOUR SHOP, Fluty) | 1,2–1,7 s | 0 | 2,0–2,4 s | 219 KB |
+| YOUR SHOP (khuôn 1, ảnh nền mặc định 61 KB, sau E9) | 0,9–1,1 s | 0 | 2,2–2,4 s | 239 KB |
+| Fluty (khuôn 1, ảnh poster) | 1,1–1,9 s | 0 | 2,1–2,4 s | 220 KB |
 | Năm khuôn còn lại | 0,6–1,3 s | 0 | 1,9–2,6 s | 176 KB |
 
 Mọi trang "tốt". JS ~153 KB (nén) là phần lớn nhất — phần lớn là React/Next; giảm thêm là việc lớn, chưa đáng.
