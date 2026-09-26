@@ -47,8 +47,8 @@ const translate = (error: unknown): never => {
     if (error.code === 'PAGE_CLOSED') throw new OwnerError(409, 'PAGE_CLOSED');
     if (error.code === 'INVALID_SETTING') throw new OwnerError(400, 'INVALID_SETTING');
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
-    // Two separate answers, because the shop can fix them in two different ways (lát F-013).
-    if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE') throw new OwnerError(400, error.code);
+    // Separate answers, because the shop fixes each one differently (lát F-013, A7).
+    if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE' || error.code === 'POLICY_GOOGLE_URL') throw new OwnerError(400, error.code);
     // Cửa duyệt ảnh (migration 023): three answers, because each asks the shop for something different.
     if (error.code === 'MEDIA_PENDING' || error.code === 'MEDIA_REJECTED' || error.code === 'MEDIA_UNKNOWN') throw new OwnerError(409, error.code);
   }

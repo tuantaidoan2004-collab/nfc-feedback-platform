@@ -501,3 +501,7 @@ khác `session.id`; bộ kiểm của trình duyệt (`lib/client/visit-fetch-tr
 tổng tải 0–113 KB cho trang 219 KB: trên HTTP/2 Chrome để `encodedDataLength` của `dataReceived` bằng 0. Trên máy
 (HTTP/1.1) số đúng nên không lộ. Tổng byte lấy từ `loadingFinished`; `dataReceived.dataLength` chỉ dùng cho video đang
 tải dở. Các mốc thời gian của lượt đo đó vẫn đúng. Lỗi của Claude, sửa trong cùng lát.
+
+**zsh glob không nháy — lần thứ tư.** Lát A7 lại gõ `grep … --include=*.ts` không nháy; zsh báo `no matches found` và
+không chạy grep. Bắt được vì đọc dòng lỗi (luật từ lát A3), nhưng vẫn là cùng một lỗi. Từ nay mọi `--include` viết
+`--include='*.ts'` ngay từ đầu.

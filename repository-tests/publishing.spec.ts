@@ -141,3 +141,20 @@ test('the Google rules stop a page being written, and never stop one already pub
  const live=await new PublishingResolver(f.db).live({slug:'one'});
  expect(live.config.links[0].label).toEqual(SERVICE_LABELS[0]);
 });
+
+/**
+ * A7 (26/09): the Google button leads to Google. Pointed at a shop's own page it could ask for stars first and pass
+ * only the happy guests on -- review gating through the platform's own button (google-policy.md rules 1-3).
+ */
+test('the Google button cannot be pointed away from Google or carry a rating, and a live page keeps rendering',async({fixture:f})=>{
+ const template=await f.admin.createTemplate('policy-url',1);
+ await expect(f.admin.createPage(f.shop,template,{...defaultConfig(),googleUrl:'https://sites.google.com/view/quan-mot'},'one')).rejects.toThrow('POLICY_GOOGLE_URL');
+ f.page=await f.admin.createPage(f.shop,template,{...defaultConfig(),googleUrl:'https://g.page/r/CQuanMot/review'},'one');
+ for(const googleUrl of ['https://quan-mot.example/danh-gia','https://www.google.com/url?q=https://quan-mot.example','https://g.page/r/CQuanMot/review?rating=5'])
+  await expect(f.admin.saveDraft(f.page,1,{...defaultConfig(),googleUrl}),googleUrl).rejects.toThrow('POLICY_GOOGLE_URL');
+ expect((await f.db.query('SELECT revision::int FROM page_drafts')).rows[0].revision).toBe(1);
+ await f.admin.publish(f.page,1);
+ // Content stored outside the snapshot that no longer passes is never shown; the page falls back to what it published.
+ await f.db.query("UPDATE page_profile SET google_url='https://quan-mot.example/danh-gia'");
+ expect((await new PublishingResolver(f.db).live({slug:'one'})).config.googleUrl).toBe('https://g.page/r/CQuanMot/review');
+});

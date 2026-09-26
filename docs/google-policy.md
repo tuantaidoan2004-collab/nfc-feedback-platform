@@ -80,6 +80,21 @@ Astra tìm ra 20/09: nhãn nút link vốn là **chữ tự do**, nên shop publ
 
 **Chỗ kiểm:** biên **ghi** (`saveDraft`, `createDraft`, `publish`), **không** ở biên đọc. Trang đã phát hành vẫn chạy; luật thêm hôm nay không làm sập trang phát hành hôm qua. Có test riêng cho đúng điều này.
 
+## 3c. Nút Google chỉ dẫn tới Google (lát A7, 26/09)
+
+Trước A7, link của nút Google chỉ cần `https://`. Một shop trỏ được nút "Đánh giá trên Google" sang **trang riêng của
+mình** hỏi sao trước rồi chỉ cho người khen sang Google — tức lọc đánh giá (luật 1, 2) đi qua chính nút của nền tảng.
+Giờ `googleUrlProblem` (`lib/publishing/policy.ts`) chỉ nhận **host của Google** theo danh sách (Maps, `g.page`,
+`maps.app.goo.gl`, `search.google.com/local/…`, đường `/maps` và `/search` của `google.com(.vn)`…), và từ chối tham số
+điền sẵn sao hay câu chữ (`rating`, `stars`, `text`…; luật 3, 7). Cố ý **không** nhận mọi tên miền con của `google.com`:
+`sites.google.com` là trang ai cũng dựng được, `google.com/url?q=` chuyển hướng đi bất cứ đâu. Kiểm ở biên ghi (trình
+chỉnh, tạo trang, phát hành, tạo shop ở `/gov`), không ở biên đọc. Danh sách được nới khi shop có link Google chính
+đáng bị chặn — một dòng.
+
+**Hướng dẫn cho shop (mục 3) giờ có ba chỗ:** trang in được `/huong-dan-google` (gửi kèm link đặt mật khẩu lúc bàn
+giao — khung bàn giao ở `/gov` nhắc), khung "Mời đánh giá Google đúng luật" ở trang chủ dashboard, và dòng chỉ chỗ lấy
+link Google trong trình chỉnh.
+
 ## 4. Kiểm trước mỗi lát (checklist)
 
 - [ ] Lát này có chạm trang khách hay nút Google không? Nếu có: nút Google vẫn giống nhau với mọi khách, vẫn trong màn hình, vẫn độc lập với sao?

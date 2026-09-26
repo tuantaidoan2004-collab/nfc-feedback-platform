@@ -125,6 +125,9 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  // next dev reloads every open page the first time it compiles a route; compile /one and /preview before the editor holds state.
  const warm=await context.newPage();await warm.goto('/one');await warm.goto('/preview');await warm.close();
  await login(page,f.users[0]);
+ // A7: the Google rules sit on the home view, with the one-page version for the staff.
+ await expect(page.locator('[data-google-rules] summary')).toHaveText('Mời đánh giá Google đúng luật');
+ await expect(page.locator('[data-google-rules] a')).toHaveAttribute('href','/huong-dan-google');
  await page.locator('[data-view="design"]').click();
  await expect(page.getByLabel('Tên hiển thị',{exact:true})).toHaveValue('Shop one');
  // Without R2 settings the editor says so instead of offering an upload that would fail.
@@ -146,6 +149,12 @@ test('the page editor: save, preview in a new tab, publish, and the customer pag
  await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
  await expect(page.locator('[data-design-notice]')).toContainText('Có ô chưa hợp lệ');
  await row.getByRole('textbox',{name:/Số điện thoại/}).fill('tel:0901234567');
+ // A7: the Google button leads to Google only. Pointed at the shop's own page it could ask for stars first.
+ const googleLink=page.getByLabel('Link đánh giá Google',{exact:true}),kept=await googleLink.inputValue();
+ await googleLink.fill('https://quan-moi.example/danh-gia');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('Link đánh giá Google phải là link của Google');
+ await googleLink.fill(kept);
  const popup=page.waitForEvent('popup');
  await page.getByRole('button',{name:'Xem trước',exact:true}).click();
  const preview=await popup;await preview.waitForURL('**/preview');

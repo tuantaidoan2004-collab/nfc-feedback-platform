@@ -60,7 +60,7 @@ test('the link the operator hands over is what opens the account',async({f})=>{
 
 test('refuses input that would produce an unusable shop',async({f})=>{
  for(const bad of [{name:''},{name:'x'.repeat(101)},{ownerUsername:'NO SPACES'},{ownerEmail:'khong-phai-email'},
-   {googleUrl:'http://maps.google.com/'},{googleUrl:'javascript:alert(1)'},
+   {googleUrl:'http://maps.google.com/'},{googleUrl:'javascript:alert(1)'},{googleUrl:'https://quan.example/danh-gia'},{googleUrl:'https://maps.google.com/?cid=1&rating=5'},
    // A template key is looked up in a closed list; inherited names must not slip through (operations-gotchas, F-012).
    {templateKey:'unknown'},{templateKey:'constructor'},{templateKey:'__proto__'},{templateKey:null},{templateKey:1},{templateKey:'Glass'}])
   await expect(f.shops.create(f.actorId,{...input,...bad})).rejects.toThrow('INVALID_INPUT');

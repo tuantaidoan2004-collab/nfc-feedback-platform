@@ -4,6 +4,7 @@ import { PublishingAdmin } from '../publishing/repository';
 import { PublishingError, isTemplateKey, templateConfig, validateConfig, type TemplateKey } from '../publishing/config';
 import { latestVersion } from '../publishing/versions';
 import { priceSheet } from '../publishing/pricing';
+import { googleUrlProblem } from '../publishing/policy';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
@@ -35,7 +36,8 @@ const shopName = (value: unknown) =>
 const googleLink = (value: unknown) => {
   if (value === undefined || value === null || value === '') return 'https://maps.google.com/';
   if (typeof value !== 'string') return null;
-  try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password ? url.href : null; } catch { return null; }
+  // The same rule the page editor applies (policy.ts): the Google button leads to Google and nowhere else (A7).
+  try { const url = new URL(value); return googleUrlProblem(url.href) ? null : url.href; } catch { return null; }
 };
 
 export class ShopProvisioning {

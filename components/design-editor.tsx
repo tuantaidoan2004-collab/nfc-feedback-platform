@@ -30,6 +30,7 @@ const ERRORS: Record<string, string> = {
   PAGE_CLOSED: 'Trang này đã đóng vĩnh viễn nên không sửa được nữa.',
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
   POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
+  POLICY_GOOGLE_URL: 'Link đánh giá Google phải là link của Google: link "Nhận thêm đánh giá" trong Google Business Profile (g.page/r/…), link chia sẻ Google Maps (maps.app.goo.gl/…) hoặc trang của quán trên Google Maps. Không dùng link tới trang khác, và không thêm số sao hay câu mẫu vào link.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
 };
 const mediaOf = (value: string, kind: MediaRef['kind']): MediaRef | null => value.trim() ? { kind, url: value.trim() } : null;
@@ -262,7 +263,10 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
     <fieldset className={styles.panel}><legend>Thông tin</legend><div className={styles.grid2}>
       <label>Tên hiển thị<input value={config.name} maxLength={100} onChange={e => change({ name: e.target.value })} /></label>
       <label>Link đánh giá Google<input type="url" value={config.googleUrl} onChange={e => change({ googleUrl: e.target.value })} placeholder="https://g.page/r/…" /></label>
-    </div></fieldset>
+    </div>
+      <p className={styles.hint} data-google-link-hint>Lấy trong Google Business Profile: <strong>Nhận thêm đánh giá</strong> (g.page/r/…), hoặc link
+        chia sẻ của quán trên Google Maps. Chỉ nhận link của Google, không thêm số sao hay câu mẫu.</p>
+    </fieldset>
 
     {!offers('layout') && !backgroundField && !offers('watermark') && !offers('feedbackButton') && !ownFields.length &&
       <p className={styles.panel} data-no-settings>Khuôn này không có tuỳ chỉnh diện mạo: chỉ cần điền nội dung bên dưới.</p>}

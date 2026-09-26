@@ -82,8 +82,36 @@ export function freeTextProblem(value: string): 'reward' | 'naming' | null {
   return null;
 }
 
+/**
+ * Where the Google button may lead (luật 1, 2 và 3; lát A7, 26/09/2026). The button is the one thing every guest sees
+ * the same way, so if it could point anywhere a shop could send it to its own page that asks for stars first and
+ * lets only the happy ones through -- review gating, done through the platform's own Google button. So it must lead
+ * to Google, and carry nothing that fills in a rating or words for the guest.
+ *
+ * Hosts, not "anything under google.com": `sites.google.com` hosts pages anyone builds, and `google.com/url?q=…`
+ * forwards anywhere. On the two bare search hosts only the Maps and Search paths count. Meant to grow, like the
+ * label list: a shop blocked from a genuine Google link is a real cost, and adding a host is one line.
+ */
+const GOOGLE_HOSTS: Record<string, RegExp> = {
+  'maps.google.com': /^\//, 'maps.google.com.vn': /^\//, 'search.google.com': /^\/local\//, 'business.google.com': /^\//,
+  'google.com': /^\/(maps|search)\b/, 'www.google.com': /^\/(maps|search)\b/,
+  'google.com.vn': /^\/(maps|search)\b/, 'www.google.com.vn': /^\/(maps|search)\b/,
+  'g.page': /^\//, 'g.co': /^\/kgs\//, 'maps.app.goo.gl': /^\//, 'goo.gl': /^\/maps\b/,
+};
+/** Query names that would carry a rating or ready-made words into Google (rule 3 and 7). */
+const PREFILL = ['rating', 'stars', 'star', 'score', 'text', 'comment', 'content', 'review_text'];
+
+export function googleUrlProblem(value: string): 'host' | 'prefill' | null {
+  let url: URL; try { url = new URL(value); } catch { return 'host'; }
+  const path = GOOGLE_HOSTS[url.hostname.toLowerCase()];
+  if (url.protocol !== 'https:' || url.username || url.password || !path || !path.test(url.pathname)) return 'host';
+  for (const key of url.searchParams.keys()) if (PREFILL.includes(key.toLowerCase())) return 'prefill';
+  return null;
+}
+
 /** Throws when a page may not be saved or published. Read paths never call this. */
 export function assertPublishable(config: PageConfig) {
+  if (googleUrlProblem(config.googleUrl)) throw new PublishingError('POLICY_GOOGLE_URL');
   for (const link of config.links) {
     if (!SERVICE_LABELS.some(allowed => allowed.vi === link.label.vi && allowed.en === link.label.en)) {
       throw new PublishingError('POLICY_LINK_LABEL');

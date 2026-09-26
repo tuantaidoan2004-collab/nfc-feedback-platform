@@ -296,6 +296,15 @@ test('A5: the customer erases what they wrote from one quiet line at the foot, a
   expect((await db.query('SELECT count(*)::int n FROM page_events WHERE session_id IN (SELECT session_id FROM rating_experiences)')).rows[0].n).toBe(0);
 });
 
+test('A7: the one-page Google guide a shop gets at handover renders, and restates the rules', async ({ page }) => {
+  await page.goto('/huong-dan-google');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mời khách đánh giá Google đúng luật');
+  for (const heading of ['Nền tảng đã làm sẵn cho quán', 'Nên', 'Không']) await expect(page.getByRole('heading', { level: 2, name: heading, exact: true })).toBeVisible();
+  await expect(page.getByText(/Tặng món, giảm giá, quà/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'chính sách nội dung của Google Maps' })).toHaveAttribute('href', 'https://support.google.com/contributionpolicy/answer/7400114');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('A5: the two legal pages render, say they are drafts, and carry the contact', async ({ page }) => {
   for (const [path, title] of [['/quyen-rieng-tu', 'Quyền riêng tư'], ['/dieu-khoan', 'Điều khoản sử dụng']]) {
     await page.goto(path);

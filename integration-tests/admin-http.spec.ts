@@ -128,6 +128,8 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  // Selected by a data attribute, not a class: CSS modules hash class names at build time.
  const setupUrl=(await page.locator('[data-handover] code').first().textContent())??'';
  expect(setupUrl).toContain('/owner/setup/');
+ // A7: the Google rules go with every handover, not after the shop's first mistake.
+ await expect(page.locator('[data-handover-guide] a')).toHaveAttribute('href','/huong-dan-google');
  const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
  // What the shop would pay (lát P5): one running page on a free place.

@@ -48,7 +48,7 @@ async function copyApp(name) {
  */
 const zero = '00000000-0000-4000-8000-000000000000';
 async function warm(origin) {
-  const paths = ['/one', '/', '/dieu-khoan', '/t/zzzzz', '/owner/login?next=%2FZZZ%2Fone', '/ZZZ/one', '/gov', '/gov/login', '/preview',
+  const paths = ['/one', '/', '/dieu-khoan', '/huong-dan-google', '/t/zzzzz', '/owner/login?next=%2FZZZ%2Fone', '/ZZZ/one', '/gov', '/gov/login', '/preview',
     '/api/owner/v2/one', '/api/owner/v2/one/summary', '/api/owner/v2/one/team', '/api/owner/v2/one/activity', '/api/owner/v2/one/cards',
     '/api/owner/v2/one/comments?session=x', '/api/owner/v2/profile', '/api/owner/v2/notifications', '/api/v2/pages/visits', '/gov/api/media',
     // The page list (lát P3): its API, and the route of the pictures it frames.

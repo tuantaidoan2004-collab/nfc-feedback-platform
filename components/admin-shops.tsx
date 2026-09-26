@@ -169,6 +169,9 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
           Tài khoản <strong>{handover.ownerUsername}</strong>
           {handover.tagCode && <> · mã thẻ <strong>{handover.tagCode}</strong> (trạng thái <em>prepared</em>, chưa quét được cho tới khi kích hoạt)</>}
         </p>
+        {/* A7: every shop gets the Google rules at handover, not after its first mistake. */}
+        <p className={styles.muted} data-handover-guide>Gửi kèm hướng dẫn mời đánh giá đúng luật Google:{' '}
+          <a href="/huong-dan-google" target="_blank" rel="noreferrer">/huong-dan-google</a> (in được, một trang).</p>
       </div>}
     </section>
 

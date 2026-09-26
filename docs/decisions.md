@@ -222,8 +222,8 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
    branch thử; shop không có trang nên không ai vào được. Việc còn lại: **A3b**.
 2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
    mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
-3. **E6 tốc độ trang khách: xong 26/09** (`toc-do-trang-khach.md`; video nặng của chủ quán = E9). Tiếp: **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách hứa
-   12 tháng mà chưa có gì xoá); rồi P6, P7, P5b (thu tiền) tuỳ nhu cầu.
+3. **E6 tốc độ trang khách: xong 26/09** (`toc-do-trang-khach.md`; video nặng của chủ quán = E9). **Phần dữ liệu dời lại**
+   (mục "Dời phần dữ liệu" dưới); hạn giữ dữ liệu có hạn chót 9/2027. **A7 xong 26/09.** Tiếp: A3b → E9 → P6/P7/P5b.
 4. **Việc của Tài còn treo:** xoay mật khẩu đã lộ (F4) · xem tab Actions + bật bảo vệ `main` (F5) · thử sáu khuôn trên
    iPhone/Android thật + lỗi Googy "Chưa kết nối được" (chưa tái hiện).
 5. **Hai việc tách riêng đang chờ** (nút trong app): ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`), ca impersonation
@@ -236,6 +236,16 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
+### Dời phần dữ liệu — Tài chốt 26/09 (tối)
+
+Tài: *"tất cả lát về dữ liệu mình làm sau … sau khi mọi thứ khác hoàn thiện ổn hơn thì mới chuyển qua data"*. **Để qua
+bên, tới lúc đó brainstorm lại:** A9 số liệu theo ngày, A10 so sánh bản phát hành, D1 kho phân tích / tầng lạnh R2, D2
+chuẩn ngành, D3 AI tóm tắt, C1 Google Business Profile. Trang khách **vẫn ghi** lượt ghé, sao, góp ý, hành vi như hiện
+nay (ghi gần như không tốn; phân tích để sau). **Không nằm trong phần dời:** sao lưu B2 (chống mất dữ liệu — xong trước
+quán thật đầu tiên) và **hạn giữ dữ liệu**: trang Quyền riêng tư hứa "tối đa 12 tháng kể từ lần ghé", dữ liệu production
+cũ nhất ~21/09/2026 → **hạn chót tháng 9/2027** phải có việc xoá tự động. Thứ tự kế tiếp: **A7** → A3b → E9 → P6/P7/P5b
+khi cần.
+
 ### Thứ tự tiếp theo — Tài chốt 26/09 (sau khi rà toàn bộ lát còn lại)
 
 **Tài, song song:** xoay mật khẩu đã lộ (F4) · xem tab Actions trên GitHub + bật bảo vệ nhánh `main` (F5) · thử sáu
@@ -246,7 +256,15 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — E6 tốc độ trang khách (26/09)
+### Xong gần nhất — A7 tuân thủ Google cho shop (26/09)
+
+Phần còn lại sau bản rà của Astra: **nút Google chỉ dẫn tới Google** (trước đó chỉ cần `https://`, nên shop trỏ được nút
+sang trang riêng hỏi sao trước — lọc đánh giá qua chính nút của mình) và không mang tham số điền sẵn sao/câu chữ; kiểm ở
+biên ghi, trang đã phát hành vẫn chạy. Hướng dẫn cho shop: trang in `/huong-dan-google`, khung luật ở trang chủ
+dashboard, nhắc gửi kèm ở khung bàn giao `/gov`, dòng chỉ chỗ lấy link Google trong trình chỉnh. Bảy shop production đều
+dùng `https://maps.google.com/` nên không shop nào bị chặn. **Không migration.** Chi tiết `google-policy.md` mục 3c.
+
+### Trước đó — E6 tốc độ trang khách (26/09)
 
 Đo bằng `scripts/measure-guest.mjs` (Chrome thật, 4G chậm, CPU ×4, không ghi lượt ghé): bảy trang production đều "tốt"
 (LCP 0,6–1,5 s, CLS 0). Rủi ro thật là video nền: `<video preload="auto">` trong HTML đầu chia 4G với JS. Giờ video gắn

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { TEMPLATE_KEYS, defaultConfig, templateConfig, validateConfig } from '../../lib/publishing/config';
-import { SERVICE_LABELS, assertPublishable, freeTextProblem } from '../../lib/publishing/policy';
+import { SERVICE_LABELS, assertPublishable, freeTextProblem, googleUrlProblem } from '../../lib/publishing/policy';
 const render = (config = defaultConfig('Shop fixture')) => execFileSync(process.execPath, ['tests/fixtures/render-guest.cjs'], {
   input: JSON.stringify(config), encoding: 'utf8',
 });
@@ -107,4 +107,20 @@ test('F-013: the shop name and the question go through the same check as the lab
     text: { question: { vi: 'Đánh giá Google để nhận voucher', en: 'How was it?' } } }))).toThrow('POLICY_GOOGLE_EXCHANGE');
   expect(() => assertPublishable(validateConfig({ ...base,
     text: { question: { vi: 'Hôm nay quán thế nào?', en: 'Review us and get a discount' } } }))).toThrow('POLICY_GOOGLE_EXCHANGE');
+});
+
+/** A7 (26/09): where the Google button may lead (policy.ts GOOGLE_HOSTS). Real link shapes a shop copies from Google. */
+test('the Google button takes the links Google hands a shop, and nothing that could lead elsewhere or prefill a review', () => {
+  for (const ok of ['https://maps.google.com/', 'https://maps.google.com/?cid=42', 'https://g.page/r/CQuanMot/review', 'https://maps.app.goo.gl/AbC123',
+    'https://search.google.com/local/writereview?placeid=ChIJ123', 'https://www.google.com/maps/place/Qu%C3%A1n+M%E1%BB%99t/@10.7,106.7,17z',
+    'https://www.google.com/search?q=quan+mot#lrd=0x1:0x2,3', 'https://www.google.com.vn/maps/place/Quan', 'https://goo.gl/maps/AbC', 'https://g.co/kgs/AbC'])
+    expect(googleUrlProblem(ok), ok).toBeNull();
+  for (const [bad, why] of [['http://maps.google.com/', 'host'], ['https://quan-mot.example/danh-gia', 'host'], ['https://sites.google.com/view/quan', 'host'],
+    ['https://www.google.com/url?q=https://quan-mot.example', 'host'], ['https://maps.google.com.evil.example/', 'host'], ['https://goo.gl/AbC', 'host'],
+    ['https://user:pw@maps.google.com/', 'host'], ['not a url', 'host'],
+    ['https://g.page/r/CQuanMot/review?rating=5', 'prefill'], ['https://maps.google.com/?cid=42&Stars=5', 'prefill'], ['https://g.page/r/X/review?text=Nh%C3%A2n+vi%C3%AAn+An+t%E1%BB%91t', 'prefill']] as const)
+    expect(googleUrlProblem(bad), bad).toBe(why);
+  expect(() => assertPublishable(validateConfig({ ...defaultConfig('Shop fixture'), googleUrl: 'https://sites.google.com/view/quan' }))).toThrow('POLICY_GOOGLE_URL');
+  // Every page the platform itself starts a shop with passes.
+  for (const key of TEMPLATE_KEYS) expect(() => assertPublishable(validateConfig(templateConfig(key)))).not.toThrow();
 });

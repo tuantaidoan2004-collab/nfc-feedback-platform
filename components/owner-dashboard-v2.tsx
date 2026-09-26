@@ -344,6 +344,16 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
               period={periods.private} onPeriod={p => setPeriods({ ...periods, private: p })} />
           </div>
           <p className={styles.hint} data-google-note>Số đánh giá Google sẽ có khi shop kết nối Google Business Profile. Trang khách không biết được khách đã đăng review hay chưa.</p>
+          {/* A7: the rules in the shop's own interest -- the penalty lands on its Google listing (docs/google-policy.md §3). */}
+          <details className={styles.panel} data-google-rules>
+            <summary>Mời đánh giá Google đúng luật</summary>
+            <p className={styles.hint}><strong>Nên:</strong> đặt thẻ ở chỗ khách tự thấy; mời mọi khách như nhau bằng một câu trung lập; trả lời
+              mọi đánh giá, kể cả đánh giá chê.</p>
+            <p className={styles.hint}><strong>Không:</strong> tặng quà, giảm giá hay bốc thăm cho người đánh giá; chỉ mời khách trông vui; đứng
+              chờ hay cầm máy của khách; nhờ nhắc tên nhân viên; giao chỉ tiêu đánh giá cho nhân viên.</p>
+            <p className={styles.hint}>Google phạt hồ sơ của quán, không phải người bán thẻ. <a href="/huong-dan-google" target="_blank"
+              rel="noreferrer">Bản đầy đủ để in cho nhân viên</a></p>
+          </details>
           <Week daily={summary!.daily} />
           <LandingPages url={customerUrl} endpoint={endpoint} />
         </>}

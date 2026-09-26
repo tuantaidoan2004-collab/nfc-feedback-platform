@@ -396,3 +396,10 @@ Làm đúng thứ tự Astra đề xuất sau khi Tài đếm dữ liệu đời
 cũ gỡ cùng lát, test lifecycle giữ nguyên nhưng "trang rời đi" đổi từ `/t/demo` sang `/dieu-khoan`, test 404 cho các
 route đã gỡ. Khác với ghi chú của Astra ("giữ các bảng"): Tài chốt xoá, nên migration 028 xoá bốn bảng — kèm chốt chặn
 dừng nếu có dòng. Phần còn lại tách thành **A3b** (`roadmap-slices.md`).
+
+## A7 — Claude hoàn tất phần bàn giao của Astra (`4c47be8`), 26/09/2026
+
+F-013 đã đóng 21/09 (nhãn nút cố định + dây bẫy chữ tự do). Lát này làm hai việc Astra để lại: **test/luật URL Google
+(luật 3)** — chốt danh sách host thay vì chỉ `https://`, vì nút trỏ được sang trang riêng hỏi sao trước; từ chối tham số
+`rating/stars/text…` (không khẳng định Google hiểu chúng, chỉ là luật sản phẩm) — và **hướng dẫn dashboard + tờ bàn
+giao** (`/huong-dan-google`). Luật 8/10 vẫn chờ A16/C1 có luồng thật, như Astra ghi.
