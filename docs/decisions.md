@@ -217,7 +217,23 @@ khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `componen
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
 `thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
-### Xong gần nhất — P5 phần hiện giá (26/09)
+### Thứ tự tiếp theo — Tài chốt 26/09 (sau khi rà toàn bộ lát còn lại)
+
+**Tài, song song:** xoay mật khẩu đã lộ (F4) · xem tab Actions trên GitHub + bật bảo vệ nhánh `main` (F5) · thử sáu
+khuôn trên iPhone/Android thật + thử lại lỗi Googy "Chưa kết nối được".
+**Claude, theo thứ tự:** (1) **C3 — rà cách ly dữ liệu** giữa các quán trên mô hình trang · (2) **sao lưu miễn phí**
+(`pg_dump` mỗi đêm bằng GitHub Actions lên R2 + thử khôi phục) · (3) **dọn nợ P1 + A3 mã cũ** · (4) **tốc độ trang
+khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách đang hứa 12 tháng mà
+chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
+nào cũng được.
+
+### Xong gần nhất — C3 mặt trận 1: rà cách ly dữ liệu (26/09)
+
+Không thấy đường nào để quán này đọc hay sửa dữ liệu quán khác (ma trận test hơn 50 đường, quét tĩnh SQL, cổng 59
+route). Một chỗ thấp đã sửa: bộ đếm chống bot đếm theo id lượt ghé của quán khác (F-C3-1). Chưa rà: media/R2 (mặt trận
+3), phần lớn mặt trận 2. **Không migration.** Báo cáo `security-review-c3.md`. Bước kế tiếp: sao lưu miễn phí.
+
+### Trước đó — P5 phần hiện giá (26/09, đã lên production — Claude kiểm `/urr6ud` 200)
 
 Giá theo trang (khuôn 1–5 10k/tháng, khuôn 6 0đ, hai suất miễn phí) hiện trong dashboard và `/gov`, **chưa thu phí**
 (Tài: cần cảm nhận khách trước). Thẻ NFC bỏ hẳn phí. Đổi khuôn có phí: tính từ kỳ sau. **Không migration.**

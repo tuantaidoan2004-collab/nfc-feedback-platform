@@ -99,15 +99,18 @@ export async function inspect(pool: Pool, request: Request, context: { shopId: s
   // yet, and the caller passes the session the write just created.
   // `pg` hands a timestamptz back as a Date, not a string; Date.parse on it is NaN, which silently turned the
   // whole timing signal off until a test caught it. new Date() takes either.
+  // Only a visit of this very shop, scope and entry counts (C3, 26/09): an id from anywhere else -- guessed, or learned
+  // from another shop's guest -- must not move that visit's counter, or a stranger could push the real guest's next
+  // answer past the ceiling. The request still counts against its own entry and address.
   const visit = visitId ? (await pool.query<{ session_id: string; started: Date | string | null }>(
     `SELECT v.session_id, (SELECT min(p.opened_at) FROM page_visits p WHERE p.session_id=v.session_id) started
-     FROM page_visits v WHERE v.id=$1`, [visitId])).rows[0] : undefined;
+     FROM page_visits v WHERE v.id=$1 AND v.shop_id=$2 AND v.scope=$3 AND v.entry_key=$4`, [visitId, context.shopId, context.scope, context.entryKey])).rows[0] : undefined;
   const sessionId = visit?.session_id ?? null;
   const address = clientAddress(request);
   if (operation === 'register') await forget(pool);
   // The card, not the shop: one card being pumped must not mark the shop's other cards.
   const buckets: [string, number][] = [[`entry:${context.shopId}:${context.scope}:${context.entryKey}`, LIMITS.entry]];
-  if (visitId) buckets.push([`visit:${visitId}`, LIMITS.visit]);
+  if (visit) buckets.push([`visit:${visitId}`, LIMITS.visit]);
   if (address) buckets.push([`address:${context.shopId}:${addressHash(address)}`, LIMITS.address]);
   const counted = new Map((await count(pool, buckets.map(([name]) => name))).map(row => [row.bucket, Number(row.attempts)]));
   for (const [name, limit] of buckets) {

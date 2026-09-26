@@ -381,3 +381,11 @@ Hệ quả, ghi rõ để không ai tưởng C3 vẫn đang chạy:
 
 **C3 không chặn việc thiết kế.** Nó chặn đúng một việc: **đưa thẻ cho một quán trả tiền.**
 
+
+## C3 mặt trận 1 — Claude làm, 26/09/2026
+
+Báo cáo: [`security-review-c3.md`](security-review-c3.md). Tóm tắt: quét tĩnh mọi câu SQL chạm bảng của quán, cổng của
+59 route, và ma trận test `repository-tests/tenant-isolation.spec.ts` (quán một tấn công quán hai qua slug và qua id ở
+hơn 50 đường). **Một phát hiện, thấp, đã sửa bằng test đỏ trước:** F-C3-1 — bộ đếm chống bot đếm theo id lượt ghé của
+quán khác. Mặt trận 2 chỉ rà phần bộ đếm; **mặt trận 3 (media/R2) chưa rà**. Vẫn là người viết tự rà: nếu có bên độc
+lập, làm lại mặt trận 1.

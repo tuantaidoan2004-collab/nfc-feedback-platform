@@ -530,3 +530,18 @@ test('a customer who comes back later erases what they wrote in an earlier sessi
   // Mine is gone from the old session; the other customer's words are untouched.
   expect(left).toEqual([{ feedback_message: '(đã xoá theo yêu cầu)', feedback_phone: null }, { feedback_message: 'Của người khác', feedback_phone: null }]);
 });
+
+// C3 (docs/agents-board.md, mặt trận 1 và 2): a guest of one shop naming a visit of another shop -- say they learned
+// its id -- must move nothing of that visit, not even its counter: a counter pushed past the ceiling would refuse the
+// real guest's next answer.
+test("a visit of another shop, named from this shop's page, counts nothing against that visit", async ({ db }) => {
+  const attacker = secret(), guest = secret();
+  await register(db, attacker);
+  const opened = await db.api(request(guest, { loadKey: randomUUID() }), { shop: 'two' }, 'register');
+  const victim = (await opened.json()).visit as { id: string };
+  await unhurried(db);
+  await expectError(await db.api(request(attacker, command()), { shop: 'one', visitId: victim.id }, 'rating'), 401, 'VISIT_NOT_AUTHORIZED');
+  expect((await db.pool.query('SELECT attempts FROM public_request_limits WHERE bucket=$1', [`visit:${victim.id}`])).rows).toEqual([]);
+  expect((await db.api(request(guest, command()), { shop: 'two', visitId: victim.id }, 'rating')).status).toBe(200);
+  expect(await marks(db)).toEqual([null, null]);
+});
