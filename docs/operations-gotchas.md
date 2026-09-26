@@ -481,3 +481,9 @@ dùng đường đó làm tín hiệu.
 trong ca BFCache, nhưng dòng kế tiếp (`goForward`) kiểm nút "Google Maps" — nút của trang demo, tức của **trang đích**.
 Bảy bộ bắt được (harness public đỏ một ca). Luật cho Claude: thay một URL trong test thì đọc hết các dòng dùng trang đó
 tới lần điều hướng tiếp theo, không chỉ dòng có URL.
+
+**Đưa Tài một câu SQL chưa chạy thử.** Sau 028, Claude đưa câu đếm bảng nào còn trỏ tới `caphe-demo` bằng
+`query_to_xml(…, false, …)` + `xpath('/row/n')`. Với `tableforest=false`, kết quả bọc trong `<table>`, nên đường dẫn không
+khớp và cột số dòng ra NULL ở cả 16 bảng — Tài mất một vòng trên hai branch. Câu đúng: `tableforest=true` và
+`xpath('//n/text()')`, đã thử trên Postgres tạm (đặt một hàng `media_assets` → ra đúng `media_assets | 1`). Luật cho
+Claude: câu SQL nào đưa Tài chạy trên Neon thì chạy thử trên một database tạm trước, kể cả câu chỉ đọc.
