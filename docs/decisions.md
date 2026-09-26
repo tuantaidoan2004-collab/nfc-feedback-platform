@@ -216,8 +216,10 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 ### Việc đang dở — đọc trước khi làm tiếp (26/09)
 
 1. **A3 xong, đã lên production 26/09** (Claude kiểm: `/` trang mới, route cũ 404, `/urr6ud` 200 + lượt ghé 200).
-   **`caphe-demo` còn trên cả hai branch**: 028 cố ý giữ vì có bảng trỏ tới nó. Đang chờ Tài chạy câu đếm (đã sửa, xem
-   gotcha "câu SQL chưa chạy thử") để biết bảng nào, rồi Claude đưa câu xoá đúng các bảng đó. Việc còn lại: **A3b**.
+   **`caphe-demo`**: 028 cố ý giữ vì có bảng trỏ tới. Tài đếm 26/09: production chỉ 2 dòng `shop_roles` (vai mặc định
+   015 tạo cho mọi shop); preview thêm 4 `visit_sessions` (thử 16–17/09). Claude đưa câu xoá có chốt (đã thử trên database
+   tạm) cho production. Preview: đề xuất để nguyên — xoá phiên ghé phải tắt trigger chống sửa bản ghi, không đáng cho
+   branch thử; shop không có trang nên không ai vào được. Việc còn lại: **A3b**.
 2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
    mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
 3. Sau A3: **tốc độ trang khách (E6)** trước quán đầu tiên; **hạn giữ dữ liệu** khi Tài chốt con số (trang chính sách hứa
