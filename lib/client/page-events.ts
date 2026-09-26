@@ -34,12 +34,11 @@ export const NO_EVENTS: EventSink = { send: () => {}, flush: () => {}, drop: () 
 export const sinceOpen = (openedAt: number, at: number) => Math.min(86_400_000, Math.max(0, Math.round(at - openedAt)));
 
 /**
- * The same rule the transport uses: a published page talks to `/api/v2/pages/…`, and the per-slug routes are
- * switched off whenever publishing is on. A sink that only knew the slug path would answer 404 to every real
- * customer -- found by probing production rather than by a test, because the harness runs the two modes as two
- * separate suites and neither crosses into the other (21/09).
+ * The same path and proof the transport uses. Before lát A3b a second, per-slug path existed and a sink that only
+ * knew it answered 404 to every real customer -- found by probing production rather than by a test, because the
+ * harness ran the two modes as two separate suites (21/09). There is one path now, and the harness runs it.
  */
-export function createEventSink(shop: string, visitId: string, secret: string, render: { proof: string } | undefined, ports: Ports = {}): EventSink {
+export function createEventSink(visitId: string, secret: string, render: { proof: string }, ports: Ports = {}): EventSink {
   const send: typeof globalThis.fetch | undefined = ports.fetch ?? (typeof fetch === 'function' ? fetch : undefined);
   const listen = ports.listen ?? ((event: string, run: () => void) => {
     if (typeof document !== 'undefined') document.addEventListener(event, run);
@@ -52,12 +51,11 @@ export function createEventSink(shop: string, visitId: string, secret: string, r
     if (!queue.length) return;
     const batch = queue; queue = [];
     try {
-      const base = render ? '/api/v2/pages/visits' : `/api/v2/shops/${encodeURIComponent(shop)}/visits`;
-      void post(`${base}/${visitId}/events`, {
+      void post(`/api/v2/pages/visits/${visitId}/events`, {
         method: 'POST', keepalive: true, cache: 'no-store',
         // The published path refuses anything without the render proof, exactly as the rating and feedback calls
         // carry it. A sink that forgot it answered 403 to every beacon while every other test stayed green.
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}`, ...(render ? { 'X-NFC-Render': render.proof } : {}) },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}`, 'X-NFC-Render': render.proof },
         body: JSON.stringify({ events: batch }),
       }).catch(() => {});
     } catch { /* A page that cannot measure itself still works. */ }

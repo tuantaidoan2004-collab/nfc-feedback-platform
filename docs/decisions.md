@@ -223,7 +223,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 2. **Sao lưu (`docs/sao-luu.md`) mã xong, chưa chạy thật:** chờ Tài tạo `backup_reader`, bucket `nfc-backups` + khoá,
    mật khẩu sao lưu, 6 secret, bấm Run workflow; rồi Claude đưa lệnh diễn tập khôi phục.
 3. **E6 tốc độ trang khách: xong 26/09** (`toc-do-trang-khach.md`; video nặng của chủ quán = E9). **Phần dữ liệu dời lại**
-   (mục "Dời phần dữ liệu" dưới); hạn giữ dữ liệu có hạn chót 9/2027. **A7 xong 26/09.** Tiếp: A3b → E9 → P6/P7/P5b.
+   (mục "Dời phần dữ liệu" dưới); hạn giữ dữ liệu có hạn chót 9/2027. **A7, A3b xong 26/09.** Tiếp: E9 → P6/P7/P5b khi cần.
 4. **Việc của Tài còn treo:** xoay mật khẩu đã lộ (F4) · xem tab Actions + bật bảo vệ `main` (F5) · thử sáu khuôn trên
    iPhone/Android thật + lỗi Googy "Chưa kết nối được" (chưa tái hiện).
 5. **Hai việc tách riêng đang chờ** (nút trong app): ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`), ca impersonation
@@ -256,7 +256,16 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — A7 tuân thủ Google cho shop (26/09)
+### Xong gần nhất — A3b một đường trang khách (26/09)
+
+Trang khách chỉ còn một đường: trang đã phát hành, mọi lệnh ghi của khách phải mang proof của trang đó. Gỡ các route
+`/api/v2/shops/<slug>/…` (tin slug trong URL), `visitV2Api`, `server/shops.ts`; publishing tắt thì trang khách 404.
+Harness `public` giờ chạy trên trang đã phát hành — lần đầu nút **"Xoá dữ liệu của tôi" được test trên đúng đường thẻ
+thật dùng**. Lộ ra một lỗi của harness (không phải production): harness áp 021 trước 003, nên trigger chặn sửa của 003
+quay lại và lệnh xoá trả 503; Neon áp theo thứ tự tên tệp nên đúng. **Không migration.** CSS đời cũ gộp vào A19. `integration-tests/safari-local.mjs` (chạy tay, ngoài 7 bộ) chưa
+theo: nó mở `/one` mà chưa dựng trang đã phát hành — sửa khi chạy lại Safari.
+
+### Trước đó — A7 tuân thủ Google cho shop (26/09)
 
 Phần còn lại sau bản rà của Astra: **nút Google chỉ dẫn tới Google** (trước đó chỉ cần `https://`, nên shop trỏ được nút
 sang trang riêng hỏi sao trước — lọc đánh giá qua chính nút của mình) và không mang tham số điền sẵn sao/câu chữ; kiểm ở

@@ -6,6 +6,8 @@ const id = '11111111-1111-4111-8111-111111111111';
 const session = '22222222-2222-4222-8222-222222222222';
 const stamp = '2026-09-12T00:00:00.000Z';
 const win = () => ({ document: {} }) as Window;
+// The published page's proof, which every service now carries (lát A3b).
+const RENDER = { proof: 'fixture.release0.signature', preview: false };
 function harness() {
   let generated = 0, resolved = 0, subscriptions = 0, unsubscriptions = 0;
   const sources = new Map<Window, ReturnType<typeof createOpenLifecycle>>();
@@ -32,7 +34,7 @@ function harness() {
 test('server import needs no window/document; repeated factory returns same instance and one initial request', async () => {
   expect(typeof window).toBe('undefined'); expect(typeof document).toBe('undefined');
   const h = harness(), w = win();
-  const a = h.registry.get(w, { shop: 'Shop-A' }), b = h.registry.get(w, { shop: 'shop-a' });
+  const a = h.registry.get(w, { shop: 'Shop-A', render: RENDER }), b = h.registry.get(w, { shop: 'shop-a', render: RENDER });
   expect(a).toBe(b); expect(h.calls).toHaveLength(0);
   a.start(); b.start(); await h.registry.settledForTests(w);
   expect(h.calls).toHaveLength(1); expect(h.counts()).toEqual({ resolved: 1, subscriptions: 1, unsubscriptions: 0 });
@@ -41,17 +43,17 @@ test('server import needs no window/document; repeated factory returns same inst
 
 test('different documents get separate service and lifecycle', async () => {
   const h = harness(), a = win(), b = win();
-  const first = h.registry.get(a, { shop: 'shop' }), second = h.registry.get(b, { shop: 'shop' });
+  const first = h.registry.get(a, { shop: 'shop', render: RENDER }), second = h.registry.get(b, { shop: 'shop', render: RENDER });
   expect(first).not.toBe(second); first.start(); second.start();
   await Promise.all([h.registry.settledForTests(a), h.registry.settledForTests(b)]);
   expect(h.calls).toHaveLength(2); expect(h.calls[0].body.loadKey).not.toBe(h.calls[1].body.loadKey);
 });
 
 test('remount unsubscribe does not stop service; resume exactly once per lifecycle boundary', async () => {
-  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop' });
+  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop', render: RENDER });
   service.start(); await h.registry.settledForTests(w);
   const off = service.subscribe(() => {}); off(); off();
-  const same = h.registry.get(w, { shop: 'shop' }); same.start();
+  const same = h.registry.get(w, { shop: 'shop', render: RENDER }); same.start();
   h.sources.get(w)!.hide(); h.sources.get(w)!.show(); h.sources.get(w)!.show();
   await h.registry.settledForTests(w);
   expect(h.calls.map(c => c.body.navigationKind)).toEqual(['load', 'resume']);
@@ -59,7 +61,7 @@ test('remount unsubscribe does not stop service; resume exactly once per lifecyc
 });
 
 test('stop/start retains every resume rather than only latest event', async () => {
-  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop' });
+  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop', render: RENDER });
   service.start(); await h.registry.settledForTests(w); service.stop(); service.stop();
   const lifecycle = h.sources.get(w)!;
   lifecycle.hide(); lifecycle.show(); lifecycle.hide(); lifecycle.show();
@@ -71,7 +73,7 @@ test('stop/start retains every resume rather than only latest event', async () =
 test('open pending error is returned and observable, not silently swallowed', async () => {
   const h = harness(), w = win(); let release!: (response: Response) => void;
   h.controls.fetch = () => new Promise(resolve => { release = resolve; });
-  const service = h.registry.get(w, { shop: 'shop' }); const observations: FeedbackServiceState[] = [];
+  const service = h.registry.get(w, { shop: 'shop', render: RENDER }); const observations: FeedbackServiceState[] = [];
   service.subscribe(value => { observations.push(value); }); service.start();
   await Promise.resolve(); await Promise.resolve();
   expect(await service.rate(5)).toEqual({ kind: 'error', code: 'OPEN_PENDING' });
@@ -84,7 +86,7 @@ test('open pending error is returned and observable, not silently swallowed', as
 });
 
 test('rating pending, retry and conflict pass through state without blocking lifecycle', async () => {
-  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop' });
+  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop', render: RENDER });
   service.start(); await h.registry.settledForTests(w);
   const register = h.controls.fetch;
   h.controls.fetch = async (url, body) => url.endsWith('/rating') ? Response.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 }) : register(url, body);
@@ -105,13 +107,13 @@ test('config rejects URLs/context fields and refuses shop switching without cons
     expect(() => h.registry.get(w, config as FeedbackServiceConfig)).toThrow('INVALID_SERVICE_CONFIG');
   }
   expect(h.counts().resolved).toBe(0);
-  h.registry.get(w, { shop: 'shop' });
-  expect(() => h.registry.get(w, { shop: 'other' })).toThrow('DOCUMENT_CONFIG_MISMATCH');
+  h.registry.get(w, { shop: 'shop', render: RENDER });
+  expect(() => h.registry.get(w, { shop: 'other', render: RENDER })).toThrow('DOCUMENT_CONFIG_MISMATCH');
   expect(h.counts().resolved).toBe(1);
 });
 
 test('state copies contain no secret and subscriber mutation/errors do not corrupt service', async () => {
-  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop' });
+  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop', render: RENDER });
   let count = 0; const listener = () => { count++; };
   const off = service.subscribe(listener); service.subscribe(listener); expect(count).toBe(1); off();
   service.subscribe(() => { throw Error('observer'); }); service.start(); await h.registry.settledForTests(w);
@@ -121,7 +123,7 @@ test('state copies contain no secret and subscriber mutation/errors do not corru
 });
 
 test('test disposal detaches lifecycle; production surface exposes no destructive cleanup', async () => {
-  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop' });
+  const h = harness(), w = win(), service = h.registry.get(w, { shop: 'shop', render: RENDER });
   service.start(); await h.registry.settledForTests(w); h.registry.disposeForTests(w); h.registry.disposeForTests(w);
   h.sources.get(w)!.hide(); h.sources.get(w)!.show(); expect(h.calls).toHaveLength(1);
   expect(h.counts().unsubscriptions).toBe(1); expect('dispose' in service).toBe(false);
@@ -131,7 +133,7 @@ test('test disposal detaches lifecycle; production surface exposes no destructiv
 test('retryOpen resolves only requested pending key; stopped actions return explicit error', async () => {
   const h = harness(), w = win(); const register = h.controls.fetch;
   h.controls.fetch = async () => Response.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 });
-  const service = h.registry.get(w, { shop: 'shop' }); service.start(); await h.registry.settledForTests(w);
+  const service = h.registry.get(w, { shop: 'shop', render: RENDER }); service.start(); await h.registry.settledForTests(w);
   const key = service.state().queue.coordinator.current!.event.loadKey;
   h.controls.fetch = register; expect((await service.retryOpen(key)).kind).toBe('ready');
   service.stop(); expect(await service.rate(3)).toEqual({ kind: 'error', code: 'QUEUE_STOPPED' });
@@ -144,7 +146,7 @@ test('feedback service action preserves result and exposes no submitted private 
     experience: { rating: 5, revision: 2, firstInteractionAt: stamp, updatedAt: stamp }, receipt: { intentId: body.intentId, revision: 2, updatedAt: stamp } })
     : Response.json({ visit: { id, sessionId: session, openedAt: stamp, navigationKind: body.navigationKind },
       session: { id: session, lastActivity: stamp, active: true }, experience: { rating: 5, revision: 1, firstInteractionAt: stamp, updatedAt: stamp } });
-  const service = h.registry.get(w, { shop: 'shop' }); service.start(); await h.registry.settledForTests(w);
+  const service = h.registry.get(w, { shop: 'shop', render: RENDER }); service.start(); await h.registry.settledForTests(w);
   const result = await service.feedback('general', 'PRIVATE_SERVICE_PAYLOAD');
   expect(result).toMatchObject({ kind: 'saved', mutation: 'feedback' });
   expect(service.state().lastAction).toEqual(result);
@@ -157,7 +159,7 @@ test('one document cannot switch release or preview binding; new document can', 
   const service = h.registry.get(w, { shop: 'shop', render });
   expect(h.registry.get(w, { shop: 'shop', render: { ...render } })).toBe(service);
   expect(() => h.registry.get(w, { shop: 'shop', render: { ...render, proof: 'fixture.release2.signature' } })).toThrow();
-  expect(() => h.registry.get(w, { shop: 'shop' })).toThrow();
+  expect(() => h.registry.get(w, { shop: 'shop' } as unknown as FeedbackServiceConfig)).toThrow();
   const other = h.registry.get(win(), { shop: 'shop', render: { ...render, preview: true } });
   expect(other).not.toBe(service);
   service.start(); await h.registry.settledForTests(w);

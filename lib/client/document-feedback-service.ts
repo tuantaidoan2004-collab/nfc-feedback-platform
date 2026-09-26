@@ -7,7 +7,7 @@ import { createVisitFetchTransport, type RenderBinding } from './visit-fetch-tra
 
 type ReadonlyTree<T> = T extends object ? { readonly [K in keyof T]: ReadonlyTree<T[K]> } : T;
 export type FeedbackServiceState = ReadonlyTree<{ queue: QueueState; actionsRunning: number; lastAction: CoordinatorResult | null }>;
-export type FeedbackServiceConfig = Readonly<{ shop: string; render?: RenderBinding }>;
+export type FeedbackServiceConfig = Readonly<{ shop: string; render: RenderBinding }>;
 type Ports = {
   identity: () => Promise<BrowserIdentity>;
   lifecycle: { subscribe: (listener: (event: OpenEvent) => void) => () => void };
@@ -44,7 +44,7 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
   const registry = new WeakMap<Document, { win: Window; shop: string; binding: string; service: DocumentFeedbackService; dispose: () => void; settled: () => Promise<void> }>();
   function get(win: Window, config: FeedbackServiceConfig): DocumentFeedbackService {
     const shop = shopConfig(config);
-    const binding = JSON.stringify(config.render ?? null);
+    const binding = JSON.stringify(config.render);
     const existing = registry.get(win.document);
     if (existing) {
       if (existing.win !== win || existing.shop !== shop || existing.binding !== binding) throw Error('DOCUMENT_CONFIG_MISMATCH');
@@ -73,7 +73,7 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       // and the first one's queue is lost. The moment is taken here too, for the same reason: later is wrong.
       if (sinkVisit !== visitId) {
         sinkVisit = visitId; openedAt = Date.now();
-        sink = (async () => createEventSink(shop, visitId, (await ports.identity()).secret, config.render, { fetch: ports.fetch }))()
+        sink = (async () => createEventSink(visitId, (await ports.identity()).secret, config.render, { fetch: ports.fetch }))()
           .catch(() => NO_EVENTS);
       }
       const at = sinceOpen(openedAt, Date.now());

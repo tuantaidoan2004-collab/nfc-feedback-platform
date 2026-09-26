@@ -6,8 +6,12 @@ import { GuestFlood, inspect, mark } from './guest-limits';
 import { readBatch, record } from './page-events';
 import { erase } from './erase';
 
-type Dependencies = { enabled: boolean; origin: string | undefined; pool: () => Pool; resolve?: (request: Request, pool: Pool) => Promise<{ context: ResolvedShopContext; policy: VisitPolicy }> };
-type Context = { shop: string; visitId?: string };
+/**
+ * `resolve` binds a request to the page it came from -- in production the signed render proof (publishing-runtime.ts).
+ * Required since lát A3b: the old way, trusting a shop slug in the URL, is gone with the routes that used it.
+ */
+type Dependencies = { enabled: boolean; origin: string | undefined; pool: () => Pool; resolve: (request: Request, pool: Pool) => Promise<{ context: ResolvedShopContext; policy?: VisitPolicy }> };
+type Context = { visitId?: string };
 type Operation = 'register' | 'rating' | 'feedback' | 'events' | 'erase';
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string) { super(code); }
@@ -80,16 +84,8 @@ export function createVisitV2Api(dependencies: Dependencies) {
             : typeof input.topic !== 'string' || typeof input.message !== 'string' || (input.phone !== undefined && typeof input.phone !== 'string'))) {
         throw new ApiError(400, 'INVALID_INPUT');
       }
-      if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(context.shop) ||
-          ['api', 'zzz', 't', 'demo', '_next'].includes(context.shop.toLowerCase())) throw new ApiError(404, 'SHOP_NOT_FOUND');
       const pool = dependencies.pool();
-      let resolved: ResolvedShopContext, policy: VisitPolicy | undefined;
-      if (dependencies.resolve) { const bound = await dependencies.resolve(request, pool); resolved = bound.context; policy = bound.policy; }
-      else {
-        const shops = await pool.query<{ id: string }>('SELECT id FROM shops WHERE lower(slug)=lower($1)', [context.shop]);
-        if (!shops.rows[0]) throw new ApiError(404, 'SHOP_NOT_FOUND');
-        resolved = { shopId: shops.rows[0].id, scope: 'live', entryKey: 'direct:shop' };
-      }
+      const { context: resolved, policy } = await dependencies.resolve(request, pool);
       const hash = capabilityHash(resolved, bearer[1]);
       // Counted before the write, so a machine past the ceiling is turned away before it costs a row; at the
       // marking threshold the answer is taken as it always was and the session is marked once it exists (lát A1).

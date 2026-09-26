@@ -408,8 +408,9 @@ export default function ShopFeedbackV2(shop: Props) {
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
-      if (!active || shop.still) return;
-      try { setService(documentFeedbackService(window, { shop: shop.slug, ...(shop.render ? { render: shop.render } : {}) })); }
+      // No proof, no service: a still (the page list's thumbnail) never writes, and since lát A3b nothing else lacks one.
+      if (!active || shop.still || !shop.render) return;
+      try { setService(documentFeedbackService(window, { shop: shop.slug, render: shop.render })); }
       catch { setUnavailable(true); }
     });
     return () => { active = false; };

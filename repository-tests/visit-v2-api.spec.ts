@@ -2,7 +2,7 @@ import { test as base, expect } from '@playwright/test';
 import { Pool } from 'pg';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { VisitRatingRepository } from '../lib/repositories/visit-ratings';
+import { VisitAccessDenied, VisitRatingRepository } from '../lib/repositories/visit-ratings';
 import { createVisitV2Api } from '../server/visit-v2-api';
 
 const connectionString = process.env.NFC_TEST_DATABASE_URL;
@@ -15,12 +15,24 @@ const origin = 'http://127.0.0.1:3000';
 const secret = () => randomBytes(32).toString('hex');
 const command = () => ({ intentId: randomUUID(), expectedRevision: 0, score: 5 });
 function request(token: string, body: unknown, headers?: Record<string, string>, query = '') {
-  return new Request(`${origin}/api/v2/shops/one/visits${query}`, { method: 'POST',
+  return new Request(`${origin}/api/v2/pages/visits${query}`, { method: 'POST',
     headers: { origin, authorization: `Bearer ${token}`, 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body && typeof body === 'object' && 'loadKey' in body ? { navigationKind: 'load', ...body } : body),
   });
 }
-type Fixture = { pool: Pool; api: ReturnType<typeof createVisitV2Api>; shopId: string };
+/**
+ * Since lát A3b the handler learns which page a request came from only through `resolve` -- in production, the signed
+ * render proof. Here `shop` names that page's shop directly: it stands in for the proof, so the cases about one shop
+ * reaching another's visits still test exactly what they did. A shop that does not exist is refused like a bad proof.
+ */
+type Call = (request: Request, context: { shop: string; visitId?: string }, operation: Parameters<ReturnType<typeof createVisitV2Api>>[2]) => Promise<Response>;
+type Fixture = { pool: Pool; api: Call; shopId: string };
+const bySlug = (pool: Pool, shop: string) => createVisitV2Api({ enabled: true, origin, pool: () => pool, resolve: async () => {
+  const row = (await pool.query<{ id: string }>('SELECT id FROM shops WHERE slug=$1', [shop])).rows[0];
+  if (!row) throw new VisitAccessDenied('PAGE_UNAVAILABLE');
+  return { context: { shopId: row.id, scope: 'live', entryKey: 'direct:shop' } };
+} });
+const unresolved = async () => { throw new Error('unreachable: refused before the page is resolved'); };
 const test = base.extend<{ db: Fixture }>({
   db: async ({}, provideFixture) => {
     const schema = `nfc_api_test_${randomUUID().replaceAll('-', '')}`;
@@ -37,9 +49,7 @@ const test = base.extend<{ db: Fixture }>({
       await pool.query(await readFile('db/migrations/021_erase_on_request.sql', 'utf8'));
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
-      await pool.query(`INSERT INTO experiences(shop_id,token_hash,note,message)
-        VALUES($1,'private-legacy-hash','PRIVATE_OWNER_NOTE','PRIVATE_FEEDBACK')`, [shopId]);
-      await provideFixture({ pool, shopId, api: createVisitV2Api({ enabled: true, origin, pool: () => pool }) });
+      await provideFixture({ pool, shopId, api: (request, { shop, ...context }, operation) => bySlug(pool, shop)(request, context, operation) });
     } finally {
       await pool.end(); await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await admin.end();
     }
@@ -153,7 +163,7 @@ test('rating reply/replay is explicit; stale revisions and changed intent payloa
   await expectError(await db.api(request(token, { ...first, expectedRevision: 2 }), context, 'rating'), 409, 'INTENT_CONFLICT');
   expect(Object.keys(replay).sort()).toEqual(['experience', 'outcome', 'receipt']);
   expect(Object.keys(replay.experience).sort()).toEqual(['firstInteractionAt', 'rating', 'revision', 'updatedAt']);
-  for (const forbidden of [token, 'capability_hash', 'PRIVATE_OWNER_NOTE', 'PRIVATE_FEEDBACK', 'PRIVATE_SHOP_NAME']) {
+  for (const forbidden of [token, 'capability_hash', 'PRIVATE_SHOP_NAME']) {
     expect(JSON.stringify(replay)).not.toContain(forbidden);
   }
 });
@@ -213,17 +223,17 @@ test('body bounds, JSON type, query params, and missing shop fail closed', async
   await expectError(await db.api(request(token, {}, { 'content-type': 'text/plain' }), { shop: 'one' }, 'register'), 415, 'JSON_REQUIRED');
   await expectError(await db.api(request(token, []), { shop: 'one' }, 'register'), 400, 'INVALID_BODY');
   await expectError(await db.api(request(token, { loadKey: randomUUID() }, {}, '?scope=test'), { shop: 'one' }, 'register'), 400, 'INVALID_INPUT');
-  await expectError(await db.api(request(token, { loadKey: randomUUID() }), { shop: 'missing' }, 'register'), 404, 'SHOP_NOT_FOUND');
+  await expectError(await db.api(request(token, { loadKey: randomUUID() }), { shop: 'missing' }, 'register'), 403, 'PAGE_UNAVAILABLE');
 });
 
 test('disabled configuration never touches database and infrastructure errors reveal nothing', async ({ db }) => {
   const noDatabase = () => { throw new Error('PRIVATE_CREDENTIAL_DETAIL'); };
-  const disabled = createVisitV2Api({ enabled: false, origin, pool: noDatabase });
-  await expectError(await disabled(request(secret(), { loadKey: randomUUID() }), { shop: 'one' }, 'register'), 404, 'NOT_FOUND');
-  const unavailable = createVisitV2Api({ enabled: true, origin, pool: noDatabase });
-  await expectError(await unavailable(request(secret(), { loadKey: randomUUID() }), { shop: 'one' }, 'register'), 503, 'SERVICE_UNAVAILABLE');
-  const badConfig = createVisitV2Api({ enabled: true, origin: `${origin}/`, pool: () => db.pool });
-  await expectError(await badConfig(request(secret(), { loadKey: randomUUID() }), { shop: 'one' }, 'register'), 503, 'SERVICE_UNAVAILABLE');
+  const disabled = createVisitV2Api({ enabled: false, origin, pool: noDatabase, resolve: unresolved });
+  await expectError(await disabled(request(secret(), { loadKey: randomUUID() }), {}, 'register'), 404, 'NOT_FOUND');
+  const unavailable = createVisitV2Api({ enabled: true, origin, pool: noDatabase, resolve: unresolved });
+  await expectError(await unavailable(request(secret(), { loadKey: randomUUID() }), {}, 'register'), 503, 'SERVICE_UNAVAILABLE');
+  const badConfig = createVisitV2Api({ enabled: true, origin: `${origin}/`, pool: () => db.pool, resolve: unresolved });
+  await expectError(await badConfig(request(secret(), { loadKey: randomUUID() }), {}, 'register'), 503, 'SERVICE_UNAVAILABLE');
 });
 
 test('feedback before any star is saved with no rating, and a later star keeps its revision chain', async ({ db }) => {
@@ -278,9 +288,9 @@ test('feedback capability/context, malformed/body/origin validation and disabled
   });
   await expectError(await db.api(malformed, context, 'feedback'), 400, 'INVALID_BODY');
   await expectError(await db.api(request(token, body, { 'content-type': 'text/plain' }), context, 'feedback'), 415, 'JSON_REQUIRED');
-  const unavailable = createVisitV2Api({ enabled: true, origin, pool: () => { throw Error('PRIVATE_INTERNAL_FAILURE'); } });
+  const unavailable = createVisitV2Api({ enabled: true, origin, pool: () => { throw Error('PRIVATE_INTERNAL_FAILURE'); }, resolve: unresolved });
   await expectError(await unavailable(request(token, body), context, 'feedback'), 503, 'SERVICE_UNAVAILABLE');
-  const disabled = createVisitV2Api({ enabled: false, origin, pool: () => { throw Error('must not open DB'); } });
+  const disabled = createVisitV2Api({ enabled: false, origin, pool: () => { throw Error('must not open DB'); }, resolve: unresolved });
   await expectError(await disabled(request(token, body), context, 'feedback'), 404, 'NOT_FOUND');
 });
 

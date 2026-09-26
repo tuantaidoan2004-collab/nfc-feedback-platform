@@ -505,3 +505,10 @@ tải dở. Các mốc thời gian của lượt đo đó vẫn đúng. Lỗi c�
 **zsh glob không nháy — lần thứ tư.** Lát A7 lại gõ `grep … --include=*.ts` không nháy; zsh báo `no matches found` và
 không chạy grep. Bắt được vì đọc dòng lỗi (luật từ lát A3), nhưng vẫn là cùng một lỗi. Từ nay mọi `--include` viết
 `--include='*.ts'` ngay từ đầu.
+
+**Harness áp migration theo danh sách viết tay, sai thứ tự so với Neon.** `run-local.mjs` áp 021 (cho phép xoá theo yêu
+cầu, thay trigger của 003) **trước** 003; 003 cài lại trigger chặn mọi sửa, nên nút "Xoá dữ liệu của tôi" trả 503 —
+chỉ trong harness. Neon áp theo thứ tự tên tệp (`scripts/migrate.mjs` sắp xếp) nên production đúng. Chín ngày không lộ
+vì harness `public` (nơi có ca xoá) không có 003, còn harness `publishing` (có 003) không có ca xoá. Lộ ra ở lát A3b khi
+gộp hai đường. Luật: danh sách migration trong fixture phải giữ **thứ tự tên tệp**; migration nào thay thứ của migration
+trước thì kiểm cả hai cùng có mặt trong ít nhất một bộ.

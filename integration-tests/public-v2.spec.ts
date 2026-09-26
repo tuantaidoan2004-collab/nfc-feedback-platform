@@ -1,6 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { publishedShops } from './published-shops';
 const uri = process.env.NFC_TEST_DATABASE_URL;
 const schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
@@ -8,7 +9,7 @@ const test = base.extend<{ db: Pool }>({
   db: async ({}, provideFixture) => {
     const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
     try {
-      await db.query('TRUNCATE visit_sessions CASCADE');
+      await publishedShops(db); await db.query('TRUNCATE visit_sessions CASCADE');
       await provideFixture(db);
     } finally { await db.end(); }
   },
@@ -47,7 +48,7 @@ test('real page: one initial open, stars and text saved together by Send, reload
   const opens: { navigationKind: string; loadKey: string }[] = [];
   const responses: string[] = [], errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  page.on('request', r => { if (r.url().endsWith('/api/v2/shops/one/visits')) opens.push(r.postDataJSON()); });
+  page.on('request', r => { if (r.url().endsWith('/api/v2/pages/visits')) opens.push(r.postDataJSON()); });
   page.on('response', async r => { if (r.url().includes('/api/v2/')) responses.push(await r.text()); });
   await ready(page);
   expect(opens).toHaveLength(1); expect(opens[0].navigationKind).toBe('load');
@@ -162,7 +163,7 @@ test('SESSION_EXPIRED keeps draft; only a new Send with a star starts a new sess
 
 test('unknown initial open retries same event and enables stars only after confirmation', async ({ page, db }) => {
   const payloads: unknown[] = [];
-  await page.route('**/api/v2/shops/one/visits', async route => {
+  await page.route('**/api/v2/pages/visits', async route => {
     payloads.push(route.request().postDataJSON()); const response = await route.fetch();
     if (payloads.length <= 2) await route.abort('failed'); else await route.fulfill({ response });
   });
@@ -204,11 +205,14 @@ test('the retired demo and cookie-era routes are gone; the front door says where
   for (const table of ['visit_sessions', 'rating_experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
 });
 
-test('Next HTTP saves private feedback without a rating and never echoes text', async ({ request, db }) => {
-  const headers = { origin: 'http://127.0.0.1:3317', authorization: `Bearer ${randomBytes(32).toString('hex')}` };
-  const opened = await request.post('/api/v2/shops/one/visits', { headers, data: { loadKey: randomUUID(), navigationKind: 'load' } });
+test('Next HTTP saves private feedback without a rating and never echoes text', async ({ page, request, db }) => {
+  // Every guest write carries the published page's proof (lát A3b); take the one this page was rendered with.
+  const opening = page.waitForRequest('**/api/v2/pages/visits'); await page.goto('/one');
+  const proof = (await opening).headers()['x-nfc-render'];
+  const headers = { origin: 'http://127.0.0.1:3317', authorization: `Bearer ${randomBytes(32).toString('hex')}`, 'x-nfc-render': proof };
+  const opened = await request.post('/api/v2/pages/visits', { headers, data: { loadKey: randomUUID(), navigationKind: 'load' } });
   expect(opened.status()).toBe(200); const visit = (await opened.json()).visit;
-  const response = await request.post(`/api/v2/shops/one/visits/${visit.id}/feedback`, { headers,
+  const response = await request.post(`/api/v2/pages/visits/${visit.id}/feedback`, { headers,
     data: { intentId: randomUUID(), expectedRevision: 0, topic: 'other', message: 'PRIVATE_NO_RATING' } });
   expect(response.status()).toBe(200);
   const body = await response.text();

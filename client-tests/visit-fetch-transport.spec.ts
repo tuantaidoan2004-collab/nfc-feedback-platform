@@ -5,6 +5,8 @@ import { createVisitCoordinator } from '../lib/client/visit-coordinator';
 const id = '11111111-1111-4111-8111-111111111111';
 const sessionId = '22222222-2222-4222-8222-222222222222';
 const secret = 'a'.repeat(64);
+// Every guest write carries the published page's proof (lát A3b): there is no slug-only path.
+const RENDER = { proof: 'fixture.payload.signature', preview: false };
 const event = { loadKey: id, navigationKind: 'reload' as const };
 const command = { intentId: id, expectedRevision: 0, score: 5 };
 const times = { firstInteractionAt: '2026-09-12T00:00:00.000Z', updatedAt: '2026-09-12T00:00:00.000Z' };
@@ -19,7 +21,7 @@ function harness(implementation: typeof fetch = async () => Response.json(opened
   const timer = { set: (callback: () => void, ms: number) => { expect(ms).toBe(100); tick = callback; return 42; },
     clear: (handle: unknown) => { expect(handle).toBe(42); clears++; } };
   const transport = createVisitFetchTransport('shop-A', { timeoutMs: 100, timer,
-    fetch: async (url, init) => { requests.push({ url: String(url), init: init! }); return implementation(url, init); } });
+    fetch: async (url, init) => { requests.push({ url: String(url), init: init! }); return implementation(url, init); } }, RENDER);
   return { transport, requests, expire: () => tick!(), clears: () => clears };
 }
 
@@ -27,9 +29,9 @@ test('register sends exact same-origin capability request with allowlisted body'
   const h = harness();
   expect((await h.transport.register(secret, { ...event, shopId: 'ignored' } as typeof event)).kind).toBe('ok');
   const { url, init } = h.requests[0];
-  expect(url).toBe('/api/v2/shops/shop-A/visits'); expect(url).not.toContain(secret);
+  expect(url).toBe('/api/v2/pages/visits'); expect(url).not.toContain(secret);
   expect(init).toMatchObject({ method: 'POST', mode: 'same-origin', credentials: 'omit', redirect: 'error', cache: 'no-store' });
-  expect(init.headers).toEqual({ 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${secret}` });
+  expect(init.headers).toEqual({ 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${secret}`, 'X-NFC-Render': RENDER.proof });
   expect(JSON.parse(String(init.body))).toEqual(event);
   expect(init.signal?.aborted).toBe(false); expect(h.clears()).toBe(1);
 });
@@ -37,7 +39,7 @@ test('register sends exact same-origin capability request with allowlisted body'
 test('rating serializes only contract fields and accepts complete receipt', async () => {
   const h = harness(async () => Response.json(saved));
   expect((await h.transport.rating(secret, id, { ...command, sessionId: 'ignored' } as typeof command)).kind).toBe('ok');
-  expect(h.requests[0].url).toBe(`/api/v2/shops/shop-A/visits/${id}/rating`);
+  expect(h.requests[0].url).toBe(`/api/v2/pages/visits/${id}/rating`);
   expect(JSON.parse(String(h.requests[0].init.body))).toEqual(command);
   expect(h.clears()).toBe(1);
 });
@@ -119,9 +121,11 @@ test('coordinator retries register and rating without changing keys or secret', 
 test('URL injection and invalid visit path never reach fetch', async () => {
   const ports = { fetch: fetch, timer: { set: () => 0, clear: () => {} } };
   for (const slug of ['https://evil.test', '../x', 'x?scope=test', 'x/y', 'ZZZ']) {
-    expect(() => createVisitFetchTransport(slug, ports)).toThrow('INVALID_SHOP_SLUG');
+    expect(() => createVisitFetchTransport(slug, ports, RENDER)).toThrow('INVALID_SHOP_SLUG');
   }
-  expect(() => createVisitFetchTransport('shop', { ...ports, timeoutMs: 0 })).toThrow('INVALID_TIMEOUT');
+  expect(() => createVisitFetchTransport('shop', { ...ports, timeoutMs: 0 }, RENDER)).toThrow('INVALID_TIMEOUT');
+  // No proof, no transport: the slug-only path is gone (lát A3b), so there is nothing a missing proof could fall back to.
+  expect(() => createVisitFetchTransport('shop', ports, undefined as never)).toThrow('INVALID_RENDER_BINDING');
   const h = harness();
   expect(await h.transport.rating(secret, '../x', command)).toEqual({ kind: 'rejected', code: 'INVALID_INPUT' });
   expect(h.requests).toHaveLength(0);
@@ -132,7 +136,7 @@ const feedbackReply = { outcome: 'applied', experience: { rating: 5, revision: 2
 test('feedback request preserves exact content/intent and uses existing secure transport options', async () => {
   const h = harness(async () => Response.json(feedbackReply));
   expect((await h.transport.feedback(secret, id, feedbackCommand)).kind).toBe('ok');
-  expect(h.requests[0].url).toBe(`/api/v2/shops/shop-A/visits/${id}/feedback`);
+  expect(h.requests[0].url).toBe(`/api/v2/pages/visits/${id}/feedback`);
   expect(JSON.parse(String(h.requests[0].init.body))).toEqual(feedbackCommand);
   expect(h.requests[0].init).toMatchObject({ method: 'POST', cache: 'no-store', mode: 'same-origin', credentials: 'omit', redirect: 'error' });
   expect(new Headers(h.requests[0].init.headers).get('authorization')).toBe(`Bearer ${secret}`);
@@ -196,7 +200,7 @@ test('feedback sends the call-back number only when there is one', async () => {
 test('erase sends an empty body with the capability, and accepts only the exact reply', async () => {
   const h = harness(async () => Response.json({ erased: true }));
   expect(await h.transport.erase(secret, id)).toEqual({ kind: 'ok', data: { erased: true } });
-  expect(h.requests[0].url).toBe(`/api/v2/shops/shop-A/visits/${id}/erase`);
+  expect(h.requests[0].url).toBe(`/api/v2/pages/visits/${id}/erase`);
   expect(JSON.parse(String(h.requests[0].init.body))).toEqual({});
   expect((h.requests[0].init.headers as Record<string, string>).Authorization).toBe(`Bearer ${secret}`);
   expect((await harness(async () => Response.json({ erased: 'yes' })).transport.erase(secret, id)).kind).toBe('unknown');

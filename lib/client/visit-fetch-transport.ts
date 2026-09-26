@@ -49,12 +49,13 @@ const errorStatus: Record<string, number> = {
 };
 
 /** Same-origin browser transport. Caller supplies only a public slug, never an origin or API URL. */
-export function createVisitFetchTransport(shop: string, ports: Ports, render?: RenderBinding): Pick<CoordinatorPorts, 'register' | 'rating'> & FeedbackTransport {
+export function createVisitFetchTransport(shop: string, ports: Ports, render: RenderBinding): Pick<CoordinatorPorts, 'register' | 'rating'> & FeedbackTransport {
   if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(shop) || ['api', 'zzz', 't', 'demo'].includes(shop.toLowerCase())) throw Error('INVALID_SHOP_SLUG');
-  if (render && (typeof render.proof !== 'string' || render.proof.length > 1500 || !/^[A-Za-z0-9_.-]+$/.test(render.proof) || typeof render.preview !== 'boolean')) throw Error('INVALID_RENDER_BINDING');
+  // Every guest write carries the published page's proof (lát A3b): there is no slug-only path left to fall back to.
+  if (!render || (typeof render.proof !== 'string' || render.proof.length > 1500 || !/^[A-Za-z0-9_.-]+$/.test(render.proof) || typeof render.preview !== 'boolean')) throw Error('INVALID_RENDER_BINDING');
   const timeoutMs = ports.timeoutMs ?? 10_000;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000) throw Error('INVALID_TIMEOUT');
-  const base = render ? `/api/v2/pages/visits` : `/api/v2/shops/${encodeURIComponent(shop)}/visits`;
+  const base = '/api/v2/pages/visits';
   async function post<T>(url: string, secret: string, body: unknown, valid: (v: unknown) => v is T): Promise<TransportReply<T>> {
     const controller = new AbortController();
     let handle: unknown;
@@ -66,9 +67,9 @@ export function createVisitFetchTransport(shop: string, ports: Ports, render?: R
       });
       const request = async (): Promise<TransportReply<T>> => {
         try {
-          const response = await ports.fetch(url, { method: 'POST', mode: 'same-origin', credentials: render?.preview ? 'same-origin' : 'omit',
+          const response = await ports.fetch(url, { method: 'POST', mode: 'same-origin', credentials: render.preview ? 'same-origin' : 'omit',
             redirect: 'error', cache: 'no-store', signal: controller.signal,
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${secret}`, ...(render ? { 'X-NFC-Render': render.proof } : {}) },
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${secret}`, 'X-NFC-Render': render.proof },
             body: JSON.stringify(body) });
           if (response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') return unknownReply;
           const data: unknown = await response.json();

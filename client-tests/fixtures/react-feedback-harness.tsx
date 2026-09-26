@@ -36,7 +36,7 @@ let enabled = true;
 let lastResult: CoordinatorResult | undefined;
 let latest: ReturnType<typeof useDocumentFeedback>;
 // Same facade across remounts, with real document composition behind it.
-const service = registry.get(window, { shop: 'testshop' });
+const service = registry.get(window, { shop: 'testshop', render: { proof: 'fixture.release0.signature', preview: false } });
 const facade = { ...service, stop: () => { stopCalls++; service.stop(); } };
 function Boundary() {
   const [, redraw] = useState(0);

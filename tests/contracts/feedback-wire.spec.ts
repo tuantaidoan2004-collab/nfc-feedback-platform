@@ -6,11 +6,13 @@ const id = '11111111-1111-4111-8111-111111111111';
 const body = { intentId: id, expectedRevision: 1, topic: 'general', message: 'hello' };
 function harness() {
   let dbCalls = 0;
-  const handler = createVisitV2Api({ enabled: true, origin, pool: () => { dbCalls++; throw Error('intentional DB boundary'); } });
+  // The pool is asked for before the page is resolved, so the resolver below is never reached: the DB boundary is.
+  const handler = createVisitV2Api({ enabled: true, origin, pool: () => { dbCalls++; throw Error('intentional DB boundary'); },
+    resolve: async () => { throw Error('unreachable: the pool refuses first'); } });
   return { dbCalls: () => dbCalls, call: (raw: string, operation: 'feedback' | 'rating' | 'register' = 'feedback') => handler(
-    new Request(`${origin}/api/v2/shops/shop/visits/${id}/feedback`, { method: 'POST',
+    new Request(`${origin}/api/v2/pages/visits/${id}/feedback`, { method: 'POST',
       headers: { origin, 'content-type': 'application/json', authorization: `Bearer ${'a'.repeat(64)}` }, body: raw }),
-    { shop: 'shop', visitId: id }, operation) };
+    { visitId: id }, operation) };
 }
 for (const size of [16383, 16384, 16385]) test(`feedback wire ${size} bytes boundary`, async () => {
   const h = harness(), json = JSON.stringify(body), raw = json + ' '.repeat(size - Buffer.byteLength(json));

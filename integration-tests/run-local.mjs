@@ -16,7 +16,7 @@ const children = [], logs = [];
 // The owner dashboard needs 005, 007 and 008 in turn: it shows the shop every administrator session and its own support switch.
 const platformAdmin = process.argv.includes('--admin');
 const owner = platformAdmin || process.argv.includes('--owner');
-const publishing = owner || process.argv.includes('--publishing');
+// `--publishing` is still accepted (CI passes it) but changes nothing: every mode publishes since lát A3b.
 const signingFixture = randomBytes(32).toString('hex');
 // The administrator's second factor is sealed with this; without it the app refuses to store a secret at all.
 const totpFixture = randomBytes(32).toString('hex');
@@ -55,7 +55,7 @@ async function warm(origin) {
     '/api/owner/v2/one/pages', '/ZZZ/one/thumb/one', '/gov/api/incidents', `/gov/api/incidents/${zero}`, `/gov/api/pages/${zero}`,
     // The behaviour beacon (lát mục 7). A route compiled on its first call makes `next dev` reload every open
     // page, and a beacon fires while another test has a half-filled login form on screen.
-    `/api/v2/pages/visits/${zero}/events`, `/api/v2/shops/one/visits/${zero}/events`];
+    `/api/v2/pages/visits/${zero}/events`];
   await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
 }
 
@@ -64,7 +64,7 @@ async function startApp(name, port, flag, builtApp) {
   // The built app deliberately leaves NFC_ENV unset: the production gate test proves feature flags alone
   // never open v2. Dev apps declare it so the rest of the suite exercises the enabled surfaces.
   const env = { ...safeEnv, NODE_ENV: builtApp ? 'production' : 'development', ...(builtApp ? {} : { NFC_ENV: 'local' }), SERVER_DATA_ENABLED: 'true', DATABASE_URL: scoped.href,
-    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: publishing && flag === 'true' ? 'true' : 'false', NFC_RENDER_SIGNING_KEY: signingFixture, NFC_TOTP_KEY: totpFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
+    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: flag, NFC_RENDER_SIGNING_KEY: signingFixture, NFC_TOTP_KEY: totpFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
   const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...(builtApp ? ['start'] : ['dev', '--webpack']), '--hostname', '127.0.0.1', '--port', String(port)],
     { cwd, env, stdio: ['ignore', log.fd, log.fd] });
   children.push(child);
@@ -78,7 +78,10 @@ async function startApp(name, port, flag, builtApp) {
 }
 try {
   await admin.query(`CREATE SCHEMA ${schema}`);
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '021_erase_on_request.sql', ...(publishing ? ['003_publishing.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql'] : []), ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  // Every mode has the published guest page since lát A3b, so every mode has the publishing schema. 021 must follow
+  // 003, as it does on Neon (filename order): it replaces the receipt trigger 003 installs. Before 003 it was a no-op,
+  // 003 then put the strict trigger back, and a customer's erase answered 503 -- but only here, never in production.
+  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '003_publishing.sql', '021_erase_on_request.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql', ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');

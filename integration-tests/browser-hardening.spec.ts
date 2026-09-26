@@ -2,11 +2,12 @@ import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { writeFile } from 'node:fs/promises';
 import { realChrome, realChromeLaunch } from '../playwright.chrome';
+import { publishedShops } from './published-shops';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
 const test = base.extend<{ db: Pool }>({ db: async ({}, provideFixture) => {
   const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
-  try { await db.query('TRUNCATE visit_sessions, experiences CASCADE'); await provideFixture(db); } finally { await db.end(); }
+  try { await publishedShops(db); await db.query('TRUNCATE visit_sessions CASCADE'); await provideFixture(db); } finally { await db.end(); }
 } });
 // A real Chrome with its back/forward cache left on; where that Chrome lives differs between Tài's Mac and CI, so it
 // comes from playwright.chrome.ts. Hardcoding the macOS path here made all seven of these cases fail on GitHub (A4).
