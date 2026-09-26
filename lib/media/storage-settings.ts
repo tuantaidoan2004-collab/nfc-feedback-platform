@@ -4,8 +4,8 @@
  *
  *   - `STORAGE_ENDPOINT` unset: Cloudflare R2 at `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, as production has
  *     run since 18/09 -- nothing to change on Vercel.
- *   - `STORAGE_ENDPOINT` set (e.g. `https://s3.ap-southeast-1.amazonaws.com`, or MinIO on the same machine): that
- *     store, path-style (`/<bucket>/<key>`), with `STORAGE_REGION` (default `auto`, which R2 and MinIO accept).
+ *   - `STORAGE_ENDPOINT` set (e.g. `https://s3.ap-southeast-1.amazonaws.com`, or SeaweedFS on the same machine): that
+ *     store, path-style (`/<bucket>/<key>`), with `STORAGE_REGION` (default `auto`, which R2 accepts; SeaweedFS takes any).
  *
  * The key, secret and bucket keep their historic `R2_*` names so no deployment has to rename anything; they name
  * whichever store the endpoint points at. Plain `http` is accepted only on this machine (loopback), for a local store.
@@ -16,7 +16,7 @@ export type StorageSettings = { endpoint: string; region: string; accessKeyId: s
 const loopback = (url: URL) => ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 /**
  * An origin, or with `withPath` an origin plus a path prefix: a store addressed path-style serves a public object at
- * `<origin>/<bucket>/<key>` (MinIO, S3), where R2 behind its own domain serves it at `<origin>/<key>`.
+ * `<origin>/<bucket>/<key>` (SeaweedFS, S3), where R2 behind its own domain serves it at `<origin>/<key>`.
  */
 const safeOrigin = (value: string | undefined, withPath = false) => {
   let url: URL; try { url = new URL(value ?? ''); } catch { return null; }

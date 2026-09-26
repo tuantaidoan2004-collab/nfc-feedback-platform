@@ -413,7 +413,7 @@ test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s fold
  const own={...env,R2_ACCOUNT_ID:'',STORAGE_ENDPOINT:'http://127.0.0.1:9000',STORAGE_REGION:'us-east-1'};
  const local=await new OwnerMedia(f.db,r2Settings(own),()=>new Date('2026-09-18T10:00:00Z')).presign(f.users[0].token,'one',{type:'image/png',size:10});
  expect(local.upload).toMatch(/^http:\/\/127\.0\.0\.1:9000\/nfc-media\/shops\//);expect(new URL(local.upload).searchParams.get('X-Amz-Credential')).toContain('/us-east-1/s3/');
- expect(r2Settings({...own,STORAGE_ENDPOINT:'http://minio.example.com:9000'})).toBeNull();
+ expect(r2Settings({...own,STORAGE_ENDPOINT:'http://store.example.com:9000'})).toBeNull();
  expect(r2Settings({...own,STORAGE_ENDPOINT:'https://s3.ap-southeast-1.amazonaws.com'})).toMatchObject({endpoint:'https://s3.ap-southeast-1.amazonaws.com'});
  // A path-style store serves public objects under the bucket's path; a query or a stray path segment is refused.
  expect(r2Settings({...own,MEDIA_PUBLIC_ORIGIN:'https://media.example.com/nfc-media/'})).toMatchObject({publicOrigin:'https://media.example.com/nfc-media'});

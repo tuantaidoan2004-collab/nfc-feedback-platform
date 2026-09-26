@@ -140,7 +140,7 @@ jobs:
 
   selfhost:
     # Lát I1: the whole platform from the Dockerfile and deploy/docker-compose.yml on a bare runner -- PostgreSQL and
-    # MinIO in containers, nothing rented -- then scripts/selfhost-smoke.mjs against it (docs/tu-chay.md).
+    # SeaweedFS (an S3-compatible store) in containers, nothing rented -- then scripts/selfhost-smoke.mjs against it (docs/tu-chay.md).
     name: self-host (Docker, no rented service)
     runs-on: ubuntu-latest
     timeout-minutes: 30

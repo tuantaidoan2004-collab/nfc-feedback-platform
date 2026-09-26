@@ -1,7 +1,7 @@
 import { createHash, createHmac } from 'node:crypto';
 
 /**
- * AWS Signature Version 4 query-string presigning, which every S3-compatible store accepts (R2, S3, MinIO). Written
+ * AWS Signature Version 4 query-string presigning, which every S3-compatible store accepts (R2, S3, SeaweedFS). Written
  * with node:crypto instead of an SDK: one function, checked against AWS's published example in
  * tests/contracts/sigv4.spec.ts.
  */

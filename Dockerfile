@@ -2,7 +2,7 @@
 # Next's standalone server, plus the migration and admin scripts, which need only `pg`. Runs as the `node` user.
 #
 #   docker build -t nfc-platform .
-#   docker compose -f deploy/docker-compose.yml up        (app + PostgreSQL + MinIO; see docs/tu-chay.md)
+#   docker compose -f deploy/docker-compose.yml up        (app + PostgreSQL + SeaweedFS; see docs/tu-chay.md)
 FROM node:24-bookworm-slim AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate

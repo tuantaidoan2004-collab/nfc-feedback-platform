@@ -524,3 +524,15 @@ Bài học chung: một header chỉ đáng tin khi **thứ đứng trước app
 mà quên nó cũng xếp một ảnh vào hàng chờ duyệt (đếm 3 → 4); (2) viết "không bị đánh dấu" là `[]` trong khi `marks()` trả
 một dòng mỗi phiên, phiên chưa đánh dấu là `null`. Cả hai đỏ ngay ở lần chạy đầu, không phải lỗi mã. Đọc helper trước
 khi viết kỳ vọng dựa vào nó. Lỗi của Claude.
+
+**Viết compose cho một image không còn tồn tại, và không chạy thử trước khi đẩy.** Lát I1 (26/09) chọn MinIO cho kho
+S3 trong `deploy/docker-compose.yml`; máy Claude không có Docker nên không dựng thử, chỉ đẩy và trông vào CI — mà CI đang
+hỏng vì lý do khác nên job không chạy. Khi Tài cài Docker (27/09), lần dựng đầu lộ hai lỗi: `minio/minio` không còn trên
+Docker Hub (bản quay.io cũng không tải được — MinIO đã ngừng phát image), và service `app` dùng image `nfc-platform`
+không kèm phần build nên compose đi **tải** nó. Sửa: SeaweedFS (Apache 2.0, một container, tạo bucket lúc khởi động, quyền
+đọc ẩn danh chỉ cho bucket media, tắt telemetry); `app` và `migrate` cùng `build` + `pull_policy: build`. Lỗi của Claude.
+Luật: tệp chạy hạ tầng (compose, Dockerfile, workflow) chỉ tính là xong khi đã **chạy thật một lần** và có output.
+
+**Biến chuỗi chứa lệnh nhiều chữ trong zsh — lần thứ ba.** Kiểm compose 27/09: `C="docker compose -f …"; $C ps` → zsh
+coi cả chuỗi là tên một tệp (`no such file or directory`). Bẫy này đã ghi từ lát P1; lần này mất một vòng lệnh phụ, không
+ảnh hưởng kết quả kiểm chính. Luôn dùng hàm: `C(){ docker compose -f … "$@"; }`.

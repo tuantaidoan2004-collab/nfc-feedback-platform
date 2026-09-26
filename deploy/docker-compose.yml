@@ -1,4 +1,5 @@
-# The platform on one machine, nothing rented (lát I1). docs/tu-chay.md explains every step.
+# The platform on one machine, nothing rented (lát I1): the app, PostgreSQL and an S3-compatible store (SeaweedFS).
+# docs/tu-chay.md explains every step.
 #   cp deploy/.env.example deploy/.env   # then fill in every value
 #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 services:
@@ -14,36 +15,42 @@ services:
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U nfc -d nfc"], interval: 5s, retries: 20 }
     restart: unless-stopped
 
+  # Any S3-compatible store works (lib/media/storage-settings.ts). SeaweedFS: open source (Apache 2.0), one container.
+  # MinIO was the first choice and stopped publishing images (found 27/09, operations-gotchas.md). The store gets one
+  # key that may write, and anonymous read of the media bucket only -- guests read pictures, nobody lists or writes.
   store:
-    image: minio/minio:latest
-    command: server /data --console-address :9001
+    image: chrislusf/seaweedfs:4.47
     environment:
-      MINIO_ROOT_USER: ${STORE_USER:?set STORE_USER}
-      MINIO_ROOT_PASSWORD: ${STORE_PASSWORD:?set STORE_PASSWORD}
+      STORE_USER: ${STORE_USER:?set STORE_USER}
+      STORE_PASSWORD: ${STORE_PASSWORD:?set STORE_PASSWORD}
+    entrypoint: ["/bin/sh", "-c"]
+    # -master.telemetry=false: a self-hosted platform does not report home to anyone without being asked.
+    command:
+      - >-
+        printf '{"identities":[{"name":"nfc","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Tagging","Write"]},{"name":"anonymous","actions":["Read:nfc-media"]}]}'
+        "$$STORE_USER" "$$STORE_PASSWORD" > /tmp/s3.json &&
+        exec /entrypoint.sh mini -dir=/data -s3.config=/tmp/s3.json -bucket=nfc-media -master.telemetry=false
     volumes: [store:/data]
-    ports: ["127.0.0.1:9000:9000"]
-    healthcheck: { test: ["CMD", "mc", "ready", "local"], interval: 5s, retries: 20 }
+    ports: ["127.0.0.1:9000:8333"]
+    healthcheck: { test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/status"], interval: 5s, retries: 30 }
     restart: unless-stopped
-
-  # One-off: the media bucket, readable by anyone (guest pages show its pictures), writable only with a signed URL.
-  store-setup:
-    image: minio/mc:latest
-    depends_on: { store: { condition: service_healthy } }
-    entrypoint: ["/bin/sh", "-c", "mc alias set local http://store:9000 \"$$STORE_USER\" \"$$STORE_PASSWORD\" && mc mb --ignore-existing local/nfc-media && mc anonymous set download local/nfc-media"]
-    environment: { STORE_USER: "${STORE_USER}", STORE_PASSWORD: "${STORE_PASSWORD}" }
 
   migrate:
     build: { context: .., dockerfile: Dockerfile }
     image: nfc-platform
+    pull_policy: build
     command: ["node", "scripts/migrate.mjs"]
     environment: { DATABASE_URL: "postgresql://nfc:${DB_PASSWORD}@db:5432/nfc" }
     depends_on: { db: { condition: service_healthy } }
 
   app:
+    # The same image the migrate step builds; never pulled from a registry.
+    build: { context: .., dockerfile: Dockerfile }
     image: nfc-platform
+    pull_policy: build
     depends_on:
       migrate: { condition: service_completed_successfully }
-      store-setup: { condition: service_completed_successfully }
+      store: { condition: service_healthy }
     ports: ["127.0.0.1:3000:3000"]
     environment:
       NFC_ENV: production

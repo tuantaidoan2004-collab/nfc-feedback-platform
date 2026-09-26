@@ -99,7 +99,7 @@ thuê chỉ là **một lựa chọn cấu hình**, không phải một phụ th
 |---|---|---|---|
 | Ứng dụng | Vercel | `Dockerfile` (bản build standalone) | **Có**, CI dựng và kiểm mỗi lần đẩy |
 | Database | Neon | PostgreSQL trong compose, hoặc bất kỳ | **Có** — migration SQL chuẩn |
-| Ảnh/video | Cloudflare R2 | MinIO trong compose, S3, bất kỳ kho S3 | **Có** — `STORAGE_ENDPOINT` (`lib/media/storage-settings.ts`); không đặt thì vẫn là R2 |
+| Ảnh/video | Cloudflare R2 | SeaweedFS trong compose, S3, bất kỳ kho S3 | **Có** — `STORAGE_ENDPOINT` (`lib/media/storage-settings.ts`); không đặt thì vẫn là R2 |
 | IP khách (chặn bot) | Header của Vercel | Header proxy của mình ghi đè (`NFC_CLIENT_IP_HEADER`) | **Có** — và đóng một lỗ: trước I1, ngoài Vercel khách tự gửi header để giả IP |
 | Sao lưu | GitHub Actions → R2 | Mọi PostgreSQL → mọi kho S3 (`R2_BACKUP_ENDPOINT`) | Script **có**; chạy bằng cron trên máy chủ là việc nhỏ còn lại |
 | Tên miền, DNS | Cloudflare | Bất kỳ | Không phụ thuộc |
