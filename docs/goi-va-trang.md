@@ -119,8 +119,8 @@ dừng khẩn cấp, duyệt ảnh.
 - **Góp ý mọi trang về một dashboard** của quán. Trình chỉnh và thẻ nhận `?page=<link>`; không có thì là trang đầu tiên
   (mọi quán hôm nay chỉ có một trang; danh sách trang là lát P3).
 - **Migration chỉ thêm:** mã cũ vẫn đọc được trang khách trong lúc chờ deploy. `shops.active_release_id` thôi được dùng
-  (bỏ ràng buộc của nó) và tên bảng `shop_profile` giữ nguyên vì mã cũ còn đọc; cả hai dọn ở một migration sau, khi không
-  còn mã cũ nào chạy.
+  và tên bảng `shop_profile` giữ nguyên vì mã cũ còn đọc. **Đã dọn ở migration 027 (26/09):** cột bỏ; bảng đổi tên thành
+  `page_profile`, kèm một view `shop_profile` chỉ cho khoảng chờ deploy — **migration kế tiếp xoá view đó**.
 - **Chưa làm (P3):** giao diện danh sách trang, nhân bản, nhập dữ liệu. Hôm nay chỉ có đường trong mã
   (`PublishingAdmin.createPage`) và test.
 

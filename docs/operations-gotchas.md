@@ -449,3 +449,9 @@ cho sao lưu, `INSERT … SELECT g FROM shops s, LATERAL (SELECT gen_random_uuid
 khoá. PostgreSQL coi subquery không tham chiếu hàng ngoài là hằng. Viết `SELECT gen_random_uuid() g, … FROM shops` để mỗi
 hàng một id. Cùng lượt: một câu seed sai kiểu (`uuid` nhận số) — và `psql` không `-1` nên câu trước đã commit, câu sau
 không; đọc lại số dòng trước khi tin dữ liệu thử. Lỗi của Claude, lát sao lưu, không ảnh hưởng mã.
+
+**Test gỡ migration phải gỡ từ mới nhất về cũ nhất, và test dựng dữ liệu cũ phải áp đủ migration trước khi gọi mã mới.**
+Lát dọn nợ P1 (027) bỏ `shops.active_release_id`; ca "rollback003" chạy thẳng file gỡ 003 — file đó kiểm và xoá chính cột
+ấy — nên đỏ vì cột không còn. Ca migration 024 gọi `PublishingResolver` (đọc `page_profile`) trước khi áp 027. Cả hai là
+thứ tự trong test, không phải lỗi migration. Luật: khi thêm migration N, `grep` mọi `db/rollback/` được gọi trong test và
+thêm gỡ N **trước** chúng; mọi chỗ gọi mã sản phẩm trên một schema cũ phải áp đủ migration tới N trước.

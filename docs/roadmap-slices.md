@@ -56,6 +56,7 @@ Mọi lát chạm trang khách hay marketing phải qua [`google-policy.md`](goo
 | P3 | **Danh sách trang**: ảnh thu nhỏ, tên trang (025), nhân bản, trang mới từ kho, đổi khuôn, nhập dữ liệu, thẻ theo trang | V | — | **Xong 25/09**, 025 đã chạy cả hai branch, đã lên production. `goi-va-trang.md` mục 12 |
 | P4 | **Vòng đời trang** (026): tạm ngừng / đóng, tạm dừng khẩn cấp + báo cáo ở `/gov`, admin mở lại / đóng | V | — | **Xong 25/09**, 026 đã chạy cả hai branch, đã lên production. `goi-va-trang.md` mục 13 |
 | P5a | **Hiện giá, chưa thu**: bảng giá khuôn, hai suất miễn phí, giá từng trang + tổng dự kiến, cột `/gov`; bỏ phí thẻ | V | — | **Xong 26/09**, không migration. Phần thu tiền (P5b) chờ Tài quyết. `goi-va-trang.md` mục 14 |
+| P1d | **Dọn nợ P1** (027): bỏ `shops.active_release_id`, `shop_profile` → `page_profile` (+ view tạm cho khoảng chờ deploy) | N | — | **Xong 26/09**, chờ Tài chạy 027. Migration sau xoá view `shop_profile` |
 | K5 | **Khuôn 5 · Ánh sáng tụ**: nền tối, quầng sáng ở nút Google, chấm nhoè theo khoảng cách | V | — | **Xong 23/09** |
 | A34 | **Ba khuôn có tranh** (Hero · Chia đôi · Nhập vai) | V | — | Chờ ảnh của Tài, bản kê ở `anh-can-cho-ao-khoac.md` |
 | A35 | **Lớp trang trí có ràng buộc** cho khuôn 4 — kéo thả trong vùng an toàn loại trừ dải CTA, toạ độ theo phần trăm | L | Canva | Bản đầy đủ kiểu bảng trắng **không làm**; xem `thiet-ke-va-khuon.md` mục 12 |

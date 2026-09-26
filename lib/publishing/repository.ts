@@ -201,7 +201,7 @@ export class PublishingAdmin {
       // Thiếu bước này thì trình chỉnh trang đứt mạch — chủ quán sửa tên, bấm phát hành, và trang khách vẫn
       // hiện tên cũ, vì trình chỉnh ghi vào bản chụp còn trang khách đọc từ hồ sơ. Ghi ở đây, trong cùng
       // transaction với bản phát hành, nên hai bên không bao giờ lệch nhau.
-      await db.query(`INSERT INTO shop_profile(shop_id,page_id,name,google_url,question_vi,question_en,links,logo,poster)
+      await db.query(`INSERT INTO page_profile(shop_id,page_id,name,google_url,question_vi,question_en,links,logo,poster)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
         ON CONFLICT(page_id) DO UPDATE SET name=EXCLUDED.name,google_url=EXCLUDED.google_url,
           question_vi=EXCLUDED.question_vi,question_en=EXCLUDED.question_en,links=EXCLUDED.links,
@@ -278,11 +278,11 @@ export class PublishingResolver {
       ? (await this.pool.query(`SELECT s.id,s.publishing_state,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
           tv.template_key,tv.version template_version,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM pages p JOIN shops s ON s.id=p.shop_id
         JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
-        LEFT JOIN shop_profile pr ON pr.page_id=p.id WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
+        LEFT JOIN page_profile pr ON pr.page_id=p.id WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
       : (await this.pool.query(`SELECT s.id,s.publishing_state,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
           tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
-        JOIN template_versions tv ON tv.id=r.template_version_id LEFT JOIN shop_profile pr ON pr.page_id=p.id WHERE t.public_code=$1`, [target.code])).rows[0];
+        JOIN template_versions tv ON tv.id=r.template_version_id LEFT JOIN page_profile pr ON pr.page_id=p.id WHERE t.public_code=$1`, [target.code])).rows[0];
     if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
     // A closed page does not exist any more; a paused one says so, rather than looking broken (migration 026).
     if (row.page_state === 'closed') error('PAGE_CLOSED');

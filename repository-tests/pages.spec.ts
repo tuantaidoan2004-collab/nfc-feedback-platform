@@ -28,7 +28,7 @@ type F={db:Pool;shops:ShopProvisioning;actorId:string;admin:PublishingAdmin;reso
 const test=base.extend<{f:F}>({f:async({},provide)=>{
  const schema=`nfc_pages_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),actorId,admin:new PublishingAdmin(db,async()=>({actorId})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -147,13 +147,13 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   expect((await db.query('SELECT count(*)::int n FROM pages')).rows[0].n).toBe(1);
   for(const table of ['page_drafts','page_releases','tags','preview_sessions','shop_profile'])
    expect((await db.query(`SELECT count(*)::int n FROM ${table} WHERE page_id=$1`,[page.id])).rows[0].n,table).toBe(1);
+  // Today's code needs the migrations after 024 too (027 renames the content table it reads).
+  for(const file of ['025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   // The same link still opens the same page, and a guest who came before keeps the same session and erase key.
   const live=await new PublishingResolver(db).live({slug:'cu'});
   expect(live.context).toEqual(before);
   const again=await new VisitRatingRepository(db,undefined,publishingVisitPolicy(live.context)).registerVisit(live.context,randomUUID(),'load',hash(live.context));
   expect(again.session.sessionId).toBe(visit.session.sessionId);
-  // Today's publishing code needs the migrations after 024 too.
-  for(const file of ['025_page_labels.sql','026_page_lifecycle.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   await new PublishingAdmin(db,async()=>({actorId:'fixture'})).publish({shopId:shop,pageId:page.id},2);
 
   // One page per shop comes back out; a shop with two pages refuses and changes nothing.
@@ -165,7 +165,7 @@ test('migration 024 gives every shop its page at the same link, keeps old visits
   await db.query('ALTER TABLE pages DISABLE TRIGGER pages_identity');
   await db.query('DELETE FROM shop_profile WHERE page_id=$1',[second.pageId]);await db.query('DELETE FROM page_drafts WHERE page_id=$1',[second.pageId]);
   await db.query('DELETE FROM pages WHERE id=$1',[second.pageId]);await db.query('ALTER TABLE pages ENABLE TRIGGER pages_identity');
-  await db.query(`BEGIN;${await readFile('db/rollback/026_page_lifecycle.sql','utf8')}COMMIT;`);
+  for(const later of ['027_page_debt.sql','026_page_lifecycle.sql'])await db.query(`BEGIN;${await readFile(`db/rollback/${later}`,'utf8')}COMMIT;`);
   await db.query(`BEGIN;${rollback}COMMIT;`);
   expect((await db.query("SELECT to_regclass('pages') t")).rows[0].t).toBeNull();
   const back=(await db.query('SELECT s.active_release_id,(SELECT count(*)::int FROM shop_profile) profiles FROM shops s WHERE s.id=$1',[shop])).rows[0];
@@ -242,4 +242,36 @@ test('a page moved to another template keeps its link, cards and content, and ta
  const cards=new OwnerCards(f.db);await cards.update(shop.token,shop.slug,{id:(await cards.list(shop.token,shop.slug)).cards[0].id,state:'active'});
  expect([(await resolver.live({slug:shop.slug})).template,(await resolver.live({code:shop.tagCode})).template]).toEqual(['glass','glass']);
  await expect(design.template(shop.token,shop.slug,{action:'template',expectedRevision:moved.revision+1,template:'nope'})).rejects.toMatchObject({code:'INVALID_DESIGN'});
+});
+
+test("migration 027 retires the shop's old release column and names the content table for pages, with the old name kept for the deploy gap",async()=>{
+ const schema=`nfc_pages_027_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:3});
+ try{await root.query(`CREATE SCHEMA ${schema}`);
+  for(const file of [...BEFORE,'024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  // A shop as 024 left it: its first page on the old visit key, a second page, both live, content rows for both.
+  const shop=randomUUID(),tv=(await db.query("INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities)VALUES('minimal',1,1,'1','[]')RETURNING id")).rows[0].id;
+  await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'cu','Quán Cũ')",[shop]);
+  const pages:string[]=[],releases:string[]=[];
+  for(const [slug,key] of [['cu-hai','direct:page'],['cu','direct:shop']]){
+   const id=randomUUID();pages.push(id);
+   await db.query('INSERT INTO pages(id,shop_id,slug,entry_key)VALUES($1,$2,$3,$4)',[id,shop,slug,key==='direct:shop'?key:`direct:page:${id}`]);
+   await db.query("INSERT INTO page_drafts(shop_id,page_id,template_version_id,config)VALUES($1,$2,$3,'{}')",[shop,id,tv]);
+   const release=(await db.query("INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by)VALUES($1,$2,$3,'{}',1,'fixture')RETURNING id",[shop,id,tv])).rows[0].id;
+   releases.push(release);await db.query("UPDATE pages SET state='active',active_release_id=$2 WHERE id=$1",[id,release]);
+  }
+  await db.query(await readFile('db/migrations/027_page_debt.sql','utf8'));
+  expect((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema=$1 AND table_name='shops' AND column_name='active_release_id'",[schema])).rows[0].n).toBe(0);
+  expect((await db.query('SELECT count(*)::int n FROM page_profile')).rows[0].n).toBe(2);
+  // Code still running from before the deploy reads and upserts the old name; it lands in the new table.
+  await db.query(`INSERT INTO shop_profile(shop_id,page_id,name,question_vi,question_en)VALUES($1,$2,'Tên Mới','a','b')
+   ON CONFLICT(page_id) DO UPDATE SET name=EXCLUDED.name`,[shop,pages[0]]);
+  expect((await db.query('SELECT name FROM page_profile WHERE page_id=$1',[pages[0]])).rows[0].name).toBe('Tên Mới');
+  // A new page seeds its content row in the new table.
+  const third=randomUUID();await db.query("INSERT INTO pages(id,shop_id,slug,entry_key)VALUES($1,$2,'cu-ba',$3)",[third,shop,`direct:page:${third}`]);
+  expect((await db.query('SELECT count(*)::int n FROM page_profile WHERE page_id=$1',[third])).rows[0].n).toBe(1);
+  // Rolled back, the shop's column comes back from the page that kept the old visit key, not simply the first one.
+  await db.query(`BEGIN;${await readFile('db/rollback/027_page_debt.sql','utf8')}COMMIT;`);
+  expect((await db.query('SELECT active_release_id FROM shops WHERE id=$1',[shop])).rows[0].active_release_id).toBe(releases[1]);
+  expect((await db.query("SELECT to_regclass('shop_profile')::text t,to_regclass('page_profile')::text p")).rows[0]).toEqual({t:'shop_profile',p:null});
+ }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 });

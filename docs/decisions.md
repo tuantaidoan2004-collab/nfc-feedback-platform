@@ -227,7 +227,13 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — sao lưu miễn phí (26/09, chờ Tài làm các bước tài khoản)
+### Xong gần nhất — dọn nợ P1, migration 027 (26/09)
+
+Bỏ cột `shops.active_release_id` (bản phát hành đang chạy thuộc trang từ 024); bảng nội dung đổi tên `shop_profile` →
+`page_profile`, để lại view `shop_profile` cho khoảng chờ deploy — **migration kế tiếp phải xoá view này**. **Migration 027
+phải chạy trên Neon trước khi đẩy `main`.** A3 (mã cũ) tách riêng: cần Tài đếm dữ liệu đời cũ trên từng branch trước.
+
+### Trước đó — sao lưu miễn phí (26/09, chờ Tài làm các bước tài khoản)
 
 Mỗi đêm GitHub Actions `pg_dump` production bằng người dùng chỉ-đọc, mã hoá, lên bucket R2 riêng, tải ngược về so mã băm;
 khôi phục chỉ vào database trên máy. Đã thử trọn chuỗi trên máy. **Chưa chạy thật:** cần Tài tạo người dùng chỉ-đọc,

@@ -14,7 +14,7 @@ type Fixture={db:Pool;admin:PublishingAdmin;resolver:PublishingResolver;shop:str
 const test=base.extend<{fixture:Fixture}>({fixture:async({},provideFixture)=>{
  const schema=`nfc_publish_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri});
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:8});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','020_page_events.sql','022_shop_profile.sql','009_template_shop.sql','023_media_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','020_page_events.sql','022_shop_profile.sql','009_template_shop.sql','023_media_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
  const shop=randomUUID(),other=randomUUID();await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'one','One'),($2,'two','Two')",[shop,other]);
  await provideFixture({db,shop,other,page:undefined as unknown as PageRef,otherPage:undefined as unknown as PageRef,admin:new PublishingAdmin(db,async()=>({actorId:'fixture-admin'})),resolver:new PublishingResolver(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -92,6 +92,8 @@ test('same-shop/source FK isolation rejects another shop release/tag and immutab
 });
 test('rollback003 refuses publishing data; empty003 rollback preserves foundation002',async({fixture:f})=>{
  const rollback=await readFile('db/rollback/003_publishing.sql','utf8');await seed(f);
+ // Newest first: 027 takes back the shop column that rollback 003 checks and drops.
+ await f.db.query(`BEGIN;${await readFile('db/rollback/027_page_debt.sql','utf8')}COMMIT;`);
  await expect(f.db.query(`BEGIN;${rollback}COMMIT;`)).rejects.toThrow('PUBLISHING_DATA_EXISTS');await f.db.query('ROLLBACK');
  // Separate schema fixture starts empty; reset only fixture publishing rows via TRUNCATE, never production cleanup.
  await f.db.query('TRUNCATE template_versions CASCADE');await f.db.query("UPDATE shops SET active_release_id=NULL,publishing_state='draft'");

@@ -107,7 +107,7 @@ export function defaultConfig(name = 'YOUR BRAND'): PageConfig {
 /**
  * The six templates Tài chose on 2026-09-23 (`docs/thiet-ke-va-khuon.md` mục 12). A template is a bare skeleton:
  * it owns layout, background and effects, never an account's content, and no shop or sign-in is attached to it.
- * Content comes from the account at render time (`shop_profile`, migration 022). `standard` is khuôn 1 and keeps
+ * Content comes from the account at render time (`page_profile`, migrations 022/024/027). `standard` is khuôn 1 and keeps
  * its key because its `template_versions` row already exists and is immutable. No key names a brand (DESIGN.md mục 8).
  */
 export const TEMPLATE_KEYS = ['standard', 'minimal', 'glass', 'deco', 'spotlight', 'big-button'] as const;
