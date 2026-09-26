@@ -264,8 +264,13 @@ function Background({ config, reduced, scene }: { config: ReturnType<typeof defa
 
 function Poster({ poster, label }: { poster: MediaRef | null; label: string }) {
   const [blocked, plays] = useVideoPlays();
+  // The poster's video waits like the background's (E6/E9): an owner's Full HD clip must not share the guest's 4G with
+  // the scripts, nor play at all on a phone saving data. Meanwhile its first frame, or an empty frame of the same size.
+  const late = useLateVideo();
   if (!poster) return <div className="guest-poster guest-poster-empty"><span>{label}</span></div>;
-  if (poster.kind === 'video' && blocked && poster.still) return <img className="guest-poster" src={poster.still} alt="" data-poster-still />;
+  if (poster.kind === 'video' && (blocked || !late.allowed)) return poster.still
+    ? <img className="guest-poster" src={poster.still} alt="" data-poster-still />
+    : <div className="guest-poster" aria-hidden="true" data-poster-waiting />;
   return poster.kind === 'video'
     ? <video ref={plays} className="guest-poster" src={poster.url} poster={poster.still} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
     : <img className="guest-poster" src={poster.url} alt="" />;

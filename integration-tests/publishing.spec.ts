@@ -314,15 +314,37 @@ test('v2: background video, still, watermark, poster frame and logo come from th
  * test here proves what the customer gets; this one proves the shop finds out what the customer did.
  */
 
-test('E6: a phone set to save data keeps the still and never fetches the background video', async ({ page, fixture: f }) => {
-  await release(f, b2(), 2);
+test('E6/E9: a phone set to save data keeps the stills and never fetches the background or poster video', async ({ page, fixture: f }) => {
+  for (const url of ['https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
+    await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
+      [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
+  await release(f, b2({ poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), 2);
   const videos: string[] = []; page.on('request', r => { if (r.url().endsWith('.mp4')) videos.push(r.url()); });
   await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }));
   await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
   await expect(page.locator('.guest-bg[data-video-settled]')).toHaveCount(1);
   await expect(page.locator('video')).toHaveCount(0);
   await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
+  await expect(page.locator('img[data-poster-still]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
   expect(videos).toEqual([]);
+});
+
+test('E9: the poster video is not in the first HTML, and joins once the page has loaded', async ({ page, fixture: f }) => {
+  for (const url of ['https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
+    await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
+      [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
+  await release(f, b2({ background: { kind: 'solid', color: '#223344' },
+    poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), 2);
+  const html = await (await page.request.get('/one')).text();
+  expect(html).not.toContain('<video'); expect(html).toContain('data-poster-still');
+  // media.example never answers here (the suite aborts every non-local request), so the video fails at once and the
+  // still comes back; what is tested is when the browser asks for it -- only after the page has loaded.
+  let loadedAt = 0; const asked: number[] = [];
+  page.on('load', () => { loadedAt = Date.now(); });
+  page.on('request', r => { if (r.url() === 'https://media.example/poster.mp4') asked.push(Date.now()); });
+  await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
+  await expect.poll(() => asked.length).toBeGreaterThan(0);
+  expect(loadedAt).toBeGreaterThan(0); expect(asked[0]).toBeGreaterThanOrEqual(loadedAt);
 });
 test('what the customer did reaches the log, through the published page, without holding anything up', async ({ page, fixture: f }) => {
   // Scoped to this test's own visit. Beacons are fire-and-forget, so one from an earlier test can still be in

@@ -256,7 +256,17 @@ khách** (E6) trước quán đầu tiên · (5) **hạn giữ dữ liệu** khi
 chưa có gì xoá) · rồi P6, P7, P5b tuỳ nhu cầu. Lý do: bảo mật và dữ liệu hỏng không sửa ngược được; tính năng thêm lúc
 nào cũng được.
 
-### Xong gần nhất — A3b một đường trang khách (26/09)
+### Xong gần nhất — E9a video poster chờ trang tải xong (26/09)
+
+Như video nền ở E6: video poster không nằm trong HTML đầu, gắn sau khi trang tải xong, không tải khi máy tiết kiệm dữ
+liệu; lúc chờ là khung đầu của video (hoặc khung trống cùng cỡ). Tài 26/09: video chủ yếu vào poster và **ô sự kiện khi
+khách lướt xuống**, sau này có thể **link YouTube xem trước** — "web của quán bản thu nhỏ". Tài cũng đưa ý kiến trúc
+(Gemini): khuôn là dữ liệu JSON, bộ chỉnh sửa lõi dùng chung, trang ghép từ **section**. Đánh giá của Claude: phần lõi
+đã có (trang là JSON, bản khuôn khai ô chỉnh qua bảng cài đặt P2, trang khách không tải mã trình chỉnh); phần thiếu là
+**section**, nên làm thành lát riêng khi ô sự kiện tới (A16), với hai rào của mình: lời mời Google không phải section và
+luôn cố định; không khung kéo-thả trắng (`PRODUCT.md`). E9b (bản nhẹ cho điện thoại) chờ Tài chọn. **Không migration.**
+
+### Trước đó — A3b một đường trang khách (26/09)
 
 Trang khách chỉ còn một đường: trang đã phát hành, mọi lệnh ghi của khách phải mang proof của trang đó. Gỡ các route
 `/api/v2/shops/<slug>/…` (tin slug trong URL), `visitV2Api`, `server/shops.ts`; publishing tắt thì trang khách 404.
