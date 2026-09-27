@@ -172,8 +172,15 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
+**Phiên mới bắt đầu từ đây (27/09 tối):** đợt cải tổ đã xong S0 → S1 → M2 → M3 (audit `docs/audit-ui-ux-20260927.md` mục 4).
+**Lát kế: D4** — trang chính (landing, được lập chỉ mục, làm website cho Hồ sơ Google của Tài) + dựng trang trước khi có tài
+khoản + QR "thấy trang trên điện thoại mình" + 3 câu hỏi (`docs/ui-ux-nguon-tham-khao.md` mục 1f, 4, 5A–B). Hoặc **M2b** nếu Tài
+chọn. Trước khi trang chính bán dịch vụ lên production: Tài chọn Vercel Pro hay VPS (Hobby cấm thương mại). Đẩy `main` là
+**hai bước** (nhánh trước, CI xanh, rồi đúng commit đó lên `main`; `operations-gotchas.md`). Chờ Tài: thử lời cảm ơn trước
+Google trên Safari và Chrome iPhone — tab Google tự mở sau 4 giây hay hiện nút "Mở Google".
+
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = lát M3 khi Tài đẩy (trước đó `1cbf3f0`, M2). Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = `6db5735` (M3, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**, sau đó Hobby.
 - **Vercel (Tài chốt 27/09): xuống Hobby** khi hết dùng thử 29/09 — không gì hỏng (tháng 9 dùng ~0,08 giờ CPU trên hạn
   4). Hobby **cấm dùng thương mại**: trước khi **trang chính bán dịch vụ** lên production (hoặc quán thật đầu tiên, mốc nào tới
   trước) phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
