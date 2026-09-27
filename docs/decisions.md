@@ -164,7 +164,7 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình khuôn*
 | **13** | Hai luật dùng chung mọi khuôn: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi khuôn, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-26 (sau buổi duyệt toàn bộ)
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-27
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên, rồi [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md)
 (logic gốc, đích kiến trúc module, tự chạy được, đội ngũ), rồi khối này. Việc còn lại: [`roadmap-slices.md`](roadmap-slices.md).
@@ -173,11 +173,14 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `4b9a5c4` (I1 chạy thật trên Docker, SeaweedFS). Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = commit của lát 27/09 bên dưới (gỡ `yourshop / 1` + log `GUEST_REFUSED`). Vercel Pro dùng thử tới **29/09**.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
-- **CI:** mọi lượt bị GitHub chặn vì hết phút/hạn mức chi của repo riêng tư (gotchas 27/09). Tài chọn **để repo công khai**;
-  sau đó chạy lại CI và xem job `self-host`. Công khai rồi thì bật bảo vệ nhánh `main` (F5) được miễn phí.
+- **CI xanh lần đầu 27/09:** repo đã công khai, lượt #213 trên `4b9a5c4` qua đủ 8 job, gồm `self-host` (ảnh Tài gửi).
+- **Lỗi "Chưa kết nối được" (27/09):** cả sáu khuôn trên **Chrome iPhone** của Tài. Log Vercel: trang tải 200 nhưng
+  `POST /api/v2/pages/visits` trả **403** mọi lần, còn trình duyệt của agent thì 200 trên cùng shop. Log cũ không ghi lý
+  do; lát 27/09 thêm dòng `GUEST_REFUSED` (mã, Origin khớp hay không, `Sec-Fetch-Site`, loại trình duyệt — không IP, không
+  bí mật). **Việc kế:** Tài mở lại một shop trên Chrome iPhone, agent đọc `vercel logs --query GUEST_REFUSED` rồi mới sửa.
 - **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy, rồi
   Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
 - **`/urr6ud` là shop KHUÔN MẪU** ("YOUR SHOP", khuôn 1), không phải Googy. Tài bấm "Đưa khuôn về mặc định mới" 26/09:
@@ -193,7 +196,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 3. **Video chỉ ở poster**, nền không bao giờ là video (E9).
 4. **Quyết định mới sửa hoặc xoá ý cũ** ở mọi tài liệu, không để chồng lên (cách làm của Tài).
 
-**I1 tự chạy được: xong 27/09** (`tu-chay.md`). Tài 27/09: *khoan làm lát kế*. Khi làm tiếp: **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
+**I1 tự chạy được: xong 27/09** (`tu-chay.md`). Tài 27/09: *khoan làm lát kế*; nền bị kéo theo thẻ khi cuộn và kéo-để-tải-lại dính trên Chrome iPhone → **M4**. Khi làm tiếp: **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
 
 ### Luật triển khai (Tài nới 23/09)
@@ -203,8 +206,7 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 
 ### Việc còn treo của Tài
 
-Công khai repo + chạy lại CI + bảo vệ `main` · gỡ tài khoản thử yếu cố định `yourshop / 1` trên preview (lộ khi repo công khai) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · F5 bảo vệ nhánh `main` · thử sáu khuôn trên điện thoại thật (kèm lỗi
-Googy "Chưa kết nối được") · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
+Bảo vệ `main` (F5) · **bấm "Tạo lại link đặt mật khẩu cho yourshop" ở `/gov` preview** (đóng mật khẩu `1` còn nằm trong database preview; code đã gỡ đường cấp nó) · mở lại một shop trên Chrome iPhone để log bắt lý do 403 · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
 ~3% (`admin-auth.spec.ts:217`), ca impersonation không đứng một mình (`admin-http.spec.ts` ~240).
 
 ### Thứ tự đọc cho phiên mới

@@ -85,6 +85,14 @@ node node_modules/@playwright/test/cli.js test --config=playwright.client.config
 
 `playwright.config.ts` mặc định là bộ UI cũ, cần bản build đang chạy ở cổng 3000, và không nằm trong danh sách kiểm của các lát.
 
+**Chạy bốn lệnh harness bằng vòng `for a in "…"; do node … $a` trong zsh thì cả ba đỏ.** zsh **không tách** `$a` thành
+nhiều đối số như bash, nên harness nhận một đối số dài và chẳng chạy test nào. Lỗi của Claude 27/09: tưởng ba bộ đỏ thật.
+Chạy từng lệnh riêng, hoặc `${=a}`.
+
+**Trang khách "Chưa kết nối được" mà log chỉ ghi `403`.** Mọi lần API trang khách từ chối giờ in một dòng
+`GUEST_REFUSED {operation,status,code,origin,site,browser}` (27/09). Đọc: `vercel logs --environment production --query GUEST_REFUSED`.
+Đừng đoán lý do 403 khi dòng này có sẵn.
+
 **Chạy cả bộ integration một lệnh thì 11 test đỏ.** Ba lệnh harness **loại trừ nhau**, vì `publishing = owner || --publishing` nên `--owner`/`--admin` bật luôn publishing và đổi cách `/one` render:
 
 ```

@@ -84,7 +84,7 @@ test rời (`tests/contracts/skin.spec.ts`, `google-policy.spec.ts`); gom thành
 | **M1** | **Gói khuôn:** gom 5 chỗ định nghĩa khuôn về một thư mục/manifest mỗi khuôn; registry sinh từ đó | Không (cùng hành vi) — nhưng từ đây designer làm khuôn không đụng TypeScript | Không |
 | **M2** | **Module hiệu ứng:** tách kính, chuyển cảnh, ánh sáng theo nghiêng khỏi component lõi; manifest khuôn khai hiệu ứng dùng | Không | Không |
 | **M3** | **Section:** `PageConfig` v3 = danh sách section; poster và hàng link thành hai section đầu; trang v2 vẫn đọc được | Chủ quán bật/tắt, xếp thứ tự section trong vùng cho phép | Có (chuyển dữ liệu nháp; bản phát hành cũ giữ nguyên) |
-| **M4** | **Section mới + đợt cải tổ UI/UX:** Sự kiện (A16), Video/YouTube xem trước, khung poster tự theo khổ video/ảnh và bo góc, nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới) | Có | Tuỳ section |
+| **M4** | **Section mới + đợt cải tổ UI/UX:** Sự kiện (A16), Video/YouTube xem trước, khung poster tự theo khổ video/ảnh và bo góc, nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới); nền đứng yên khi cuộn, bỏ kéo-để-tải-lại dính trên Chrome iPhone (Tài 27/09) | Có | Tuỳ section |
 | **M5** | **Kho khuôn thử → mở:** gói khuôn mới vào kho ở trạng thái thử (admin thấy), rồi mở; giá lấy từ manifest | `/gov` và kho khuôn | Có thể |
 | **M6** | **Lệnh kiểm gói khuôn** + trang xem trước gói cho designer | Công cụ nội bộ | Không |
 

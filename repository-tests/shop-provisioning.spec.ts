@@ -209,48 +209,8 @@ test('only the exact built-in media paths are accepted, and only as their own ki
  expect(()=>validateConfig({...templateConfig(),logo:{kind:'image',url:STEM_BACKGROUND.video}})).toThrow('INVALID_CONFIG');
 });
 
-test('the test account can be put back to yourshop / 1, which also clears its sign-in throttle',async({f})=>{
- await expect(f.shops.resetTemplateAccount(f.actorId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
- const made=await f.shops.resetTemplateAccount(f.actorId,true);
- expect(made).toMatchObject({username:'yourshop',created:true});
- await expect(f.auth.login('yourshop','1')).resolves.toMatchObject({token:expect.any(String)});
- // Password forgotten or never what we thought, and the account locked out by failed attempts: one press fixes both.
- await f.db.query("UPDATE owner_identities_v2 SET password_key=repeat('0',64) WHERE username='yourshop'");
- await f.db.query("UPDATE owner_memberships_v2 SET active=false WHERE user_id=(SELECT id FROM owner_identities_v2 WHERE username='yourshop')");
- for(let i=0;i<9;i++)await expect(f.auth.login('yourshop','1')).rejects.toThrow('LOGIN_FAILED');
- expect((await f.db.query('SELECT count(*)::int n FROM owner_login_limits')).rows[0].n).toBeGreaterThan(0);
- const again=await f.shops.resetTemplateAccount(f.actorId,true);
- expect(again).toMatchObject({username:'yourshop',created:false});
- const session=await f.auth.login('yourshop','1');
- await expect(f.auth.access(session.token,again.slug,'overview')).resolves.toMatchObject({role:'owner'});
- expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.reset'")).rows[0].n).toBe(2);
-});
-test('the template test account signs in to the template only, is refused when not allowed, and is never reset',async({f})=>{
- await expect(f.shops.ensureTemplateAccount(f.actorId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
- expect((await f.db.query("SELECT count(*)::int n FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].n).toBe(0);
-
- const first=await f.shops.ensureTemplateAccount(f.actorId,true);
- expect(first).toMatchObject({username:'yourshop',created:true});
- const session=await f.auth.login('yourshop','1');
- await expect(f.auth.access(session.token,first.slug,'overview')).resolves.toMatchObject({role:'owner'});
- const stored=(await f.db.query("SELECT password_key FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].password_key;
-
- // Asked again, and after the membership was switched off: attached again, password untouched, recorded once.
- await f.db.query("UPDATE owner_memberships_v2 SET active=false WHERE user_id=(SELECT id FROM owner_identities_v2 WHERE username='yourshop')");
- expect(await f.shops.ensureTemplateAccount(f.actorId,true)).toMatchObject({created:false});
- expect((await f.db.query("SELECT password_key FROM owner_identities_v2 WHERE username='yourshop'")).rows[0].password_key).toBe(stored);
- expect((await f.db.query("SELECT count(*)::int n FROM owner_memberships_v2 m JOIN owner_identities_v2 u ON u.id=m.user_id WHERE u.username='yourshop' AND m.active")).rows[0].n).toBe(1);
- expect((await f.db.query("SELECT detail FROM admin_audit WHERE action='template.account.create'")).rows).toEqual([{detail:{username:'yourshop',weakPassword:true}}]);
-
- // A shop cloned from the template gets the template's page, not its test account.
- const made=await f.shops.create(f.actorId,input);
- await expect(f.auth.access(session.token,made.slug,'overview')).rejects.toThrow('ACCESS_DENIED');
- expect((await f.shops.list()).find(r=>r.is_template)).toMatchObject({owner_username:'yourshop'});
-});
-
-test('production: the template account comes with a single-use link, never yourshop / 1 (lát F6)',async({f})=>{
+test('the template account comes with a single-use link, never a fixed password, in every environment (lát F6)',async({f})=>{
  const provisioning=new ShopProvisioning(f.db),adminId=(await f.db.query('SELECT id FROM platform_admins LIMIT 1')).rows[0].id;
- await expect(provisioning.ensureTemplateAccount(adminId,false)).rejects.toThrow('TEST_ACCOUNT_FORBIDDEN');
  const first=await provisioning.templateAccountLink(adminId);
  expect(first).toMatchObject({username:'yourshop',created:true});
  const auth=new OwnerAuth(f.db);
@@ -263,7 +223,14 @@ test('production: the template account comes with a single-use link, never yours
  await expect(links.consume(first.setupToken,'another-strong-password')).rejects.toThrow('SETUP_LINK_INVALID');
  const session=await auth.login('@yourshop','a-strong-template-password');
  await expect(auth.access(session.token,first.slug,'design')).resolves.toMatchObject({role:'owner'});
- expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.link'")).rows[0].n).toBe(2);
+ // A shop cloned from the template gets the template's page, not its account.
+ const made=await f.shops.create(f.actorId,input);
+ await expect(auth.access(session.token,made.slug,'overview')).rejects.toThrow('ACCESS_DENIED');
+ // Asking once more closes the account: the chosen password stops working and the open session is signed out.
+ await provisioning.templateAccountLink(adminId);
+ await expect(auth.login('@yourshop','a-strong-template-password')).rejects.toThrow('LOGIN_FAILED');
+ await expect(auth.access(session.token,first.slug,'design')).rejects.toThrow();
+ expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.link'")).rows[0].n).toBe(3);
 });
 
 test('A33: each of the six templates is a bare skeleton with its own template row, and carries no account content',async({f})=>{

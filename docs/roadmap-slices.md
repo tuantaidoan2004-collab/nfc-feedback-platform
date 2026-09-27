@@ -14,7 +14,7 @@ trước khi đẩy `main`).
 | **M1** | **Gói khuôn:** gom định nghĩa mỗi khuôn (hôm nay rải `config.ts` · `versions.ts` · `pricing.ts` · `skins/*.css` · `guest-styles.ts`) về một thư mục + manifest; registry sinh từ đó | V | Không đổi hành vi, không mig. Mở cửa cho designer |
 | **M2** | **Module hiệu ứng:** tách kính (khuôn 3), chuyển cảnh và ánh sáng theo nghiêng (khuôn 6) khỏi `shop-feedback-v2.tsx`; manifest khai hiệu ứng dùng | V | Không đổi hành vi, không mig |
 | **M3** | **Section:** `PageConfig` v3 = khuôn@bản + cài đặt + danh sách section; poster và hàng link thành section đầu; lời mời Google, góp ý, chân pháp lý là lõi cố định | L | **Mig.** Bản phát hành cũ vẫn đọc được |
-| **M4** | **Đợt cải tổ UI/UX:** section Sự kiện ("Hôm nay ở quán", A16), Video/YouTube xem trước; khung poster tự theo khổ ảnh/video, bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới tương tác) | L | Sau M3. Trò "săn", quà: qua luật Khuyến mại (C2) |
+| **M4** | **Đợt cải tổ UI/UX:** section Sự kiện ("Hôm nay ở quán", A16), Video/YouTube xem trước; khung poster tự theo khổ ảnh/video, bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới tương tác); **cuộn trên điện thoại:** nền đứng yên (hoặc có hiệu ứng riêng khi cuộn) thay vì bị kéo theo thẻ nổi ở cả sáu khuôn, và kéo quá đầu trang trên Chrome iPhone không "dính" rồi bắt tải lại (Safari ổn) — Tài 27/09 | L | Sau M3. Trò "săn", quà: qua luật Khuyến mại (C2) |
 | **M5** | **Kho khuôn thử → mở:** gói mới vào kho ở trạng thái thử (admin thấy) rồi mở; giá từ manifest | V | Có thể mig |
 | **M6** | **Lệnh kiểm gói khuôn** (bốn sàn, CSS chỉ đọc ô đã khai, không đụng nút lõi) + trang xem trước gói cho designer | V | Gom các test rời hôm nay |
 | A35 | Lớp trang trí kéo thả **có ràng buộc** cho khuôn 4 (vùng an toàn loại trừ dải Google, toạ độ %) | L | Không làm bảng trắng đầy đủ |
@@ -88,9 +88,9 @@ tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
 
 ## 8. Việc của Tài
 
-F1 luật sư dữ liệu và sở hữu trí tuệ · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F5 bật bảo vệ nhánh `main` · F6
-nhận diện nền tảng (logo, dấu trên thẻ) · F7 `story.md`/Obsidian · thử sáu khuôn trên iPhone/Android thật (kèm lỗi Googy
-"Chưa kết nối được") · tạo quán thật đầu tiên và ghi thẻ.
+F1 luật sư dữ liệu và sở hữu trí tuệ · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F5 bật bảo vệ nhánh `main` (repo đã công khai, CI xanh 27/09) · F6
+nhận diện nền tảng (logo, dấu trên thẻ) · F7 `story.md`/Obsidian · thử lại sáu khuôn trên Chrome iPhone sau bản log
+`GUEST_REFUSED` (27/09: cả sáu "Chưa kết nối được", server trả 403) · tạo quán thật đầu tiên và ghi thẻ.
 
 ---
 

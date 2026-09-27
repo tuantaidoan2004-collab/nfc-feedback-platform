@@ -27,7 +27,7 @@ const failed = (status: number) =>
   : status === 401 ? 'Phiên đã hết hạn. Hãy đăng nhập lại.'
   : 'Dịch vụ đang gián đoạn. Vui lòng thử lại.';
 
-export default function AdminShops({ initial, origin, testAccountAllowed }: { initial: ShopRow[]; origin: string | null; testAccountAllowed: boolean }) {
+export default function AdminShops({ initial, origin }: { initial: ShopRow[]; origin: string | null }) {
   const [shops, setShops] = useState(initial);
   const [handover, setHandover] = useState<Handover | null>(null);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -89,15 +89,15 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
-  const makeTemplateAccount = async (reset = false) => {
+  const makeTemplateAccount = async () => {
     setBusy(true); setError('');
     try {
-      const response = await fetch('/gov/api/template/account', { method: reset ? 'PUT' : 'POST', credentials: 'same-origin' });
+      const response = await fetch('/gov/api/template/account', { method: 'POST', credentials: 'same-origin' });
       if (!response.ok) { setError(failed(response.status)); return; }
       const body = await response.json().catch(() => ({}));
-      // Production: a single-use link to choose a strong password instead of yourshop / 1 (lát F6).
+      // A single-use link to choose a strong password, in every environment (lát F6; no fixed test password since 27/09).
       if (body.account?.setupUrl) { setTemplateLink(body.account.setupUrl); setError('Mở link bên dưới để đặt mật khẩu cho yourshop (dùng một lần, 48 giờ), rồi đăng nhập dashboard của dòng KHUÔN bằng @yourshop.'); }
-      else setError('Tài khoản test của khuôn: yourshop / 1. Mở cột Dashboard của dòng KHUÔN để đăng nhập.');
+      else setError('Máy chủ thiếu APP_ORIGIN nên không dựng được link đặt mật khẩu.');
       await refresh();
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
@@ -180,9 +180,9 @@ export default function AdminShops({ initial, origin, testAccountAllowed }: { in
         {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop khuôn</button>}
         {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa khuôn về mặc định mới</button>}
         {shops.some(row => row.is_template && !row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount()}>{testAccountAllowed ? 'Tạo tài khoản test cho khuôn' : 'Tạo tài khoản cho khuôn (link đặt mật khẩu)'}</button>}
+          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản cho khuôn (link đặt mật khẩu)</button>}
         {shops.some(row => row.is_template && row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount(true)}>{testAccountAllowed ? 'Đặt lại tài khoản test (yourshop / 1)' : 'Tạo lại link đặt mật khẩu cho yourshop'}</button>}
+          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo lại link đặt mật khẩu cho yourshop</button>}
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
       {templateLink && <p data-template-link>Link đặt mật khẩu cho <strong>yourshop</strong>: <code>{templateLink}</code>{' '}
         <button type="button" onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}

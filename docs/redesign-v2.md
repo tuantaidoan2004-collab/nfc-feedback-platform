@@ -69,7 +69,7 @@ Tải ảnh và video riêng cho từng shop cần **Cloudflare R2**; đó là v
 - `/gov`: nút **Tạo shop khuôn** (hiện khi chưa có khuôn); dòng khuôn ghi **KHUÔN**, không có chủ, không có nút; số "Shop đang có" không đếm khuôn.
 - **Chưa thấy video trên trang khách.** Renderer hiện tại chưa vẽ nền, watermark, logo hay nút từ cấu hình; lát B làm việc này. Ngoài ra preview đang tắt `NFC_PUBLISHING_ENABLED`, nên trang khách vẫn chạy đường cũ, không đọc cấu hình.
 - Chưa có: sửa khuôn trong giao diện (lát D). Hiện khuôn chỉ sửa được qua thư viện.
-- **Tài khoản test của khuôn** (Tài yêu cầu 17/09): `yourshop` / `1`, tạo bằng nút ở `/gov`, dùng để vào dashboard của khuôn. Mật khẩu yếu **có chủ ý**, bỏ qua mức tối thiểu 12 ký tự, nên **production từ chối cấp** (`TEST_ACCOUNT_FORBIDDEN`). Gọi lại chỉ gắn lại tài khoản vào khuôn, không đặt lại mật khẩu. Shop nhân bản từ khuôn không mang theo tài khoản này. **Phải đổi khi siết mật khẩu hàng loạt.**
+- **Tài khoản của khuôn:** `yourshop`, vào bằng link đặt mật khẩu dùng một lần cấp ở `/gov`, ở mọi môi trường. Mật khẩu cố định `yourshop / 1` (17/09) đã gỡ ngày 27/09 khi repo công khai.
 - **`caphe-demo` (4Rau) bỏ, Tài chốt 17/09.** Không làm nút "Phát hành từ khuôn". Khi bật publishing, trang đó hiện "Trang chưa sẵn sàng"; dữ liệu cũ giữ nguyên. Mọi chỉnh sửa làm trên khuôn.
 - **Việc tiếp theo trước lát B:** bật `NFC_PUBLISHING_ENABLED=true` cho môi trường Preview trên Vercel, rồi push một commit để deploy lại.
 - Chỗ trải nghiệm còn thiếu, để lát C xử lý: chủ shop A đang đăng nhập mà mở dashboard shop B thì thấy "Không thể mở dashboard", không có lối đăng nhập bằng tài khoản khác.
@@ -144,7 +144,7 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 
 ## Tài khoản test của khuôn — sửa 2026-09-18
 
-Tài không đăng nhập được `yourshop` / `1` trên preview. Không đọc được database của Tài nên không xác định được nguyên nhân trong ba khả năng: tài khoản chưa có, mật khẩu không phải `1`, hoặc bị khoá vì thử quá 8 lần trong 15 phút. Vì vậy `/gov` có thêm nút **"Đặt lại tài khoản test (yourshop / 1)"**, xử lý cả ba: đặt lại mật khẩu, bật lại tài khoản và quyền chủ shop trên khuôn, xoá luôn bản đếm chặn đăng nhập của tên đó. Ghi sổ `template.account.reset`. Vẫn bị từ chối trên production (`TEST_ACCOUNT_FORBIDDEN`) vì mật khẩu cố tình yếu.
+(18/09, đã thay 27/09) Nút "Đặt lại tài khoản test (yourshop / 1)" ở `/gov` giờ là **"Tạo lại link đặt mật khẩu cho yourshop"**: khoá tài khoản, đăng xuất phiên cũ, xoá bản đếm chặn đăng nhập, cấp link mới. Ghi sổ `template.account.link`.
 
 Điều này thay quy tắc cũ "gọi lại không bao giờ đặt lại mật khẩu": nút **Tạo** vẫn không đặt lại, nút **Đặt lại** thì có, và chỉ hiện khi khuôn đã có tài khoản.
 

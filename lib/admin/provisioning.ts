@@ -6,7 +6,7 @@ import { latestVersion } from '../publishing/versions';
 import { priceSheet } from '../publishing/pricing';
 import { googleUrlProblem } from '../publishing/policy';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
-import { loginBucket, passwordKey, transaction, username } from '../owner/auth';
+import { loginBucket, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 import { shortCode, withShortCode } from '../short-code';
@@ -14,8 +14,8 @@ import { shortCode, withShortCode } from '../short-code';
 // Opaque and short (lib/short-code.ts). A slug is a name only in the sense that it appears in a URL: a shop can be
 // given a real one later without breaking anything, because cards carry the tag code and history keys off the id.
 
-// Test sign-in for the template shop. Weak on purpose and refused in production; see ensureTemplateAccount.
-const TEMPLATE_USERNAME = 'yourshop', TEMPLATE_PASSWORD = '1';
+// The template shop's own sign-in. Its password is always chosen through a single-use link (templateAccountLink).
+const TEMPLATE_USERNAME = 'yourshop';
 const duplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 
 export type ProvisionedShop = {
@@ -100,33 +100,10 @@ export class ShopProvisioning {
   }
 
   /**
-   * A sign-in to the template's own dashboard, for testing: username `yourshop`, password `1`, as Tài asked on
-   * 2026-09-17. It deliberately bypasses the 12-character minimum, so the caller must refuse it in production
-   * (`allowed`). An existing account is attached to the template but its password is never reset here. Rotating it
-   * belongs to the planned tightening of every password.
-   */
-  async ensureTemplateAccount(actorId: string, allowed: boolean) {
-    if (!allowed) throw new AdminError(403, 'TEST_ACCOUNT_FORBIDDEN');
-    const template = await this.ensureTemplate(actorId);
-    const salt = randomBytes(16).toString('hex'), key = (await passwordKey(TEMPLATE_PASSWORD, salt)).toString('hex');
-    return transaction(this.pool, async db => {
-      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-template-account',0))");
-      let user = (await db.query('SELECT id FROM owner_identities_v2 WHERE username=$1', [TEMPLATE_USERNAME])).rows[0];
-      const created = !user;
-      if (!user) user = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id',
-        [TEMPLATE_USERNAME, salt, key])).rows[0];
-      await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')
-        ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
-      if (created) await recordAdminAction(db, actorId, { action: 'template.account.create', shopId: template.shopId, onBehalfOf: user.id,
-        detail: { username: TEMPLATE_USERNAME, weakPassword: true } });
-      return { username: TEMPLATE_USERNAME, created, slug: template.slug };
-    });
-  }
-
-  /**
-   * Production's way into the template's dashboard (lát F6, 2026-09-19). `yourshop / 1` is refused there, which left
-   * no way to edit the template at all. Here the account is created closed, like a shop owner's, and Tài gets a
-   * single-use link to choose a strong password; asking again issues a fresh link and clears the sign-in throttle.
+   * The only way into the template's dashboard, in every environment (lát F6, 2026-09-19; since 27/09 also outside
+   * production, where a fixed `yourshop / 1` used to be issued -- it would have been public the day the repo was).
+   * The account is closed until the link is used, like a shop owner's. Asking again closes it again (a new random
+   * key, so no older password still opens it), issues a fresh link and clears the sign-in throttle.
    */
   async templateAccountLink(actorId: string) {
     const template = await this.ensureTemplate(actorId);
@@ -137,38 +114,17 @@ export class ShopProvisioning {
       // A random key that no password matches: the account stays closed until the link is used.
       if (!user) user = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id',
         [TEMPLATE_USERNAME, randomBytes(16).toString('hex'), randomBytes(32).toString('hex')])).rows[0];
-      else await db.query('UPDATE owner_identities_v2 SET active=true WHERE id=$1', [user.id]);
+      else await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3,active=true WHERE id=$1',
+        [user.id, randomBytes(16).toString('hex'), randomBytes(32).toString('hex')]);
       await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')
         ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
+      // Closed means closed: a browser still signed in with the old password is signed out too.
+      if (!created) await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND revoked_at IS NULL', [user.id]);
       await db.query('DELETE FROM owner_login_limits WHERE bucket=$1', [loginBucket(TEMPLATE_USERNAME)]);
       const link = await new OwnerSetupLinks(this.pool).write(db, user.id, created ? 'setup' : 'reset');
       await recordAdminAction(db, actorId, { action: 'template.account.link', shopId: template.shopId, onBehalfOf: user.id,
         detail: { username: TEMPLATE_USERNAME, created } });
       return { username: TEMPLATE_USERNAME, created, slug: template.slug, setupToken: link.token, expiresAt: link.expiresAt };
-    });
-  }
-
-  /**
-   * Puts the template's test sign-in back to `yourshop` / `1` and clears that username's sign-in throttle, for when
-   * the password is unknown or too many attempts locked it out (Tài, 2026-09-18). Same production refusal as
-   * issuing it: the password is deliberately weak.
-   */
-  async resetTemplateAccount(actorId: string, allowed: boolean) {
-    if (!allowed) throw new AdminError(403, 'TEST_ACCOUNT_FORBIDDEN');
-    const template = await this.ensureTemplate(actorId);
-    const salt = randomBytes(16).toString('hex'), key = (await passwordKey(TEMPLATE_PASSWORD, salt)).toString('hex');
-    return transaction(this.pool, async db => {
-      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-template-account',0))");
-      const existing = (await db.query('SELECT id FROM owner_identities_v2 WHERE username=$1', [TEMPLATE_USERNAME])).rows[0];
-      const user = existing
-        ? (await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3,active=true WHERE id=$1 RETURNING id', [existing.id, salt, key])).rows[0]
-        : (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key)VALUES($1,$2,$3)RETURNING id', [TEMPLATE_USERNAME, salt, key])).rows[0];
-      await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')
-        ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
-      await db.query('DELETE FROM owner_login_limits WHERE bucket=$1', [loginBucket(TEMPLATE_USERNAME)]);
-      await recordAdminAction(db, actorId, { action: 'template.account.reset', shopId: template.shopId, onBehalfOf: user.id,
-        detail: { username: TEMPLATE_USERNAME, weakPassword: true, created: !existing } });
-      return { username: TEMPLATE_USERNAME, created: !existing, slug: template.slug };
     });
   }
 

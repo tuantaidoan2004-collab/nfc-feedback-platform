@@ -167,38 +167,48 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.goto(setupUrl);
  await expect(page.getByRole('heading',{name:'Liên kết không dùng được'})).toBeVisible();
 
- // The template's test account, issued from /gov outside production, opens the template's own dashboard.
+ // The template's account comes as a single-use link here too: no fixed `yourshop / 1` in any environment (27/09).
  await page.goto('/gov');
- await page.getByRole('button',{name:'Tạo tài khoản test cho khuôn',exact:true}).click();
- await expect(page.getByRole('main')).toContainText('yourshop / 1');
+ await page.getByRole('button',{name:'Tạo tài khoản cho khuôn (link đặt mật khẩu)',exact:true}).click();
+ const templateLink=page.locator('[data-template-link] code');
+ await expect(templateLink).toContainText('/owner/setup/');
+ const templateSetup=(await templateLink.textContent())!;
  await expect(templateRow).toContainText('yourshop');
  await expect(templateRow.getByRole('button')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Tạo tài khoản test cho khuôn',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Tạo tài khoản cho khuôn (link đặt mật khẩu)',exact:true})).toHaveCount(0);
  // Still signed in as the shop owner above, whose account has no access to the template: start from signed out.
  await page.context().clearCookies({name:'nfc_owner_v2'});
- await page.goto(`/ZZZ/${templateSlug}`);
- await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');
- await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
- await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ const signInTemplate=async(password:string)=>{
+  await page.goto(`/ZZZ/${templateSlug}`);
+  await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill(password);
+  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ };
+ await signInTemplate('1');
+ await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
+ await page.goto(templateSetup);
+ await page.getByLabel('Mật khẩu mới',{exact:true}).fill('template-password-one');
+ await page.getByLabel('Nhập lại',{exact:true}).fill('template-password-one');
+ await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
+ await signInTemplate('template-password-one');
  await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 
- // Password unknown and the username locked out by failed attempts: one press puts both back.
- await admin.db.query("UPDATE owner_identities_v2 SET password_key=repeat('0',64) WHERE username='yourshop'");
+ // Password forgotten and the username locked out by failed attempts: one press closes the account and hands a new link.
  await page.context().clearCookies({name:'nfc_owner_v2'});
- for(let i=0;i<9;i++){
-  await page.goto(`/ZZZ/${templateSlug}`);
-  await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
-  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
- }
+ for(let i=0;i<9;i++){ await signInTemplate('wrong-template-password'); await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible(); }
  await page.goto('/gov');
- await page.getByRole('button',{name:'Đặt lại tài khoản test (yourshop / 1)',exact:true}).click();
- await expect(page.getByRole('main')).toContainText('yourshop / 1');
- // The button's request lands after the notice appears, so wait for the record rather than reading once.
- await expect.poll(async()=>(await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.reset'")).rows[0].n).toBe(1);
- await page.goto(`/ZZZ/${templateSlug}`);
- await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill('1');
- await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await page.getByRole('button',{name:'Tạo lại link đặt mật khẩu cho yourshop',exact:true}).click();
+ await expect(templateLink).toContainText('/owner/setup/');
+ const again=(await templateLink.textContent())!;
+ expect(again).not.toBe(templateSetup);
+ await expect.poll(async()=>(await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.link'")).rows[0].n).toBe(2);
+ // The old password no longer opens it; the new link does.
+ await signInTemplate('template-password-one');
+ await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
+ await page.goto(again);
+ await page.getByLabel('Mật khẩu mới',{exact:true}).fill('template-password-two');
+ await page.getByLabel('Nhập lại',{exact:true}).fill('template-password-two');
+ await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
+ await signInTemplate('template-password-two');
  await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
 });
 
@@ -209,7 +219,8 @@ test('a reissued link is only issued for the owner of the named shop, and always
  await signIn(page,admin.username,admin.app);
  const post=(data:unknown)=>page.request.post(`${origin}/gov/api/setup-links`,{headers:{origin},data});
  const trail=async()=>(await admin.db.query("SELECT shop_id,on_behalf_of FROM admin_audit WHERE action='owner.link.reissue'")).rows;
- const resets=async()=>(await admin.db.query("SELECT count(*)::int n FROM owner_setup_tokens WHERE purpose='reset'")).rows[0].n;
+ // The template's own reissued links (earlier test) are not this test's business.
+ const resets=async()=>(await admin.db.query("SELECT count(*)::int n FROM owner_setup_tokens WHERE purpose='reset' AND user_id NOT IN (SELECT id FROM owner_identities_v2 WHERE username='yourshop')")).rows[0].n;
 
  expect((await post({ownerUserId:one.ownerUserId,shopId:two.shopId})).status()).toBe(404);
  expect((await post({ownerUserId:one.ownerUserId,shopId:'not-a-uuid'})).status()).toBe(400);

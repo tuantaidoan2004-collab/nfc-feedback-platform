@@ -39,7 +39,7 @@ Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đ�
 2. **Tài: thêm tên miền production vào CORS của bucket R2** (Cloudflare → R2 → `nfc-media` → Settings → CORS policy): `AllowedOrigins` thêm `https://quitesensational-review-bio.vercel.app`, giữ origin preview.
 3. **Tài: tạo admin `tai` trên database production** (lệnh dưới).
 4. **Agent: push `feat/local-app-foundation` lên `main`** (fast-forward) → Vercel deploy production. Agent kiểm bằng request không đăng nhập: `/gov/login` 200, `/owner/login?next=…` 200, `/api/owner/v2/x` 401.
-5. **Tài: vào `/gov` trên production**, tạo shop khuôn, rồi tạo shop thật. Tài khoản test `yourshop / 1` **không** tạo được trên production (`TEST_ACCOUNT_FORBIDDEN`), đúng thiết kế.
+5. **Tài: vào `/gov` trên production**, tạo shop khuôn, rồi tạo shop thật. Tài khoản khuôn `yourshop` chỉ vào được bằng link đặt mật khẩu dùng một lần (mọi môi trường, từ 27/09).
 6. Ghi thẻ NFC cho khách bằng link `https://quitesensational-review-bio.vercel.app/t/<mã>`.
 
 ## Biến Production
@@ -90,7 +90,7 @@ Trước lát 19/09 production **đóng**: không có `NFC_ENV`, và `main` còn
 
 Tài hỏi tài khoản dashboard khuôn. Preview là `yourshop / 1`; production **từ chối** mật khẩu yếu đó (`TEST_ACCOUNT_FORBIDDEN`), nên lát mở production để lại một lỗ: **không có cách nào sửa khuôn trên production**. Agent không lường trước khi lên kế hoạch lát này.
 
-Sửa: trên production, nút ở `/gov` thành **"Tạo tài khoản cho khuôn (link đặt mật khẩu)"** và **"Tạo lại link đặt mật khẩu cho yourshop"** (`ShopProvisioning.templateAccountLink`). Tài khoản `yourshop` tạo ở trạng thái khoá (như chủ shop mới), `/gov` hiện link đặt mật khẩu dùng một lần 48 giờ; Tài tự đặt mật khẩu mạnh rồi đăng nhập dashboard khuôn bằng `@yourshop`. Cấp link mới cũng mở khoá đếm đăng nhập sai. Preview giữ `yourshop / 1`.
+Sửa: trên production, nút ở `/gov` thành **"Tạo tài khoản cho khuôn (link đặt mật khẩu)"** và **"Tạo lại link đặt mật khẩu cho yourshop"** (`ShopProvisioning.templateAccountLink`). Tài khoản `yourshop` tạo ở trạng thái khoá (như chủ shop mới), `/gov` hiện link đặt mật khẩu dùng một lần 48 giờ; Tài tự đặt mật khẩu mạnh rồi đăng nhập dashboard khuôn bằng `@yourshop`. Cấp link mới cũng mở khoá đếm đăng nhập sai. **Từ 27/09 preview cũng vậy:** `yourshop / 1` bị gỡ hẳn (repo công khai thì mật khẩu cố định là mật khẩu ai cũng biết); cấp lại link thì khoá tài khoản và đăng xuất mọi phiên cũ trước.
 
 **Lỗi cũ test mới bắt được:** `OwnerSetupLinks.write` chỉ huỷ link còn mở **cùng loại** (`setup` hoặc `reset`). Link đặt mật khẩu đầu tiên (`setup`) vì thế **vẫn dùng được** sau khi admin cấp lại link (`reset`) cho chủ shop, cho tới khi hết 48 giờ. Giờ link mới huỷ mọi link còn mở của tài khoản.
 - 7 bộ trên commit `0aa2f47`: tsc exit 0 · eslint exit 0 · repository `116 passed` · contracts `73 passed` · client `75 passed` · public-v2 + browser-hardening `1 skipped, 16 passed` + `2 passed` · publishing `10 passed` + `2 passed` · owner `10 passed` + `2 passed` · admin `6 passed` + `2 passed`. Không có migration; đã đẩy lên `main`.

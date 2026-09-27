@@ -3,7 +3,6 @@ import { AdminAuth, AdminError, type AdminPrincipal } from '@/lib/admin/auth';
 import { ShopProvisioning } from '@/lib/admin/provisioning';
 import { database } from '@/server/db';
 import { adminEnabled, adminSessionToken } from '@/server/admin';
-import { nfcEnv } from '@/server/env';
 import AdminSignOut from '@/components/admin-sign-out';
 import AdminShops, { type ShopRow } from '@/components/admin-shops';
 import AdminMedia from '@/components/admin-media';
@@ -44,6 +43,6 @@ export default async function Page() {
     </div>
     <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
     <AdminMedia initial={media}/>
-    <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null} testAccountAllowed={nfcEnv() !== 'production'}/>
+    <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}/>
   </main>;
 }

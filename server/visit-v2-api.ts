@@ -46,6 +46,23 @@ async function readInput(request: Request, maxBytes: number): Promise<Record<str
   } finally { reader.releaseLock(); }
 }
 
+/**
+ * One line per refused guest write, so a refusal on someone's phone can be read in the host's log (27/09: every open
+ * from Tài's Chrome on iPhone came back 403 and the log said only "403"). What is written is why, never who: the code,
+ * the operation, whether the Origin matched, the Sec-Fetch-Site value and the browser family -- no address, no
+ * secret, no body, no full user agent.
+ */
+function refused(request: Request, operation: Operation, code: string, status: number, origin: string | undefined, error: unknown) {
+  const site = request.headers.get('sec-fetch-site');
+  const agent = request.headers.get('user-agent') ?? '';
+  const browser = /CriOS\//.test(agent) ? 'chrome-ios' : /FxiOS\//.test(agent) ? 'firefox-ios' : /(iPhone|iPad)/.test(agent) ? 'ios-other'
+    : /Android/.test(agent) ? 'android' : agent ? 'desktop' : 'none';
+  console.warn('GUEST_REFUSED', JSON.stringify({ operation, status, code,
+    origin: !request.headers.has('origin') ? 'absent' : request.headers.get('origin') === origin ? 'match' : 'other',
+    site: site === null ? 'absent' : ['same-origin', 'same-site', 'cross-site', 'none'].includes(site) ? site : 'other', browser,
+    ...(status === 503 && error instanceof Error ? { error: error.name } : {}) }));
+}
+
 /** Standard Request/Response boundary; actual Next routes delegate here. No credential loading. */
 export function createVisitV2Api(dependencies: Dependencies) {
   return async function handle(request: Request, context: Context, operation: Operation): Promise<Response> {
@@ -152,11 +169,12 @@ export function createVisitV2Api(dependencies: Dependencies) {
       });
     } catch (error) {
       // The shop's page and its Google button never depend on this; only the write path can be refused.
-      if (error instanceof GuestFlood) return response({ error: 'TOO_MANY_REQUESTS' }, 429);
-      if (error instanceof VisitAccessDenied) return response({ error: error.code }, 403);
-      if (error instanceof VisitCapabilityConflict) return response({ error: 'VISIT_CONFLICT' }, 409);
-      if (error instanceof ApiError) return response({ error: error.code }, error.status);
-      return response({ error: 'SERVICE_UNAVAILABLE' }, 503);
+      const [code, status] = error instanceof GuestFlood ? ['TOO_MANY_REQUESTS', 429]
+        : error instanceof VisitAccessDenied ? [error.code, 403]
+        : error instanceof VisitCapabilityConflict ? ['VISIT_CONFLICT', 409]
+        : error instanceof ApiError ? [error.code, error.status] : ['SERVICE_UNAVAILABLE', 503];
+      refused(request, operation, code, status, dependencies.origin, error);
+      return response({ error: code }, status);
     }
   };
 }
