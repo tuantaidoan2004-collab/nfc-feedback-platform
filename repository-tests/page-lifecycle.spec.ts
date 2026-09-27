@@ -11,10 +11,11 @@ import {OwnerDesign} from '../lib/owner/design';
 import {OwnerCards} from '../lib/owner/cards';
 import {OwnerPages,OwnerPageLifecycle} from '../lib/owner/pages';
 import {PublishingAdmin,PublishingResolver,type PageRef} from '../lib/publishing/repository';
-import {templateConfig} from '../lib/publishing/config';
+
 import {publishingVisitPolicy} from '../lib/publishing/visit-policy';
 import {VisitRatingRepository} from '../lib/repositories/visit-ratings';
 import type {RenderContext} from '../lib/publishing/proof';
+import { templateConfig } from '../lib/publishing/templates';
 
 /**
  * Lát P4 (migration 026, docs/goi-va-trang.md mục 5): draft → live ⇄ paused → closed. Paused keeps everything and says

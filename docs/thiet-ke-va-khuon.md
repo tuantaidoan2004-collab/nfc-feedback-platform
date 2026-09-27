@@ -230,7 +230,7 @@ A33), `google-policy.spec.ts` (luật Google cho từng khoá), `admin-http.spec
 1. **Khuôn 4 có ràng buộc.** Kéo thả tự do trong **vùng an toàn loại trừ dải chứa nút Google**; xoay −15°…+15°;
    toạ độ lưu theo phần trăm của khung tỉ lệ cố định nên sống sót trên màn 390px. Bốn sàn sống sót *theo cấu
    tạo*, không nhờ cửa duyệt. Bảng trắng đầy đủ chỉ làm khi có khách thật đòi.
-2. **Đã làm (23/09):** `LEAVE_TRANSITION_MS` trong `config.ts` khai khuôn nào có chuyển cảnh; khuôn đó mất
+2. **Đã làm (23/09):** `effects.leaveTransitionMs` trong manifest của gói (trước M1: `LEAVE_TRANSITION_MS`) khai khuôn nào có chuyển cảnh; khuôn đó mất
    `target="_blank"`. Diện mạo ở `DESIGN.md` mục 9. **Khuôn 6 chấp nhận trả 300ms** để chạy hoạt ảnh trước khi rời trang. Nút phải mở **cùng tab** — `target=
    "_blank"` cộng điều hướng trì hoãn sẽ bị iOS/Android chặn như popup. Và vế *"mây tan rồi hiện ra trang đích"*
    **bất khả thi**: trang Google là tên miền khác, không render dưới lớp mây được. Mây phủ trang mình, rồi
@@ -322,7 +322,7 @@ Nó còn bắt tính lại bộ lọc mỗi khung hình khi cuộn.
 3. **Bộ lọc tự dựng bản đồ khúc xạ từ hình dạng tấm kính** (alpha làm mờ = chiều cao kính, độ dốc = độ bẻ), nên một
    bộ lọc hợp mọi cỡ, không ảnh, không script. Hai bộ: `nfc-glass-lg` (thân trang) và `nfc-glass-sm` (viên link).
 4. **Một thẻ `<svg>` vô hình** chứa bộ lọc — ngoại lệ duy nhất của luật "áo khoác không thêm nút DOM", Tài chốt
-   23/09. Rào: chỉ render cho khuôn khai trong `GLASS_TEMPLATES`, luôn là nút cuối của trang, `aria-hidden`,
+   23/09. Rào: chỉ render cho khuôn khai `effects.glass` trong manifest, luôn là nút cuối của trang, `aria-hidden`,
    `focusable=false`, ẩn bằng cỡ 0 (không `display: none` — Safari bỏ qua bộ lọc trong phần tử đó). Test
    `google-policy.spec.ts` giữ: khối lời mời Google giống từng byte với khuôn khác.
 
@@ -360,16 +360,16 @@ không. Số phiên bản Tài giao Claude quyết.
 
 **Quyết định:**
 
-- **Khuôn có số bản riêng**, số nguyên từ 1 (`lib/publishing/versions.ts`, kèm ngày và một câu ghi chú cho chủ quán).
+- **Khuôn có số bản riêng**, số nguyên từ 1 (`versions` trong `templates/<khoá>/manifest.json` từ lát M1, kèm ngày và một câu ghi chú cho chủ quán).
   Số bản nền tảng kiểu `năm.tháng.lần` (vd `26.9.3`) là việc riêng, **chưa làm**.
 - **Bản phát hành của shop ghim một bản khuôn.** Bảng `template_versions` (migration 003) và cột
   `page_releases.template_version_id` có sẵn từ đầu, nên lát này **không cần migration**. Trang khách mang
   `data-template` và `data-template-version`.
-- **Mỗi bản một tệp CSS đóng băng**: `components/skins/<khoá>.v<bản>.css`. Mọi selector trong tệp có dạng
+- **Mỗi bản một tệp CSS đóng băng**: `templates/<khoá>/v<bản>.css` (từ lát M1; trước đó `components/skins/`). Mọi selector trong tệp có dạng
   `.guest[data-template="<khoá>"]:where([data-template-version="<bản>"])`. `:where` không cộng độ ưu tiên, nên trang
   vẽ y như trước khi tách. `skin.css` chỉ còn phần của nền tảng: token mặc định, hai luật dùng chung, cách bày link
   1–6, nút hạt ngọc, thẻ `<svg>` bộ lọc kính.
-- **Đổi diện mạo = thêm bản mới**: một dòng trong `versions.ts` và một tệp mới. Shop đang chạy không đổi gì.
+- **Đổi diện mạo = thêm bản mới**: một mục trong `versions` của manifest và một tệp mới, rồi `node scripts/templates.mjs`. Shop đang chạy không đổi gì.
 - **Sửa lỗi, bảo mật, luật Google không phải bản mới**: sửa thẳng tệp của mọi bản đang chạy, vì không shop nào được
   chọn ở lại với trang lỗi hay trái luật Google. Sửa như vậy thì ghi lại mã băm trong `skin.spec.ts` cùng commit, và
   nói rõ lý do.
@@ -388,7 +388,7 @@ không. Số phiên bản Tài giao Claude quyết.
   request sai. Shop mới dùng bản mới nhất.
 - `publishing.spec.ts`: cùng shop, cùng cấu hình, chỉ khác bản ghim. Sang bản 2 thì diện mạo của bản 1 không đi theo.
 
-**Chưa đóng băng, nói thẳng:** ba bảng nền tảng trong `config.ts` (`LEAVE_TRANSITION_MS`, `GLASS_TEMPLATES`,
-`BUTTON_FORMS`) và bộ xương `templateConfig(key)` vẫn theo **khoá**, chưa theo bản. Bản mới nào cần đổi một trong
-chúng thì đổi khoá của bảng đó thành cặp khoá + bản, ngay trong lát làm bản mới. Nút hạt ngọc là phần của nền tảng,
+**Chưa đóng băng, nói thẳng:** hiệu ứng nền tảng (`effects` trong manifest: chuyển cảnh, kính, nút hạt ngọc) và khung
+trắng (`page`) vẫn theo **khoá**, chưa theo bản. Bản mới nào cần đổi một trong
+chúng thì chuyển trường đó vào từng mục của `versions`, ngay trong lát làm bản mới. Nút hạt ngọc là phần của nền tảng,
 không thuộc bản của khuôn 6, vì luật Google của nút Google phải giống nhau ở mọi nơi.

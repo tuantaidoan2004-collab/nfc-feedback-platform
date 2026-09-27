@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { TEMPLATE_KEYS, defaultConfig, templateConfig, validateConfig } from '../../lib/publishing/config';
+import { defaultConfig, validateConfig } from '../../lib/publishing/config';
 import { SERVICE_LABELS, assertPublishable, freeTextProblem, googleUrlProblem } from '../../lib/publishing/policy';
+import { TEMPLATE_KEYS, templateConfig } from '../../lib/publishing/templates';
 const render = (config = defaultConfig('Shop fixture')) => execFileSync(process.execPath, ['tests/fixtures/render-guest.cjs'], {
   input: JSON.stringify(config), encoding: 'utf8',
 });

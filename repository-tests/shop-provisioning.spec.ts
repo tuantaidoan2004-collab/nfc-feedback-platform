@@ -126,7 +126,7 @@ test('a reissued link is audited against the owner\'s own shop, or not issued at
 });
 
 test('the template shop is created once, even when asked at the same time, and repaired if left unpublished',async({f})=>{
- const {templateConfig}=await import('../lib/publishing/config');
+ const {templateConfig}=await import('../lib/publishing/templates');
  // Ten callers through a pool as small as production's: holding a connection while waiting would starve it.
  const schema=(await f.db.query('SELECT current_schema() s')).rows[0].s;
  const small=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:3,connectionTimeoutMillis:5000});
@@ -157,7 +157,7 @@ test('the template shop is created once, even when asked at the same time, and r
 
 test('a new shop starts from the template as it stands now, with its own name and Google link, and keeps it',async({f})=>{
  const {PublishingAdmin}=await import('../lib/publishing/repository');
- const {templateConfig}=await import('../lib/publishing/config');
+ const {templateConfig}=await import('../lib/publishing/templates');
  const first=await f.shops.create(f.actorId,input);
  const release=async(shopId:string)=>(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[shopId])).rows[0].c;
  expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/?cid=1'});
@@ -176,7 +176,7 @@ test('a new shop starts from the template as it stands now, with its own name an
 });
 
 test('resetting the template publishes the current defaults as a new release; shops made earlier keep theirs',async({f})=>{
- const {templateConfig}=await import('../lib/publishing/config');const {PublishingAdmin}=await import('../lib/publishing/repository');
+ const {templateConfig}=await import('../lib/publishing/templates');const {PublishingAdmin}=await import('../lib/publishing/repository');
  const template=await f.shops.ensureTemplate(f.actorId),admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
  // Stand in for a template published before the new defaults existed.
  const draft=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
@@ -198,7 +198,7 @@ test('resetting the template publishes the current defaults as a new release; sh
  expect(fresh).toEqual({...templateConfig(),name:'Quán Sau'});
 });
 test('only the exact built-in media paths are accepted, and only as their own kind',async()=>{
- const {validateConfig,templateConfig,STEM_BACKGROUND}=await import('../lib/publishing/config');
+ const {validateConfig,STEM_BACKGROUND}=await import('../lib/publishing/config');const {templateConfig}=await import('../lib/publishing/templates');
  const withBackground=(media:unknown)=>({...templateConfig(),background:{kind:'media',media,loop:true}});
  expect(validateConfig(withBackground({kind:'video',url:STEM_BACKGROUND.video})).background).toMatchObject({kind:'media'});
  expect(validateConfig(withBackground({kind:'image',url:STEM_BACKGROUND.still})).background).toMatchObject({kind:'media'});
@@ -234,7 +234,7 @@ test('the template account comes with a single-use link, never a fixed password,
 });
 
 test('A33: each of the six templates is a bare skeleton with its own template row, and carries no account content',async({f})=>{
- const {TEMPLATE_KEYS,templateConfig,validateConfig}=await import('../lib/publishing/config');
+ const {validateConfig}=await import('../lib/publishing/config');const {TEMPLATE_KEYS,templateConfig}=await import('../lib/publishing/templates');
  const {assertPublishable}=await import('../lib/publishing/policy');
  const {PublishingResolver}=await import('../lib/publishing/repository');
  expect(TEMPLATE_KEYS).toEqual(['standard','minimal','glass','deco','spotlight','big-button']);

@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
-import { BUTTON_FORMS, DEFAULT_FEEDBACK_BUTTON, defaultConfig, GLASS_TEMPLATES, LEAVE_TRANSITION_MS, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
+import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
 import { settingsOnPage } from '@/lib/publishing/settings';
 import { FACES } from '@/lib/faces';
@@ -14,6 +14,7 @@ import { useDocumentFeedback } from '@/lib/client/use-document-feedback';
 import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
 import { normalizeFeedback, normalizePhone } from '@/lib/domain/private-feedback';
 import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
+import { effectsOf } from '@/lib/publishing/templates';
 
 /**
  * Guest page v2 (lát B3, 2026-09-18). The page itself asks for nothing but the Google review: the Google invitation is
@@ -181,7 +182,7 @@ function GlassFilters() {
 }
 
 /**
- * Khuôn 6's Google button (BUTTON_FORMS): a raised orb holding the "G", with the label running round it. The ring and
+ * Khuôn 6's Google button (`effects.googleButton` in its manifest): a raised orb holding the "G", with the label running round it. The ring and
  * the orb are decoration (aria-hidden); the label itself stays in the button, hidden only from sight, so the link's
  * name and the words every visitor is offered are exactly those of every other template.
  * The "G" is the four-part mark below used as a mask over a conic blend, so it takes Google's own colours, unaltered.
@@ -423,9 +424,11 @@ export default function ShopFeedbackV2(shop: Props) {
   const opening = state?.opens.find(entry => entry.event.loadKey === current?.event.loadKey);
   const reduced = useReducedMotion() || !!shop.still;
   const hint = useBottomHint();
-  const leaveMs = LEAVE_TRANSITION_MS.get(shop.template ?? '') ?? 0;
-  const glass = GLASS_TEMPLATES.has(shop.template ?? '');
-  const orb = BUTTON_FORMS.get(shop.template ?? '') === 'orb';
+  // What the template's package declares (templates/<khoá>/manifest.json, lát M1).
+  const effects = effectsOf(shop.template);
+  const leaveMs = effects.leaveTransitionMs ?? 0;
+  const glass = !!effects.glass;
+  const orb = effects.googleButton === 'orb';
   useTiltLight(orb);
   const page = useGlassPlacement(glass);
   const [leaving, leave] = useLeaveTransition(leaveMs, reduced);

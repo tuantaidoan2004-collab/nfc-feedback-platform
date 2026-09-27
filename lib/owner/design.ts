@@ -2,13 +2,14 @@ import type { Pool, PoolClient } from 'pg';
 import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
-import { DEFAULT_FEEDBACK_BUTTON, PublishingError, isTemplateKey, validateConfig, type PageConfig } from '../publishing/config';
-import { TEMPLATE_RELEASES, settingsOf, type TemplateRelease } from '../publishing/versions';
+import { DEFAULT_FEEDBACK_BUTTON, PublishingError, validateConfig, type PageConfig } from '../publishing/config';
+import { settingsOf, type TemplateRelease } from '../publishing/versions';
 import { lockedChange, type SettingField } from '../publishing/settings';
 import { storageSettings } from '../media/storage';
 import { recordActivity } from './activity';
 import { pageOf } from './pages';
 import type { PageRef, TemplateReleases } from '../publishing/repository';
+import { isTemplateKey, TEMPLATE_RELEASES } from '../publishing/templates';
 
 /**
  * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an

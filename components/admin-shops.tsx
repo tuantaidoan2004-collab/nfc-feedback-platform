@@ -1,9 +1,9 @@
 'use client';
 import { useState } from 'react';
 import styles from './admin.module.css';
-import { TEMPLATE_KEYS } from '@/lib/publishing/config';
-import { TEMPLATE_NAMES } from '@/lib/publishing/versions';
+
 import { vnd } from '@/lib/publishing/pricing';
+import { TEMPLATE_KEYS, TEMPLATE_NAMES } from '@/lib/publishing/templates';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;

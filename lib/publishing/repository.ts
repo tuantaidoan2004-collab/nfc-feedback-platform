@@ -1,13 +1,14 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export { PublishingError } from './config';
-import { PublishingError, TEMPLATE_V1, isTemplateKey, templateConfig, validateConfig, withoutVideoBackground, type PageConfig, type TemplateKey } from './config';
+import { PublishingError, TEMPLATE_V1, validateConfig, withoutVideoBackground, type PageConfig } from './config';
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
 import type { RenderContext } from './proof';
-import { TEMPLATE_RELEASES, settingsOf, type TemplateRelease } from './versions';
+import { settingsOf, type TemplateRelease } from './versions';
 import { checkSettings, convertSettings } from './settings';
+import { isTemplateKey, templateConfig, type TemplateKey, TEMPLATE_RELEASES } from './templates';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
 /**

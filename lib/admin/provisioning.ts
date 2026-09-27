@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
-import { PublishingError, isTemplateKey, templateConfig, validateConfig, type TemplateKey } from '../publishing/config';
-import { latestVersion } from '../publishing/versions';
+import { PublishingError, validateConfig } from '../publishing/config';
+
 import { priceSheet } from '../publishing/pricing';
 import { googleUrlProblem } from '../publishing/policy';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
@@ -10,6 +10,7 @@ import { loginBucket, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 import { shortCode, withShortCode } from '../short-code';
+import { isTemplateKey, templateConfig, type TemplateKey, latestVersion } from '../publishing/templates';
 
 // Opaque and short (lib/short-code.ts). A slug is a name only in the sense that it appears in a URL: a shop can be
 // given a real one later without breaking anything, because cards carry the tag code and history keys off the id.

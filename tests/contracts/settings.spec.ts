@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
-import { TEMPLATE_KEYS, defaultConfig, validateConfig } from '../../lib/publishing/config';
-import { TEMPLATE_RELEASES } from '../../lib/publishing/versions';
+import { defaultConfig, validateConfig } from '../../lib/publishing/config';
+
 import { SETTING_KEY, fits, type SettingField } from '../../lib/publishing/settings';
+import { TEMPLATE_KEYS, TEMPLATE_RELEASES } from '../../lib/publishing/templates';
 
 /**
  * Lát P2 (lib/publishing/settings.ts): the table each template version publishes of what an owner may adjust, and the
@@ -32,9 +33,9 @@ test('every shipped version has a well-formed table: known kinds, unique keys, d
 });
 
 test("a version's stylesheet reads only fields its own table declares, always with a fallback; the platform reads none", () => {
-  for (const name of readdirSync('components/skins')) {
-    const [, key, version] = /^(.+)\.v(\d+)\.css$/.exec(name)!;
-    const css = readFileSync(`components/skins/${name}`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const key of readdirSync('templates', { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name)) for (const file of readdirSync(`templates/${key}`).filter(file => file.endsWith('.css'))) {
+    const version = /^v(\d+)\.css$/.exec(file)![1], name = `${key}/${file}`;
+    const css = readFileSync(`templates/${name}`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const fields = own(TEMPLATE_RELEASES[key as keyof typeof TEMPLATE_RELEASES].find(release => release.version === Number(version))!.settings);
     const kind = (k: string) => fields.find(field => field.key === k)?.kind;
     for (const [, k] of css.matchAll(/--s-([a-z][a-z0-9-]*)/g)) expect(['color', 'range'], `${name}: --s-${k}`).toContain(kind(k));

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { FREE_PAGES, TEMPLATE_PRICES, priceSheet } from '../../lib/publishing/pricing';
-import { TEMPLATE_KEYS } from '../../lib/publishing/config';
+import { FREE_PAGES, priceSheet } from '../../lib/publishing/pricing';
+import { TEMPLATE_PRICES, TEMPLATE_KEYS } from '../../lib/publishing/templates';
 
 /**
  * Lát P5 (lib/publishing/pricing.ts, docs/goi-va-trang.md mục 4): what a shop would pay each month. Nothing is charged

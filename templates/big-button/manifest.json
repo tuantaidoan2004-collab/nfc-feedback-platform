@@ -1,0 +1,31 @@
+{
+  "key": "big-button",
+  "number": 6,
+  "name": "Nút lớn",
+  "pricePerMonth": 0,
+  "page": {
+    "layout": "full-bleed",
+    "background": {
+      "kind": "solid",
+      "color": "#F6F3EE"
+    },
+    "links": [],
+    "watermark": {
+      "text": "YOUR LOGO",
+      "enabled": false,
+      "motion": "diagonal-linear"
+    }
+  },
+  "effects": {
+    "leaveTransitionMs": 300,
+    "googleButton": "orb"
+  },
+  "versions": [
+    {
+      "version": 1,
+      "date": "2026-09-24",
+      "notes": "Nền trắng sữa, một nút Google tròn lớn có chữ chạy vòng quanh.",
+      "settings": []
+    }
+  ]
+}

@@ -11,7 +11,6 @@ trước khi đẩy `main`).
 
 | # | Việc | Cỡ | Ghi chú |
 |---|---|---|---|
-| **M1** | **Gói khuôn:** gom định nghĩa mỗi khuôn (hôm nay rải `config.ts` · `versions.ts` · `pricing.ts` · `skins/*.css` · `guest-styles.ts`) về một thư mục + manifest; registry sinh từ đó | V | Không đổi hành vi, không mig. Mở cửa cho designer |
 | **M2** | **Module hiệu ứng:** tách kính (khuôn 3), chuyển cảnh và ánh sáng theo nghiêng (khuôn 6) khỏi `shop-feedback-v2.tsx`; manifest khai hiệu ứng dùng | V | Không đổi hành vi, không mig |
 | **M3** | **Section:** `PageConfig` v3 = khuôn@bản + cài đặt + danh sách section; poster và hàng link thành section đầu; lời mời Google, góp ý, chân pháp lý là lõi cố định | L | **Mig.** Bản phát hành cũ vẫn đọc được |
 | **M4** | **Đợt cải tổ UI/UX:** section Sự kiện ("Hôm nay ở quán", A16), Video/YouTube xem trước; khung poster tự theo khổ ảnh/video, bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới tương tác); **cuộn trên điện thoại:** nền đứng yên (hoặc có hiệu ứng riêng khi cuộn) thay vì bị kéo theo thẻ nổi ở cả sáu khuôn, và kéo quá đầu trang trên Chrome iPhone không "dính" rồi bắt tải lại (Safari ổn) — Tài 27/09 | L | Sau M3. Trò "săn", quà: qua luật Khuyến mại (C2) |
@@ -19,7 +18,7 @@ trước khi đẩy `main`).
 | **M6** | **Lệnh kiểm gói khuôn** (bốn sàn, CSS chỉ đọc ô đã khai, không đụng nút lõi) + trang xem trước gói cho designer | V | Gom các test rời hôm nay |
 | A35 | Lớp trang trí kéo thả **có ràng buộc** cho khuôn 4 (vùng an toàn loại trừ dải Google, toạ độ %) | L | Không làm bảng trắng đầy đủ |
 | A34 | Ba khuôn có tranh (Hero · Chia đôi · Nhập vai) | V | Chờ ảnh của Tài (`anh-can-cho-ao-khoac.md`) |
-| A22 | Khuôn theo ngành (cà phê, spa, quán ăn) | V | Sau M1 — là gói khuôn |
+| A22 | Khuôn theo ngành (cà phê, spa, quán ăn) | V | Là một gói khuôn (`templates/README.md`) |
 | A6b | Nhiều cỡ ảnh cho poster/logo (`srcset`) | V | Đi cùng M3/M4 |
 
 ## 2. Đội ngũ và quy trình
@@ -96,7 +95,7 @@ luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạ
 
 ## Đã xong (một dòng mỗi việc; chi tiết trong `decisions.md`, các tệp được trỏ và lịch sử git)
 
-A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
+M1 gói khuôn (`templates/`, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
 liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google, `/huong-dan-google`) · A27 `DESIGN.md`/`PRODUCT.md` ·
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi khuôn (022) · A33 sáu khoá khuôn · A36 lớp da · K1–K6 sáu khuôn · K7
 bản khuôn · P1 quán/trang (024) · P2 bảng cài đặt · P3 danh sách trang (025) · P4 vòng đời trang (026) · P5a hiện giá · P1d

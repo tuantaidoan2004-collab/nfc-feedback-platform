@@ -249,7 +249,7 @@ Google, không đổi màu** (vẽ bằng dải màu xoay tròn cắt theo hình
 giãn rộng; chữ gốc vẫn nằm trong nút (chỉ ẩn khỏi mắt) nên trình đọc màn hình nghe đúng câu mọi khuôn khác nói. Mặt
 hạt như gương: một vệt sáng lướt ngang; trên Android ánh sáng theo độ nghiêng của máy — trang chỉ **lắng nghe**, không
 bao giờ xin quyền cảm biến, nên iPhone (không có quyền thì không có sự kiện) giữ vệt sáng tự lướt. Chạm nút: lớp sương
-300ms rồi cùng tab sang Google (như trước). Hình dạng nút là **quyết định của nền tảng** (`BUTTON_FORMS`, `data-button=
+300ms rồi cùng tab sang Google (như trước). Hình dạng nút là **quyết định của nền tảng** (`effects.googleButton` trong manifest, `data-button=
 "orb"`), không phải luật của khuôn, nên hàng rào "khuôn không đụng nút Google" vẫn đứng. Chrome và WebKit ra y hệt;
 Firefox bỏ qua `textLength` nên chữ vòng dồn về một phía. 0 KB tài nguyên.
 
@@ -296,7 +296,7 @@ hai chỗ **tách khỏi token** có chủ ý: chữ của dòng mời góp ý (
 ngôn ngữ (điện thoại tự vẽ nó trên nền trắng). Test mới giữ A2: nút máy bay và dòng mời đo ra giống hệt nhau giữa khuôn
 5 và khuôn 6.
 
-**Diện mạo từng khuôn nằm ở `components/skins/<khoá>.v<bản>.css` (25/09)**: mỗi bản khuôn một tệp đóng băng, selector
+**Diện mạo từng khuôn nằm ở `templates/<khoá>/v<bản>.css` (25/09; gói khuôn từ M1, 27/09)**: mỗi bản khuôn một tệp đóng băng, selector
 `.guest[data-template="…"]:where([data-template-version="…"])`. `skin.css` chỉ giữ phần của nền tảng. Luật đổi
 bản ở `thiet-ke-va-khuon.md` mục 16.
 

@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { TEMPLATE_KEYS, isTemplateKey } from '@/lib/publishing/config';
-import { TEMPLATE_NAMES } from '@/lib/publishing/versions';
-import { FREE_PAGES, TEMPLATE_PRICES, vnd, type Price } from '@/lib/publishing/pricing';
+
+import { FREE_PAGES, vnd, type Price } from '@/lib/publishing/pricing';
 import type { PageSummary } from '@/lib/owner/pages';
 import styles from './owner-app.module.css';
 // Same stylesheets as the framed pictures, so framing one adds no new global CSS (see guest-styles.ts).
 import './guest-styles';
+import { TEMPLATE_KEYS, isTemplateKey, TEMPLATE_NAMES, TEMPLATE_PRICES } from '@/lib/publishing/templates';
 
 /**
  * The shop's pages (lát P3, docs/goi-va-trang.md mục 3): a picture of each beside its link, its template and whether it

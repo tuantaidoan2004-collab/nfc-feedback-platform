@@ -8,8 +8,7 @@ import {OwnerAuth} from '../lib/owner/auth';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {OwnerDesign} from '../lib/owner/design';
 import {PublishingResolver} from '../lib/publishing/repository';
-import {TEMPLATE_KEYS} from '../lib/publishing/config';
-import {TEMPLATE_RELEASES,latestVersion} from '../lib/publishing/versions';
+import { TEMPLATE_KEYS, TEMPLATE_RELEASES, latestVersion } from '../lib/publishing/templates';
 
 /**
  * Bản khuôn (versions.ts, docs/thiet-ke-va-khuon.md mục 16). A shop's page keeps the template version it was published

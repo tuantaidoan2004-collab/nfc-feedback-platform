@@ -1,16 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
-import { TEMPLATE_KEYS } from '../../lib/publishing/config';
-import { TEMPLATE_RELEASES } from '../../lib/publishing/versions';
+import { TEMPLATE_KEYS, TEMPLATE_RELEASES } from '../../lib/publishing/templates';
 
 /**
  * Lát A36: the skin every template wears. These checks read the stylesheets themselves, so a future template cannot
  * break a floor without a test going red -- by construction, not by care (DESIGN.md mục 1, 2, 4; thiet-ke mục 13).
  */
-// The platform's stylesheets, then one frozen file per template version (versions.ts).
-const files = [...readdirSync('components').filter(name => name.endsWith('.css')), ...readdirSync('components/skins').map(name => `skins/${name}`)]
-  .map(name => ({ name, css: readFileSync(`components/${name}`, 'utf8') }));
+// The platform's stylesheets, then one frozen file per template version, inside each package (templates/<key>/v<n>.css).
+const packageFiles = readdirSync('templates', { withFileTypes: true }).filter(entry => entry.isDirectory())
+  .flatMap(entry => readdirSync(`templates/${entry.name}`).filter(name => name.endsWith('.css')).map(name => `templates/${entry.name}/${name}`));
+const files = [...readdirSync('components').filter(name => name.endsWith('.css')).map(name => `components/${name}`), ...packageFiles]
+  .map(name => ({ name, css: readFileSync(name, 'utf8') }));
 const skin = readFileSync('components/skin.css', 'utf8');
 type Rule = { file: string; selector: string; body: string };
 // Innermost `selector { body }` blocks; an @media wrapper is skipped over because its body holds braces.
@@ -27,7 +28,7 @@ const TOKENS = ['--c-c1', '--c-c2', '--c-angle', '--c-paper', '--c-ink', '--c-in
 
 test('only token names from DESIGN.md are declared, and every token read has a default in the skin', () => {
   for (const rule of all) for (const name of declarations(rule.body).keys()) expect(TOKENS, `${rule.file}: ${rule.selector}`).toContain(name);
-  const defaults = declarations(rules('skin.css', skin).find(rule => rule.selector === '.guest')!.body);
+  const defaults = declarations(rules('components/skin.css', skin).find(rule => rule.selector === '.guest')!.body);
   for (const { name, css } of files) for (const [, used] of css.matchAll(/var\((--c-[a-z0-9-]+)/g)) expect([...defaults.keys()], name).toContain(used);
 });
 
@@ -56,7 +57,7 @@ const luminance = (hex: string) => {
 };
 const contrast = (a: string, b: string) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 test('text tokens reach 4.5:1 on their surface, muted text included, in the default skin and every template', () => {
-  const base = declarations(rules('skin.css', skin).find(rule => rule.selector === '.guest')!.body);
+  const base = declarations(rules('components/skin.css', skin).find(rule => rule.selector === '.guest')!.body);
   const sets = [['default', base] as const, ...all.filter(rule => /^\.guest\[data-template="[^"]+"\]:where\(\[data-template-version="\d+"\]\)$/.test(rule.selector))
     .map(rule => [rule.selector, new Map([...base, ...declarations(rule.body)])] as const)];
   for (const [name, tokens] of sets) {
@@ -75,9 +76,9 @@ test('text tokens reach 4.5:1 on their surface, muted text included, in the defa
 // worst cases -- pure black behind it and pure white behind it -- so no shop colour can make the text unreadable.
 test('glass: text on the frosted tint reaches 4.5:1 whether the scene behind is black or white', () => {
   // The tint's opacity is read from the stylesheet, where it is marked, so lowering it turns this test red.
-  const opacity = Number(/opacity:\s*([0-9.]+);\s*\/\* glass-tint/.exec(readFileSync('components/skins/glass.v1.css', 'utf8'))![1]);
+  const opacity = Number(/opacity:\s*([0-9.]+);\s*\/\* glass-tint/.exec(readFileSync('templates/glass/v1.css', 'utf8'))![1]);
   expect(opacity).toBeGreaterThan(0.5);
-  const tokens = new Map([...declarations(rules('skin.css', skin).find(rule => rule.selector === '.guest')!.body),
+  const tokens = new Map([...declarations(rules('components/skin.css', skin).find(rule => rule.selector === '.guest')!.body),
     ...declarations(all.find(rule => rule.selector === '.guest[data-template="glass"]:where([data-template-version="1"])')!.body)]);
   const over = (paper: string, behind: number) => '#' + [1, 3, 5].map(at => Math.round(parseInt(paper.slice(at, at + 2), 16) * opacity + behind * (1 - opacity)))
     .map(c => c.toString(16).padStart(2, '0')).join('');
@@ -90,9 +91,9 @@ test('glass: text on the frosted tint reaches 4.5:1 whether the scene behind is 
 
 // Bản khuôn (versions.ts, thiet-ke-va-khuon.md mục 16). A shop keeps the look it published until its owner chooses a
 // newer version; these checks are what make "keeps" true rather than hoped for.
-const skinFiles = files.filter(file => file.name.startsWith('skins/'));
+const skinFiles = files.filter(file => file.name.startsWith('templates/'));
 test('every template version the platform ships has its own stylesheet, and every stylesheet is a version it ships', () => {
-  const shipped = TEMPLATE_KEYS.flatMap(key => TEMPLATE_RELEASES[key].map(release => `skins/${key}.v${release.version}.css`));
+  const shipped = TEMPLATE_KEYS.flatMap(key => TEMPLATE_RELEASES[key].map(release => `templates/${key}/v${release.version}.css`));
   expect(skinFiles.map(file => file.name).sort()).toEqual([...shipped].sort());
   for (const key of TEMPLATE_KEYS) {
     const releases = TEMPLATE_RELEASES[key];
@@ -102,13 +103,13 @@ test('every template version the platform ships has its own stylesheet, and ever
   }
   // A stylesheet the guest page does not import would leave that version's shops undressed without a sound.
   const styles = readFileSync('components/guest-styles.ts', 'utf8');
-  for (const file of skinFiles) expect(styles, file.name).toContain(`import './${file.name}';`);
+  for (const file of skinFiles) expect(styles, file.name).toContain(`import '../${file.name}';`);
   expect(readFileSync('components/shop-feedback-v2.tsx', 'utf8')).toContain("import './guest-styles';");
 });
 
 test('each version stylesheet dresses only its own template and version, and the platform skin dresses none', () => {
   for (const file of skinFiles) {
-    const [, key, version] = /^skins\/(.+)\.v(\d+)\.css$/.exec(file.name)!;
+    const [, key, version] = /^templates\/(.+)\/v(\d+)\.css$/.exec(file.name)!;
     const own = `[data-template="${key}"]:where([data-template-version="${version}"])`;
     for (const rule of rules(file.name, file.css)) for (const selector of rule.selector.split(',').map(part => part.trim())) {
       if (/^(from|to|\d+%)$/.test(selector)) continue; // a step inside @keyframes
@@ -130,12 +131,12 @@ test('each version stylesheet dresses only its own template and version, and the
  * Comments and spacing are not the look, so they are left out of the hash.
  */
 const FROZEN: Record<string, string> = {
-  'skins/big-button.v1.css': '0058bd398b243805',
-  'skins/deco.v1.css': 'ea8b34a84fcb62c0',
-  'skins/glass.v1.css': '9dbc2c35de7b56ea',
-  'skins/minimal.v1.css': '8e1215fdb86b72dc',
-  'skins/spotlight.v1.css': 'c2069b545eb58f8f',
-  'skins/standard.v1.css': 'ab9035fc8f272e2b',
+  'templates/big-button/v1.css': '0058bd398b243805',
+  'templates/deco/v1.css': 'ea8b34a84fcb62c0',
+  'templates/glass/v1.css': '9dbc2c35de7b56ea',
+  'templates/minimal/v1.css': '8e1215fdb86b72dc',
+  'templates/spotlight/v1.css': 'c2069b545eb58f8f',
+  'templates/standard/v1.css': 'ab9035fc8f272e2b',
 };
 test('the stylesheet of a shipped template version does not change', () => {
   const hash = (css: string) => createHash('sha256').update(css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim()).digest('hex').slice(0, 16);

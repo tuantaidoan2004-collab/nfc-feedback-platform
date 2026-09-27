@@ -173,7 +173,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `7762d31` (luật cùng trang, sửa 403 Chrome iPhone). Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = lát M1 (gói khuôn) khi Tài đẩy; trước đó `7762d31`. Vercel Pro dùng thử tới **29/09**.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
 - **CI xanh lần đầu 27/09:** repo đã công khai, lượt #213 trên `4b9a5c4` qua đủ 8 job, gồm `self-host` (ảnh Tài gửi).
@@ -197,7 +197,10 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 3. **Video chỉ ở poster**, nền không bao giờ là video (E9).
 4. **Quyết định mới sửa hoặc xoá ý cũ** ở mọi tài liệu, không để chồng lên (cách làm của Tài).
 
-**I1 tự chạy được: xong 27/09** (`tu-chay.md`). Tài 27/09: *khoan làm lát kế*; nền bị kéo theo thẻ khi cuộn và kéo-để-tải-lại dính trên Chrome iPhone → **M4**. Khi làm tiếp: **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
+**I1 tự chạy được: xong 27/09** (`tu-chay.md`). **M1 gói khuôn: xong 27/09** — mỗi khuôn là `templates/<khoá>/`
+(`manifest.json` + `v<bản>.css`), `node scripts/templates.mjs` sinh registry; giá trị sáu khuôn so trước/sau giống hệt;
+hướng dẫn designer `templates/README.md`. Nền bị kéo theo thẻ khi cuộn và kéo-để-tải-lại dính trên Chrome iPhone → **M4**.
+Tiếp: **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
 
 ### Luật triển khai (Tài nới 23/09)

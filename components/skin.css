@@ -73,7 +73,7 @@
 .guest[data-template][data-layout="full-bleed"] .guest-sheet { min-height: calc(100dvh + var(--c-overscroll)); }
 .guest[data-template][data-layout="card"] { min-height: calc(100dvh + var(--c-overscroll)); }
 
-/* Chuyển cảnh khi rời trang — chỉ khuôn nào khai trong `LEAVE_TRANSITION_MS` (hôm nay: khuôn 6). Một lớp sương phủ
+/* Chuyển cảnh khi rời trang — chỉ khuôn nào khai `effects.leaveTransitionMs` trong manifest (hôm nay: khuôn 6). Một lớp sương phủ
  * **trang mình** loang ra từ chỗ vừa chạm, rồi trình duyệt sang Google: trang Google ở tên miền khác, không vẽ được
  * dưới lớp sương (thiet-ke-va-khuon.md mục 12, ranh giới 2). Không chặn chạm, không chạm vào nút Google. */
 .guest[data-leaving]::after {
@@ -113,13 +113,13 @@
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* Mục 4–9 cũ (diện mạo sáu khuôn) nằm ở components/skins/<khoá>.v<bản>.css, mỗi bản một tệp đóng băng. */
+/* Mục 4–9 cũ (diện mạo sáu khuôn) nằm ở templates/<khoá>/v<bản>.css, mỗi bản một tệp đóng băng. */
 
-/* Thẻ <svg> vô hình chứa bộ lọc kính (GLASS_TEMPLATES, ngoại lệ Tài chốt 23/09). Của nền tảng, không của bản khuôn. */
+/* Thẻ <svg> vô hình chứa bộ lọc kính (`effects.glass` trong manifest, ngoại lệ Tài chốt 23/09). Của nền tảng, không của bản khuôn. */
 .guest-glass-filters { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* =====================================================================
-   4 · NÚT GOOGLE DẠNG HẠT NGỌC — `data-button="orb"` (BUTTON_FORMS, khuôn 6; Tài chốt 24/09)
+   4 · NÚT GOOGLE DẠNG HẠT NGỌC — `data-button="orb"` (`effects.googleButton`, khuôn 6; Tài chốt 24/09)
    Một hạt tròn phồng như nổi lên khỏi mặt giấy (sáng ở đỉnh, bóng mềm ở chân, một quầng ấm quanh chân), chứa chữ G
    bốn màu của Google — không đổi màu logo. Quanh hạt là chính dòng chữ của nút, in hoa, giãn rộng. Mặt hạt như gương:
    một vệt sáng lướt ngang, và trên Android ánh sáng trên mặt hạt theo độ nghiêng của máy (--tilt-x --tilt-y).

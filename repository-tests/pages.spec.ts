@@ -12,10 +12,11 @@ import {OwnerPages} from '../lib/owner/pages';
 import {OwnerDashboard} from '../lib/owner/dashboard';
 import {parseFilters} from '../lib/owner/filters';
 import {PublishingAdmin,PublishingResolver,type PageRef} from '../lib/publishing/repository';
-import {templateConfig} from '../lib/publishing/config';
+
 import {publishingVisitPolicy} from '../lib/publishing/visit-policy';
 import {VisitRatingRepository} from '../lib/repositories/visit-ratings';
 import type {RenderContext} from '../lib/publishing/proof';
+import { templateConfig } from '../lib/publishing/templates';
 
 /**
  * Lát P1 (migration 024, docs/goi-va-trang.md mục 3): a shop has pages. Each page is its own link, draft, releases,

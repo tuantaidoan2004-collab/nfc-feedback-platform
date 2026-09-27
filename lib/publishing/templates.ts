@@ -1,0 +1,40 @@
+import { PublishingError, type PageConfig } from './config';
+import { startingPage, type TemplateEffects, type TemplateManifest } from './template-manifest';
+import { TEMPLATE_KEYS, TEMPLATE_MANIFESTS } from './templates.generated';
+import type { TemplateRelease } from './versions';
+
+/**
+ * Khuôn nền tảng đang phát hành (lát M1): mọi thứ ở đây đọc từ gói `templates/<khoá>/manifest.json`, qua
+ * `templates.generated.ts`. Sáu khuôn Tài chọn 23/09 (`docs/thiet-ke-va-khuon.md` mục 12). Khuôn là khung trắng: nó giữ
+ * bố cục, nền và hiệu ứng, không bao giờ giữ nội dung của một tài khoản; nội dung đến từ tài khoản lúc vẽ trang
+ * (`page_profile`, migration 022/024/027). `standard` là khuôn 1 và giữ khoá cũ vì hàng `template_versions` của nó
+ * đã có và bất biến. Không khoá nào mang tên thương hiệu (DESIGN.md mục 8).
+ */
+export { TEMPLATE_KEYS };
+export type TemplateKey = typeof TEMPLATE_KEYS[number];
+export const isTemplateKey = (value: unknown): value is TemplateKey =>
+  typeof value === 'string' && (TEMPLATE_KEYS as readonly string[]).includes(value);
+
+const byKey = new Map<string, TemplateManifest>(TEMPLATE_MANIFESTS.map(manifest => [manifest.key, manifest]));
+function table<T>(pick: (manifest: TemplateManifest) => T) {
+  return Object.fromEntries(TEMPLATE_MANIFESTS.map(manifest => [manifest.key, pick(manifest)])) as Record<TemplateKey, T>;
+}
+
+/** How a template is named to an owner: "<số> · <tên>". */
+export const TEMPLATE_NAMES = table(manifest => `${manifest.number} · ${manifest.name}`);
+/** Price per page per month, in đồng (pricing.ts). */
+export const TEMPLATE_PRICES = table(manifest => manifest.pricePerMonth);
+/** Every version of each template, oldest first (versions.ts). */
+export const TEMPLATE_RELEASES = table<readonly TemplateRelease[]>(manifest => manifest.versions);
+export const latestVersion = (key: TemplateKey) => TEMPLATE_RELEASES[key][TEMPLATE_RELEASES[key].length - 1].version;
+
+/** A fresh copy of the page a new page of this template starts from. */
+export function templateConfig(key: TemplateKey = 'standard'): PageConfig {
+  const manifest = byKey.get(key); if (!manifest) throw new PublishingError('INVALID_TEMPLATE'); return startingPage(manifest);
+}
+
+/**
+ * The platform effects a template declares; none for a key the platform does not ship. What each one means, and the
+ * rules it keeps (the Google button's words, its place in the first screen), is in template-manifest.ts.
+ */
+export const effectsOf = (key: string | undefined): TemplateEffects => (key && byKey.get(key)?.effects) || {};

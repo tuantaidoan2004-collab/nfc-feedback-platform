@@ -8,9 +8,10 @@ import {OwnerAuth} from '../lib/owner/auth';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {OwnerDesign} from '../lib/owner/design';
 import {PublishingAdmin,PublishingResolver} from '../lib/publishing/repository';
-import {TEMPLATE_RELEASES} from '../lib/publishing/versions';
+
 import type {SettingField} from '../lib/publishing/settings';
 import type {PageConfig} from '../lib/publishing/config';
+import { TEMPLATE_RELEASES } from '../lib/publishing/templates';
 
 /**
  * Lát P2 (lib/publishing/settings.ts, docs/goi-va-trang.md mục 2): each template version says what the owner may

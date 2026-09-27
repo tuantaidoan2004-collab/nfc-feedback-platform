@@ -31,14 +31,14 @@ tải mã chỉnh. So với mã hôm nay:
 | Nguyên tắc | Hôm nay | Đánh giá |
 |---|---|---|
 | Trang là dữ liệu (JSON) | `PageConfig` lưu trong bản nháp và bản phát hành | **Đúng** |
-| Khuôn có phiên bản, đóng băng | `template_versions` + CSS mỗi bản (`components/skins/<khoá>.v<bản>.css`) | **Đúng** |
+| Khuôn có phiên bản, đóng băng | `template_versions` + CSS mỗi bản (`templates/<khoá>/v<bản>.css`, lát M1) | **Đúng** |
 | Bộ chỉnh lõi đọc khai báo của khuôn | Bảng cài đặt mỗi bản khuôn (P2); trình chỉnh vẽ ô theo bảng | **Đúng cho phần diện mạo.** Phần nội dung (tên, poster, logo, link) vẫn viết cứng |
 | Trang thật không tải mã chỉnh | Trang khách ~153 KB JS, không có trình chỉnh | **Đúng** |
 | Trang ghép từ thành phần | Bố cục **cố định**: poster → logo → tên → Google → link → góp ý | **Chưa có.** Không thêm được "ô sự kiện", "video YouTube" mà không sửa lõi |
 | Hành vi riêng của khuôn là module | Kính (khuôn 3), chuyển cảnh 300 ms và ánh sáng theo độ nghiêng (khuôn 6) nằm **chung** trong `components/shop-feedback-v2.tsx` (~600 dòng) | **Chưa.** Thêm khuôn có hiệu ứng = sửa component lõi của mọi khuôn |
-| Một khuôn là một gói | Định nghĩa một khuôn rải **5 chỗ**: `config.ts` (bộ xương) · `versions.ts` (bản + bảng cài đặt) · `pricing.ts` (giá) · `skins/*.css` · `guest-styles.ts` (nạp CSS) | **Chưa.** Designer không làm khuôn được nếu không sửa TypeScript |
+| Một khuôn là một gói | **Xong M1 (27/09):** `templates/<khoá>/manifest.json` + `v<bản>.css`; `node scripts/templates.mjs` sinh registry và danh sách CSS | **Đúng.** Designer thêm/sửa khuôn không đụng TypeScript (hướng dẫn: `templates/README.md`) |
 
-Kết luận: nền móng đúng nhánh; phần thiếu là **section**, **module hiệu ứng** và **gói khuôn**. Không cần viết lại — nâng
+Kết luận: nền móng đúng nhánh; phần thiếu là **section** và **module hiệu ứng** (gói khuôn xong M1, 27/09). Không cần viết lại — nâng
 dần theo đúng nhánh đang có (luật "tư duy từ gốc, nâng cấp tuyến tính").
 
 ## 3. Đích kiến trúc — tổ hợp module
@@ -81,7 +81,7 @@ test rời (`tests/contracts/skin.spec.ts`, `google-policy.spec.ts`); gom thành
 
 | # | Bước | Thay đổi thấy được | Migration |
 |---|---|---|---|
-| **M1** | **Gói khuôn:** gom 5 chỗ định nghĩa khuôn về một thư mục/manifest mỗi khuôn; registry sinh từ đó | Không (cùng hành vi) — nhưng từ đây designer làm khuôn không đụng TypeScript | Không |
+| **M1** ✓ | **Gói khuôn (xong 27/09):** mỗi khuôn một thư mục + manifest; registry sinh từ đó | Không (cùng hành vi) — từ đây designer làm khuôn không đụng TypeScript | Không |
 | **M2** | **Module hiệu ứng:** tách kính, chuyển cảnh, ánh sáng theo nghiêng khỏi component lõi; manifest khuôn khai hiệu ứng dùng | Không | Không |
 | **M3** | **Section:** `PageConfig` v3 = danh sách section; poster và hàng link thành hai section đầu; trang v2 vẫn đọc được | Chủ quán bật/tắt, xếp thứ tự section trong vùng cho phép | Có (chuyển dữ liệu nháp; bản phát hành cũ giữ nguyên) |
 | **M4** | **Section mới + đợt cải tổ UI/UX:** Sự kiện (A16), Video/YouTube xem trước, khung poster tự theo khổ video/ảnh và bo góc, nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới); nền đứng yên khi cuộn, bỏ kéo-để-tải-lại dính trên Chrome iPhone (Tài 27/09) | Có | Tuỳ section |

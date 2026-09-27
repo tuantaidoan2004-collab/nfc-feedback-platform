@@ -2,11 +2,12 @@ import type { PoolClient, Pool } from 'pg';
 import { OwnerError, authorize, requirePermission, transaction, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordActivity } from './activity';
 import { PublishingAdmin, PublishingError, templateVersionRow, type PageRef, type PauseReason, type TemplateReleases } from '../publishing/repository';
-import { isTemplateKey, templateConfig } from '../publishing/config';
-import { TEMPLATE_RELEASES, settingsOf } from '../publishing/versions';
+
+import { settingsOf } from '../publishing/versions';
 import { convertSettings } from '../publishing/settings';
 import { priceSheet, type Price } from '../publishing/pricing';
 import { withShortCode } from '../short-code';
+import { isTemplateKey, templateConfig, TEMPLATE_RELEASES } from '../publishing/templates';
 
 /**
  * Which page of the shop a dashboard request is about (migration 024, `docs/goi-va-trang.md`). Named by its link;

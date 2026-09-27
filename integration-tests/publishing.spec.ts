@@ -2,7 +2,8 @@ import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { PublishingAdmin, type PageRef } from '../lib/publishing/repository';
-import { defaultConfig, STEM_BACKGROUND, templateConfig, type PageConfig, type TemplateKey } from '../lib/publishing/config';
+import { defaultConfig, STEM_BACKGROUND, type PageConfig } from '../lib/publishing/config';
+import { templateConfig, type TemplateKey } from '../lib/publishing/templates';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
 type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; page: PageRef; release: string };
@@ -707,7 +708,7 @@ test('an uploaded picture that is still waiting for review cannot be published; 
 // Tài báo 24/09: trên shop khuôn 6 thật, thẻ góp ý mở được nhưng không bấm được gì, kèm "Chưa kết nối được".
 // The private card has to work under every template: open it, pick a star, write, send, see the thanks.
 test('private feedback works end to end under every one of the six templates', async ({ page, fixture: f }) => {
-  const { TEMPLATE_KEYS } = await import('../lib/publishing/config');
+  const { TEMPLATE_KEYS } = await import('../lib/publishing/templates');
   await page.setViewportSize({ width: 390, height: 844 });
   for (const key of TEMPLATE_KEYS) {
     const slug = `pf-${key}`;

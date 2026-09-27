@@ -4,10 +4,11 @@ import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import { shrinkVideo } from '@/lib/client/shrink-video';
 import { SERVICE_LABELS } from '@/lib/publishing/policy';
 import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
-import { STEM_BACKGROUND, TEMPLATE_KEYS, isTemplateKey } from '@/lib/publishing/config';
-import { TEMPLATE_NAMES, type TemplateRelease } from '@/lib/publishing/versions';
+import { STEM_BACKGROUND } from '@/lib/publishing/config';
+import { type TemplateRelease } from '@/lib/publishing/versions';
 import type { SettingField } from '@/lib/publishing/settings';
 import styles from './owner-app.module.css';
+import { TEMPLATE_KEYS, isTemplateKey, TEMPLATE_NAMES } from '@/lib/publishing/templates';
 
 /**
  * Design & Link editor (lát D). Works on the saved draft: Save keeps it, Preview opens the saved draft in a new tab

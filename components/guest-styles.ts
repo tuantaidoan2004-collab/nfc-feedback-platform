@@ -1,17 +1,13 @@
-/**
- * Every stylesheet the guest page wears, in order: the page, the skin every template shares, then each template
- * version's frozen look (versions.ts), after skin.css so a version's tokens override the defaults. Every selector in
- * them is scoped to `.guest` (tests/contracts/skin.spec.ts), so any page may load them without being restyled.
- *
- * The dashboard loads them too (pages-panel.tsx): its page list frames the guest page, and under `next dev` a route
- * that brings new global CSS reloads every open page -- the dashboard included -- the first time it is framed.
- */
+// Sinh bởi `node scripts/templates.mjs` từ templates/*/ — đừng sửa tay (lát M1).
+// Mọi tệp CSS trang khách mặc, theo thứ tự: trang, lớp da chung, rồi từng bản khuôn đóng băng (sau skin.css để token
+// của bản khuôn đè mặc định). Mọi selector gói trong `.guest` (tests/contracts/skin.spec.ts), nên dashboard nạp chúng
+// (pages-panel.tsx khung trang khách) cũng không bị đổi kiểu. Dưới `next dev`, route mang CSS toàn cục mới tải lại mọi
+// trang đang mở -- kể cả dashboard -- lần đầu nó được khung.
 import './guest-page.css';
 import './skin.css';
-// Each template version's frozen look (versions.ts). After skin.css, so a version's tokens override the defaults.
-import './skins/standard.v1.css';
-import './skins/minimal.v1.css';
-import './skins/glass.v1.css';
-import './skins/deco.v1.css';
-import './skins/spotlight.v1.css';
-import './skins/big-button.v1.css';
+import '../templates/standard/v1.css';
+import '../templates/minimal/v1.css';
+import '../templates/glass/v1.css';
+import '../templates/deco/v1.css';
+import '../templates/spotlight/v1.css';
+import '../templates/big-button/v1.css';

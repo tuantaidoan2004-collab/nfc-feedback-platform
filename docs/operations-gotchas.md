@@ -100,6 +100,11 @@ Lần đầu dùng (27/09) nó chỉ ra ngay: `ORIGIN_NOT_ALLOWED`, `origin:"oth
 Chrome iPhone gửi Origin lạ dù trình duyệt tự khai là cùng trang. Bài học: **đừng bắt hai tín hiệu cùng khớp khi một
 cái đã đủ tin**; lỗi 24/09 "chưa tái hiện được" kéo dài ba ngày chỉ vì log không ghi lý do.
 
+**Thêm một thư mục gốc mà app import thì harness phải chép nó.** `run-local.mjs` (`copyApp`) chép **danh sách cố định**
+thư mục sang chỗ build riêng. Lát M1 thêm `templates/`: typecheck, eslint, contracts, client, repository đều xanh, còn
+cả bốn bộ integration đỏ với `Can't resolve '../templates/standard/v1.css'` — trông như trang khách hỏng. Docker và CI
+chép cả repo nên không dính. Thêm thư mục gốc mới thì sửa danh sách trong `copyApp` cùng commit.
+
 **Chạy cả bộ integration một lệnh thì 11 test đỏ.** Ba lệnh harness **loại trừ nhau**, vì `publishing = owner || --publishing` nên `--owner`/`--admin` bật luôn publishing và đổi cách `/one` render:
 
 ```

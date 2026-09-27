@@ -6,7 +6,7 @@ import {ShopProvisioning} from '../lib/admin/provisioning';
 import {MediaReview} from '../lib/admin/media-review';
 import {AdminAuth} from '../lib/admin/auth';
 import {PublishingAdmin,PublishingResolver} from '../lib/publishing/repository';
-import {templateConfig} from '../lib/publishing/config';
+import { templateConfig } from '../lib/publishing/templates';
 
 /**
  * Cửa duyệt ảnh (migration 023, docs/thiet-ke-va-khuon.md mục 10). Shops upload; nothing they upload reaches a guest
