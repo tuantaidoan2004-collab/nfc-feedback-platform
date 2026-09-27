@@ -93,6 +93,9 @@ Chạy từng lệnh riêng, hoặc `${=a}`.
 Check bắt buộc gắn theo **commit**, không theo nhánh. Cách đẩy: đẩy `feat/local-app-foundation` trước (CI chạy trên
 commit đó, ~6 phút), chờ xanh, rồi đẩy **đúng commit ấy** lên `main`. Lần đầu (27/09) nhánh lên được, `main` bị từ chối.
 
+**Từ 29/09 Vercel ở gói Hobby: log chạy chỉ giữ 1 giờ** (Pro giữ 1 ngày). Tài báo lỗi thì đọc
+`vercel logs --environment production --since 1h` ngay, hoặc nhờ Tài tái hiện lại rồi đọc liền.
+
 **Trang khách "Chưa kết nối được" mà log chỉ ghi `403`.** Mọi lần API trang khách từ chối giờ in một dòng
 `GUEST_REFUSED {operation,status,code,origin,site,browser}` (27/09). Đọc: `vercel logs --environment production --query GUEST_REFUSED`.
 Đừng đoán lý do 403 khi dòng này có sẵn.

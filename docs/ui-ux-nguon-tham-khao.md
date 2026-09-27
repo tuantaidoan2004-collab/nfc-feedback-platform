@@ -66,6 +66,34 @@ Biểu tượng quen và cùng một kiểu. Ít màu, nền trung tính. Huy hi
 Trang 40, ảnh lưới thiết kế kiểu Dribbble: *"hình ảnh chỗ này đẹp nè, lấy giao diện như này làm library template được
 đấy"* → **kho template** (M5) trình bày dạng lưới ảnh xem trước lớn như vậy.
 
+### 1f. Luồng uxpeak.com — bắt chước gì (11 ảnh Tài chụp 27/09; Tài: "nhớ xem cả mấy tấm ảnh … để bắt chước")
+
+Bắt chước **cách làm**, không chép tên, logo, câu chữ hay ảnh của họ (`DESIGN.md` mục 8).
+
+- **Không khí:** nền gần đen xanh thẫm, lấm tấm sao rất nhẹ, một quầng tím mờ; mọi khối là **thẻ kính tối** viền 1px
+  mảnh, bo lớn. Màn bài học chuyển sang **nền sáng** để đọc — tối cho cảm xúc, sáng cho đọc lâu.
+- **Chữ:** tiêu đề rất to, rất đậm, chữ khít; kiểu **hai tông** (dòng một trắng/đen, dòng hai xám: "Design like a
+  senior. / One decision at a time."). Trên tiêu đề luôn có một **viên nhãn nhỏ in hoa giãn chữ** ("ABOUT YOU",
+  "INTERESTS", "MODULE 1 COMPLETE").
+- **Nút:** hình viên thuốc. Chính là tím chuyển màu có mũi tên "→"; ở cuối mỗi bước là **viên trắng đặc** ("Get
+  started", "Enter uxpeak+"); phụ là viên viền mảnh. **Nút "Tiếp tục" mờ cho tới khi đã chọn**, và luôn có **"Skip for
+  now"** nhỏ bên dưới.
+- **Trang chủ:** thanh điều hướng trong một viên bo tròn, có huy hiệu "NEW"; tiêu đề ba dòng ở giữa; ngay dưới là
+  **bằng chứng xã hội** (điểm đánh giá) rồi hai nút, rồi hai dấu tích trấn an ("Try 1 module free", "No card needed").
+- **Đăng ký:** một thẻ duy nhất; **"Continue with Google" đứng đầu**, rồi vạch "OR", rồi ba ô; dòng "Already have an
+  account? Sign in"; điều khoản chữ nhỏ.
+- **Chào mừng:** bên trái một thẻ minh hoạ thật (công tắc **Before/After**), bên phải lời chào, một đoạn giá trị, câu
+  "Three quick questions before you get started" và **ba viên đánh số** báo trước hành trình.
+- **Câu hỏi:** thanh tiến độ **chia đoạn** ở đỉnh, nút quay lại vuông nhỏ góc trái; lựa chọn là **lưới thẻ có ô biểu
+  tượng**; câu nhiều lựa chọn là **chip có vòng tích** nhiều màu, chip "Add your own" viền đứt, bộ đếm "10 selected".
+- **Trang chính sau đăng nhập:** tab có biểu tượng, gạch chân tím ở tab đang chọn; nút "Upgrade" có vương miện; thẻ lớn
+  "TRY FOR FREE" với minh hoạ trước/sau; thẻ "COMING SOON" có biểu đồ radar; lọc bằng chip có chấm màu; huy hiệu "PRO"
+  vàng trên thẻ khoá.
+- **Học → trả tiền:** câu hỏi hai lựa chọn với thẻ "Correct" xanh; thanh Back/Next dính đáy; hết phần miễn phí thì màn
+  hai cột: tiến độ của chính mình (12%) bên trái, danh sách lợi ích + hai thẻ gói (một thẻ "BEST VALUE", "Save …")
+  bên phải. Emoji dùng làm **cảm xúc minh hoạ** (😐 → 😍 giữa bản junior và senior).
+- **Nút chat tròn** góc dưới phải ở mọi màn — với mình: **Zalo** của Tài cho chủ quán (không phải trên trang khách).
+
 ## 2. Áp vào ba bề mặt
 
 | Bề mặt | Áp gì | Không áp gì |
@@ -175,20 +203,23 @@ Tài; Claude viết nháp khi Tài muốn.
 **G. Trạng thái trống là bước đầu tiên, không phải số 0.** Dashboard mới không hiện "0 lượt quét"; nó hiện việc kế tiếp
 ("Dán thẻ lên bàn và quét thử") và coi mỗi việc làm xong là một nấc tiến độ (1b).
 
-**H. Thanh toán minh bạch như màn B của uxpeak (1c):** tab Thanh toán có **dòng thời gian** — hôm nay dùng thử · ngày X
-nhắc · ngày Y tới hạn — kèm câu **"Chúng tôi sẽ nhắc trước khi tới hạn"**, mã chuyển khoản luôn sẵn. Hết hạn mà chưa trả
-thì nói thật điều sẽ xảy ra ("khách quét thẻ sẽ thấy Trang tạm ngừng") — khung "sợ mất" chỉ dùng khi là sự thật (mục 2).
+**H. Thanh toán: một trang mã QR, biên lai qua Zalo (Tài chốt 27/09).** Tab Thanh toán hiện **mã QR ngân hàng của
+Tài** và lời nhắn "chụp biên lai gửi qua Zalo"; admin bấm "đã nhận" ở `/gov`. Không cổng thanh toán. Mã QR và số Zalo
+là dữ liệu thanh toán của Tài: nằm trong **cài đặt admin**, không bao giờ trong GitHub (`AGENTS.md`). Vẫn giữ **dòng thời
+gian** dùng thử (hôm nay · ngày nhắc · ngày tới hạn) và câu "Chúng tôi sẽ nhắc trước khi tới hạn" (1c). Hết hạn mà chưa
+trả thì nói thật điều sẽ xảy ra ("khách quét thẻ sẽ thấy Trang tạm ngừng") — khung "sợ mất" chỉ dùng khi là sự thật.
 
 **I. Khi khách quay lại tab cũ sau Google:** trang chỉ được **cảm ơn**, không bật ưu đãi hay nội dung chỉ dành cho người đã
 bấm Google (luật 8). Sự kiện của quán phải luôn hiện cho **mọi** khách, có bấm Google hay không.
 
-**J. Sao Google của quán (ý 8) — nói thật đường đi.** "Mã" trên hồ sơ có hai loại, cho hai mức:
-- **Place ID** (công khai, ai cũng lấy được): đủ để lấy **điểm trung bình và tổng số đánh giá** qua Places API. Thử được
-  **với bất kỳ quán nào trên Maps**, không cần quen chủ hồ sơ. Nhưng Places API đòi một **tài khoản thanh toán Google
-  Cloud** (có hạn mức miễn phí) — là dịch vụ trả phí theo `AGENTS.md`, **Tài chốt** trước khi bật.
-- **Kết nối chủ hồ sơ** (OAuth, Business Profile API): đủ để đọc **từng đánh giá** và **trả lời** từ dashboard. Miễn phí
-  nhưng Google phải **duyệt cấp quyền API** cho nền tảng, và chủ quán tự bấm cho phép. Làm sau bậc Place ID.
-- Hiển thị: chỉ chủ shop, ghi rõ **"ước đoán"** (luật 10). Đây là C1 trong roadmap, giờ Tài kéo lên.
+**J. Sao Google của quán (ý 8).** Tài làm rõ 27/09: chủ quán thấy **"hôm nay có 4 người đánh giá mới, 1 người đã xoá
+bài"**, **miễn phí cho quán** (đã tính trong phí dịch vụ), và nền tảng **dẫn họ tới đúng chỗ** vì họ không biết Google
+Cloud. Kết quả tra tại nguồn và quyết định ở `docs/audit-ui-ux-20260927.md` mục 5: chủ quán chỉ bấm "Kết nối Google" rồi
+chọn hồ sơ, **không cần Google Cloud**; đúng câu "4 mới, 1 xoá" cần Business Profile API (miễn phí), mà Google chỉ cấp
+cho nền tảng khi Tài có **hồ sơ doanh nghiệp đã xác minh từ 60 ngày trở lên** + website → **bắt đầu đồng hồ 60 ngày
+ngay**. Places API (Place ID) không biết ai xoá và **không được lưu số hôm qua** (điều khoản Google Maps), nên không làm
+đích. Hiển thị: chỉ chủ shop, ghi "ước đoán" (luật 10). Trong luồng kết nối có hướng dẫn từng bước cho chủ quán: hồ sơ
+của quán nằm ở đâu, bấm gì, và cái gì nền tảng **không bao giờ** làm (không đăng, không sửa, không xoá đánh giá).
 
 ## 6. Một hành trình, không phải tám tính năng
 
@@ -203,7 +234,6 @@ Phía khách: chạm thẻ → trang quán → nút Google → popup cảm ơn +
 
 ## 7. Việc này đổi gì trong thứ tự làm
 
-Không thêm lát nào vượt hàng: buổi **audit** kế tiếp xếp mọi thứ ở mục 3–6 vào đúng chỗ. Theo luồng module: ý 1, ý 3,
-con trỏ màu, không khí dashboard là **hiệu ứng → M2**. Thẻ trượt lên ảnh, nền đứng yên → **M4**. Kho template dạng lưới
-→ **M5**. Trang chính + dựng trang trước tài khoản + ba câu hỏi → **D4**. Tab Thanh toán → **P5b**. Sao Google → **C1**.
-Cửa duyệt chữ cảm ơn → mở rộng cửa duyệt ảnh. Video 3 phút → việc của Tài, không chặn lát nào.
+Thứ tự đã xếp ở **`docs/audit-ui-ux-20260927.md` mục 4** (audit 27/09): S0 dọn nền → S1 hệ thiết kế nền tảng → M2 →
+M3 → D4 → tab Thanh toán → dashboard "thời tiết của quán" → trình chỉnh như Canva + kho template → M4; C1 chạy song song
+khi Tài đủ điều kiện.

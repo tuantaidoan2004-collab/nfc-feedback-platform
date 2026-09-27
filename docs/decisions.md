@@ -173,7 +173,10 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `d983702` (M1 gói template), production Ready và trang khách kiểm lại 27/09. Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = `a16440d` (M1 gói template + tài liệu UI/UX), production Ready 27/09. Vercel Pro dùng thử tới **29/09**.
+- **Vercel (Tài chốt 27/09): xuống Hobby** khi hết dùng thử 29/09 — không gì hỏng (tháng 9 dùng ~0,08 giờ CPU trên hạn
+  4). Hobby **cấm dùng thương mại**: trước quán thật đầu tiên phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
+  Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
 - **CI xanh lần đầu 27/09:** repo đã công khai, lượt #213 trên `4b9a5c4` qua đủ 8 job, gồm `self-host` (ảnh Tài gửi).
@@ -209,7 +212,8 @@ tab Thanh toán, cảm xúc lúc bấm Google — đã đối chiếu `google-po
 admin duyệt). Tài thêm tám hướng (trang chính trước đăng nhập, dựng trang trước tài khoản, trợ lý tóm tắt hôm nay, con
 trỏ nhiều màu, dashboard VIP, chuẩn Dropbox, video 3 phút, sao Google của quán) — **tất cả đều làm**; Claude suy ra và
 quyết thêm mười điều (mục 5 của tệp đó). Hành trình chung ở mục 6.
-Buổi kế tiếp: **audit** toàn hệ thống trước cải tổ UI/UX (effort xhigh).
+**Audit xong 27/09** (`docs/audit-ui-ux-20260927.md`): chưa sẵn sàng cải tổ ngay; thiếu hệ thiết kế chung, M2, M3, và
+phải dọn nền trước. Lát kế: **S0 dọn nền**.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đổi ở mọi nơi (chữ trên dashboard và `/gov`, tài liệu,
 mã, `DESIGN.md`) đi cùng đợt audit trước cải tổ UI/UX; từ giờ viết mới thì dùng "template".
@@ -221,8 +225,13 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 
 ### Việc còn treo của Tài
 
-Bảo vệ `main` (F5) · **bấm "Tạo lại link đặt mật khẩu cho yourshop" ở `/gov` preview** (đóng mật khẩu `1` còn nằm trong database preview; code đã gỡ đường cấp nó) · gửi thử một góp ý trên Chrome iPhone (lượt ghé đã 200) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
-~3% (`admin-auth.spec.ts:217`), ca impersonation không đứng một mình (`admin-http.spec.ts` ~240).
+Đã xong 27/09: bảo vệ `main` (F5, đẩy thẳng bị luật chặn) · cấp lại link `yourshop` trên preview · gửi góp ý trên Chrome
+iPhone. **Còn:** tạo **Hồ sơ doanh nghiệp Google** cho dịch vụ NFC ngay (đồng hồ 60 ngày cho C1) · chọn **màu chủ đạo và
+nhận diện nền tảng** (F6, trước S1) · mã QR ngân hàng + số Zalo cho tab Thanh toán (cài đặt admin, không vào GitHub) ·
+kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · chọn Vercel Pro hay VPS **trước quán thật đầu
+tiên** · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách
+riêng đang chờ: ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`, gặp lại 27/09), ca impersonation không đứng một mình
+(`admin-http.spec.ts` ~240).
 
 ### Thứ tự đọc cho phiên mới
 
