@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { OwnerError, type OwnerCredential } from '@/lib/owner/auth';
 import { nfcEnvDeclared } from './env';
+import { fromThisSite } from './same-origin';
 export const ownerEnabled=()=>nfcEnvDeclared()&&process.env.NFC_OWNER_V2_ENABLED==='true';
 export const ownerCookie='nfc_owner_v2';
 export async function ownerToken(){return (await cookies()).get(ownerCookie)?.value;}
@@ -34,8 +35,7 @@ export const ownerFailure=(error:unknown)=>{
  console.error('OWNER_UNEXPECTED',error instanceof Error?`${error.name}: ${error.message}`:String(error));
  return ownerJson({error:'SERVICE_UNAVAILABLE'},503);
 };
-export function ownerOrigin(request:Request){const expected=process.env.APP_ORIGIN;
- if(!expected||new URL(expected).origin!==expected||request.headers.get('origin')!==expected||(request.headers.has('sec-fetch-site')&&request.headers.get('sec-fetch-site')!=='same-origin'))throw new OwnerError(403,'ORIGIN_NOT_ALLOWED');}
+export function ownerOrigin(request:Request){if(!fromThisSite(request,process.env.APP_ORIGIN))throw new OwnerError(403,'ORIGIN_NOT_ALLOWED');}
 /**
  * Which page of the shop a write is about (migration 024): `page` in the JSON body, taken off before the body reaches
  * the handler. Writes never read the query string (ownerInput refuses one), so a page cannot ride in on a URL.

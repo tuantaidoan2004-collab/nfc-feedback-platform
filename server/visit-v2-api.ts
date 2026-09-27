@@ -5,6 +5,7 @@ import { VisitCapabilityConflict, VisitAccessDenied, VisitRatingRepository, type
 import { GuestFlood, inspect, mark } from './guest-limits';
 import { readBatch, record } from './page-events';
 import { erase } from './erase';
+import { fromThisSite } from './same-origin';
 
 /**
  * `resolve` binds a request to the page it came from -- in production the signed render proof (publishing-runtime.ts).
@@ -71,10 +72,7 @@ export function createVisitV2Api(dependencies: Dependencies) {
       if (request.method !== 'POST') throw new ApiError(405, 'METHOD_NOT_ALLOWED');
       const configured = dependencies.origin;
       if (!configured || new URL(configured).origin !== configured) throw new ApiError(503, 'SERVICE_UNAVAILABLE');
-      if (request.headers.get('origin') !== configured ||
-          (request.headers.has('sec-fetch-site') && request.headers.get('sec-fetch-site') !== 'same-origin')) {
-        throw new ApiError(403, 'ORIGIN_NOT_ALLOWED');
-      }
+      if (!fromThisSite(request, configured)) throw new ApiError(403, 'ORIGIN_NOT_ALLOWED');
       if (new URL(request.url).search) throw new ApiError(400, 'INVALID_INPUT');
       const bearer = /^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('authorization') ?? '');
       if (!bearer) throw new ApiError(401, 'VISIT_NOT_AUTHORIZED');

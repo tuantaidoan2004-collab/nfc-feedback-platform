@@ -96,6 +96,9 @@ commit đó, ~6 phút), chờ xanh, rồi đẩy **đúng commit ấy** lên `ma
 **Trang khách "Chưa kết nối được" mà log chỉ ghi `403`.** Mọi lần API trang khách từ chối giờ in một dòng
 `GUEST_REFUSED {operation,status,code,origin,site,browser}` (27/09). Đọc: `vercel logs --environment production --query GUEST_REFUSED`.
 Đừng đoán lý do 403 khi dòng này có sẵn.
+Lần đầu dùng (27/09) nó chỉ ra ngay: `ORIGIN_NOT_ALLOWED`, `origin:"other"`, `site:"same-origin"`, `browser:"chrome-ios"` —
+Chrome iPhone gửi Origin lạ dù trình duyệt tự khai là cùng trang. Bài học: **đừng bắt hai tín hiệu cùng khớp khi một
+cái đã đủ tin**; lỗi 24/09 "chưa tái hiện được" kéo dài ba ngày chỉ vì log không ghi lý do.
 
 **Chạy cả bộ integration một lệnh thì 11 test đỏ.** Ba lệnh harness **loại trừ nhau**, vì `publishing = owner || --publishing` nên `--owner`/`--admin` bật luôn publishing và đổi cách `/one` render:
 

@@ -1,11 +1,11 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
+import { fromThisSite } from './same-origin';
 export class HttpError extends Error { constructor(public status: number, public code: string) { super(code); } }
 export function json(value: unknown, status = 200) { return NextResponse.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } }); }
 export function failure(error: unknown) { return error instanceof HttpError ? json({ error: error.code },error.status) : json({ error: 'SERVICE_UNAVAILABLE' },503); }
 export function sameOrigin(request: Request) {
-  const origin = process.env.APP_ORIGIN;
-  if (!origin || request.headers.get('origin') !== origin) throw new HttpError(403,'ORIGIN_NOT_ALLOWED');
+  if (!fromThisSite(request, process.env.APP_ORIGIN)) throw new HttpError(403,'ORIGIN_NOT_ALLOWED');
 }
 export async function body(request: Request): Promise<Record<string,unknown>> {
   if (!request.headers.get('content-type')?.startsWith('application/json')) throw new HttpError(415,'JSON_REQUIRED');

@@ -89,8 +89,8 @@ tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
 ## 8. Việc của Tài
 
 F1 luật sư dữ liệu và sở hữu trí tuệ · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F5 bật bảo vệ nhánh `main` (repo đã công khai, CI xanh 27/09) · F6
-nhận diện nền tảng (logo, dấu trên thẻ) · F7 `story.md`/Obsidian · thử lại sáu khuôn trên Chrome iPhone sau bản log
-`GUEST_REFUSED` (27/09: cả sáu "Chưa kết nối được", server trả 403) · tạo quán thật đầu tiên và ghi thẻ.
+nhận diện nền tảng (logo, dấu trên thẻ) · F7 `story.md`/Obsidian · thử lại sáu khuôn trên Chrome iPhone sau bản sửa
+luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạo quán thật đầu tiên và ghi thẻ.
 
 ---
 

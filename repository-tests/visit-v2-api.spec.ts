@@ -190,14 +190,20 @@ test('extra fields including scope and client time are rejected on both routes',
   expect((await db.pool.query('SELECT count(*)::int AS n FROM page_visits')).rows[0].n).toBe(1);
 });
 
-test('origin must match configuration and browser fetch metadata cannot be cross-site', async ({ db }) => {
+test('browser fetch metadata decides when present; without it, origin must match configuration', async ({ db }) => {
   const token = secret();
   const variants: Record<string, string>[] = [{ origin: 'https://evil.test' }, { origin: 'null' }, { origin: '' },
-    { origin, 'sec-fetch-site': 'cross-site' }, { origin, 'sec-fetch-site': 'same-site' }];
+    { origin, 'sec-fetch-site': 'cross-site' }, { origin, 'sec-fetch-site': 'same-site' }, { origin, 'sec-fetch-site': 'none' },
+    { origin: 'https://evil.test', 'sec-fetch-site': 'cross-site' }];
   for (const headers of variants) {
     await expectError(await db.api(request(token, { loadKey: randomUUID() }, headers), { shop: 'one' }, 'register'), 403, 'ORIGIN_NOT_ALLOWED');
   }
   expect((await db.pool.query('SELECT count(*)::int AS n FROM page_visits')).rows[0].n).toBe(0);
+  // Chrome on iPhone (27/09): the browser says same-origin, yet Origin is not this site's. The browser's own header wins.
+  for (const other of ['null', 'https://evil.test']) {
+    const opened = await db.api(request(secret(), { loadKey: randomUUID() }, { origin: other, 'sec-fetch-site': 'same-origin' }), { shop: 'one' }, 'register');
+    expect(opened.status, other).toBe(200);
+  }
 });
 
 test('token shape, UUID keys, score and revision are strictly validated', async ({ db }) => {
