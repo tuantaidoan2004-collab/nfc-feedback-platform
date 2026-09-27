@@ -17,6 +17,12 @@
 .caution { border-color: var(--p-warn-text); background: var(--p-warn-soft); color: var(--p-ink); }
 .quiet { border-color: transparent; background: transparent; color: var(--p-ink-2); }
 .quiet:hover:not(:disabled) { border-color: transparent; background: var(--p-hover); }
+/* A link drawn as a button (the front page's "Bắt đầu"): platform.css colours every link inside .platform, and that rule is
+   more specific than one class, so the button's own colour is restated at the link's weight. */
+:global(.platform) a.button { color: var(--p-ink); }
+:global(.platform) a.primary { color: var(--p-accent-ink); }
+:global(.platform) a.danger { color: var(--p-danger-ink); }
+:global(.platform) a.quiet { color: var(--p-ink-2); }
 
 .card { background: var(--p-surface); border: 1px solid var(--p-line); border-radius: var(--p-radius-lg); padding: 20px;
   box-shadow: var(--p-shadow); }

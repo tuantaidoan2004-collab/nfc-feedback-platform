@@ -236,6 +236,12 @@ khôi phục bản đang dựng trong một `queueMicrotask`, nhưng effect "lư
 rỗng, nên tải lại trang là mất tên quán vừa gõ. Thấy khi xem tận mắt trong trình duyệt, không phải test nào bắt. Sửa: cờ
 `restored` — chưa khôi phục thì chưa ghi. Lỗi của Claude ở D4a.
 
+**Một `<a>` mang kiểu nút chính thì chữ lấy màu link, không lấy màu nút.** `platform.css` tô `.platform a` (một class + một
+thẻ), mạnh hơn `.primary` (một class) của `ui.module.css`, nên nút "Bắt đầu" của trang chính (D4a, lần đầu một link dùng
+`buttonClass`) có chữ tím nhạt ở chế độ tối và **cam trên nền cam** ở chế độ sáng. Chỉ thấy khi chụp chế độ sáng. Sửa ở
+`ui.module.css`: `:global(.platform) a.primary` … nhắc lại màu nút ở đúng độ mạnh của link; test đọc màu thật ở cả hai chế
+độ. Lỗi của Claude ở D4a.
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được

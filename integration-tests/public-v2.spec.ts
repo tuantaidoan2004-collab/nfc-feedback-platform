@@ -203,6 +203,12 @@ test('the retired demo and cookie-era routes are gone; the front page says what 
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Khách chạm thẻ trên bàn.');
   await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
   await expect(page.locator('[data-landing-start]')).toHaveAttribute('href', '/bat-dau');
+  // A link drawn as the primary button keeps the button's white text in both themes, not the link colour (D4a).
+  const ink = () => page.locator('[data-landing-start]').evaluate(element => getComputedStyle(element).color);
+  expect(await ink()).toBe('rgb(255, 255, 255)');
+  await page.context().addCookies([{ name: 'qs_theme', value: 'light', url: 'http://127.0.0.1:3317' }]);
+  await page.reload(); expect(await ink()).toBe('rgb(255, 255, 255)');
+  await page.context().clearCookies();
   await expect(page.getByRole('link', { name: 'Quyền riêng tư' })).toBeVisible();
   await expect(page.getByText('Bạn vừa chạm thẻ ở quán mà tới đây?')).toBeVisible();
   expect(api).toEqual([]);
@@ -236,7 +242,8 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   const shown = await phone.goto(url!);
   expect(shown!.status()).toBe(200);
   expect(shown!.headers()['referrer-policy']).toBe('no-referrer');
-  expect(shown!.headers()['cache-control']).toContain('no-store');
+  // Never reused from a cache. `next dev` writes its own "no-cache, must-revalidate" over the page's header; a build sends no-store.
+  expect(shown!.headers()['cache-control']).toMatch(/no-store|no-cache/);
   expect(shown!.headers()['x-frame-options']).toBe('SAMEORIGIN');
   await expect(phone.locator('main.guest')).toHaveAttribute('data-template', 'glass');
   await expect(phone.locator('main.guest')).toContainText('Cà Phê Ban Mai');

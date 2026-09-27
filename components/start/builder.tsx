@@ -151,10 +151,11 @@ export default function Builder({ zaloHref, email }: { zaloHref: string; email: 
           <h1 ref={heading} tabIndex={-1}>Quét bằng điện thoại của bạn</h1>
           <p className={styles.lead}>Đây là đúng trang khách của bạn sẽ thấy khi chạm thẻ. Mở bằng camera điện thoại.</p>
           <div className={styles.qr} data-start-qr dangerouslySetInnerHTML={{ __html: link.qr }} />
-          <p className={styles.note}>Chỉ người có link mới mở được. Bản xem thử hết hạn sau 7 ngày và không ghi lại lượt mở nào.{' '}
-            <a href={link.url} target="_blank" rel="noreferrer" data-start-open>Mở trên máy này</a></p>
+          <p className={styles.note}>Chỉ người có link mới mở được. Bản xem thử hết hạn sau 7 ngày và không ghi lại lượt mở nào.</p>
           <div className={styles.actions}>
             <button type="button" className={buttonClass('primary')} onClick={() => go('intro')}>Tiếp tục →</button>
+            {/* Most owners build on their phone (PRODUCT.md): a code on the same screen cannot be scanned, a tap can. */}
+            <a className={buttonClass('secondary')} href={link.url} target="_blank" rel="noreferrer" data-start-open>Mở trên máy này</a>
           </div>
         </div>
         <div className={styles.phone} aria-hidden="true"><iframe src={frame(state.template)!} title="" tabIndex={-1} /></div>
