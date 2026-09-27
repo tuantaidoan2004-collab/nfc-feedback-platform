@@ -205,7 +205,10 @@ thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
 
 **Nguồn UI/UX (Tài 27/09):** mọi thiết kế từ giờ lấy `docs/ui-ux-nguon-tham-khao.md` làm cơ sở (tóm tắt PDF bốn video
 uxpeak + luồng uxpeak.com Tài chụp, kèm ba ý của Tài: popup đếm ngược trước Google, đăng ký cuốn không đòi tiền đầu +
-tab Thanh toán, cảm xúc lúc bấm Google — đã đối chiếu `google-policy.md`, còn hai câu chờ Tài chốt ở mục 3 của tệp đó).
+tab Thanh toán, cảm xúc lúc bấm Google — đã đối chiếu `google-policy.md`; Tài chốt: đếm đủ 4 giây rồi Google ở tab mới, lời cảm ơn của quán shop sửa được và
+admin duyệt). Tài thêm tám hướng (trang chính trước đăng nhập, dựng trang trước tài khoản, trợ lý tóm tắt hôm nay, con
+trỏ nhiều màu, dashboard VIP, chuẩn Dropbox, video 3 phút, sao Google của quán) — **tất cả đều làm**; Claude suy ra và
+quyết thêm mười điều (mục 5 của tệp đó). Hành trình chung ở mục 6.
 Buổi kế tiếp: **audit** toàn hệ thống trước cải tổ UI/UX (effort xhigh).
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đổi ở mọi nơi (chữ trên dashboard và `/gov`, tài liệu,

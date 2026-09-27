@@ -36,7 +36,7 @@ trước khi đẩy `main`).
 
 | # | Việc | Cỡ | Ghi chú |
 |---|---|---|---|
-| P5b | Thu tiền: kỳ tháng, chuyển khoản QR, admin bấm "đã nhận", huỷ → hết kỳ → tạm ngừng 30 ngày → đóng, mốc "bắt đầu chạy" | L | **Mig.** Tài: chưa thu, cần cảm nhận khách trước. Tự động hoá (VietQR + bot) là B6 |
+| P5b | Thu tiền: kỳ tháng, chuyển khoản QR, admin bấm "đã nhận", huỷ → hết kỳ → tạm ngừng 30 ngày → đóng, mốc "bắt đầu chạy" | L | **Mig.** Tài: chưa thu, cần cảm nhận khách trước. Tab Thanh toán có dòng thời gian + mã chuyển khoản sẵn (Tài 27/09, `ui-ux-nguon-tham-khao.md` mục 5H). Tự động hoá (VietQR + bot) là B6 |
 | P7 | App admin trên tên miền riêng | V | |
 | A21 | `/gov`: tìm quán, số liệu nền tảng, dùng được trên điện thoại | V | Cần dữ liệu thật |
 | A20 | Onboarding "3 bước bắt đầu" + màn trống có hướng dẫn | V | |
@@ -82,7 +82,7 @@ trước khi đẩy `main`).
 ## 7. Dời lại — dữ liệu và quy mô (Tài 26/09: làm sau khi mọi thứ khác ổn, brainstorm lại)
 
 A8–A10 đọc dòng sự kiện (số liệu chuẩn, bảng theo ngày, so sánh bản phát hành) · D1 kho phân tích / tầng lạnh R2 · D2
-chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 Google Business Profile API · D4 tự đăng ký + dùng thử (**Tài 27/09 kéo vào đợt cải tổ UI/UX**, luồng kiểu uxpeak, `ui-ux-nguon-tham-khao.md` ý 2) · D5 API/webhook đối
+chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 sao Google của quán (**Tài 27/09 kéo lên**; Place ID trước, cần Tài chốt tài khoản thanh toán Google Cloud; `ui-ux-nguon-tham-khao.md` mục 5J) · D4 tự đăng ký + dùng thử (**Tài 27/09 kéo vào đợt cải tổ UI/UX**, luồng kiểu uxpeak, `ui-ux-nguon-tham-khao.md` ý 2) · D5 API/webhook đối
 tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
 
 ## 8. Việc của Tài

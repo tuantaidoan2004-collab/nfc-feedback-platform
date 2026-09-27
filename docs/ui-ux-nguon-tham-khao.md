@@ -76,22 +76,22 @@ Trang 40, ảnh lưới thiết kế kiểu Dribbble: *"hình ảnh chỗ này �
 
 ## 3. Ba ý của Tài (27/09) và đối chiếu luật
 
-### Ý 1 — Popup trước khi sang Google, đếm ngược khoảng 4 giây
+### Ý 1 — Popup trước khi sang Google: 4 giây rồi sang tab mới (Tài chốt 27/09)
 
-Nội dung Tài đưa: *"Trang sẽ tự động chuyển, quý khách thân mến hãy quay lại trang này để khám phá thêm nhé, Merci
-beaucoup!"*, có số đếm, thân thiện; dùng cho **đa số template shop "xào nấu" nhiều, có nhiều thông tin và sự kiện**.
-Mục đích: khách thấy trang này có công dụng thật, không chỉ để đánh giá.
+Tài chốt: **không có nút "Sang Google ngay"**. Đếm đủ 4 giây rồi Google mở ở **tab mới**; **trang cũ trở lại bình
+thường** (khách đóng tab Google là thấy lại trang quán). Câu chữ theo tinh thần Tài đưa: *"Trang sẽ tự động chuyển, quý
+khách thân mến hãy quay lại trang này để khám phá thêm nhé, Merci beaucoup!"*, có số đếm, thân thiện. Dùng cho template
+nhiều nội dung, khai trong manifest (`effects`, lát M2).
 
-- **Luật Google: qua**, nếu giữ bốn điều: hiện cho **mọi** khách như nhau; không nhắc quà hay ưu đãi (luật 4, 8); không
-  gợi nội dung hay số sao (luật 7); không có chữ nào đẩy khách phải đánh giá.
-- **Vướng một quyết định cũ của nền tảng:** `thiet-ke-va-khuon.md` mục 12, ranh giới 2 cho phép tối đa **300ms** trước
-  khi sang Google, và trình kiểm manifest (`lib/publishing/template-manifest.ts`) đang chặn `leaveTransitionMs` > 300.
-  Làm ý này thì sửa cả hai chỗ trong cùng lát (mới thay cũ).
-- **Kỹ thuật:** sang Google sau một lúc chờ thì phải đi **cùng tab**; một tab mới mở trễ sẽ bị điện thoại chặn như popup.
-  Khách quay lại bằng nút Back, và trang đã có sẵn `pageshow` để gỡ lớp phủ khi quay về.
-- **Đề xuất của Claude, chờ Tài chốt:** popup có nút **"Sang Google ngay"** (không bao giờ nhốt khách 4 giây) và nút
-  đóng. Đếm 3–4 giây. Tôn trọng "giảm chuyển động". Template khai hiệu ứng này trong manifest, thành một mục `effects`
-  mới (thuộc M2, module hiệu ứng).
+- **Luật Google: qua**, với bốn điều: như nhau cho mọi khách; không quà, không ưu đãi (luật 4, 8); không gợi sao hay nội
+  dung (luật 7); không chữ nào đẩy khách phải đánh giá.
+- **Điểm kỹ thuật phải thử thật, Claude quyết cách làm:** trình duyệt chỉ cho mở tab mới khi còn "hơi" của cú chạm.
+  Chrome/Android giữ khoảng **5 giây** theo hiểu biết của Claude về Chromium — chưa đo (nên 4 giây vừa đủ, và **không bao giờ nâng quá 4**). iPhone (Safari và Chrome
+  iOS cùng dùng WebKit) **chưa chắc** giữ lâu như vậy. Cách làm: đếm trên trang cũ, hết 4 giây thì mở tab mới. Nếu trình
+  duyệt chặn (mở ra `null`), **ngay lúc đó** popup đổi thành một nút "Mở Google" — một chạm của khách, không phải nút bỏ
+  qua đếm ngược. Thử trên iPhone thật trước khi phát hành.
+- Thay ranh giới 300ms cũ (`thiet-ke-va-khuon.md` mục 12) và mức chặn 300 trong `template-manifest.ts` trong cùng lát.
+- Đi kèm ý 3 (lời cảm ơn và tim bung ra) trong cùng popup.
 
 ### Ý 2 — Đăng ký cuốn như uxpeak, không đòi tiền lúc đầu
 
@@ -108,19 +108,102 @@ muốn dùng tiếp thì vào đó trả.
 - Luật Google không liên quan tới luồng của chủ quán, trừ một điều: trong lúc hướng dẫn, không dạy chủ quán cách mời
   đánh giá trái mục 3 của `google-policy.md`.
 
-### Ý 3 — Cảm xúc lúc bấm nút Google
+### Ý 3 — Cảm xúc lúc bấm nút Google: lời cảm ơn của quán (Tài chốt 27/09)
 
-Tài muốn: đúng lúc popup hiện, một biểu tượng kiểu 😍 (tim trên mắt to hơn, hồng nhạt hơn) bung ra rồi tan như pháo hoa.
+Tài chốt: không dùng 😍 nói hộ cảm xúc của khách. Dùng chữ **"Cảm ơn quý khách đã ghé…"** — lời của quán — bung ra cùng
+hiệu ứng tim nhẹ như pháo hoa khi popup hiện, rồi tan. **Shop sửa được câu này trong trình chỉnh template**, và câu mới
+**phải qua admin duyệt** trước khi phát hành (như cửa duyệt ảnh, `thiet-ke-va-khuon.md` mục 10), để Tài yên tâm.
 
-- **Không phạm luật nào viết thành chữ**: hiện cho mọi khách, không phụ thuộc số sao, không kèm quà.
-- **Nhưng Claude không dám nói "chắc chắn":** 😍 là cảm xúc **của người đánh giá** ("tôi mê quán này"), hiện ngay
-  trước khi họ chấm sao, nên có thể bị coi là **gợi cảm xúc cho đánh giá** — gần với luật 7 (không định nội dung). Cách
-  an toàn hơn mà vẫn có cảm xúc: biểu tượng nói **lời cảm ơn của quán** (tim, 🥰, "Cảm ơn bạn!"), không nói hộ khách
-  cảm nhận gì. Không bao giờ dùng hình ngôi sao ở đây. **Tài chốt chọn nào.**
-- Tôn trọng "giảm chuyển động" (khi đó chỉ hiện, không bung).
+- Chữ tự do đặt sát lời mời Google → qua cả dây bẫy chữ (`google-policy.md` mục 3b: từ "đánh giá" cạnh "quà", "nhắc tên")
+  **và** cửa duyệt. Không bao giờ hình ngôi sao. Tôn trọng "giảm chuyển động" (chỉ hiện, không bung).
+- Cửa duyệt chữ là việc mới (hôm nay chỉ duyệt ảnh) → nhiều khả năng cần migration.
+- **Về Google Search Console:** Tài định dùng để xem và sửa tiếp. Nó cho biết Google **Tìm kiếm** thấy trang thế nào
+  (lập chỉ mục, lỗi, tốc độ) — rất nên có, cần xác minh tên miền bằng bản ghi DNS. Nó **không** báo vi phạm luật đánh
+  giá; phần đó hiện ở **Hồ sơ doanh nghiệp Google** của từng quán.
 
-## 4. Việc này đổi gì trong thứ tự làm
+## 4. Hướng sản phẩm Tài đưa thêm (27/09) — tất cả đều làm, liên quan chặt với nhau
 
-Không thêm lát nào vượt hàng: buổi **audit** kế tiếp đặt các ý trên vào đúng chỗ. Ý 1 và ý 3 là hiệu ứng → **M2**. Thẻ
-trượt lên ảnh, nền đứng yên → **M4**. Kho template dạng lưới → **M5**. Ý 2 → **D4 + P5b**, trước đây để sau, giờ Tài kéo
-vào đợt cải tổ.
+1. **Vào trang chính trước, đăng nhập mới mở giao diện.** Chủ shop tới trang chính của nền tảng như mọi người; mở trình
+   chỉnh và dashboard mới cần đăng nhập.
+2. **Dựng trang trước, tạo tài khoản sau** (hiệu ứng IKEA, mục 1b).
+3. **Trợ lý nhận xét cho chủ shop** (Tài viết "jev" — hiểu là trợ lý tự động trong dashboard; sai thì Tài sửa): "dữ liệu
+   quá dày, nên tải về"; **tóm tắt hôm nay** bằng một mặt cười khi ổn, kèm một dòng "tốt, trừ vài khách ở các khung giờ
+   sau" mà mỗi khung giờ là **link thẳng tới góp ý đó**.
+4. **Con trỏ chờ gõ đổi nhiều màu** khi khách gõ, kiểu Gemini. Tài: "vẫn phải có".
+5. **Dashboard "VIP":** video poster của chính quán chạy trên dashboard (cảm giác timelapse khách ra vào, thật); giao diện
+   sinh động, có chuyển động; **một tông màu chủ đạo năng động** kiểu Higgsfield; cảm giác "như ứng dụng thời tiết".
+6. **Chuẩn Dropbox:** chạy mượt như nhau trên mọi hệ điều hành; từng chi tiết làm ở tầng sâu của hệ thống.
+7. **Video 3 phút** kể công nghệ của sản phẩm — chính video là MVP để khách hiểu (họ không biết mình cần tới khi đã dùng
+   nhiều); video hiện ở vài bước trong luồng mới.
+8. **Hoạt động sao Google của chính quán** trên dashboard (chỉ chủ shop xem), nối bằng mã trên Hồ sơ doanh nghiệp Google
+   của quán, có hướng dẫn. Tài: "dashboard sẽ có giá trị x10". Tài chưa quen ai có hồ sơ để thử.
+
+## 5. Claude suy ra và quyết (27/09)
+
+Tài giao: đọc cùng tài liệu, tự suy ra thêm và quyết. Mỗi mục dưới đây là **quyết định**, trừ chỗ ghi "Tài chốt".
+
+**A. Khoảnh khắc "à ra thế" trong 2 phút đầu — thấy trang của mình trên điện thoại của mình.** Trong luồng dựng trang
+(ý 2 của Tài), ngay khi chủ quán chọn xong tên và template, màn hình hiện một **mã QR "Quét bằng điện thoại của bạn"**
+mở bản nháp đó trên máy họ. Cho trước, hỏi sau (1b): họ cầm trên tay đúng thứ khách của họ sẽ thấy, **trước khi có tài
+khoản**. Nút lưu ghi **"Lưu trang của tôi"**, không ghi "Đăng ký" (1b, 1c). Bản nháp chưa có tài khoản sống ngắn và
+không phát hành được.
+
+**B. Ba câu hỏi nhanh cho chủ quán, như uxpeak** (ảnh Tài chụp): loại quán (cà phê · spa · quán ăn…), giờ đông khách,
+điều muốn cải thiện. Mỗi câu trả lời thành **mặc định thông minh** (1b): template theo ngành (A22), khung giờ cho bản
+tóm tắt hôm nay (ý 3), thứ dashboard đặt lên đầu. Có "Bỏ qua". Tiến độ tính bước dựng trang là bước 1 **đã xong** —
+không bao giờ bắt đầu từ 0.
+
+**C. "Thời tiết của quán hôm nay"** — gộp ý 3, ý 5 của Tài. Không khí của dashboard (nền chuyển động, màu, mặt cười)
+**phản ánh ngày thật của quán**: nắng khi góp ý hôm nay ổn, mây khi có vài khách chưa vui (kèm link tới đúng góp ý).
+Cảm xúc sinh động nhưng **luôn là dữ liệu thật**, không trang trí suông. Tính bằng luật đơn giản trước (lượt quét, góp ý
+riêng, sao nội bộ); trợ lý AI là bậc nâng sau (D3), đúng luật "từ gốc, nâng theo tuyến". **Luật 5, 10:** thời tiết không
+bao giờ tính theo số đánh giá Google, và nhân viên không thấy số Google.
+
+**D. Con trỏ nhiều màu — dùng bảng màu của template/quán, không dùng bốn màu Google.** Ô góp ý riêng phải trông **khác
+Google**, vì trang đã hứa "Góp ý này không đăng lên Google"; khoác màu Google lên chính ô đó làm khách lẫn và làm yếu lời
+hứa minh bạch (1c). Bốn màu nhảy theo nhịp gõ, lấy từ template; tôn trọng "giảm chuyển động".
+
+**E. Chuẩn Dropbox cho một web app:** dashboard **cài được lên màn hình chính** (PWA) và **thông báo đẩy** khi có góp ý
+riêng mới — không cần dịch vụ trả phí (web push chuẩn; iPhone cần iOS 16.4+ và thêm vào màn hình chính). Mọi lát giao
+diện kiểm trên **Safari iPhone, Chrome iPhone, Chrome Android, máy tính**: lỗi 403 của Chrome iPhone ngày 27/09 là bằng
+chứng một trình duyệt có thể hỏng riêng.
+
+**F. Video 3 phút đặt ở ba chỗ:** trang chính (trước khi làm gì), màn chào mừng của luồng dựng trang, và **trạng thái
+trống** của dashboard (chưa có lượt quét nào). Dựng được bằng HyperFrames (đã có trong bộ skill). Kịch bản là việc của
+Tài; Claude viết nháp khi Tài muốn.
+
+**G. Trạng thái trống là bước đầu tiên, không phải số 0.** Dashboard mới không hiện "0 lượt quét"; nó hiện việc kế tiếp
+("Dán thẻ lên bàn và quét thử") và coi mỗi việc làm xong là một nấc tiến độ (1b).
+
+**H. Thanh toán minh bạch như màn B của uxpeak (1c):** tab Thanh toán có **dòng thời gian** — hôm nay dùng thử · ngày X
+nhắc · ngày Y tới hạn — kèm câu **"Chúng tôi sẽ nhắc trước khi tới hạn"**, mã chuyển khoản luôn sẵn. Hết hạn mà chưa trả
+thì nói thật điều sẽ xảy ra ("khách quét thẻ sẽ thấy Trang tạm ngừng") — khung "sợ mất" chỉ dùng khi là sự thật (mục 2).
+
+**I. Khi khách quay lại tab cũ sau Google:** trang chỉ được **cảm ơn**, không bật ưu đãi hay nội dung chỉ dành cho người đã
+bấm Google (luật 8). Sự kiện của quán phải luôn hiện cho **mọi** khách, có bấm Google hay không.
+
+**J. Sao Google của quán (ý 8) — nói thật đường đi.** "Mã" trên hồ sơ có hai loại, cho hai mức:
+- **Place ID** (công khai, ai cũng lấy được): đủ để lấy **điểm trung bình và tổng số đánh giá** qua Places API. Thử được
+  **với bất kỳ quán nào trên Maps**, không cần quen chủ hồ sơ. Nhưng Places API đòi một **tài khoản thanh toán Google
+  Cloud** (có hạn mức miễn phí) — là dịch vụ trả phí theo `AGENTS.md`, **Tài chốt** trước khi bật.
+- **Kết nối chủ hồ sơ** (OAuth, Business Profile API): đủ để đọc **từng đánh giá** và **trả lời** từ dashboard. Miễn phí
+  nhưng Google phải **duyệt cấp quyền API** cho nền tảng, và chủ quán tự bấm cho phép. Làm sau bậc Place ID.
+- Hiển thị: chỉ chủ shop, ghi rõ **"ước đoán"** (luật 10). Đây là C1 trong roadmap, giờ Tài kéo lên.
+
+## 6. Một hành trình, không phải tám tính năng
+
+```
+Video 3 phút → trang chính → "Bắt đầu" → dựng trang (template dạng lưới, ảnh lớn — ghi chú trang 40)
+  → QR: thấy trang trên điện thoại của mình (A) → 3 câu hỏi (B) → "Lưu trang của tôi" = tạo tài khoản
+  → dashboard: thời tiết của quán (C), trạng thái trống thành bước đầu (G), sao Google của quán (J), cài lên màn hình + thông báo (E)
+  → tab Thanh toán: dòng thời gian, mã chuyển khoản (H)
+Phía khách: chạm thẻ → trang quán → nút Google → popup cảm ơn + tim + đếm 4 giây (ý 1, ý 3) → tab mới Google
+  → quay lại tab cũ: lời cảm ơn, sự kiện vẫn như mọi khách (I) · ô góp ý riêng: con trỏ màu của quán (D)
+```
+
+## 7. Việc này đổi gì trong thứ tự làm
+
+Không thêm lát nào vượt hàng: buổi **audit** kế tiếp xếp mọi thứ ở mục 3–6 vào đúng chỗ. Theo luồng module: ý 1, ý 3,
+con trỏ màu, không khí dashboard là **hiệu ứng → M2**. Thẻ trượt lên ảnh, nền đứng yên → **M4**. Kho template dạng lưới
+→ **M5**. Trang chính + dựng trang trước tài khoản + ba câu hỏi → **D4**. Tab Thanh toán → **P5b**. Sao Google → **C1**.
+Cửa duyệt chữ cảm ơn → mở rộng cửa duyệt ảnh. Video 3 phút → việc của Tài, không chặn lát nào.

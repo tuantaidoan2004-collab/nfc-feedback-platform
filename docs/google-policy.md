@@ -39,7 +39,7 @@ Tài yêu cầu 2026-09-20: một tệp gom mọi thứ Google cấm, để **kh
 5. **Không có bảng xếp hạng hay chỉ tiêu đánh giá Google theo nhân viên**, không gắn tên nhân viên vào lời mời.
 6. **Không có chế độ "máy của quán"** để khách đánh giá trên thiết bị dùng chung (kiosk, máy tính bảng trên quầy).
 7. **Không gợi ý nội dung** cho đánh giá Google (không câu mẫu, không từ khoá, không "hãy nhắc tên…").
-8. Nội dung marketing trên trang khách (sự kiện, trò chơi, ưu đãi — xem `ideas-curiosity.md`) **không được phụ thuộc** vào việc khách có bấm Google hay không, và **không đặt cạnh** nút Google theo kiểu gợi ý trao đổi.
+8. Nội dung marketing trên trang khách (sự kiện, trò chơi, ưu đãi — xem `ideas-curiosity.md`) **không được phụ thuộc** vào việc khách có bấm Google hay không, và **không đặt cạnh** nút Google theo kiểu gợi ý trao đổi. Kể cả popup cảm ơn trước khi sang Google và lúc khách quay lại tab cũ (27/09): chỉ lời cảm ơn, không ưu đãi, không nội dung chỉ dành cho người đã bấm.
 9. Không tự động đăng, không đăng hộ, không "giúp khách viết" đánh giá bằng AI.
 10. Không lấy chỉ số "số đánh giá Google tăng" làm mục tiêu hiển thị cho nhân viên. Số liệu Google (khi nối API) chỉ hiển thị cho chủ shop, ghi rõ là **ước đoán**.
 
