@@ -203,6 +203,11 @@ hướng dẫn designer `templates/README.md`. Nền bị kéo theo thẻ khi cu
 Tiếp: **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
 
+**Nguồn UI/UX (Tài 27/09):** mọi thiết kế từ giờ lấy `docs/ui-ux-nguon-tham-khao.md` làm cơ sở (tóm tắt PDF bốn video
+uxpeak + luồng uxpeak.com Tài chụp, kèm ba ý của Tài: popup đếm ngược trước Google, đăng ký cuốn không đòi tiền đầu +
+tab Thanh toán, cảm xúc lúc bấm Google — đã đối chiếu `google-policy.md`, còn hai câu chờ Tài chốt ở mục 3 của tệp đó).
+Buổi kế tiếp: **audit** toàn hệ thống trước cải tổ UI/UX (effort xhigh).
+
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đổi ở mọi nơi (chữ trên dashboard và `/gov`, tài liệu,
 mã, `DESIGN.md`) đi cùng đợt audit trước cải tổ UI/UX; từ giờ viết mới thì dùng "template".
 

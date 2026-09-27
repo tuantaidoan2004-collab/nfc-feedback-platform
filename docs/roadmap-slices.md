@@ -82,7 +82,7 @@ trước khi đẩy `main`).
 ## 7. Dời lại — dữ liệu và quy mô (Tài 26/09: làm sau khi mọi thứ khác ổn, brainstorm lại)
 
 A8–A10 đọc dòng sự kiện (số liệu chuẩn, bảng theo ngày, so sánh bản phát hành) · D1 kho phân tích / tầng lạnh R2 · D2
-chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 Google Business Profile API · D4 tự đăng ký + dùng thử · D5 API/webhook đối
+chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 Google Business Profile API · D4 tự đăng ký + dùng thử (**Tài 27/09 kéo vào đợt cải tổ UI/UX**, luồng kiểu uxpeak, `ui-ux-nguon-tham-khao.md` ý 2) · D5 API/webhook đối
 tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
 
 ## 8. Việc của Tài
