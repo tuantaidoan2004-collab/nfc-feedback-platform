@@ -536,3 +536,11 @@ Luật: tệp chạy hạ tầng (compose, Dockerfile, workflow) chỉ tính là
 **Biến chuỗi chứa lệnh nhiều chữ trong zsh — lần thứ ba.** Kiểm compose 27/09: `C="docker compose -f …"; $C ps` → zsh
 coi cả chuỗi là tên một tệp (`no such file or directory`). Bẫy này đã ghi từ lát P1; lần này mất một vòng lệnh phụ, không
 ảnh hưởng kết quả kiểm chính. Luôn dùng hàm: `C(){ docker compose -f … "$@"; }`.
+
+**CI đỏ ở mọi lượt suốt nhiều ngày mà không ai biết: GitHub chặn job vì hết phút/hạn mức chi.** Phát hiện 27/09 khi Tài mở
+lượt #211: *"The job was not started because recent account payments have failed or your spending limit needs to be
+increased."* Mọi job đỏ sau 2–4 giây. Repo riêng tư chỉ có số phút Actions miễn phí mỗi tháng; lệnh đẩy của Claude đẩy
+**hai nhánh một lúc** (`main` + `feat/local-app-foundation`) và CI chạy trên cả hai, mỗi lượt ~8 job gồm 4 harness nặng —
+nên mỗi lần đẩy tốn gấp đôi, và cả chục lần đẩy mỗi ngày cạn hạn mức trong vài ngày. Không có gì hỏng lên `main` vì 7 bộ
+luôn chạy trên máy trước khi đẩy, nhưng CI đã không bảo vệ gì. Tài chọn **để repo công khai** (Actions không giới hạn phút
+với repo công khai). Bài học: sau mỗi lần đẩy phải nhìn trạng thái CI, không coi "không nghe báo đỏ" là xanh.

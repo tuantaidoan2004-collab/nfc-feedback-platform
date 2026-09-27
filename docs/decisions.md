@@ -173,7 +173,11 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `b4f7105` (E9); chưa đẩy: tài liệu duyệt toàn bộ + I1.
+  branch**. `main` = `4b9a5c4` (I1 chạy thật trên Docker, SeaweedFS). Vercel Pro dùng thử tới **29/09**.
+- **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
+  theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
+- **CI:** mọi lượt bị GitHub chặn vì hết phút/hạn mức chi của repo riêng tư (gotchas 27/09). Tài chọn **để repo công khai**;
+  sau đó chạy lại CI và xem job `self-host`. Công khai rồi thì bật bảo vệ nhánh `main` (F5) được miễn phí.
 - **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy, rồi
   Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
 - **`/urr6ud` là shop KHUÔN MẪU** ("YOUR SHOP", khuôn 1), không phải Googy. Tài bấm "Đưa khuôn về mặc định mới" 26/09:
@@ -189,7 +193,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 3. **Video chỉ ở poster**, nền không bao giờ là video (E9).
 4. **Quyết định mới sửa hoặc xoá ý cũ** ở mọi tài liệu, không để chồng lên (cách làm của Tài).
 
-**I1 tự chạy được: xong 26/09** (`tu-chay.md`). Tiếp: **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
+**I1 tự chạy được: xong 27/09** (`tu-chay.md`). Tài 27/09: *khoan làm lát kế*. Khi làm tiếp: **M1** gói khuôn → **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
 
 ### Luật triển khai (Tài nới 23/09)
@@ -199,7 +203,7 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 
 ### Việc còn treo của Tài
 
-Sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · F5 bảo vệ nhánh `main` · thử sáu khuôn trên điện thoại thật (kèm lỗi
+Công khai repo + chạy lại CI + bảo vệ `main` · gỡ tài khoản thử yếu cố định `yourshop / 1` trên preview (lộ khi repo công khai) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · F5 bảo vệ nhánh `main` · thử sáu khuôn trên điện thoại thật (kèm lỗi
 Googy "Chưa kết nối được") · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
 ~3% (`admin-auth.spec.ts:217`), ca impersonation không đứng một mình (`admin-http.spec.ts` ~240).
 
