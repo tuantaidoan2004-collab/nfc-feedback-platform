@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { POSTER, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import { shrinkVideo } from '@/lib/client/shrink-video';
 import { SERVICE_LABELS } from '@/lib/publishing/policy';
-import type { FeedbackButton, LinkIcon, MediaRef, PageConfig } from '@/lib/publishing/config';
-import { STEM_BACKGROUND } from '@/lib/publishing/config';
+import type { FeedbackButton, LinkIcon, MediaRef, PageConfig, Section, SectionKind } from '@/lib/publishing/config';
+import { STEM_BACKGROUND, sectionsOf } from '@/lib/publishing/config';
 import { type TemplateRelease } from '@/lib/publishing/versions';
 import type { SettingField } from '@/lib/publishing/settings';
 import styles from './owner-app.module.css';
@@ -16,6 +16,8 @@ import { TEMPLATE_KEYS, isTemplateKey, TEMPLATE_NAMES } from '@/lib/publishing/t
  */
 type State = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
   template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] } };
+/** How the owner sees each block (lát M3). The poster is the one block above the Google button. */
+const SECTION_NAMES: Record<SectionKind, string> = { poster: 'Poster (trên cùng, phía trên nút Google)', links: 'Hàng nút liên kết' };
 const ICONS: [LinkIcon, string][] = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['zalo', 'Zalo'], ['phone', 'Gọi điện'], ['booking', 'Đặt lịch'], ['link', 'Liên kết']];
 const PLANES: [FeedbackButton['icon'], string][] = [['plane', 'Máy bay giấy'], ['chat', 'Bong bóng chat'], ['mail', 'Phong bì']];
 const ERRORS: Record<string, string> = {
@@ -273,6 +275,24 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
       </select></label></div>}
     </fieldset>
 
+    {/* The blocks of the page and their order (lát M3): the Google invitation, the private-feedback button and the legal
+        line are fixed and are not listed. Only blocks below the Google button move. */}
+    <fieldset className={styles.panel} data-sections><legend>Các khối trên trang</legend>
+      <p className={styles.hint}>Bật hoặc tắt từng khối. Nút đánh giá Google, nút góp ý riêng và dòng pháp lý luôn có trên trang.</p>
+      <ol className={styles.versionList}>{sectionsOf(config).map((section, index, all) => {
+        const lower = all.filter(item => item.kind !== 'poster'), at = lower.indexOf(section);
+        const set = (next: Section[]) => change({ schemaVersion: 3, sections: next });
+        const move = (by: number) => { const rest = [...lower]; rest.splice(at, 1); rest.splice(at + by, 0, section); set([...all.filter(item => item.kind === 'poster'), ...rest]); };
+        return <li key={section.kind} data-section={section.kind}>
+          <label className={styles.choice}><input type="checkbox" checked={!section.hidden} data-section-visible
+            onChange={e => set(all.map((item, i) => i === index ? (e.target.checked ? { kind: item.kind } : { kind: item.kind, hidden: true }) : item))} />
+            {SECTION_NAMES[section.kind]}</label>
+          {section.kind !== 'poster' && lower.length > 1 && <span className={styles.rowButtons}>
+            <button type="button" aria-label={`Đưa ${SECTION_NAMES[section.kind]} lên`} disabled={at === 0} onClick={() => move(-1)}>↑</button>
+            <button type="button" aria-label={`Đưa ${SECTION_NAMES[section.kind]} xuống`} disabled={at === lower.length - 1} onClick={() => move(1)}>↓</button></span>}
+        </li>;
+      })}</ol>
+    </fieldset>
     <fieldset className={styles.panel}><legend>Thông tin</legend><div className={styles.grid2}>
       <label>Tên hiển thị<input value={config.name} maxLength={100} onChange={e => change({ name: e.target.value })} /></label>
       <label>Link đánh giá Google<input type="url" value={config.googleUrl} onChange={e => change({ googleUrl: e.target.value })} placeholder="https://g.page/r/…" /></label>

@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
-import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
+import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, sectionsOf, shows, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig, type Section } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
 import { settingsOnPage } from '@/lib/publishing/settings';
 import { FACES } from '@/lib/faces';
@@ -419,6 +419,13 @@ export default function ShopFeedbackV2(shop: Props) {
   }, [phase]);
 
   const statusLine = <p role="status" className="guest-status">{m[status]}</p>;
+  // One renderer per block kind; a new kind (events, video: M4) adds its case here and its content to the page config.
+  // A plain function, not a component defined in render: that would be a new component type on every render.
+  const lowerSection = (section: Section) => {
+    if (section.kind === 'links') return config.links.length > 0 ? <nav key="links" className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
+      {...(link.url.startsWith('https:') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><LinkGlyph icon={link.icon} /><span>{link.label[lang]}</span></a>)}</nav> : null;
+    return null;
+  };
   const retryButtons = <>
     {mutation?.pending && !mutation.running && <button type="button" className="guest-send" onClick={() => { setValidation(null); void client.retry().then(finish); }}>{m.retry}</button>}
     {state?.opens.filter(entry => entry.result?.kind === 'pending' && !entry.running).map((entry, index) => <button type="button" key={entry.event.loadKey} className="guest-send" onClick={() => { setValidation(null); void client.retryOpen(entry.event.loadKey); }}>{m.retryOpen}{index > 0 ? ` (${index + 1})` : ''}</button>)}
@@ -431,7 +438,7 @@ export default function ShopFeedbackV2(shop: Props) {
     <Background config={config} scene={fx.scene} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
-      <Poster poster={config.poster} label={p.poster} />
+      {shows(config, 'poster') && <Poster poster={config.poster} label={p.poster} />}
       <div className="guest-logo">{config.logo ? <img src={config.logo.url} alt="" /> : <span aria-hidden="true">{initials(config.name)}</span>}</div>
       <div className="guest-body">
         <h1>{shop.name}</h1>
@@ -441,8 +448,8 @@ export default function ShopFeedbackV2(shop: Props) {
                 onClick={event => { client.event('google_tapped', { layout: config.layout }); fx.onGoogleTap(event); }}>{fx.googleContent?.(p.google) ?? <><GoogleMark /><span>{p.google}</span></>}</a>
             : <button className="google-button" data-google disabled>{fx.googleContent?.(p.google) ?? <><GoogleMark /><span>{p.google}</span></>}</button>}
           <p className="guest-note">{t.thanks}</p></section>
-        {config.links.length > 0 && <nav className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
-          {...(link.url.startsWith('https:') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><LinkGlyph icon={link.icon} /><span>{link.label[lang]}</span></a>)}</nav>}
+        {/* The blocks below the Google invitation, in the owner's order (lát M3). The poster is drawn above, never here. */}
+        {sectionsOf(config).filter(section => section.kind !== 'poster' && !section.hidden).map(lowerSection)}
         {!open && connectionProblem && <div className="guest-connection">{statusLine}{retryButtons}</div>}
         <LegalFooter p={p} ready={!!snapshot} erase={client.erase} />
       </div>

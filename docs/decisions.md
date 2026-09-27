@@ -173,7 +173,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = lát M2 khi Tài đẩy (trước đó `84a727a`, S1). Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = lát M3 khi Tài đẩy (trước đó `1cbf3f0`, M2). Vercel Pro dùng thử tới **29/09**.
 - **Vercel (Tài chốt 27/09): xuống Hobby** khi hết dùng thử 29/09 — không gì hỏng (tháng 9 dùng ~0,08 giờ CPU trên hạn
   4). Hobby **cấm dùng thương mại**: trước khi **trang chính bán dịch vụ** lên production (hoặc quán thật đầu tiên, mốc nào tới
   trước) phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
@@ -220,7 +220,9 @@ chọn Tối · Sáng · Theo máy; `/gov` và các trang đăng nhập dựng l
 điện thoại); dashboard: thanh đáy trên điện thoại + "Thêm", mỗi mục một URL (`?view=`), nút Back đúng. **M2 module hiệu ứng xong 27/09**: `components/effects/` (kính, hạt ngọc,
 lớp sương, lời cảm ơn trước Google) qua một sổ đăng ký; template 1–5 bật lời cảm ơn + tim bung + đếm 4 giây rồi Google mở
 tab mới (chặn thì có nút "Mở Google"); con trỏ góp ý đổi 4 màu của template. Lời cảm ơn shop tự sửa + admin duyệt là **M2b**
-(migration). Lát kế theo audit: **M3** section (migration). **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+(migration). **M3 section xong 27/09, không cần migration**: `PageConfig` v3 có `sections` (khối nào hiện, thứ
+tự nào); dữ liệu khối ở chỗ cũ; chỉ poster được đứng trên nút Google; trình chỉnh có khung "Các khối trên trang". Lát kế
+theo audit: **D4** trang chính + dựng trang trước tài khoản (hoặc M2b nếu Tài muốn lời cảm ơn tự sửa trước). **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
 (`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và

@@ -9,7 +9,7 @@ trước khi đẩy `main`).
 
 ## 0. Thứ tự của đợt cải tổ UI/UX (audit 27/09)
 
-Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0, S1, M2 xong 27/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
+Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0, S1, M2, M3 xong 27/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
 cho dashboard) → **M2** → **M3** → **D4** → tab Thanh toán → dashboard "thời tiết của quán" → trình chỉnh như Canva +
 kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
@@ -18,7 +18,6 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 | # | Việc | Cỡ | Ghi chú |
 |---|---|---|---|
 | **M2b** | Lời cảm ơn **shop tự sửa** trên template, **admin duyệt** trước khi phát hành (Tài 27/09) — mở rộng cửa duyệt ảnh sang chữ, qua dây bẫy `freeTextProblem` | V | **Mig.** Hôm nay lời cảm ơn là câu mặc định của nền tảng (M2) |
-| **M3** | **Section:** `PageConfig` v3 = template@bản + cài đặt + danh sách section; poster và hàng link thành section đầu; lời mời Google, góp ý, chân pháp lý là lõi cố định | L | **Mig.** Bản phát hành cũ vẫn đọc được |
 | **M4** | **Đợt cải tổ UI/UX:** section Sự kiện ("Hôm nay ở quán", A16), Video/YouTube xem trước; khung poster tự theo khổ ảnh/video, bo góc, tuỳ chỉnh kiểu Canva; nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới tương tác); **cuộn trên điện thoại:** nền đứng yên (hoặc có hiệu ứng riêng khi cuộn) thay vì bị kéo theo thẻ nổi ở cả sáu template, và kéo quá đầu trang trên Chrome iPhone không "dính" rồi bắt tải lại (Safari ổn) — Tài 27/09 | L | Sau M3. Trò "săn", quà: qua luật Khuyến mại (C2) |
 | **M5** | **Kho template thử → mở:** gói mới vào kho ở trạng thái thử (admin thấy) rồi mở; giá từ manifest | V | Có thể mig |
 | **M6** | **Lệnh kiểm gói template** (bốn sàn, CSS chỉ đọc ô đã khai, không đụng nút lõi) + trang xem trước gói cho designer | V | Gom các test rời hôm nay |
@@ -101,7 +100,7 @@ luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạ
 
 ## Đã xong (một dòng mỗi việc; chi tiết trong `decisions.md`, các tệp được trỏ và lịch sử git)
 
-M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
+M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
 liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google, `/huong-dan-google`) · A27 `DESIGN.md`/`PRODUCT.md` ·
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi template (022) · A33 sáu khoá template · A36 lớp da · K1–K6 sáu template · K7
 bản template · P1 quán/trang (024) · P2 bảng cài đặt · P3 danh sách trang (025) · P4 vòng đời trang (026) · P5a hiện giá · P1d

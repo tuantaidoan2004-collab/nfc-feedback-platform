@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import { defaultConfig, validateConfig } from '../../lib/publishing/config';
+import { currentConfig, defaultConfig, sectionsOf, shows, validateConfig } from '../../lib/publishing/config';
 import { canonical, signContext, verifyContext, type RenderContext } from '../../lib/publishing/proof';
 const ring = { active: 'fixture', keys: { fixture: 'test-only-key-at-least-thirty-two-bytes' } };
-const v1 = () => { const { feedbackButton: _unused, ...rest } = defaultConfig(); void _unused; return { ...rest, schemaVersion: 1 as const, layout: 'full-bleed' as const, links: [] }; };
+const v1 = () => { const { feedbackButton: _unused, sections: _none, ...rest } = defaultConfig(); void _unused; void _none; return { ...rest, schemaVersion: 1 as const, layout: 'full-bleed' as const, links: [] }; };
+// A page as written before sections (lát M3): version 2, no `sections`.
+const v2 = () => { const { sections: _none, ...rest } = defaultConfig(); void _none; return { ...rest, schemaVersion: 2 as const }; };
 const link = (icon: string, url: string) => ({ label: { vi: 'Liên hệ', en: 'Contact' }, url, icon });
 test('v1 releases stay readable but cannot use v2 layouts or buttons', () => {
   expect(validateConfig(v1())).toEqual(v1());
@@ -13,8 +15,8 @@ test('v1 releases stay readable but cannot use v2 layouts or buttons', () => {
   }
 });
 test('v2 adds the card layout, Facebook and a tel: contact button only', () => {
-  expect(defaultConfig().schemaVersion).toBe(2);
-  const card = { ...defaultConfig(), layout: 'card', links: [link('facebook', 'https://facebook.com/x'), link('phone', 'tel:+84901234567')] };
+  expect(validateConfig(v2())).toEqual(v2());
+  const card = { ...v2(), layout: 'card', links: [link('facebook', 'https://facebook.com/x'), link('phone', 'tel:+84901234567')] };
   expect(validateConfig(card)).toEqual(card);
   for (const links of [[link('link', 'tel:0901234567')], [link('phone', 'https://example.com')], [link('phone', 'tel:090;ext=1')],
     [link('phone', 'tel:')], [link('phone', 'javascript:alert(1)')], [link('facebook', 'http://facebook.com/x')]]) {
@@ -60,4 +62,30 @@ test('signed canonical context pins release, rejects tampering/claims, supports 
   expect(()=>canonical({...context,scope:'test'})).toThrow();
   expect(()=>verifyContext(proof,{active:'new',keys:{new:'another-test-only-key-at-least-32bytes'}})).toThrow();
   expect(verifyContext(proof,{active:'new',keys:{...ring.keys,new:'another-test-only-key-at-least-32bytes'}})).toEqual(context);
+});
+
+// Lát M3: sections. A new page is version 3; pages written before stay readable and show exactly what they showed.
+test('v3 arranges the blocks: only the poster stands above the Google invitation, each block once, nothing unknown', () => {
+  expect(defaultConfig().schemaVersion).toBe(3);
+  expect(defaultConfig().sections).toEqual([{ kind: 'poster' }, { kind: 'links' }]);
+  const base = defaultConfig();
+  for (const sections of [[{ kind: 'links' }], [{ kind: 'links', hidden: true }], [{ kind: 'poster', hidden: true }, { kind: 'links' }]])
+    expect(validateConfig({ ...base, sections }).sections).toEqual(sections);
+  for (const sections of [[], [{ kind: 'links' }, { kind: 'poster' }], [{ kind: 'links' }, { kind: 'links' }], [{ kind: 'events' }],
+    [{ kind: 'links', hidden: 'yes' }], [{ kind: 'links', extra: 1 }], 'poster', [{ kind: 'poster' }, { kind: 'links' }, { kind: 'poster' }]])
+    expect(() => validateConfig({ ...base, sections }), JSON.stringify(sections)).toThrow('INVALID_CONFIG');
+  // Version 3 cannot drop its sections, and versions 1 and 2 cannot carry them.
+  expect(() => validateConfig({ ...v2(), schemaVersion: 3 })).toThrow('INVALID_CONFIG');
+  expect(() => validateConfig({ ...v2(), sections: base.sections })).toThrow('INVALID_CONFIG');
+});
+test('an older page reads as the blocks it always had, and is brought to version 3 without changing what shows', () => {
+  for (const old of [v1(), v2()]) {
+    expect(sectionsOf(old)).toEqual([{ kind: 'poster' }, { kind: 'links' }]);
+    const now = validateConfig(currentConfig(old));
+    expect(now.schemaVersion).toBe(3);
+    expect(shows(now, 'poster')).toBe(true); expect(shows(now, 'links')).toBe(true);
+    expect({ ...now, schemaVersion: old.schemaVersion, sections: undefined, feedbackButton: undefined })
+      .toEqual({ ...old, sections: undefined, feedbackButton: undefined });
+  }
+  expect(shows({ ...defaultConfig(), sections: [{ kind: 'poster', hidden: true }, { kind: 'links' }] }, 'poster')).toBe(false);
 });

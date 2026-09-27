@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export { PublishingError } from './config';
-import { PublishingError, TEMPLATE_V1, validateConfig, withoutVideoBackground, type PageConfig } from './config';
+import { PublishingError, TEMPLATE_V1, sectionsOf, validateConfig, withoutVideoBackground, type PageConfig } from './config';
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
@@ -48,7 +48,9 @@ export async function templateVersionRow(db: PublishingDb, key: string, version:
 }
 /** A page's content (migration 022): what stays when the page changes template. Everything else is the template's look. */
 export function contentOf(config: PageConfig) {
-  return { name: config.name, googleUrl: config.googleUrl, text: config.text, links: config.links, logo: config.logo, poster: config.poster };
+  return { name: config.name, googleUrl: config.googleUrl, text: config.text, links: config.links, logo: config.logo, poster: config.poster,
+    // The owner's arrangement of blocks (lát M3) is theirs too: a new template keeps the blocks where they put them.
+    sections: [...sectionsOf(config)] };
 }
 export class PublishingAdmin {
   /** `releases`: the template versions the platform ships (versions.ts); injected only by tests that need a second one. */
@@ -123,7 +125,7 @@ export class PublishingAdmin {
       await templateVersionRow(db, draft.template_key, version);
       const { settings: previous, ...rest } = validateConfig(draft.config);
       const settings = convertSettings(settingsOf(this.releases, draft.template_key, version), previous);
-      const config = validateConfig(rest.schemaVersion === 2 && settings ? { ...rest, settings } : rest);
+      const config = validateConfig(rest.schemaVersion >= 2 && settings ? { ...rest, settings } : rest);
       const updated = await db.query(`UPDATE page_drafts SET template_version_id=(SELECT id FROM template_versions WHERE template_key=$3 AND version=$4),
         config=$5,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`, [page.shopId, page.pageId, draft.template_key, version, config]);
       return { revision: Number(updated.rows[0].revision) };

@@ -158,6 +158,28 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});}
  expect(errors).toEqual([]);
 });
+// Lát M3: the owner switches a block of the page off and on in the editor; guests see it only after publishing.
+test('the editor switches the poster block off and on, and the guest page follows once published',async({page,context,f})=>{
+ // Publishing asks "Phát hành bản này?"; the owner says yes.
+ page.on('dialog',dialog=>void dialog.accept());
+ const warm=await context.newPage();await warm.goto('/one');await warm.close();
+ await login(page,f.users[0]);
+ await page.locator('[data-view="design"]').click();
+ const poster=page.locator('[data-section="poster"] [data-section-visible]');
+ await expect(poster).toBeChecked();await expect(page.locator('[data-section="links"] [data-section-visible]')).toBeChecked();
+ await poster.uncheck();
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp');
+ const guest=await context.newPage();await guest.goto('/one');await expect(guest.locator('main[data-ready]')).toBeVisible();
+ await expect(guest.locator('.guest-poster')).toHaveCount(1);
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+ await guest.reload();await expect(guest.locator('main[data-ready]')).toBeVisible();
+ await expect(guest.locator('.guest-poster')).toHaveCount(0);await expect(guest.locator('[data-google]')).toBeInViewport();
+ await poster.check();
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp');
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+ await guest.reload();await expect(guest.locator('.guest-poster')).toHaveCount(1);
+});
+
 test('the page editor: save, preview in a new tab, publish, and the customer page changes only after publishing',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // next dev reloads every open page the first time it compiles a route; compile /one and /preview before the editor holds state.

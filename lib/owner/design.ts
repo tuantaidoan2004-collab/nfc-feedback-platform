@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
-import { DEFAULT_FEEDBACK_BUTTON, PublishingError, validateConfig, type PageConfig } from '../publishing/config';
+import { PublishingError, currentConfig, validateConfig, type PageConfig } from '../publishing/config';
 import { settingsOf, type TemplateRelease } from '../publishing/versions';
 import { lockedChange, type SettingField } from '../publishing/settings';
 import { storageSettings } from '../media/storage';
@@ -24,11 +24,6 @@ export type TemplateState = { key: string; draft: number; live: number | null; v
 export type DesignState = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
   template: TemplateState };
 /** The versions shipped per template. Injected so a test can ship a second version the code does not have yet. */
-
-/** Older pages are v1; the editor always works in v2, which adds the card layout, more buttons and the plane. */
-export function upgradeConfig(config: PageConfig): PageConfig {
-  return config.schemaVersion === 2 ? config : { ...config, schemaVersion: 2, feedbackButton: { ...DEFAULT_FEEDBACK_BUTTON } };
-}
 
 const revisionOf = (value: unknown) => {
   if (!Number.isSafeInteger(value) || Number(value) < 1) throw new OwnerError(400, 'INVALID_DESIGN');
@@ -100,7 +95,7 @@ export class OwnerDesign {
     if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
     const live = (await this.pool.query(`SELECT r.id,r.config_snapshot,tv.version FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
       JOIN template_versions tv ON tv.id=r.template_version_id WHERE p.shop_id=$1 AND p.id=$2`, [page.shopId, page.pageId])).rows[0];
-    return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config: upgradeConfig(validateConfig(draft.config)) },
+    return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config: currentConfig(validateConfig(draft.config)) },
       live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null,
       // Whether the upload buttons can work here: all R2 settings present.
       uploads: storageSettings() !== null,
@@ -117,8 +112,8 @@ export class OwnerDesign {
       const draft = (await db.query(`SELECT d.config,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
         WHERE d.shop_id=$1 AND d.page_id=$2`, [page.shopId, page.pageId])).rows[0];
       if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
-      let after; try { after = upgradeConfig(validateConfig(data.config)); } catch (error) { translate(error); }
-      if (lockedChange(settingsOf(this.releases, draft.template_key, Number(draft.version)), upgradeConfig(validateConfig(draft.config)), after!))
+      let after; try { after = currentConfig(validateConfig(data.config)); } catch (error) { translate(error); }
+      if (lockedChange(settingsOf(this.releases, draft.template_key, Number(draft.version)), currentConfig(validateConfig(draft.config)), after!))
         throw new OwnerError(400, 'SETTING_LOCKED');
       const revision = await this.admin(access, db).saveDraft(page, expected, data.config).catch(translate);
       await this.audit(db, access, 'impersonation.design.save', { revision });

@@ -123,6 +123,14 @@ tìm `Syntax error` trước khi đọc lỗi test. Selector trong CSS module ph
 Hoạt động, Cài đặt, Hồ sơ và Đăng xuất nằm sau nút "Thêm"; test bấm chúng qua `openView` / `signOut` trong chính tệp test.
 Test nào giả định màn hình máy tính phải tự `setViewportSize`.
 
+**Sau M3 (27/09) không quay lui production về mã trước M3 mà không nghĩ.** Mã cũ chỉ đọc `PageConfig` v1/v2; trang nào đã
+lưu hay phát hành bằng v3 (có `sections`) sẽ trả "Trang chưa sẵn sàng". Muốn lùi thì lùi từng lát, hoặc chuyển cấu hình
+về v2 trước (bỏ `sections`, đổi `schemaVersion`). Cùng lý do: test tạo cấu hình v1/v2 từ `defaultConfig()` phải bỏ cả
+`sections` (xem `v1`/`v2` trong `tests/contracts/publishing.spec.ts`).
+
+**Nút Phát hành trong trình chỉnh hỏi bằng `window.confirm`, và Playwright mặc định bấm Huỷ.** Test nào bấm Phát hành phải
+`page.on('dialog', d => void d.accept())` trước; thiếu nó thì thông báo "Đã phát hành" không bao giờ hiện (lỗi của Claude ở M3).
+
 **Chạy cả bộ integration một lệnh thì 11 test đỏ.** Ba lệnh harness **loại trừ nhau**, vì `publishing = owner || --publishing` nên `--owner`/`--admin` bật luôn publishing và đổi cách `/one` render:
 
 ```

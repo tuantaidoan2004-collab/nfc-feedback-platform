@@ -123,7 +123,7 @@ test('publishing gate off: no page, no write path, nothing recorded', async ({ p
 // Lát B2–B3: guest page v2. The fixture publishes draft revision 1, so the next save expects revision 2.
 const b2 = (patch: Partial<PageConfig> = {}): PageConfig => ({ ...defaultConfig('Quán Thử'), googleUrl: 'https://maps.google.com/?cid=42',
   background: { kind: 'media', media: { kind: 'image', url: STEM_BACKGROUND.still }, loop: true }, ...patch });
-const v1 = (name: string) => { const { feedbackButton: _unused, ...rest } = defaultConfig(name); void _unused; return { ...rest, schemaVersion: 1, links: [] }; };
+const v1 = (name: string) => { const { feedbackButton: _unused, sections: _none, ...rest } = defaultConfig(name); void _unused; void _none; return { ...rest, schemaVersion: 1, links: [] }; };
 async function release(f: Fixture, config: unknown, expected: number) {
   const saved = await f.admin.saveDraft(f.page, expected, config); await f.admin.publish(f.page, saved); return saved + 1;
 }
@@ -801,6 +801,41 @@ test('template 6: the light on the orb follows the tilt of the phone, and the vi
   await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 75, gamma: -30 })));
   await page.waitForTimeout(200);
   expect(await tilt()).toEqual(['', '']);
+});
+
+// Lát M3: the page's blocks. The owner switches the poster and the links off and on; the Google invitation, the private
+// button and the legal line never move; with every block on, the page is the page it was before sections.
+test('sections: a hidden poster or row of links leaves the page, Google stays in the first screen, and all on is the page of old', async ({ page, fixture: f }) => {
+  const links = [{ label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const }];
+  // One shop per template: a template's version row is created once (templateShop makes it).
+  await templateShop(f, 'minimal', 'khoi', { links, poster: { kind: 'image', url: STEM_BACKGROUND.still },
+    sections: [{ kind: 'poster', hidden: true }, { kind: 'links' }] });
+  await page.goto('/khoi'); await loaded(page);
+  await expect(page.locator('.guest-poster')).toHaveCount(0);
+  await expect(page.locator('.guest-links a')).toHaveCount(1);
+  await expect(page.locator('[data-google]')).toBeInViewport();
+  await expect(page.locator('main')).toHaveAttribute('data-schema', '3');
+  await templateShop(f, 'deco', 'khoihai', { links, poster: { kind: 'image', url: STEM_BACKGROUND.still },
+    sections: [{ kind: 'poster' }, { kind: 'links', hidden: true }] });
+  await page.goto('/khoihai'); await loaded(page);
+  await expect(page.locator('.guest-poster')).toHaveCount(1);
+  await expect(page.locator('.guest-links')).toHaveCount(0);
+  await expect(page.locator('[data-google]')).toBeInViewport();
+  await expect(page.locator('#private-feedback')).toBeVisible();
+  await expect(page.locator('[data-legal]')).toBeVisible();
+  // Every block on: the same page, node for node, as the same content written before sections (version 2).
+  const { sections: _none, ...older } = { ...templateConfig('spotlight'), name: 'Quán khoi', googleUrl: 'https://maps.google.com/?cid=66', links,
+    poster: { kind: 'image' as const, url: STEM_BACKGROUND.still } }; void _none;
+  await templateShop(f, 'spotlight', 'khoiba', { ...older, sections: [{ kind: 'poster' }, { kind: 'links' }] });
+  // Written as before sections: straight through the publishing core, since templateShop starts from today's version 3.
+  const oldShop = randomUUID();
+  await f.db.query('INSERT INTO shops(id,slug,name)VALUES($1,$2,$3)', [oldShop, 'khoicu', 'Quán khoicu']);
+  const spotlight = (await f.db.query("SELECT id FROM template_versions WHERE template_key='spotlight' AND version=1")).rows[0].id;
+  const oldPage = await f.admin.createPage(oldShop, spotlight, { ...older, schemaVersion: 2 }, 'khoicu');
+  await f.admin.publish(oldPage, 1);
+  const shape = async (slug: string) => { await page.goto(`/${slug}`); await loaded(page);
+    return page.locator('main .guest-sheet').evaluate(sheet => [...sheet.querySelectorAll('*')].map(el => `${el.tagName}.${el.className}`).join(' ')); };
+  expect(await shape('khoiba')).toBe(await shape('khoicu'));
 });
 
 // Lát S0 (audit A1): the tab carries the shop's own name -- it used to read "NFC Feedback · Bản thử" on every shop --

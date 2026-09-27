@@ -5,12 +5,27 @@ export type LinkIcon = 'zalo' | 'instagram' | 'booking' | 'link' | 'facebook' | 
 /** The floating private-feedback button. Only built-in icons until per-shop uploads exist. */
 export type FeedbackButton = { icon: 'plane' | 'chat' | 'mail'; color: string; outline: string };
 /**
+ * Sections (lát M3, 27/09): the page as blocks the owner arranges -- which blocks show, in what order. A section holds
+ * the arrangement; the block's content stays where the page's content lives (`poster`, `links`, and the page profile of
+ * migration 022/024), so switching template, the media review and the Google rules see content exactly as before.
+ * The Google invitation, the private-feedback button and the legal footer are the page's fixed core, not sections.
+ *
+ * Zones keep the Google button in the first screen (floor 1): only the poster may stand above the invitation, and only
+ * first; every other block stands below it. A later block (events, video, M4) is a new kind here, in the lower zone.
+ */
+export const SECTION_KINDS = ['poster', 'links'] as const;
+export type SectionKind = typeof SECTION_KINDS[number];
+export type Section = { kind: SectionKind; hidden?: boolean };
+/** Every page before sections had exactly these, in this order. */
+export const DEFAULT_SECTIONS: readonly Section[] = [{ kind: 'poster' }, { kind: 'links' }];
+/**
  * schemaVersion 2 (lát B2–B3) adds the card layout, the Facebook, phone and TikTok buttons and the required
  * feedbackButton. Version 1 releases stay valid and render with the default feedback button; they cannot use the
- * additions. The phone button is the only one that takes a tel: link.
+ * additions. The phone button is the only one that takes a tel: link. schemaVersion 3 (lát M3) adds `sections`;
+ * everything else is as in 2. Releases of every version stay readable; a draft becomes 3 when it is next written.
  */
 export type PageConfig = {
-  schemaVersion: 1 | 2; layout: 'full-bleed' | 'card'; name: string;
+  schemaVersion: 1 | 2 | 3; layout: 'full-bleed' | 'card'; name: string;
   poster: MediaRef | null; logo: { kind: 'image'; url: string } | null;
   background: { kind: 'solid'; color: string } | { kind: 'gradient'; colors: [string, string]; angle: number } | { kind: 'media'; media: MediaRef; loop: boolean };
   watermark: { text: 'YOUR LOGO'; enabled: boolean; motion: 'diagonal-linear' };
@@ -19,6 +34,8 @@ export type PageConfig = {
   feedbackButton?: FeedbackButton;
   /** A template version's own fields (lib/publishing/settings.ts, lát P2). Absent means every field at its default. */
   settings?: Record<string, string | number | boolean>;
+  /** schemaVersion 3 only: the blocks and their order (lát M3). */
+  sections?: Section[];
 };
 export class PublishingError extends Error { constructor(public readonly code: string) { super(code); } }
 function fail(): never { throw new PublishingError('INVALID_CONFIG'); }
@@ -51,9 +68,26 @@ function media(value: unknown, logo = false) {
 }
 const color = (v: unknown) => { if (typeof v !== 'string' || !/^#[a-fA-F0-9]{6}$/.test(v)) fail(); };
 export function validateConfig(value: unknown): PageConfig {
-  const v2 = !!value && typeof value === 'object' && (value as Record<string, unknown>).schemaVersion === 2;
+  const version = !!value && typeof value === 'object' ? (value as Record<string, unknown>).schemaVersion : undefined;
+  // `v2` below reads "version 2 or later": 3 keeps every rule of 2 and adds the sections.
+  const v2 = version === 2 || version === 3, v3 = version === 3;
   const settings = v2 && Object.hasOwn(value as object, 'settings');
-  keys(value, ['schemaVersion', 'layout', 'name', 'poster', 'logo', 'background', 'watermark', 'text', 'googleUrl', 'links', ...(v2 ? ['feedbackButton'] : []), ...(settings ? ['settings'] : [])]);
+  keys(value, ['schemaVersion', 'layout', 'name', 'poster', 'logo', 'background', 'watermark', 'text', 'googleUrl', 'links', ...(v2 ? ['feedbackButton'] : []),
+    ...(v3 ? ['sections'] : []), ...(settings ? ['settings'] : [])]);
+  if (v3) {
+    const list = value.sections;
+    if (!Array.isArray(list) || list.length < 1 || list.length > SECTION_KINDS.length) fail();
+    const seen = new Set<string>();
+    list.forEach((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) fail();
+      keys(item, Object.hasOwn(item, 'hidden') ? ['kind', 'hidden'] : ['kind']);
+      if (!(SECTION_KINDS as readonly string[]).includes(String(item.kind)) || seen.has(String(item.kind))) fail();
+      if ('hidden' in item && typeof item.hidden !== 'boolean') fail();
+      // Only the poster may stand above the Google invitation, and only first (floor 1).
+      if (item.kind === 'poster' && index !== 0) fail();
+      seen.add(String(item.kind));
+    });
+  }
   // Only the shape here, so the guest page can put these on the page as they are: which keys a template version takes
   // and what each one accepts is checked where a page is written (settings.ts).
   if (settings) {
@@ -99,11 +133,26 @@ const DEFAULT_LINKS: PageConfig['links'] = [
 ];
 export const TEMPLATE_V1 = { schemaVersion: 1, rendererVersion: '1', capabilities: ['branding', 'background', 'links', 'google-invariant', 'vi-en'] } as const;
 export function defaultConfig(name = 'YOUR BRAND'): PageConfig {
-  return { schemaVersion: 2, layout: 'full-bleed', name, poster: null, logo: null,
+  return { schemaVersion: 3, layout: 'full-bleed', name, poster: null, logo: null,
     background: { kind: 'gradient', colors: ['#214034', '#EFF2E8'], angle: 135 },
     watermark: { text: 'YOUR LOGO', enabled: true, motion: 'diagonal-linear' },
     text: { question: { vi: 'Trải nghiệm hôm nay của bạn thế nào?', en: 'How was your experience today?' } },
-    googleUrl: 'https://maps.google.com/', links: structuredClone(DEFAULT_LINKS), feedbackButton: { ...DEFAULT_FEEDBACK_BUTTON } };
+    googleUrl: 'https://maps.google.com/', links: structuredClone(DEFAULT_LINKS), feedbackButton: { ...DEFAULT_FEEDBACK_BUTTON },
+    sections: structuredClone([...DEFAULT_SECTIONS]) };
+}
+/** The blocks of any page, whatever version it was written in: pages before lát M3 had the poster and the links. */
+export const sectionsOf = (config: PageConfig): readonly Section[] => config.sections ?? DEFAULT_SECTIONS;
+/** Whether a block of this kind shows on the page. */
+export const shows = (config: PageConfig, kind: SectionKind) => sectionsOf(config).some(section => section.kind === kind && !section.hidden);
+/**
+ * A page written in any earlier version, brought to the current one (3): the default feedback button for a version 1
+ * page, the blocks every page had before sections. Nothing the page shows changes. Used where a draft is read to be
+ * edited and where it is written.
+ */
+export function currentConfig(config: PageConfig): PageConfig {
+  if (config.schemaVersion === 3) return config;
+  return { ...config, schemaVersion: 3, feedbackButton: config.feedbackButton ?? { ...DEFAULT_FEEDBACK_BUTTON },
+    sections: structuredClone([...DEFAULT_SECTIONS]) };
 }
 /**
  * A page background is never a video (Tài 26/09/2026): a clip cropped into a phone screen is heavy and loses its

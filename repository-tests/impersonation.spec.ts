@@ -340,7 +340,8 @@ test('the page editor: owners and managers edit and publish; support edits only 
  const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
  const {PublishingResolver}=await import('../lib/publishing/repository');
  const state=await design.read(f.users[0].token,'one');
- expect(state.draft.config.schemaVersion).toBe(2);expect(state.live).not.toBeNull();
+ // The editor always works in the current version: 3 since sections (lát M3).
+ expect(state.draft.config.schemaVersion).toBe(3);expect(state.live).not.toBeNull();
  const config={...state.draft.config,name:'Tên mới',layout:'card' as const,links:[{label:{vi:'Gọi',en:'Call'},url:'tel:0901234567',icon:'phone' as const}]};
  await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config:{...config,html:'<b>'}})).rejects.toThrow('INVALID_CONFIG');
  const saved=await design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config});

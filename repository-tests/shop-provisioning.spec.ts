@@ -180,7 +180,7 @@ test('resetting the template publishes the current defaults as a new release; sh
  const template=await f.shops.ensureTemplate(f.actorId),admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
  // Stand in for a template published before the new defaults existed.
  const draft=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
- const {feedbackButton:_unused,...old}=templateConfig();void _unused;
+ const {feedbackButton:_unused,sections:_none,...old}=templateConfig();void _unused;void _none;
  const saved=await admin.saveDraft(pageOf(template),draft,{...old,schemaVersion:1,links:[]});await admin.publish(pageOf(template),saved);
  const before=await f.shops.create(f.actorId,{name:'Quán Trước',ownerUsername:'quan-truoc',ownerEmail:'truoc@example.com',googleUrl:''});
  const oldRelease=(await f.db.query('SELECT active_release_id id FROM pages WHERE shop_id=$1',[template.shopId])).rows[0].id;
