@@ -25,7 +25,7 @@ templates/<khoá>/
 | `name` | Tên ngắn, tiếng Việt. |
 | `pricePerMonth` | Giá mỗi trang mỗi tháng, đồng. `0` = miễn phí, không chiếm suất miễn phí (`docs/goi-va-trang.md` mục 4). |
 | `page` | Khung trắng mà trang mới bắt đầu: chỉ `layout`, `background`, `watermark`, và `links: []`. Không bao giờ là nội dung của ai (tên, link, logo, ảnh). |
-| `effects` | Hiệu ứng nền tảng template dùng, `{}` nếu không: `leaveTransitionMs` (1–300, lớp sương trước khi sang Google, Google mở cùng tab), `glass: true` (kính khúc xạ), `googleButton: "orb"` (nút hạt ngọc). Hiệu ứng mới cần coder (lát M2). |
+| `effects` | Hiệu ứng nền tảng template dùng, `{}` nếu không: `leaveTransitionMs` (1–300, lớp sương trước khi sang Google, Google mở cùng tab), `glass: true` (kính khúc xạ), `googleButton: "orb"` (nút hạt ngọc), `thankYouSeconds` (1–4: lời cảm ơn, tim bung, đếm rồi Google mở tab mới; không dùng chung với `leaveTransitionMs`). Mỗi hiệu ứng là một module trong `components/effects/`; hiệu ứng mới cần coder. |
 | `versions` | Các bản, cũ nhất trước: `version` (1, 2, 3… liền nhau), `date` (YYYY-MM-DD), `notes` (một câu cho chủ quán: bản này khác bản trước ở chỗ nào họ nhìn thấy), `settings` (ô chủ quán được chỉnh, xem `lib/publishing/settings.ts`). |
 
 Bảng ô của bản 1 hôm nay mở đúng những ô mà thiết kế thật sự dùng (P2, 25/09): template 1 vẽ thẻ trôi trên nền của shop

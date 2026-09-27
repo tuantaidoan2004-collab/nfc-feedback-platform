@@ -18,7 +18,9 @@ export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
         "loop": true
       }
     },
-    "effects": {},
+    "effects": {
+      "thankYouSeconds": 4
+    },
     "versions": [
       {
         "version": 1,
@@ -61,7 +63,9 @@ export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
         "motion": "diagonal-linear"
       }
     },
-    "effects": {},
+    "effects": {
+      "thankYouSeconds": 4
+    },
     "versions": [
       {
         "version": 1,
@@ -98,7 +102,8 @@ export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
       }
     },
     "effects": {
-      "glass": true
+      "glass": true,
+      "thankYouSeconds": 4
     },
     "versions": [
       {
@@ -138,7 +143,9 @@ export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
         "motion": "diagonal-linear"
       }
     },
-    "effects": {},
+    "effects": {
+      "thankYouSeconds": 4
+    },
     "versions": [
       {
         "version": 1,
@@ -170,7 +177,9 @@ export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
         "motion": "diagonal-linear"
       }
     },
-    "effects": {},
+    "effects": {
+      "thankYouSeconds": 4
+    },
     "versions": [
       {
         "version": 1,

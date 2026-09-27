@@ -497,6 +497,50 @@ test('template 6: a tap covers the page for 300 ms, then the same tab goes to Go
   await expect(page.locator('main[data-leaving]')).toHaveCount(0);
 });
 
+// Lát M2 (Tài 27/09): on templates 1–5 a tap on Google shows the shop's thanks, hearts burst, the count runs the full four
+// seconds, then Google opens in a NEW tab and this page stays as it was, for the guest to come back to.
+const googleTab = (page: Page) => page.context().route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
+test('templates 1–5: a tap thanks the guest, the count runs out, Google opens in a new tab and this page stays', async ({ page, fixture: f }) => {
+  const shop = await templateShop(f, 'minimal', 'hai'); await googleTab(page);
+  await page.goto('/hai'); await loaded(page);
+  const tab = page.waitForEvent('popup', { timeout: 10_000 });
+  const started = Date.now();
+  await page.locator('[data-google]').click();
+  const card = page.locator('[data-thanks-countdown]');
+  await expect(card).toHaveAttribute('data-thanks-countdown', '4');
+  await expect(card.getByRole('dialog')).toContainText('Cảm ơn quý khách đã ghé!');
+  await expect(card.getByRole('dialog')).toContainText('Merci beaucoup!');
+  await expect(card.locator('.thanks-hearts span')).toHaveCount(14);
+  await expect(card).toHaveAttribute('data-thanks-countdown', '2', { timeout: 4_000 });
+  const google = await tab;
+  expect(Date.now() - started).toBeGreaterThanOrEqual(3_900);
+  await google.waitForURL('https://maps.google.com/?cid=66');
+  // This page never left: same address, the card gone, the button where it was.
+  expect(new URL(page.url()).pathname).toBe('/hai');
+  await expect(card).toHaveCount(0);
+  await expect(page.locator('[data-google]')).toBeInViewport();
+  await expect.poll(async () => (await f.db.query(`SELECT e.name FROM page_events e JOIN page_visits v ON v.id=e.visit_id
+    WHERE v.shop_id=$1 AND e.name='google_tapped'`, [shop.shopId])).rowCount).toBe(1);
+});
+
+test('templates 1–5: a held-back tab gets one tap on "Mở Google"; reduced motion keeps the thanks without the hearts', async ({ page, fixture: f }) => {
+  await templateShop(f, 'deco', 'bon');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // A browser that refuses the delayed tab answers window.open with null.
+  await page.addInitScript(() => { window.open = () => null; });
+  await page.goto('/bon'); await loaded(page);
+  await page.locator('[data-google]').click();
+  const card = page.locator('[data-thanks-countdown]');
+  await expect(card.getByRole('dialog')).toContainText('Cảm ơn quý khách đã ghé!');
+  await expect(card.locator('.thanks-hearts')).toHaveCount(0);
+  await expect(card).toHaveAttribute('data-thanks-countdown', 'blocked', { timeout: 6_000 });
+  const open = card.locator('[data-thanks-open]');
+  await expect(open).toHaveText('Mở Google');
+  await expect(open).toHaveAttribute('href', 'https://maps.google.com/?cid=66');
+  await expect(open).toHaveAttribute('target', '_blank');
+  expect(new URL(page.url()).pathname).toBe('/bon');
+});
+
 test('template 6: with reduced motion the tap goes straight to Google, no cover', async ({ page, fixture: f }) => {
   await bigButtonShop(f); await googleStub(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });

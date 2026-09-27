@@ -33,6 +33,8 @@ test('a broken package is named, in words a designer can act on', () => {
   expect(problems({ page: { background: { kind: 'solid', color: 'red' } } })).toContain('không tạo được một trang hợp lệ');
   expect(problems({ effects: { leaveTransitionMs: 900 } })).toContain('từ 1 tới 300');
   expect(problems({ effects: { confetti: true } })).toContain('hiệu ứng lạ');
+  expect(problems({ effects: { thankYouSeconds: 5 } })).toContain('từ 1 tới 4');
+  expect(problems({ effects: { thankYouSeconds: 4, leaveTransitionMs: 300 } })).toContain('chỉ chọn một');
   expect(problems({ versions: [{ ...good.versions[0], version: 2 }] })).toContain('"version" phải là 1');
   expect(problems({}, [])).toContain('thiếu tệp v1.css');
   expect(problems({}, ['v1.css', 'v2.css'])).toContain('v2.css không thuộc bản nào');
@@ -41,8 +43,9 @@ test('a broken package is named, in words a designer can act on', () => {
 
 test('what the packages declare is what the platform reads', () => {
   expect(effectsOf('big-button')).toEqual({ leaveTransitionMs: 300, googleButton: 'orb' });
-  expect(effectsOf('glass')).toEqual({ glass: true });
-  expect(effectsOf('standard')).toEqual({});
+  expect(effectsOf('glass')).toEqual({ glass: true, thankYouSeconds: 4 });
+  // Tài 27/09: the thanks before Google on templates 1–5; template 6 keeps its own 300 ms way out.
+  for (const key of ['standard', 'minimal', 'deco', 'spotlight']) expect(effectsOf(key), key).toEqual({ thankYouSeconds: 4 });
   expect(effectsOf('not-shipped')).toEqual({}); expect(effectsOf(undefined)).toEqual({});
   // A fresh copy each time: a caller changing its page cannot change the template.
   const page = templateConfig('deco'); page.name = 'changed';

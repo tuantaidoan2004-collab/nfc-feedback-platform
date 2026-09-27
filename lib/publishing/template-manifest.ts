@@ -13,7 +13,7 @@ import type { TemplateRelease } from './versions';
  * - `pricePerMonth`: giá mỗi trang mỗi tháng, đồng (`pricing.ts`); 0 là miễn phí và không chiếm suất miễn phí.
  * - `page`: khung trắng trang mới bắt đầu, đè lên trang mặc định. Chỉ bố cục, nền, watermark và `links: []` — không bao
  *   giờ là nội dung của ai (DESIGN.md mục 8).
- * - `effects`: hiệu ứng nền tảng template dùng. Mã của chúng vẫn nằm trong trang khách cho tới lát M2.
+ * - `effects`: hiệu ứng nền tảng template dùng; mỗi hiệu ứng là một module trong `components/effects/` (lát M2).
  * - `versions`: cũ nhất trước; ngày, ghi chú cho chủ quán, và bảng ô được chỉnh (`settings.ts`).
  */
 export type TemplateEffects = {
@@ -23,6 +23,11 @@ export type TemplateEffects = {
   glass?: boolean;
   /** Template 6: nút Google dạng hạt ngọc, chữ chạy vòng quanh. */
   googleButton?: 'orb';
+  /**
+   * Lời cảm ơn của quán, tim bung, đếm ngược rồi Google mở ở tab mới (Tài 27/09; components/effects/thanks.tsx). At most 4:
+   * a browser lets a page open a tab only while the tap is fresh, about five seconds in Chromium.
+   */
+  thankYouSeconds?: number;
 };
 export type TemplatePage = Partial<Pick<PageConfig, 'layout' | 'background' | 'watermark'>> & { links?: [] };
 export type TemplateManifest = {
@@ -31,7 +36,7 @@ export type TemplateManifest = {
 };
 
 const PAGE_KEYS = ['layout', 'background', 'watermark', 'links'];
-const EFFECT_KEYS = ['leaveTransitionMs', 'glass', 'googleButton'];
+const EFFECT_KEYS = ['leaveTransitionMs', 'glass', 'googleButton', 'thankYouSeconds'];
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** The template's starting page: the built-in default page, with what the manifest's `page` says on top. */
@@ -66,6 +71,9 @@ export function manifestProblems(value: unknown, folder: string, stylesheets: re
       say('"leaveTransitionMs" từ 1 tới 300 (thiet-ke-va-template.md mục 12, ranh giới 2)');
     if ('glass' in e && e.glass !== true) say('"glass" chỉ ghi khi là true');
     if ('googleButton' in e && e.googleButton !== 'orb') say('"googleButton" chỉ nhận "orb"');
+    if ('thankYouSeconds' in e && !(Number.isInteger(e.thankYouSeconds) && Number(e.thankYouSeconds) >= 1 && Number(e.thankYouSeconds) <= 4))
+      say('"thankYouSeconds" từ 1 tới 4 (trình duyệt chỉ cho mở tab mới trong khoảng 5 giây sau cú chạm)');
+    if ('thankYouSeconds' in e && 'leaveTransitionMs' in e) say('"thankYouSeconds" và "leaveTransitionMs" là hai cách rời trang — chỉ chọn một');
   }
   const versions = Array.isArray(value.versions) ? value.versions as unknown[] : null;
   if (!versions?.length) say('"versions" cần ít nhất một bản');

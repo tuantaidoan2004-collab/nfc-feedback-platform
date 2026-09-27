@@ -82,7 +82,7 @@ test rời (`tests/contracts/skin.spec.ts`, `google-policy.spec.ts`); gom thành
 | # | Bước | Thay đổi thấy được | Migration |
 |---|---|---|---|
 | **M1** ✓ | **Gói template (xong 27/09):** mỗi template một thư mục + manifest; registry sinh từ đó | Không (cùng hành vi) — từ đây designer làm template không đụng TypeScript | Không |
-| **M2** | **Module hiệu ứng:** tách kính, chuyển cảnh, ánh sáng theo nghiêng khỏi component lõi; manifest template khai hiệu ứng dùng | Không | Không |
+| **M2** ✓ | **Module hiệu ứng (xong 27/09):** `components/effects/` — kính, hạt ngọc + nghiêng, lớp sương, lời cảm ơn trước Google; một sổ đăng ký, trang khách không phải sửa khi thêm hiệu ứng | Lời cảm ơn trước Google (template 1–5), con trỏ nhiều màu | Không |
 | **M3** | **Section:** `PageConfig` v3 = danh sách section; poster và hàng link thành hai section đầu; trang v2 vẫn đọc được | Chủ quán bật/tắt, xếp thứ tự section trong vùng cho phép | Có (chuyển dữ liệu nháp; bản phát hành cũ giữ nguyên) |
 | **M4** | **Section mới + đợt cải tổ UI/UX:** Sự kiện (A16), Video/YouTube xem trước, khung poster tự theo khổ video/ảnh và bo góc, nền có chiều sâu (ảnh hero, gradient chuyển động, mixed media, hạt/lưới); nền đứng yên khi cuộn, bỏ kéo-để-tải-lại dính trên Chrome iPhone (Tài 27/09) | Có | Tuỳ section |
 | **M5** | **Kho template thử → mở:** gói template mới vào kho ở trạng thái thử (admin thấy), rồi mở; giá lấy từ manifest | `/gov` và kho template | Có thể |

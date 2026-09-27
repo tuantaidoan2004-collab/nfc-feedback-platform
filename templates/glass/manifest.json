@@ -21,7 +21,8 @@
     }
   },
   "effects": {
-    "glass": true
+    "glass": true,
+    "thankYouSeconds": 4
   },
   "versions": [
     {

@@ -27,6 +27,11 @@ export type DocumentFeedbackService = Readonly<{
   /** Fire-and-forget behaviour. Returns nothing, throws nothing, and is never awaited (lát mục 7). */
   event: (name: GuestEventName, detail?: Record<string, string | number | boolean>) => void;
   /**
+   * Sends the queued behaviour now. For a way out the page itself takes -- Google opening in a new tab (lát M2) -- where
+   * this tab may stay visible, so neither `visibilitychange` nor `pagehide` would come. Fire-and-forget, like `event`.
+   */
+  flushEvents: () => void;
+  /**
    * Erases what this browser wrote to this shop (A5): words, call-back number, behaviour log. After it, the page
    * records no more behaviour, or the log would start refilling the moment it was emptied.
    */
@@ -120,6 +125,7 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       retry: () => action(() => queue.retry()),
       retryOpen: key => action(() => queue.retryOpen(key)),
       event,
+      flushEvents: () => { void sink.then(ready => ready.flush()).catch(() => {}); },
       erase,
     });
     registry.set(win.document, { win, shop, binding, service, settled: queue.settled,

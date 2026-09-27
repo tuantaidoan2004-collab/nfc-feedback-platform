@@ -16,7 +16,9 @@
       "motion": "diagonal-linear"
     }
   },
-  "effects": {},
+  "effects": {
+    "thankYouSeconds": 4
+  },
   "versions": [
     {
       "version": 1,

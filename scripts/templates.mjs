@@ -39,6 +39,7 @@ const styles = `${banner}// Mọi tệp CSS trang khách mặc, theo thứ tự:
 // trang đang mở -- kể cả dashboard -- lần đầu nó được khung.
 import './guest-page.css';
 import './skin.css';
+import './effects/effects.css';
 ${packages.flatMap(p => p.versions.map(v => `import '../templates/${p.key}/v${v.version}.css';`)).join('\n')}
 `;
 

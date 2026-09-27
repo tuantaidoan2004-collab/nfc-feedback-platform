@@ -52,6 +52,7 @@ export function useDocumentFeedback(service: DocumentFeedbackService | null = nu
     retryOpen: service?.retryOpen ?? disabledAction,
     // Does nothing when feedback is off, so the page never branches on whether it is being measured.
     event: service?.event ?? disabledEvent,
+    flushEvents: service?.flushEvents ?? disabledEvent,
     erase: service?.erase ?? disabledErase,
   };
 }

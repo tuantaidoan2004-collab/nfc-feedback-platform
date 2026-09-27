@@ -5,6 +5,7 @@
 // trang đang mở -- kể cả dashboard -- lần đầu nó được khung.
 import './guest-page.css';
 import './skin.css';
+import './effects/effects.css';
 import '../templates/standard/v1.css';
 import '../templates/minimal/v1.css';
 import '../templates/glass/v1.css';

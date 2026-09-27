@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- media URLs are shop-configured https or built-in paths; next/image would need every host listed in advance. */
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { copy, topics, type Language, type Topic } from '@/lib/copy';
 import { DEFAULT_FEEDBACK_BUTTON, defaultConfig, STEM_BACKGROUND, type FeedbackButton, type LinkIcon, type MediaRef, type PageConfig } from '@/lib/publishing/config';
 import { burstConfetti } from './confetti';
@@ -15,6 +15,7 @@ import type { CoordinatorResult } from '@/lib/client/visit-coordinator';
 import { normalizeFeedback, normalizePhone } from '@/lib/domain/private-feedback';
 import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
 import { effectsOf } from '@/lib/publishing/templates';
+import { useTemplateEffects } from './effects';
 
 /**
  * Guest page v2 (lát B3, 2026-09-18). The page itself asks for nothing but the Google review: the Google invitation is
@@ -116,113 +117,6 @@ function sceneTokens(b: PageConfig['background']) {
   if (b.kind === 'solid') return { '--c-c1': b.color, '--c-c2': b.color, '--c-angle': '180deg' };
   if (b.kind === 'gradient') return { '--c-c1': b.colors[0], '--c-c2': b.colors[1], '--c-angle': `${b.angle}deg` };
   return {};
-}
-
-/**
- * Template 3: where each glass pane sits on the page. A pane repaints the scene behind it, shifted by its own offset, and
- * the scene scrolls with the page, so pane and scene never slide past each other: the refraction filter runs once and
- * the browser keeps the result. Measured again only when something changes size (a poster loading, a language switch,
- * turning the phone). A pane can move without changing size -- a line above it rewraps -- so every block that can push
- * a pane is watched too, not only the panes. `data-glass` marks the copies as aligned; until then only the frosted
- * tint shows.
- */
-const GLASS_PANES = '.guest-body, .guest-links a';
-function useGlassPlacement(enabled: boolean) {
-  const root = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const main = root.current; if (!enabled || !main) return;
-    const place = () => {
-      const page = main.getBoundingClientRect();
-      main.style.setProperty('--gw', `${page.width}px`); main.style.setProperty('--gh', `${page.height}px`);
-      for (const pane of main.querySelectorAll<HTMLElement>(GLASS_PANES)) {
-        const box = pane.getBoundingClientRect();
-        pane.style.setProperty('--gx', `${box.left - page.left}px`); pane.style.setProperty('--gy', `${box.top - page.top}px`);
-      }
-      main.dataset.glass = 'ready';
-    };
-    place();
-    const watch = new ResizeObserver(place);
-    watch.observe(main); main.querySelectorAll(`${GLASS_PANES}, .guest-sheet > *, .guest-body > *`).forEach(block => watch.observe(block));
-    return () => watch.disconnect();
-  }, [enabled]);
-  return root;
-}
-
-/**
- * The glass itself: bend the pane's copy of the scene at its rim, frost it, add a rim light. Built from the pane's own
- * shape (a blurred alpha is the height of the glass, its slope is the bend), so one filter fits every size with no
- * image and no script. Rules learned making it agree across engines (thiet-ke-va-template.md mục 15):
- * feConvolveMatrix with preserveAlpha keeps every intermediate opaque, because engines disagree on half-transparent
- * displacement maps; the kernel reads right-minus-left written as `g 0 -g`, because convolution flips it; and the
- * region reaches past the pane, because engines disagree on what lies beyond a region's edge.
- * Hidden by size, never `display: none`: Safari ignores a filter inside a display-none element.
- */
-function GlassFilter({ id, bezel, gain, bend, frost }: { id: string; bezel: number; gain: number; bend: number; frost: number }) {
-  return <filter id={id} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
-    <feGaussianBlur in="SourceAlpha" stdDeviation={bezel} result="soft" />
-    <feColorMatrix in="soft" type="matrix" values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="h" />
-    <feConvolveMatrix in="h" order="3 1" kernelMatrix={`${gain} 0 -${gain}`} divisor="1" bias="0.5" preserveAlpha="true" edgeMode="duplicate" result="gx" />
-    <feConvolveMatrix in="h" order="1 3" kernelMatrix={`${gain} 0 -${gain}`} divisor="1" bias="0.5" preserveAlpha="true" edgeMode="duplicate" result="gy" />
-    <feColorMatrix in="gx" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0 1" result="mx" />
-    <feColorMatrix in="gy" type="matrix" values="0 0 0 0 0  1 0 0 0 0  0 0 0 0 0  0 0 0 0 1" result="my" />
-    <feBlend in="mx" in2="my" mode="lighten" result="raw" />
-    <feGaussianBlur in="raw" stdDeviation="1.5" result="map" />
-    <feGaussianBlur in="SourceGraphic" stdDeviation={frost} result="frosted" />
-    <feDisplacementMap in="frosted" in2="map" scale={bend} xChannelSelector="R" yChannelSelector="G" result="bent" />
-    <feColorMatrix in="map" type="matrix" values="1.6 1.6 0 0 -1.6  1.6 1.6 0 0 -1.6  1.6 1.6 0 0 -1.6  0 0 0 0 1" result="lit" />
-    <feComposite in="bent" in2="lit" operator="arithmetic" k2="1" k3="0.55" result="shine" />
-    <feComposite in="shine" in2="SourceAlpha" operator="in" />
-  </filter>;
-}
-function GlassFilters() {
-  return <svg className="guest-glass-filters" width="0" height="0" aria-hidden="true" focusable="false">
-    <GlassFilter id="nfc-glass-lg" bezel={12} gain={7} bend={46} frost={1.2} />
-    <GlassFilter id="nfc-glass-sm" bezel={6} gain={4} bend={24} frost={0.8} />
-  </svg>;
-}
-
-/**
- * Template 6's Google button (`effects.googleButton` in its manifest): a raised orb holding the "G", with the label running round it. The ring and
- * the orb are decoration (aria-hidden); the label itself stays in the button, hidden only from sight, so the link's
- * name and the words every visitor is offered are exactly those of every other template.
- * The "G" is the four-part mark below used as a mask over a conic blend, so it takes Google's own colours, unaltered.
- */
-const G_MASK = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="white"><path d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.2l7.8 6.1C12.3 13.6 17.7 9.5 24 9.5Z"/><path d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6Z"/><path d="M10.4 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.9-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.8-6.1Z"/><path d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.7-4.1-13.6-9.8l-7.8 6.1C6.6 42.6 14.6 48 24 48Z"/></g></svg>')}")`;
-function GoogleOrb({ label }: { label: string }) {
-  const ring = `${label.toLocaleUpperCase('vi')} · `.repeat(2);
-  return <>
-    <span className="google-orb" aria-hidden="true">
-      <svg className="google-ring" viewBox="0 0 300 300">
-        <defs><path id="google-ring-path" d="M150 150m-128 0a128 128 0 1 1 256 0a128 128 0 1 1-256 0" /></defs>
-        <text><textPath href="#google-ring-path" textLength="800" lengthAdjust="spacing">{ring}</textPath></text>
-      </svg>
-      <span className="google-orb-face"><span className="google-g" style={{ WebkitMaskImage: G_MASK, maskImage: G_MASK }} /></span>
-    </span>
-    <span className="google-label">{label}</span>
-  </>;
-}
-
-/**
- * On Android, tilting the phone moves the light on the orb (Tài, 24/09). The page only listens; it never calls
- * `requestPermission`, so no visitor is ever asked for anything. iPhone delivers no motion events without that
- * permission, so there the light keeps its own slow sweep. (Detecting iPhone by the presence of `requestPermission`
- * does not work: desktop Chrome has it too.) Reduced motion: no tilt. One frame's work per event at most.
- */
-function useTiltLight(enabled: boolean) {
-  useEffect(() => {
-    const main = document.querySelector<HTMLElement>('main.guest');
-    if (!enabled || !main || !('DeviceOrientationEvent' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let frame = 0;
-    const clamp = (n: number) => Math.max(-1, Math.min(1, n));
-    const tilt = (event: DeviceOrientationEvent) => {
-      if (event.beta === null || event.gamma === null) return;
-      const x = clamp(event.gamma / 30) * 14, y = clamp((event.beta - 45) / 30) * 14;
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => { main.style.setProperty('--tilt-x', `${x.toFixed(1)}%`); main.style.setProperty('--tilt-y', `${y.toFixed(1)}%`); });
-    };
-    window.addEventListener('deviceorientation', tilt);
-    return () => { window.removeEventListener('deviceorientation', tilt); cancelAnimationFrame(frame); };
-  }, [enabled]);
 }
 
 /**
@@ -338,32 +232,6 @@ function resultMessage(result: CoordinatorResult | null | undefined): MessageKey
 }
 
 /** The hint appears once the visitor has reached the bottom of the page and stayed two seconds, then stays. */
-/**
- * Template 6's way out (thiet-ke-va-template.md mục 12): the tap covers this page for `ms`, then the same tab goes to Google.
- * Only a plain tap is held back -- a long-press, a modified click or reduced motion get the browser's own behaviour at
- * once. Coming back with the Back button restores the page from the cache with the cover still on, so `pageshow`
- * takes it off; and if the navigation never happens (offline), the cover lifts by itself.
- */
-function useLeaveTransition(ms: number, reduced: boolean) {
-  const [leaving, setLeaving] = useState<{ x: number; y: number } | null>(null);
-  useEffect(() => {
-    const back = (event: PageTransitionEvent) => { if (event.persisted) setLeaving(null); };
-    window.addEventListener('pageshow', back); return () => window.removeEventListener('pageshow', back);
-  }, []);
-  useEffect(() => {
-    if (!leaving) return;
-    const lift = window.setTimeout(() => setLeaving(null), ms + 2500); return () => window.clearTimeout(lift);
-  }, [leaving, ms]);
-  const leave = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!ms || reduced || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    const box = event.currentTarget.getBoundingClientRect(), href = event.currentTarget.href;
-    setLeaving({ x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) });
-    window.setTimeout(() => window.location.assign(href), ms);
-  };
-  return [leaving, leave] as const;
-}
-
 function useBottomHint() {
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -425,13 +293,8 @@ export default function ShopFeedbackV2(shop: Props) {
   const reduced = useReducedMotion() || !!shop.still;
   const hint = useBottomHint();
   // What the template's package declares (templates/<khoá>/manifest.json, lát M1).
-  const effects = effectsOf(shop.template);
-  const leaveMs = effects.leaveTransitionMs ?? 0;
-  const glass = !!effects.glass;
-  const orb = effects.googleButton === 'orb';
-  useTiltLight(orb);
-  const page = useGlassPlacement(glass);
-  const [leaving, leave] = useLeaveTransition(leaveMs, reduced);
+  // What the template's package switches on (templates/<khoá>/manifest.json); each effect is its own module (lát M2).
+  const fx = useTemplateEffects(effectsOf(shop.template), { reduced, lang, beforeLeave: client.flushEvents });
   const config = shop.pageConfig ?? { ...defaultConfig(shop.name),
     poster: shop.heroUrl && shop.heroKind ? { kind: shop.heroKind, url: shop.heroUrl } : null };
   const feedbackButton = config.feedbackButton ?? DEFAULT_FEEDBACK_BUTTON;
@@ -562,10 +425,10 @@ export default function ShopFeedbackV2(shop: Props) {
   </>;
 
   return <main className="guest" lang={lang} data-template={shop.template} data-template-version={shop.template ? shop.templateVersion ?? 1 : undefined} data-layout={config.layout} data-schema={config.schemaVersion} data-ready={snapshot ? '' : undefined}
-    ref={page} data-leaving={leaving ? '' : undefined} data-button={orb ? 'orb' : undefined}
+    ref={fx.pageRef} {...fx.pageAttributes}
     {...own.attributes}
-    style={{ ...sceneTokens(config.background), ...own.style, ...(leaving ? { '--leave-x': `${leaving.x}px`, '--leave-y': `${leaving.y}px` } : {}) } as CSSProperties}>
-    <Background config={config} scene={glass} />
+    style={{ ...sceneTokens(config.background), ...own.style, ...fx.pageStyle } as CSSProperties}>
+    <Background config={config} scene={fx.scene} />
     <article className="guest-sheet" aria-hidden={open || undefined}>
       <div className="guest-language"><label htmlFor="language">Ngôn ngữ / Language</label><select id="language" value={lang} onChange={e => setLang(e.target.value as Language)}><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
       <Poster poster={config.poster} label={p.poster} />
@@ -574,9 +437,9 @@ export default function ShopFeedbackV2(shop: Props) {
         <h1>{shop.name}</h1>
         <section className="google-invitation"><p>{t.invite}</p>
           {shop.googleUrl
-            ? <a className="google-button" data-google href={shop.googleUrl} {...(leaveMs ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-                onClick={event => { client.event('google_tapped', { layout: config.layout }); leave(event); }}>{orb ? <GoogleOrb label={p.google} /> : <><GoogleMark /><span>{p.google}</span></>}</a>
-            : <button className="google-button" data-google disabled>{orb ? <GoogleOrb label={p.google} /> : <><GoogleMark /><span>{p.google}</span></>}</button>}
+            ? <a className="google-button" data-google href={shop.googleUrl} {...fx.googleTarget}
+                onClick={event => { client.event('google_tapped', { layout: config.layout }); fx.onGoogleTap(event); }}>{fx.googleContent?.(p.google) ?? <><GoogleMark /><span>{p.google}</span></>}</a>
+            : <button className="google-button" data-google disabled>{fx.googleContent?.(p.google) ?? <><GoogleMark /><span>{p.google}</span></>}</button>}
           <p className="guest-note">{t.thanks}</p></section>
         {config.links.length > 0 && <nav className="guest-links" aria-label={p.links}>{config.links.map(link => <a key={`${link.icon}:${link.url}`} href={link.url} data-icon={link.icon}
           {...(link.url.startsWith('https:') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><LinkGlyph icon={link.icon} /><span>{link.label[lang]}</span></a>)}</nav>}
@@ -623,6 +486,6 @@ export default function ShopFeedbackV2(shop: Props) {
             </form>}
       </div>
     </div>}
-    {glass && <GlassFilters />}
+    {fx.layers}
   </main>;
 }

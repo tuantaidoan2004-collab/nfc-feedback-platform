@@ -104,7 +104,7 @@ Bắt chước **cách làm**, không chép tên, logo, câu chữ hay ảnh c�
 
 ## 3. Ba ý của Tài (27/09) và đối chiếu luật
 
-### Ý 1 — Popup trước khi sang Google: 4 giây rồi sang tab mới (Tài chốt 27/09)
+### Ý 1 — Popup trước khi sang Google: 4 giây rồi sang tab mới (Tài chốt 27/09; **đã làm ở M2**)
 
 Tài chốt: **không có nút "Sang Google ngay"**. Đếm đủ 4 giây rồi Google mở ở **tab mới**; **trang cũ trở lại bình
 thường** (khách đóng tab Google là thấy lại trang quán). Câu chữ theo tinh thần Tài đưa: *"Trang sẽ tự động chuyển, quý
@@ -136,7 +136,7 @@ muốn dùng tiếp thì vào đó trả.
 - Luật Google không liên quan tới luồng của chủ quán, trừ một điều: trong lúc hướng dẫn, không dạy chủ quán cách mời
   đánh giá trái mục 3 của `google-policy.md`.
 
-### Ý 3 — Cảm xúc lúc bấm nút Google: lời cảm ơn của quán (Tài chốt 27/09)
+### Ý 3 — Cảm xúc lúc bấm nút Google: lời cảm ơn của quán (Tài chốt 27/09; **M2 làm câu mặc định + tim bung; shop tự sửa + admin duyệt là M2b**)
 
 Tài chốt: không dùng 😍 nói hộ cảm xúc của khách. Dùng chữ **"Cảm ơn quý khách đã ghé…"** — lời của quán — bung ra cùng
 hiệu ứng tim nhẹ như pháo hoa khi popup hiện, rồi tan. **Shop sửa được câu này trong trình chỉnh template**, và câu mới
@@ -187,7 +187,7 @@ Cảm xúc sinh động nhưng **luôn là dữ liệu thật**, không trang tr
 riêng, sao nội bộ); trợ lý AI là bậc nâng sau (D3), đúng luật "từ gốc, nâng theo tuyến". **Luật 5, 10:** thời tiết không
 bao giờ tính theo số đánh giá Google, và nhân viên không thấy số Google.
 
-**D. Con trỏ nhiều màu — dùng bảng màu của template/quán, không dùng bốn màu Google.** Ô góp ý riêng phải trông **khác
+**D. Con trỏ nhiều màu — dùng bảng màu của template/quán, không dùng bốn màu Google** (đã làm ở M2). Ô góp ý riêng phải trông **khác
 Google**, vì trang đã hứa "Góp ý này không đăng lên Google"; khoác màu Google lên chính ô đó làm khách lẫn và làm yếu lời
 hứa minh bạch (1c). Bốn màu nhảy theo nhịp gõ, lấy từ template; tôn trọng "giảm chuyển động".
 

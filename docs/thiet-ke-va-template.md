@@ -234,9 +234,12 @@ A33), `google-policy.spec.ts` (luật Google cho từng khoá), `admin-http.spec
    `target="_blank"`. Diện mạo ở `DESIGN.md` mục 9. **Template 6 chấp nhận trả 300ms** để chạy hoạt ảnh trước khi rời trang. Nút phải mở **cùng tab** — `target=
    "_blank"` cộng điều hướng trì hoãn sẽ bị iOS/Android chặn như popup. Và vế *"mây tan rồi hiện ra trang đích"*
    **bất khả thi**: trang Google là tên miền khác, không render dưới lớp mây được. Mây phủ trang mình, rồi
-   trình duyệt nhảy sang Google. **Sắp thay (Tài chốt 27/09):** popup cảm ơn đếm đủ 4 giây rồi Google mở ở **tab mới**, trang cũ
-   giữ nguyên, cho template nhiều nội dung (`ui-ux-nguon-tham-khao.md` mục 3, ý 1). Lát làm nó sửa mức 300ms ở đây và trong
-   `template-manifest.ts` cùng lúc.
+   trình duyệt nhảy sang Google. **Cách rời trang thứ hai (M2, 27/09, Tài chốt):** template 1–5 dùng
+   `effects.thankYouSeconds: 4` — lời cảm ơn của quán, tim bung, đếm đủ 4 giây rồi Google mở ở **tab mới**, trang cũ giữ
+   nguyên (`components/effects/thanks.tsx`). Tối đa 4 giây vì trình duyệt chỉ cho mở tab trong khoảng 5 giây sau cú chạm;
+   trình duyệt vẫn chặn thì thẻ hiện nút "Mở Google". Hai cách rời trang loại trừ nhau trong manifest. **Quyết định có ý
+   thức:** hiệu ứng vẫn theo **khoá**, nên bật nó đổi hành vi mọi shop đang dùng template đó ngay (hôm nay chỉ có shop thử).
+   Từ quán thật đầu tiên, hiệu ứng đổi hành vi phải đi cùng một bản mới của template.
 3. **Số link thay đổi thì bố cục vẫn phải đẹp** (Tài, 23/09). Không để flex tự xuống dòng. Mỗi số lượng 1–6 có
    một cách bày được thiết kế sẵn, chọn bằng **quantity query** trong CSS, không JS. Đã làm (`f1a071e`): 1 → một
    viên tràn ngang · 2 → hai nửa · 3 → hai nhãn + một nút tròn · 4 → hai nhãn + hai nút tròn · 5–6 → hàng nút

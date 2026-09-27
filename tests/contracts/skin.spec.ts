@@ -10,7 +10,9 @@ import { TEMPLATE_KEYS, TEMPLATE_RELEASES } from '../../lib/publishing/templates
 // The platform's stylesheets, then one frozen file per template version, inside each package (templates/<key>/v<n>.css).
 const packageFiles = readdirSync('templates', { withFileTypes: true }).filter(entry => entry.isDirectory())
   .flatMap(entry => readdirSync(`templates/${entry.name}`).filter(name => name.endsWith('.css')).map(name => `templates/${entry.name}/${name}`));
-const files = [...readdirSync('components').filter(name => name.endsWith('.css')).map(name => `components/${name}`), ...packageFiles]
+// Effect modules' stylesheets (lát M2) follow the same floors: scoped to .guest, reading only skin tokens.
+const effectFiles = readdirSync('components/effects').filter(name => name.endsWith('.css')).map(name => `components/effects/${name}`);
+const files = [...readdirSync('components').filter(name => name.endsWith('.css')).map(name => `components/${name}`), ...effectFiles, ...packageFiles]
   .map(name => ({ name, css: readFileSync(name, 'utf8') }));
 const skin = readFileSync('components/skin.css', 'utf8');
 type Rule = { file: string; selector: string; body: string };

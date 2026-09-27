@@ -125,3 +125,14 @@ test('the Google button takes the links Google hands a shop, and nothing that co
   // Every page the platform itself starts a shop with passes.
   for (const key of TEMPLATE_KEYS) expect(() => assertPublishable(validateConfig(templateConfig(key)))).not.toThrow();
 });
+
+// Lát M2 (Tài 27/09): the thanks shown before Google is the shop's thanks, never a nudge. It passes the same tripwire as a
+// shop's free text (no review word beside a gift or a staff name), mentions no stars, and is the same for every guest.
+test('the thanks before Google asks for nothing: no stars, no gift, no content, one text for everyone', async () => {
+  const { THANKS_COPY } = await import('../../components/effects/thanks');
+  const { freeTextProblem } = await import('../../lib/publishing/policy');
+  for (const [lang, copy] of Object.entries(THANKS_COPY)) for (const [part, text] of Object.entries(copy)) {
+    expect(freeTextProblem(text), `${lang}.${part}`).toBeNull();
+    expect(text, `${lang}.${part}`).not.toMatch(/sao|star|★|⭐|5\s*\/\s*5|quà|gift|giảm giá|discount|voucher/i);
+  }
+});
