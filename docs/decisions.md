@@ -172,27 +172,32 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**Phiên mới bắt đầu từ đây (27/09 khuya):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → **D4a** (audit `docs/audit-ui-ux-20260927.md`
-mục 4). **D4a nằm trên nhánh, chưa lên `main`:** trang chính là "quảng cáo bán dịch vụ", nên **Tài chọn Vercel Pro hay VPS trước**
-(Hobby từ 29/09 cấm thương mại) rồi mới đẩy `main`. **Lát kế: D4b** — "Lưu trang của tôi" tạo tài khoản ngay (migration); Tài chốt
-trước: quán tự tạo **chạy ngay** hay **chờ admin duyệt**. Hoặc **M2b**. Đẩy `main` là **hai bước** (nhánh trước, CI xanh, rồi đúng
-commit đó lên `main`; `operations-gotchas.md`). Chờ Tài: thử lời cảm ơn trước Google trên Safari và Chrome iPhone; quét QR ở
-`/bat-dau` bằng camera iPhone và Android (mã QR tự vẽ, mới chỉ được bộ đọc QR của Chrome kiểm).
+**Phiên mới bắt đầu từ đây (27/09 khuya):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → **D4a → D4b** (audit
+`docs/audit-ui-ux-20260927.md` mục 4). **D4 nằm trên nhánh, chưa lên `main`.** Thứ tự đẩy: Tài chạy **migration 029 trên Neon
+production và preview** → đẩy nhánh, CI xanh → đẩy đúng commit đó lên `main` (hai bước, `operations-gotchas.md`). **Vercel (Tài
+chốt 27/09): Pro tới 29/09, rồi chuyển VPS** (bộ I1, `tu-chay.md`) — từ 29/09 trang chính chỉ được chạy trên VPS hoặc Pro trả tiền,
+không bao giờ trên Hobby. Lát kế: **M2b** (lời cảm ơn shop tự sửa + duyệt), hoặc D4c (đăng nhập bằng Google). Chờ Tài: thử lời
+cảm ơn trước Google trên Safari và Chrome iPhone; quét QR ở `/bat-dau` bằng camera iPhone và Android (mã QR tự vẽ, mới chỉ được
+bộ đọc QR của Chrome kiểm); Tài sẽ in link lên danh thiếp.
 
-**D4a (27/09) làm gì, không migration:** `/` là trang chính (lập chỉ mục; `public/robots.txt` chặn cả site từ 10/09 đã gỡ, thay
-bằng `app/robots.ts` + `app/sitemap.ts`). `/bat-dau` dựng trang không cần tài khoản: tên → lưới 6 template là **trang khách thật**
-thu nhỏ → **QR** mở bản nháp trên điện thoại → 3 câu hỏi (bỏ qua được) → "Lưu trang của tôi". Bản nháp **không lưu trên máy chủ**:
+**D4a (27/09):** `/` là trang chính (lập chỉ mục; `public/robots.txt` chặn cả site từ 10/09 đã gỡ, thay bằng `app/robots.ts` +
+`app/sitemap.ts`). `/bat-dau` dựng trang không cần tài khoản: tên → lưới 6 template là **trang khách thật** thu nhỏ → **QR** mở
+bản nháp trên điện thoại → 3 câu hỏi (bỏ qua được) → "Lưu trang của tôi". Bản nháp **không lưu trên máy chủ** cho tới lúc lưu:
 nằm trong link `/thu/<mã>`, ký bằng khoá dẫn xuất từ `NFC_RENDER_SIGNING_KEY`, sống 7 ngày, không ghi lượt ghé, qua dây bẫy chữ
-như tên trang. Bậc 1 của "Lưu": chủ quán gửi link cho Tài (Zalo/email/sao chép), Tài dán vào ô "Link bản nháp" ở `/gov` là form
-tạo shop tự điền tên, template và hiện ba câu trả lời. Mã QR do nền tảng tự vẽ (`lib/qr.ts`, không thêm gói). Mở ở mọi môi trường
-có `NFC_ENV`, như mọi bề mặt v2.
+như tên trang. Mã QR do nền tảng tự vẽ (`lib/qr.ts`, không thêm gói).
+
+**D4b (27/09, migration 029, Tài chốt "chờ duyệt"):** "Lưu trang của tôi" tạo **tài khoản ngay** (@handle, email, mật khẩu tự
+chọn, số Zalo tuỳ chọn) và một hồ sơ trong `shop_signups`; **chưa có shop** cho tới khi Tài bấm **Duyệt** ở khung "Trang chờ
+duyệt" của `/gov` — lúc đó tạo shop, trang, mã thẻ (prepared) và phát hành đúng như "Tạo shop mới"; **Từ chối** thì khoá tài
+khoản. Đăng nhập từ trang chính (`/owner/login` không `next`) về dashboard của tài khoản, hoặc `/owner/cho-duyet`. Chống tạo hàng
+loạt: chung khe băm mật khẩu với đăng nhập, 20 lượt/giờ toàn nền tảng, 3 lượt/giờ mỗi địa chỉ (khi biết địa chỉ), tối đa 50 hồ sơ
+chờ. Báo chủ quán khi duyệt: Tài nhắn tay (Zalo/email hiện ở `/gov`). Bậc "gửi link bản nháp cho Tài" của D4a đã gỡ.
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `6db5735` (M3, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**, sau đó Hobby.
-- **Vercel (Tài chốt 27/09): xuống Hobby** khi hết dùng thử 29/09 — không gì hỏng (tháng 9 dùng ~0,08 giờ CPU trên hạn
-  4). Hobby **cấm dùng thương mại**: trước khi **trang chính bán dịch vụ** lên production (hoặc quán thật đầu tiên, mốc nào tới
-  trước) phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
-  Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.
+  branch** (029 chờ Tài). `main` = `6db5735` (M3, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**.
+- **Vercel → VPS (Tài chốt 27/09, thay quyết định "xuống Hobby" cùng ngày):** Pro tới 29/09, rồi chuyển sang VPS chạy bộ I1.
+  Hobby **cấm dùng thương mại** và trang chính là quảng cáo bán dịch vụ, nên sau 29/09 production không được ở Hobby (audit
+  mục 1). Log Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
 - **CI xanh lần đầu 27/09:** repo đã công khai, lượt #213 trên `4b9a5c4` qua đủ 8 job, gồm `self-host` (ảnh Tài gửi).
@@ -237,7 +242,7 @@ lớp sương, lời cảm ơn trước Google) qua một sổ đăng ký; templ
 tab mới (chặn thì có nút "Mở Google"); con trỏ góp ý đổi 4 màu của template. Lời cảm ơn shop tự sửa + admin duyệt là **M2b**
 (migration). **M3 section xong 27/09, không cần migration**: `PageConfig` v3 có `sections` (khối nào hiện, thứ
 tự nào); dữ liệu khối ở chỗ cũ; chỉ poster được đứng trên nút Google; trình chỉnh có khung "Các khối trên trang". Lát kế
-theo audit: **D4** — **D4a xong 27/09** (trên nhánh, chờ Tài chọn Pro/VPS để lên `main`); kế là D4b hoặc M2b. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+theo audit: **D4** — **D4a, D4b xong 27/09** (trên nhánh, chờ Tài chạy 029 để lên `main`); kế là M2b hoặc D4c. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
 (`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và
@@ -254,8 +259,8 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 Đã xong 27/09: bảo vệ `main` (F5, đẩy thẳng bị luật chặn) · cấp lại link `yourshop` trên preview · gửi góp ý trên Chrome
 iPhone. **Còn:** tạo **Hồ sơ doanh nghiệp Google** cho dịch vụ NFC ngay (đồng hồ 60 ngày cho C1) · chọn **màu chủ đạo và
 nhận diện nền tảng** (F6, trước S1) · mã QR ngân hàng + số Zalo cho tab Thanh toán (cài đặt admin, không vào GitHub) ·
-kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · chọn Vercel Pro hay VPS **trước khi trang chính
-bán dịch vụ lên production** · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách
+kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · **chạy migration 029** trên Neon production và preview (trước khi đẩy D4
+lên `main`) · **dựng VPS trước 29/09** (hoặc trả Pro thêm) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách
 riêng đang chờ: ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`, gặp lại 27/09), ca impersonation không đứng một mình
 (`admin-http.spec.ts` ~240).
 

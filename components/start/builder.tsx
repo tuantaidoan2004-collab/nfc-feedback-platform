@@ -11,8 +11,8 @@ import styles from './builder.module.css';
  * template picked from live pictures, the page on the owner's own phone through a QR code, three quick questions, and
  * "Lưu trang của tôi". Give first, ask later: nothing here asks who the owner is.
  *
- * Saving hands the signed draft link to the platform (Zalo, email, or copied), and the operator creates the account
- * from it in /gov; creating the account here is the next step on this line (roadmap D4b).
+ * Saving makes the owner's account at once, with the password they choose; the page waits for an administrator in /gov
+ * (lát D4b, Tài 27/09: chờ duyệt), and signing in after approval opens the shop's dashboard.
  */
 type Step = 'name' | 'template' | 'phone' | 'intro' | 'kind' | 'hours' | 'goals' | 'save';
 type DraftLink = { url: string; token: string; qr: string; expiresAt: string };
@@ -42,6 +42,13 @@ async function sign(state: State): Promise<DraftLink> {
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error ?? 'SERVICE_UNAVAILABLE');
   return response.json();
 }
+const saveProblem = (code: string) => ({
+  OWNER_ALREADY_EXISTS: '@handle hoặc email này đã có tài khoản. Chọn @handle khác, hoặc đăng nhập.',
+  INVALID_USERNAME: '@handle cần 3–64 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.',
+  INVALID_EMAIL: 'Email chưa đúng.', WEAK_PASSWORD: 'Mật khẩu cần ít nhất 12 ký tự.', INVALID_ZALO: 'Số Zalo cần 8 đến 15 chữ số.',
+  TOO_MANY_ATTEMPTS: 'Đang có nhiều lượt lưu cùng lúc. Thử lại sau ít phút.',
+  SIGNUPS_FULL: 'Hôm nay chúng tôi đã nhận đủ trang chờ duyệt. Thử lại sau nhé.',
+} as Record<string, string>)[code] ?? 'Chưa lưu được. Thử lại sau giây lát.';
 const problem = (code: string) => code === 'DRAFT_POLICY'
   ? 'Tên quán không được nhắc tới quà hay ưu đãi đổi lấy đánh giá. Hãy dùng đúng tên quán.'
   : code === 'INVALID_DRAFT' ? `Tên quán cần từ 1 đến ${DRAFT_NAME_MAX} ký tự, không có dấu < hay >.` : 'Chưa kết nối được. Thử lại sau giây lát.';
@@ -57,10 +64,10 @@ function Shot({ src, title }: { src: string | null; title: string }) {
   return <span ref={box} className={styles.shot}>{src && <iframe src={src} title={title} loading="lazy" tabIndex={-1} />}</span>;
 }
 
-export default function Builder({ zaloHref, email }: { zaloHref: string; email: string }) {
+export default function Builder() {
   const [state, setState] = useState<State>(START);
   const [link, setLink] = useState<DraftLink | null>(null);
-  const [error, setError] = useState(''), [busy, setBusy] = useState(false), [copied, setCopied] = useState(false), [saved, setSaved] = useState(false);
+  const [error, setError] = useState(''), [busy, setBusy] = useState(false), [savedAs, setSavedAs] = useState<string | null>(null), [accented, setAccented] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null), first = useRef(true);
 
   // Read what this browser kept before writing anything back: the first render's empty state must not overwrite it.
@@ -76,7 +83,7 @@ export default function Builder({ zaloHref, email }: { zaloHref: string; email: 
   const signedFor = useRef('');
   const needs = (s: State) => JSON.stringify([s.name, s.template, s.kind, s.hours, s.goals]);
 
-  const go = (step: Step, change: Partial<State> = {}) => { setError(''); setSaved(false); setState(current => ({ ...current, ...change, step })); };
+  const go = (step: Step, change: Partial<State> = {}) => { setError(''); setState(current => ({ ...current, ...change, step })); };
   const signed = async (next: State) => {
     if (link && signedFor.current === needs(next)) return link;
     const fresh = await sign(next); signedFor.current = needs(next); setLink(fresh); return fresh;
@@ -97,9 +104,20 @@ export default function Builder({ zaloHref, email }: { zaloHref: string; email: 
   // Kept in the list's own order, whatever order they were tapped in: the summary reads like the question.
   const toggle = <T extends string>(list: T[], value: T, order: Record<T, string>) =>
     (Object.keys(order) as T[]).filter(key => key === value ? !list.includes(value) : list.includes(key));
-  const copy = (url: string) => { void navigator.clipboard?.writeText(url).then(() => setCopied(true), () => setCopied(false)); };
+  const save = async (form: FormData) => {
+    setBusy(true); setError('');
+    try {
+      // A fresh signature for exactly what the summary shows, so a draft left open for days still saves.
+      signedFor.current = ''; const fresh = await signed(state);
+      const response = await fetch('/api/start/signup', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: fresh.token, username: form.get('username'), email: form.get('email'), password: form.get('password'), zalo: form.get('zalo') }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(saveProblem(body.error)); return; }
+      setSavedAs(body.username); setState(START); setLink(null);
+    } catch (failure) { setError(problem((failure as Error).message)); } finally { setBusy(false); }
+  };
 
-  const { step } = state, question = QUESTION[step];
+  const { step } = state, question = QUESTION[step], progress = savedAs ? 5 : SEGMENT[step];
   const frame = (key: TemplateKey) => link ? `/thu/${link.token}?khung=1&t=${key}` : null;
   const skip = <button type="button" className={styles.skip} onClick={() => go('save')}>Bỏ qua cho bây giờ</button>;
 
@@ -109,15 +127,23 @@ export default function Builder({ zaloHref, email }: { zaloHref: string; email: 
       <span className={styles.signIn}><span className={styles.signInAsk}>Đã có tài khoản? </span><Link href="/owner/login">Đăng nhập</Link></span>
     </header>
 
-    <div className={styles.progress} role="progressbar" aria-label="Tiến độ" aria-valuemin={0} aria-valuemax={5} aria-valuenow={SEGMENT[step]}>
+    <div className={styles.progress} role="progressbar" aria-label="Tiến độ" aria-valuemin={0} aria-valuemax={5} aria-valuenow={progress}>
       {[0, 1, 2, 3, 4].map(index => <span key={index} className={styles.segment}>
-        <span style={{ width: `${Math.max(0, Math.min(1, SEGMENT[step] - index)) * 100}%` }} /></span>)}
+        <span style={{ width: `${Math.max(0, Math.min(1, progress - index)) * 100}%` }} /></span>)}
     </div>
 
     <main className={styles.main}>
-      {BACK[step] && <button type="button" className={styles.back} aria-label="Quay lại" onClick={() => go(BACK[step]!)}>←</button>}
+      {!savedAs && BACK[step] && <button type="button" className={styles.back} aria-label="Quay lại" onClick={() => go(BACK[step]!)}>←</button>}
 
-      {step === 'name' && <section className={styles.panel} data-start-name>
+      {savedAs && <section className={styles.panel} data-start-done>
+        <Eyebrow>Đã lưu</Eyebrow>
+        <h1 ref={heading} tabIndex={-1}>Trang của bạn đang chờ duyệt</h1>
+        <p className={styles.lead}>Tài khoản <strong>@{savedAs}</strong> đã sẵn sàng. Chúng tôi xem trang và báo bạn khi mở; sau đó đăng
+          nhập là vào thẳng dashboard của quán.</p>
+        <div className={styles.actions}><Link href="/owner/login" className={buttonClass('primary')}>Đăng nhập</Link></div>
+      </section>}
+
+      {!savedAs && step === 'name' && <section className={styles.panel} data-start-name>
         <Eyebrow>Bước 1 · Dựng trang</Eyebrow>
         <h1 ref={heading} tabIndex={-1}>Quán của bạn tên gì?</h1>
         <p className={styles.lead}>Tên này nằm to nhất trên trang khách thấy khi chạm thẻ. Chưa cần tài khoản.</p>
@@ -217,23 +243,18 @@ export default function Builder({ zaloHref, email }: { zaloHref: string; email: 
           <div><span>Giờ đông khách</span><strong>{state.hours.length ? state.hours.map(hour => BUSY_HOURS[hour]).join(', ') : 'Chưa trả lời'}</strong></div>
           <div><span>Muốn tốt lên</span><strong>{state.goals.length ? state.goals.map(goal => GOALS[goal]).join(', ') : 'Chưa trả lời'}</strong></div>
         </div>
-        {!saved ? <div className={styles.actions}>
-          <button type="button" className={buttonClass('primary')} disabled={busy} data-start-keep onClick={async () => {
-            setBusy(true); setError('');
-            try { await signed(state); setSaved(true); } catch (failure) { setError(problem((failure as Error).message)); } finally { setBusy(false); }
-          }}>{busy ? 'Đang lưu…' : 'Lưu trang của tôi'}</button>
+        <form className={styles.form} data-start-account onSubmit={event => { event.preventDefault(); void save(new FormData(event.currentTarget)); }}>
+          <p className={styles.note}>Tạo tài khoản để giữ trang này. Chúng tôi xem từng trang trước khi mở cho khách; khi được duyệt,
+            đăng nhập là vào thẳng dashboard của quán.</p>
+          <label className={styles.field}>@handle<input name="username" required maxLength={64} autoComplete="username" autoCapitalize="none"
+            autoCorrect="off" spellCheck={false} placeholder="caphe-banmai" onChange={event => setAccented(/[^ -~]/.test(event.target.value))} /></label>
+          {accented && <p className={styles.note} data-accent-hint>@handle không có dấu. Nếu đang bật bộ gõ tiếng Việt, chuyển sang bàn phím tiếng Anh (🌐) rồi gõ lại.</p>}
+          <label className={styles.field}>Email<input name="email" type="email" required maxLength={254} autoComplete="email" placeholder="ban@example.com" /></label>
+          <label className={styles.field}>Mật khẩu (ít nhất 12 ký tự)<input name="password" type="password" required minLength={12} maxLength={256} autoComplete="new-password" /></label>
+          <label className={styles.field}>Số Zalo, để chúng tôi báo khi trang được duyệt (không bắt buộc)<input name="zalo" type="tel" inputMode="tel" maxLength={20} autoComplete="tel" placeholder="0961 036 265" /></label>
+          <button className={buttonClass('primary')} disabled={busy} data-start-keep>{busy ? 'Đang lưu…' : 'Lưu trang của tôi'}</button>
           <span className={styles.note}>Không cần trả tiền để bắt đầu.</span>
-        </div> : link && <div className={styles.handoff} data-start-handoff>
-          <p><strong>Gửi link bản nháp này cho chúng tôi.</strong> Chúng tôi tạo tài khoản cho quán từ đúng bản nháp này và gửi bạn
-            link đặt mật khẩu. Không cần trả tiền để bắt đầu.</p>
-          <code data-start-link>{link.url}</code>
-          <div className={styles.actions}>
-            <button type="button" className={buttonClass('primary')} onClick={() => copy(link.url)}>{copied ? 'Đã sao chép ✓' : 'Sao chép link'}</button>
-            <a className={buttonClass('secondary')} href={zaloHref} target="_blank" rel="noreferrer">Gửi qua Zalo</a>
-            <a className={buttonClass('secondary')} href={`mailto:${email}?subject=${encodeURIComponent(`Trang của ${state.name}`)}&body=${encodeURIComponent(link.url)}`}>Gửi email</a>
-          </div>
-          <p className={styles.note}>Link hết hạn lúc {new Date(link.expiresAt).toLocaleString('vi-VN')}. Hết hạn thì dựng lại, mất chưa tới một phút.</p>
-        </div>}
+        </form>
       </section>}
 
       {error && <p role="alert" className={styles.error}>{error}</p>}

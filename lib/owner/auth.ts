@@ -166,7 +166,7 @@ export class OwnerAuth {
       if (previous && /^[a-f0-9]{64}$/.test(previous)) await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE token_hash=$1', [sessionHash(previous)]);
       const token = randomBytes(32).toString('hex');
       const row = (await db.query("INSERT INTO owner_auth_sessions_v2(token_hash,user_id,expires_at)VALUES($1,$2,clock_timestamp()+interval '8 hours')RETURNING expires_at", [sessionHash(token), user.id])).rows[0];
-      return { token, expiresAt: row.expires_at as Date };
+      return { token, expiresAt: row.expires_at as Date, userId: user.id as string };
     });
     if (!result) throw new OwnerError(401, 'LOGIN_FAILED'); return result;
   }

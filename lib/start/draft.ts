@@ -6,8 +6,8 @@ import { isTemplateKey, type TemplateKey } from '../publishing/templates';
  * server: the draft travels inside its own link, signed so nobody can forge one on this domain, and it lives
  * DRAFT_DAYS days. It cannot be published -- it holds a name, a template and three answers, nothing a guest acts on.
  *
- * This file is the draft's shape and nothing secret, so /gov's form can read a link the owner sent (`peekDraft`). The
- * signature is checked on the server, in draft-sign.ts.
+ * This file is the draft's shape and its labels, nothing secret, so the builder and /gov can import it. The signature is
+ * made and checked on the server, in draft-sign.ts. Saving it makes an account and a request that waits (signup.ts).
  */
 export const DRAFT_DAYS = 7;
 export const DRAFT_NAME_MAX = 60;
@@ -65,18 +65,7 @@ export function draftFromPayload(payload: string): Draft & { expiresAt: Date } {
   return { ...draft, expiresAt: new Date(wire.e * 1000) };
 }
 
-/**
- * The draft inside a link the owner sent, unverified: for /gov's form, which only fills its own fields from it (the
- * shop is created from what the operator then submits, checked as always). Null when it is not a draft link.
- */
-export function peekDraft(link: string): (Draft & { expiresAt: Date }) | null {
-  const token = /\/thu\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/.exec(link.trim())?.[1] ?? link.trim();
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  try { return draftFromPayload(parts[1]); } catch { return null; }
-}
-
-// Base64url without Buffer, so the same code runs in the browser (/gov's form) and on the server.
+// Base64url without Buffer: this module is also bundled for the browser (the builder reads its labels from here).
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 export function base64url(bytes: Uint8Array): string {
   let out = '';

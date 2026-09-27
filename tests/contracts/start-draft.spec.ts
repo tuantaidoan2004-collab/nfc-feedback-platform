@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { qrMatrix, qrSvg } from '../../lib/qr';
-import { DRAFT_DAYS, DraftError, peekDraft, readDraftInput, base64url, fromBase64url } from '../../lib/start/draft';
+import { DRAFT_DAYS, DraftError, readDraftInput, base64url, fromBase64url } from '../../lib/start/draft';
 import { signDraft, verifyDraft } from '../../lib/start/draft-sign';
 import { signContext } from '../../lib/publishing/proof';
 
@@ -49,13 +49,6 @@ test('the link opens for seven days, only with its own signature, and a render p
   // Signed drafts are re-checked: a name the trip-wire refuses today does not open even with a good signature.
   const signedBefore = signDraft({ name: 'Đánh giá nhận quà', template: 'glass', kind: null, hours: [], goals: [] }, ring, now).token;
   expect(refused(() => verifyDraft(signedBefore, ring, now))).toBe('DRAFT_POLICY');
-});
-
-test('/gov reads a pasted link without the key, and only a draft link', () => {
-  const { token } = signDraft(draft, ring);
-  expect(peekDraft(`https://quitesensational-review-bio.com/thu/${token}`)).toMatchObject({ name: 'Cà Phê Ban Mai', template: 'glass', kind: 'cafe' });
-  expect(peekDraft(` ${token} `)).toMatchObject({ name: 'Cà Phê Ban Mai' });
-  for (const text of ['', 'https://example.com/', 'a.b.c', 'https://quitesensational-review-bio.com/one']) expect(peekDraft(text), text).toBeNull();
 });
 
 test('base64url has one spelling per payload and round-trips UTF-8', () => {

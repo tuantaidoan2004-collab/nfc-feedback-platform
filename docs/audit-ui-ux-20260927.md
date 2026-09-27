@@ -45,8 +45,8 @@ Thứ tự đề xuất ở mục 4. Việc hạ tầng gấp (Vercel 29/09) ở
 - Cơ sở dữ liệu nằm trên laptop thì sao lưu thành chuyện sống còn (`sao-luu.md`).
 - Dùng làm **máy thử** thì rất hợp: chạy đúng bộ production trên máy mình trước khi đổi chỗ.
 
-**Đề xuất:** ở Hobby tới trước khi trang chính bán dịch vụ lên production (hoặc quán thật đầu tiên). Khi đó chọn **Vercel Pro** (ít việc nhất) hoặc **một VPS nhỏ** chạy
-đúng bộ I1 (khoảng 5 USD/tháng; `tu-chay.md`). **Tài chốt**, vì cả hai là dịch vụ trả phí (`AGENTS.md`).
+**Tài chốt 27/09:** dùng **Vercel Pro (dùng thử) tới 29/09**, sau đó chuyển sang **VPS** chạy đúng bộ I1 (`tu-chay.md`). Trang chính lên
+production được trong thời gian Pro; **từ 29/09 phải đã chạy trên VPS, hoặc trả Pro thêm** — ở Hobby thì trang chính vi phạm luật dùng thương mại.
 
 ## 2. Mức sẵn sàng từng tầng
 
@@ -59,7 +59,7 @@ Thứ tự đề xuất ở mục 4. Việc hạ tầng gấp (Vercel 29/09) ở
 | **Dashboard** | Gọn, nhất quán; 6 mục; một component 429 dòng; mục đang xem **không nằm trên URL** | Một nửa |
 | **Trình chỉnh** | Một biểu mẫu dài khoảng 2.800px, không xem trước bên cạnh; chọn template bằng ô thả xuống | **Chưa** — xa "như Canva" nhất |
 | **`/gov`** | Chạy đủ việc, nhưng sơ sài nhất | **Chưa** |
-| **Trang chính / đăng ký** | **D4a xong 27/09:** trang chính `/` (lập chỉ mục), dựng trang không cần tài khoản `/bat-dau`, QR, 3 câu hỏi; tài khoản vẫn do admin tạo từ link bản nháp | Một nửa — D4b |
+| **Trang chính / đăng ký** | **D4a–D4b xong 27/09:** trang chính `/` (lập chỉ mục), dựng trang không cần tài khoản `/bat-dau`, QR, 3 câu hỏi, "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` | **Có** (đăng nhập bằng Google là D4c) |
 | **Test** | 7 bộ xanh, CI xanh; nhưng integration bám câu chữ | Cần luật trước khi đổi chữ |
 | **Tài liệu cho người mới** | `AGENTS.md`, `decisions.md` tốt; **mặt tiền repo lỗi thời** | Cần dọn |
 
@@ -181,7 +181,7 @@ không phải biết gì về Google Cloud.
 3. **Mã QR ngân hàng và số Zalo** cho tab Thanh toán — lưu trong cài đặt admin, **không** đưa vào GitHub (`AGENTS.md`).
 4. **Kịch bản video 3 phút** (Claude viết nháp khi Tài muốn; dựng bằng HyperFrames).
 5. **Search Console:** xác minh tên miền bằng bản ghi DNS, sau khi trang chính được mở lập chỉ mục (A1).
-6. **Trước khi trang chính bán dịch vụ lên production:** chọn Vercel Pro hay VPS (mục 1).
+6. ~~Chọn Vercel Pro hay VPS~~ — **Tài chốt 27/09: Pro tới 29/09, rồi VPS** (mục 1). Còn: dựng VPS trước 29/09.
 
 ## Nguồn
 

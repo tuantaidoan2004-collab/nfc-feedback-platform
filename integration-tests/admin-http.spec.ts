@@ -116,22 +116,15 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  const templateSlug=(await admin.db.query('SELECT slug FROM shops WHERE is_template')).rows[0].slug;
  expect((await page.request.get(`/${templateSlug}`)).status()).toBe(200);
 
- // Lát D4: the owner built the page before having an account and sent its draft link; pasting it fills the form.
- const draft=await page.request.post('/api/start/drafts',{headers:{origin:'http://127.0.0.1:3317'},data:{name:'Cà Phê Ban Mai',template:'glass',kind:'cafe',hours:['noon']}});
- expect(draft.status()).toBe(200);
- // Template 1 is preselected, so a hurried operator with no draft still gets the original page.
- await expect(page.locator('select[data-template-choice]')).toHaveValue('standard');
- await page.getByLabel('Link bản nháp chủ quán gửi (nếu có)',{exact:true}).fill((await draft.json()).url);
- await expect(page.getByLabel('Tên shop',{exact:true})).toHaveValue('Cà Phê Ban Mai');
- await expect(page.locator('[data-draft-summary]')).toContainText('Quán cà phê');
- await expect(page.locator('[data-draft-summary]')).toContainText('Trưa');
+ await page.getByLabel('Tên shop',{exact:true}).fill('Cà Phê Ban Mai');
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
- // Six templates to choose from (A33); the draft chose template 3.
+ // Six templates to choose from (A33); template 1 is preselected so a hurried operator still gets the original page.
  const choice=page.locator('select[data-template-choice]');
  await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Chồng thẻ','5 · Ánh sáng tụ','6 · Nút lớn']);
- await expect(choice).toHaveValue('glass');
+ await expect(choice).toHaveValue('standard');
+ await choice.selectOption('glass');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
 
  await expect(page.getByRole('heading',{name:'Gửi liên kết này cho chủ shop'})).toBeVisible();
@@ -536,4 +529,85 @@ test('page incidents: an emergency stop waits in /gov, is lifted, handled and re
  await expect(page.locator('[data-incidents-empty]')).toBeVisible();
  expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'page.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['page.resume','page.incident.resolve']);
  expect((await page.request.post(`/gov/api/pages/${shop.pageId}`,{headers:{Origin:'https://evil.example'},data:{action:'close'}})).status()).toBe(403);
+});
+
+test('D4b: an owner saves the page they built, it waits for approval, and signing in opens the shop /gov made',async({page,browser,admin})=>{
+ const handle=`may-${Date.now().toString(36)}`;
+ const owner=await browser.newContext(),o=await owner.newPage();
+ await o.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ // The owner builds and saves: no account before this, no shop after it.
+ await o.goto('/bat-dau');
+ await o.getByLabel('Tên quán',{exact:true}).fill('Tiệm Bánh Mây');
+ await o.getByRole('button',{name:'Tiếp tục →'}).click();
+ await o.locator('[data-template-card="minimal"]').click();
+ await o.getByRole('button',{name:'Dùng template này →'}).click();
+ await o.getByRole('button',{name:'Tiếp tục →'}).click();
+ await o.getByRole('button',{name:'Bắt đầu →'}).click();
+ await o.getByRole('radio',{name:'Quán ăn'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
+ await o.getByRole('button',{name:'Sáng'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
+ await o.getByRole('button',{name:'Bỏ qua cho bây giờ'}).click();
+ await o.getByLabel('@handle',{exact:true}).fill(handle);
+ await o.getByLabel('Email',{exact:true}).fill(`${handle}@example.com`);
+ await o.getByLabel('Mật khẩu (ít nhất 12 ký tự)',{exact:true}).fill('owner-chose-this-one');
+ await o.getByLabel(/Số Zalo/).fill('0961 036 265');
+ await o.getByRole('button',{name:'Lưu trang của tôi'}).click();
+ await expect(o.locator('[data-start-done]')).toContainText(`@${handle}`);
+ const saved=(await admin.db.query(`SELECT s.id,s.shop_name,s.template_key,s.kind,s.hours,s.goals,s.zalo,s.decision,s.shop_id FROM shop_signups s
+  JOIN owner_identities_v2 i ON i.id=s.owner_user_id WHERE i.username=$1`,[handle])).rows;
+ expect(saved).toEqual([expect.objectContaining({shop_name:'Tiệm Bánh Mây',template_key:'minimal',kind:'food',hours:['morning'],goals:[],zalo:'0961036265',decision:null,shop_id:null})]);
+ expect((await admin.db.query("SELECT count(*)::int n FROM shops WHERE name='Tiệm Bánh Mây'")).rows[0].n).toBe(0);
+ // The same handle cannot be saved twice.
+ const draft=await o.request.post('/api/start/drafts',{headers:{origin},data:{name:'Quán Khác',template:'standard'}});
+ const again=await o.request.post('/api/start/signup',{headers:{origin},data:{token:(await draft.json()).token,username:handle,email:'other@example.com',password:'another-long-password'}});
+ expect(again.status()).toBe(409);
+
+ // Signing in from the front page before approval says the page is waiting, instead of a dashboard that cannot open.
+ const signIn=async()=>{await o.goto('/owner/login');
+  await o.getByLabel('@handle hoặc email',{exact:true}).fill(handle);
+  await o.getByLabel('Mật khẩu',{exact:true}).fill('owner-chose-this-one');
+  await o.getByRole('button',{name:'Đăng nhập',exact:true}).click();};
+ await signIn();
+ await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
+ await expect(o.getByRole('heading',{level:1})).toHaveText('Tiệm Bánh Mây đang chờ duyệt');
+
+ // The operator sees it, looks at it, approves it.
+ await page.goto('/gov/login');
+ await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ const item=page.locator(`[data-signup="${saved[0].id}"]`);
+ await expect(item).toContainText('Tiệm Bánh Mây');await expect(item).toContainText('Zalo 0961036265');await expect(item).toContainText('Quán ăn');
+ const preview=await item.getByRole('link',{name:'xem trang'}).getAttribute('href');
+ expect(await (await page.request.get(preview!)).text()).toContain('Tiệm Bánh Mây');
+ await item.getByRole('button',{name:'Duyệt'}).click();
+ await expect(page.locator('[data-signups-note]')).toContainText('Đã duyệt Tiệm Bánh Mây');
+ await expect(item).toHaveCount(0);
+ const made=(await admin.db.query(`SELECT s.decision,s.shop_id,sh.slug,sh.publishing_state,m.role,t.state tag FROM shop_signups s JOIN shops sh ON sh.id=s.shop_id
+  JOIN owner_memberships_v2 m ON m.shop_id=sh.id AND m.user_id=s.owner_user_id JOIN tags t ON t.shop_id=sh.id WHERE s.id=$1`,[saved[0].id])).rows;
+ expect(made).toEqual([expect.objectContaining({decision:'approved',publishing_state:'active',role:'owner',tag:'prepared'})]);
+ expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='signup.approve' AND shop_id=$1",[made[0].shop_id])).rows[0].n).toBe(1);
+ // Approving twice makes no second shop.
+ const twice=await page.request.post(`/gov/api/signups/${saved[0].id}`,{headers:{origin},data:{decision:'approve'}});
+ expect(twice.status()).toBe(409);
+
+ // Now the same sign-in opens the shop's dashboard, and the guest page is live with the saved name and template.
+ await signIn();
+ await expect(o).toHaveURL(new RegExp(`/ZZZ/${made[0].slug}$`));
+ const guest=await o.goto(`/${made[0].slug}`);expect(guest!.status()).toBe(200);
+ await expect(o.locator('main.guest')).toHaveAttribute('data-template','minimal');
+ await expect(o.locator('main.guest')).toContainText('Tiệm Bánh Mây');
+
+ // A refused page closes the account its save made.
+ const other=`tu-choi-${Date.now().toString(36)}`;
+ const second=await o.request.post('/api/start/drafts',{headers:{origin},data:{name:'Quán Bị Từ Chối',template:'standard'}});
+ expect((await o.request.post('/api/start/signup',{headers:{origin},data:{token:(await second.json()).token,username:other,email:`${other}@example.com`,password:'refused-but-long-enough'}})).status()).toBe(200);
+ await page.reload();
+ const refused=page.locator('[data-signup]',{hasText:'Quán Bị Từ Chối'});
+ page.once('dialog',dialog=>dialog.accept());
+ await refused.getByRole('button',{name:'Từ chối'}).click();
+ await expect(page.locator('[data-signups-note]')).toContainText('Đã từ chối Quán Bị Từ Chối');
+ expect((await admin.db.query('SELECT active FROM owner_identities_v2 WHERE username=$1',[other])).rows).toEqual([{active:false}]);
+ expect((await o.request.post('/api/owner/v2/login',{headers:{origin},data:{username:other,password:'refused-but-long-enough',next:null}})).status()).toBe(401);
+ await owner.close();
 });

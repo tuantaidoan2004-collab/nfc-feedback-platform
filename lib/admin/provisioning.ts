@@ -159,10 +159,28 @@ export class ShopProvisioning {
     if (!name || !owner || !email || !google || !key) throw new AdminError(400, 'INVALID_INPUT');
     if ((await this.pool.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1 OR email=$2', [owner, email])).rowCount)
       throw new AdminError(409, 'OWNER_ALREADY_EXISTS');
-    // Read before the shop row exists, so a missing or broken template stops the run with nothing written for this shop.
-    // Template 1 is cloned from the template shop's live release, as before; the other five start from their bare skeleton.
-    const config = key === 'standard' ? await this.fromTemplate(actorId, name, google) : validateConfig({ ...templateConfig(key), name, googleUrl: google });
+    let provisioned!: Awaited<ReturnType<OwnerSetupLinks['provision']>>;
+    const shop = await this.build(actorId, name, google, key, async shopId => {
+      provisioned = await new OwnerSetupLinks(this.pool).provision(owner, email, async () => {});
+      await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [provisioned.userId, shopId]);
+    });
+    await recordAdminAction(this.pool, actorId, { action: 'shop.create', shopId: shop.shopId, detail: { slug: shop.slug, tagCode: shop.tagCode, ownerUsername: owner, templateKey: key } });
+    return { ...shop, ownerUserId: provisioned.userId, ownerUsername: owner, ownerEmail: provisioned.email,
+      setupToken: provisioned.link.token, setupExpiresAt: provisioned.link.expiresAt };
+  }
 
+  /**
+   * A shop, its first page (cloned from the template shop for template 1, the template's bare page otherwise), a card
+   * and its owner, published last.
+   *
+   * The steps cannot share one transaction because PublishingAdmin opens its own per call, so the order is what keeps
+   * a failure harmless. Publishing comes last: until that line the shop has no active release, the resolver refuses
+   * it, and a failure anywhere above leaves a dark row rather than a live page nobody owns. `owner` attaches the owner
+   * to the new shop before it goes live.
+   */
+  private async build(actorId: string, name: string, google: string, key: TemplateKey, owner: (shopId: string) => Promise<void>) {
+    // Read before the shop row exists, so a missing or broken template stops the run with nothing written for this shop.
+    const config = key === 'standard' ? await this.fromTemplate(actorId, name, google) : validateConfig({ ...templateConfig(key), name, googleUrl: google });
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
     // The shop's first page shares the shop's code, so its link is the one the shop is known by. A code already taken
     // by any page counts as taken: links are never reissued (migration 024).
@@ -170,21 +188,51 @@ export class ShopProvisioning {
       if ((await this.pool.query('SELECT 1 FROM pages WHERE lower(slug)=lower($1)', [slug])).rowCount) throw Object.assign(new Error('PAGE_SLUG_TAKEN'), { code: '23505' });
       return { slug, shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id', [slug, name, google])).rows[0].id as string };
     });
-
     const template = await this.template(admin, key);
     const page = await admin.createPage(shopId, template, config, slug);
-
     // Prepared, not active: the card still has to be written and tested before anyone can scan it.
     const tagCode = await withShortCode(async code => { await admin.createTag(page, code); return code; });
-
-    const links = new OwnerSetupLinks(this.pool);
-    const provisioned = await links.provision(owner, email, async () => {});
-    await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [provisioned.userId, shopId]);
+    await owner(shopId);
     await admin.publish(page, 1);
+    return { shopId, pageId: page.pageId, slug, tagCode };
+  }
 
-    await recordAdminAction(this.pool, actorId, { action: 'shop.create', shopId, detail: { slug, tagCode, ownerUsername: owner, templateKey: key } });
-    return { shopId, pageId: page.pageId, slug, tagCode, ownerUserId: provisioned.userId, ownerUsername: owner, ownerEmail: provisioned.email,
-      setupToken: provisioned.link.token, setupExpiresAt: provisioned.link.expiresAt };
+  /**
+   * Approves a page an owner built and saved before having a shop (lát D4b, migration 029): the shop is made from the
+   * saved name and template, exactly as "Tạo shop mới" makes one, and the owner -- who chose a password when saving --
+   * can sign in at once. The request is claimed first, so a second click cannot make a second shop; if building stops
+   * half way, the request stays approved without a shop, and approving it again once that claim is two minutes old
+   * finishes it. Two minutes, because a build still running is also "approved without a shop" (it takes seconds).
+   */
+  async approveSignup(actorId: string, signupId: unknown) {
+    if (typeof signupId !== 'string' || !/^[0-9a-f-]{36}$/.test(signupId)) throw new AdminError(404, 'SIGNUP_NOT_FOUND');
+    const row = (await this.pool.query(`UPDATE shop_signups SET decision='approved',decided_at=clock_timestamp(),decided_by=$2
+      WHERE id=$1 AND decision IS NULL RETURNING owner_user_id,shop_name,template_key`, [signupId, actorId])).rows[0]
+      ?? (await this.pool.query(`SELECT owner_user_id,shop_name,template_key FROM shop_signups s JOIN owner_identities_v2 i ON i.id=s.owner_user_id
+        WHERE s.id=$1 AND s.decision='approved' AND s.shop_id IS NULL AND s.decided_at<clock_timestamp()-interval '2 minutes' AND i.active`, [signupId])).rows[0];
+    if (!row) throw new AdminError(409, 'SIGNUP_DECIDED');
+    if (!isTemplateKey(row.template_key)) throw new AdminError(409, 'INVALID_TEMPLATE');
+    const shop = await this.build(actorId, row.shop_name, 'https://maps.google.com/', row.template_key, async shopId => {
+      await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [row.owner_user_id, shopId]);
+      await this.pool.query('UPDATE shop_signups SET shop_id=$2 WHERE id=$1 AND shop_id IS NULL', [signupId, shopId]);
+    });
+    await recordAdminAction(this.pool, actorId, { action: 'signup.approve', shopId: shop.shopId, onBehalfOf: row.owner_user_id,
+      detail: { slug: shop.slug, tagCode: shop.tagCode, templateKey: row.template_key } });
+    return { slug: shop.slug, tagCode: shop.tagCode };
+  }
+
+  /** Refuses a saved page: nothing was built, and the account made when saving is closed, with its sessions. */
+  async rejectSignup(actorId: string, signupId: unknown) {
+    if (typeof signupId !== 'string' || !/^[0-9a-f-]{36}$/.test(signupId)) throw new AdminError(404, 'SIGNUP_NOT_FOUND');
+    return transaction(this.pool, async db => {
+      const row = (await db.query(`UPDATE shop_signups SET decision='rejected',decided_at=clock_timestamp(),decided_by=$2
+        WHERE id=$1 AND decision IS NULL RETURNING owner_user_id,shop_name`, [signupId, actorId])).rows[0];
+      if (!row) throw new AdminError(409, 'SIGNUP_DECIDED');
+      await db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1', [row.owner_user_id]);
+      await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND revoked_at IS NULL', [row.owner_user_id]);
+      await recordAdminAction(db, actorId, { action: 'signup.reject', onBehalfOf: row.owner_user_id, detail: { name: row.shop_name } });
+      return { rejected: true };
+    });
   }
 
   /**

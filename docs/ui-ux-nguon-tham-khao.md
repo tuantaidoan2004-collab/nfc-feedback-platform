@@ -128,7 +128,7 @@ Luồng Tài thích (11 ảnh): một nút "Bắt đầu miễn phí" → đăng
 uxpeak: **không bắt trả tiền ở cuối**. Mã chuyển khoản luôn có sẵn ở **tab Thanh toán (Billing)**; khi tới hạn mà quán
 muốn dùng tiếp thì vào đó trả.
 
-- Chạm hai việc đã có trong roadmap: **D4** (**D4a xong 27/09**: trang chính + dựng trang trước tài khoản; tự tạo tài khoản là **D4b**) và **P5b**
+- Chạm hai việc đã có trong roadmap: **D4** (**D4a–D4b xong 27/09**: trang chính, dựng trang trước tài khoản, lưu = tạo tài khoản, chờ duyệt) và **P5b**
   (thu tiền: kỳ tháng, chuyển khoản QR, admin bấm "đã nhận"). Không cần dịch vụ trả phí nào.
 - Áp 1b, 1c: cho chủ quán **dựng trang của mình trước** (tên, template, màu, xem trước ngay), rồi mới tạo tài khoản
   ("Tiếp tục"). Tiến độ không bắt đầu từ 0. Dòng thời gian dùng thử có câu "sẽ nhắc trước khi tới hạn".
@@ -176,13 +176,14 @@ mở bản nháp đó trên máy họ. Cho trước, hỏi sau (1b): họ cầm 
 khoản**. Nút lưu ghi **"Lưu trang của tôi"**, không ghi "Đăng ký" (1b, 1c). Bản nháp chưa có tài khoản sống ngắn và
 không phát hành được. **Đã làm ở D4a (27/09):** bản nháp không lưu trên máy chủ — nó nằm trong chính đường link `/thu/<mã>`,
 có chữ ký, sống 7 ngày; mã QR do nền tảng tự vẽ (`lib/qr.ts`, không gói ngoài). "Lưu trang của tôi" ở bậc 1 là gửi link bản
-nháp cho Tài (Zalo, email, sao chép); Tài dán link vào `/gov` là form tạo shop tự điền. Tự tạo tài khoản là D4b.
+nháp cho Tài; **D4b (27/09) thay bậc đó:** "Lưu trang của tôi" tạo tài khoản ngay (@handle, email, mật khẩu, Zalo tuỳ chọn), trang
+**chờ Tài duyệt** ở `/gov` (Tài chốt "chờ duyệt"), duyệt xong là có shop, trang, mã thẻ và chủ quán đăng nhập được.
 
 **B. Ba câu hỏi nhanh cho chủ quán, như uxpeak** (ảnh Tài chụp): loại quán (cà phê · spa · quán ăn…), giờ đông khách,
 điều muốn cải thiện. Mỗi câu trả lời thành **mặc định thông minh** (1b): template theo ngành (A22), khung giờ cho bản
 tóm tắt hôm nay (ý 3), thứ dashboard đặt lên đầu. Có "Bỏ qua". Tiến độ tính bước dựng trang là bước 1 **đã xong** —
 không bao giờ bắt đầu từ 0. **D4a (27/09):** ba câu (loại quán, giờ đông, điều muốn tốt lên) đi trong link bản nháp và hiện ở
-`/gov` khi Tài dán link; biến chúng thành mặc định (template theo ngành, khung giờ tóm tắt) là việc của A22 và dashboard.
+`/gov` (khung "Trang chờ duyệt", D4b); biến chúng thành mặc định (template theo ngành, khung giờ tóm tắt) là việc của A22 và dashboard.
 
 **C. "Thời tiết của quán hôm nay"** — gộp ý 3, ý 5 của Tài. Không khí của dashboard (nền chuyển động, màu, mặt cười)
 **phản ánh ngày thật của quán**: nắng khi góp ý hôm nay ổn, mây khi có vài khách chưa vui (kèm link tới đúng góp ý).

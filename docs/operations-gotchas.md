@@ -242,6 +242,18 @@ thẻ), mạnh hơn `.primary` (một class) của `ui.module.css`, nên nút "B
 `ui.module.css`: `:global(.platform) a.primary` … nhắc lại màu nút ở đúng độ mạnh của link; test đọc màu thật ở cả hai chế
 độ. Lỗi của Claude ở D4a.
 
+**`/owner/login` không có `?next=` là trang cụt, và D4a trỏ ba link vào đúng chỗ đó.** Trang đăng nhập cố ý chỉ hiện "Mở
+đường dẫn dashboard của shop để đăng nhập" khi thiếu đích (`production-launch.md` ghi là "cố ý"), nhưng nút "Đăng nhập" của trang
+chính và của `/bat-dau` (D4a) dẫn thẳng vào đó. Không test nào bấm các nút ấy. Sửa ở D4b: không `next` thì server tự chọn đích
+(dashboard của tài khoản, hoặc `/owner/cho-duyet`). Bài học: **link mới trỏ vào một trang cũ thì mở trang đó đúng như link mở**,
+đừng giả định nó nhận mọi dạng URL. Lỗi của Claude ở D4a.
+
+**"Duyệt dở thì bấm lại để tạo tiếp" cũng là đường cho lần bấm thứ hai tạo shop thứ hai.** Bản đầu của `approveSignup` (D4b) giữ hồ
+sơ bằng `UPDATE … WHERE decision IS NULL`, rồi cho "đã duyệt mà chưa có shop" đi tiếp để làm nốt — nhưng một lượt duyệt **đang
+chạy** cũng đúng là "đã duyệt mà chưa có shop", nên hai cú bấm cùng lúc tạo hai shop. Tìm ra khi viết test hai lượt song song,
+trước khi chạy. Sửa: chỉ làm nốt khi lần giữ đã quá 2 phút (tạo shop mất vài giây). Bài học: **nhánh "phục hồi" phải phân biệt
+được "đã chết" với "đang chạy"**, thường bằng thời gian.
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được

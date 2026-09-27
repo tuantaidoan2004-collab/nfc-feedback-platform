@@ -9,6 +9,10 @@ import AdminMedia from '@/components/admin-media';
 import { MediaReview, type MediaForReview } from '@/lib/admin/media-review';
 import AdminTwoFactor from '@/components/admin-two-factor';
 import AdminIncidents from '@/components/admin-incidents';
+import AdminSignups, { type SignupRow } from '@/components/admin-signups';
+import { ShopSignups } from '@/lib/start/signup';
+import { signStartDraft } from '@/server/start';
+import { isTemplateKey } from '@/lib/publishing/templates';
 import { PageIncidents, type IncidentForReview } from '@/lib/admin/page-incidents';
 import styles from '@/components/admin.module.css';
 import { AuthCard, Eyebrow } from '@/components/platform/ui';
@@ -20,7 +24,7 @@ export const metadata = { robots: { index: false, follow: false } };
 
 export default async function Page() {
   if (!adminEnabled()) notFound();
-  let principal: AdminPrincipal | null = null, shops: ShopRow[] = [], media: MediaForReview[] = [], incidents: IncidentForReview[] = [], unavailable = false;
+  let principal: AdminPrincipal | null = null, shops: ShopRow[] = [], media: MediaForReview[] = [], incidents: IncidentForReview[] = [], signups: SignupRow[] = [], unavailable = false;
   try {
     principal = await new AdminAuth(database()).access(await adminSessionToken(), true);
     // The list is only fetched once the second factor is on; before that this page shows nothing else anyway.
@@ -28,6 +32,9 @@ export default async function Page() {
       shops = await new ShopProvisioning(database()).list() as ShopRow[];
       media = await new MediaReview(database()).pending();
       incidents = await new PageIncidents(database()).open();
+      // Each waiting page drawn the way its owner saw it, through a fresh draft link (lát D4b).
+      signups = (await new ShopSignups(database()).waiting()).map(row => ({ ...row, previewUrl: isTemplateKey(row.template_key)
+        ? `/thu/${signStartDraft({ name: row.shop_name, template: row.template_key, kind: null, hours: [], goals: [] }).token}` : null }));
     }
   }
   // A rejected session sends the visitor to the form; a database problem must not, or the two pages loop.
@@ -45,6 +52,7 @@ export default async function Page() {
       <div className={styles.topTools}><ThemeToggle initial={await themeFromCookie()}/><AdminSignOut/></div>
     </header>
     <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
+    <AdminSignups initial={signups}/>
     <AdminMedia initial={media}/>
     <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}/>
   </main>;

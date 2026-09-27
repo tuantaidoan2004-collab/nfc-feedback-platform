@@ -262,11 +262,12 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   await page.getByRole('button', { name: 'Trưa' }).click(); await page.getByRole('button', { name: 'Tối' }).click();
   await expect(page.getByText('2 đã chọn')).toBeVisible(); await next.click();
   await page.getByRole('button', { name: 'Bỏ qua cho bây giờ' }).click();
-  await page.getByRole('button', { name: 'Lưu trang của tôi' }).click();
-  const kept = await page.locator('[data-start-link]').textContent();
-  const payload = JSON.parse(Buffer.from(kept!.split('.')[kept!.split('.').length - 2], 'base64url').toString());
-  expect(payload).toMatchObject({ v: 1, n: 'Cà Phê Ban Mai', t: 'glass', k: 'cafe', h: ['noon', 'evening'] });
-  expect(payload.g).toBeUndefined();
+  // Saving asks for the account (lát D4b); the whole save, approval and sign-in is in admin-http.spec.ts, where the
+  // owner surfaces are on. The summary is what will wait for approval.
+  await expect(page.locator('[data-start-save]')).toContainText('Quán cà phê');
+  await expect(page.locator('[data-start-save]')).toContainText('Trưa, Tối');
+  for (const label of ['@handle', 'Email', 'Mật khẩu (ít nhất 12 ký tự)']) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lưu trang của tôi' })).toBeVisible();
 
   // Nothing about the owner or a visit was written anywhere, and no guest API was called.
   expect(api).toEqual([]);
@@ -278,7 +279,7 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   expect((await post({ name: 'Quán <b>', template: 'standard' })).status()).toBe(400);
   expect((await post({ name: 'Quán', template: 'nope' })).status()).toBe(400);
   expect((await post({ name: 'Quán', template: 'standard' }, 'https://example.com')).status()).toBe(403);
-  const forged = kept!.replace(/\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/, (_, body: string, mac: string) => `.${body}.${mac.startsWith('A') ? 'B' : 'A'}${mac.slice(1)}`);
+  const forged = url!.replace(/\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/, (_, body: string, mac: string) => `.${body}.${mac.startsWith('A') ? 'B' : 'A'}${mac.slice(1)}`);
   await page.goto(forged);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Không mở được bản xem thử');
 });
@@ -341,7 +342,7 @@ test('production gate stays closed even with flag true', async ({ page, request,
   const ownerShell=await request.get('http://127.0.0.1:3319/ZZZ/one');expect(ownerShell.headers()['cache-control']).toContain('no-store');
   for(const path of ['/api/owner/v2/one','/api/owner/v2/one/export','/owner/login?next=%2FZZZ%2Fone'])expect((await request.get(`http://127.0.0.1:3319${path}`)).status()).toBe(404);
   expect((await request.post('http://127.0.0.1:3319/api/owner/v2/login',{data:{}})).status()).toBe(404);
-  for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange', '/api/start/drafts']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
+  for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange', '/api/start/drafts', '/api/start/signup']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
   // The builder is a v2 surface too (lát D4): closed until the deployment declares its environment. The front page is not.
   expect((await request.get('http://127.0.0.1:3319/bat-dau')).status()).toBe(404);
   expect((await request.get('http://127.0.0.1:3319/')).status()).toBe(200);

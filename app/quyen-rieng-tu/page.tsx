@@ -68,11 +68,15 @@ export default function Privacy() {
       {' '}<a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a> hoặc <a href={CONTACT.phoneHref}>{CONTACT.phone}</a>,
       kèm tên quán và khoảng thời gian bạn ghé.</p>
 
-    <h2 id="dung-thu">Khi chủ quán dựng thử trang</h2>
-    <p>Trang dựng thử ở <Link href="/bat-dau">/bat-dau</Link> không lưu gì trên máy chủ: tên quán, template và ba câu trả lời nằm
-      ngay trong đường link bản xem thử, có chữ ký để không ai làm giả, và link hết hạn sau 7 ngày. Trình duyệt của bạn
-      giữ bản đang dựng dở trong bộ nhớ trang để bạn quay lại làm tiếp; xoá dữ liệu trang web là mất. Mở link bản xem thử
-      không ghi lại lượt ghé nào. Chỉ khi bạn gửi link cho chúng tôi, chúng tôi mới đọc nó để tạo tài khoản cho quán.</p>
+    <h2 id="dung-thu">Khi chủ quán dựng và lưu trang</h2>
+    <p>Trang dựng thử ở <Link href="/bat-dau">/bat-dau</Link> không lưu gì trên máy chủ cho tới khi bạn bấm “Lưu trang của
+      tôi”: tên quán, template và ba câu trả lời nằm ngay trong đường link bản xem thử, có chữ ký để không ai làm giả, và
+      link hết hạn sau 7 ngày. Trình duyệt của bạn giữ bản đang dựng dở trong bộ nhớ trang; xoá dữ liệu trang web là mất. Mở
+      link bản xem thử không ghi lại lượt ghé nào.</p>
+    <p>Khi bạn lưu, chúng tôi giữ tài khoản của bạn (@handle, email, mật khẩu đã băm — không ai đọc được mật khẩu), trang bạn
+      dựng, ba câu trả lời, và số Zalo nếu bạn để lại. Chỉ người vận hành nền tảng thấy chúng, để duyệt trang và báo bạn khi
+      trang được mở. Để đếm số lần lưu, địa chỉ mạng chỉ được giữ dưới dạng băm, và bị xoá ở lượt lưu hay lượt đăng nhập kế tiếp sau một giờ. Trang bị từ chối thì tài
+      khoản bị khoá; muốn xoá hẳn, liên hệ chúng tôi.</p>
 
     <h2>Quyền của bạn</h2>
     <p>Bạn có quyền biết, xem, sửa, xoá dữ liệu của mình, và rút lại đồng ý. Liên hệ qua email hoặc số điện thoại

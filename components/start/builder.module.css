@@ -80,6 +80,3 @@
 .summary > div:first-child { border-top: 0; }
 .summary span { color: var(--p-muted); font-size: 14px; }
 @media (max-width: 480px) { .summary > div { grid-template-columns: 1fr; gap: 2px; } }
-.handoff { width: min(640px, 100%); display: grid; gap: 14px; padding: 20px; border: 1px solid var(--p-accent-text); border-radius: var(--p-radius-lg); background: var(--p-surface); }
-.handoff p { margin: 0; color: var(--p-ink-2); }
-.handoff code { display: block; padding: 10px 12px; border-radius: var(--p-radius-sm); background: var(--p-sunken); color: var(--p-ink); font-size: 13px; overflow-wrap: anywhere; }

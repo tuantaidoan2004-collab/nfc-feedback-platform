@@ -4,7 +4,7 @@ Phần đầu tệp là **bản đồ dùng hằng ngày**: vào đâu, đăng n
 
 ## Đường vào
 
-Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–028** (số mới nhất luôn ở khối "TIẾP TỤC TỪ ĐÂY" của `decisions.md`).
+Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–028** (029 của D4b chờ Tài chạy) (số mới nhất luôn ở khối "TIẾP TỤC TỪ ĐÂY" của `decisions.md`).
 
 **Hàm chạy ở `sin1` (Singapore)**, cùng vùng với Neon. Trước 21/09 nó chạy ở `iad1` (Washington DC) nên mỗi truy vấn là một vòng Thái Bình Dương ~250ms; xem `decisions.md` mục 8. Kiểm bằng `curl -s -D - -o /dev/null <url> | grep x-vercel-id` → phải thấy `::sin1::`.
 
@@ -18,8 +18,11 @@ Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pr
 | `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Có**: shop template `urr6ud` (`@yourshop`) và các shop Tài tạo (xem `/gov`). `caphe-demo` (shop giả, nháp) bị xoá ở migration 028 |
 | `/<slug>` | Trang khách | không cần | **Có**: `/urr6ud`. Cảnh báo "Nguy hiểm" của Chrome trên tên miền cũ **đã hết** sau khi chuyển `.com` |
 | `/t/<mã>` | Link ghi vào thẻ NFC | không cần | **Chưa ghi thẻ nào.** Lô thẻ đầu **phải** mang `.com`; mã thẻ chứa cả tên miền và không sửa được sau khi ghi |
-| `/` | Cửa trước của tên miền | không cần | Trang tĩnh ngắn: đây là gì, ai vận hành, link Quyền riêng tư / Điều khoản. Trước 26/09 nó chuyển sang trang demo 4Râu (dữ liệu giả) — đã gỡ ở lát A3 |
-| `/owner/login` | Trang đăng nhập chủ shop | — | Không có `?next=` thì chỉ hiện dòng "Mở đường dẫn dashboard của shop để đăng nhập". **Cố ý, không phải lỗi**: nó cần biết đăng nhập để vào đâu. Vào thẳng `/ZZZ/<slug>`, nó tự đẩy sang đây kèm đích |
+| `/` | Trang chính của nền tảng (D4a), được lập chỉ mục | không cần | Lên production cùng lần đẩy D4 lên `main`; trước đó là trang tĩnh ngắn |
+| `/bat-dau` | Chủ quán dựng trang không cần tài khoản, quét QR xem trên điện thoại, 3 câu hỏi, "Lưu trang của tôi" (D4a–D4b) | không cần; lưu thì tạo tài khoản | Cùng lần đẩy D4 |
+| `/thu/<mã>` | Bản xem thử của một trang đang dựng: link có chữ ký, sống 7 ngày, không ghi lượt ghé | không cần | Cùng lần đẩy D4 |
+| `/owner/login` | Trang đăng nhập chủ shop | `@handle` hoặc email | Có `?next=` thì về đó; không có (từ trang chính, D4b) thì về dashboard của tài khoản, hoặc `/owner/cho-duyet` nếu trang còn chờ duyệt |
+| `/owner/cho-duyet` | Tài khoản tự tạo mà trang chưa được duyệt | `@handle` vừa tạo | Cùng lần đẩy D4. Duyệt ở `/gov` → khung "Trang chờ duyệt" |
 
 Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đổi `r` thành dấu hỏi, `s` thành dấu sắc, nên mật khẩu đúng vẫn báo sai (bẫy ở `operations-gotchas.md`).
 
