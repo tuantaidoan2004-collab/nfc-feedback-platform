@@ -173,15 +173,15 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = commit của lát 27/09 bên dưới (gỡ `yourshop / 1` + log `GUEST_REFUSED`). Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = `7762d31` (luật cùng trang, sửa 403 Chrome iPhone). Vercel Pro dùng thử tới **29/09**.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
 - **CI xanh lần đầu 27/09:** repo đã công khai, lượt #213 trên `4b9a5c4` qua đủ 8 job, gồm `self-host` (ảnh Tài gửi).
-- **Lỗi "Chưa kết nối được" — tìm ra và sửa 27/09.** Log `GUEST_REFUSED` trên production: Chrome iPhone gửi
+- **Lỗi "Chưa kết nối được" — đã sửa 27/09.** Log `GUEST_REFUSED` trên production: Chrome iPhone gửi
   `Sec-Fetch-Site: same-origin` nhưng `Origin` **khác** địa chỉ trang; server đòi cả hai nên từ chối mọi lượt ghé (403).
   Luật mới, dùng chung cho khách/chủ shop/admin (`server/same-origin.ts`): có `Sec-Fetch-Site` thì nó quyết (trình duyệt
   tự đặt, trang không giả được); không có thì `Origin` phải khớp. Giá trị `Origin` thật của Chrome iPhone ghi ở dòng log
-  `ORIGIN_DIFFERS_SAME_SITE` — chưa đọc. **Chờ Tài thử lại trên Chrome iPhone sau deploy.**
+  `ORIGIN_DIFFERS_SAME_SITE`: đó là **`Origin: null`**. Sau deploy `7762d31`, các lượt ghé Chrome iPhone trả **200** (log production).
 - **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy, rồi
   Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
 - **`/urr6ud` là shop KHUÔN MẪU** ("YOUR SHOP", khuôn 1), không phải Googy. Tài bấm "Đưa khuôn về mặc định mới" 26/09:
@@ -207,7 +207,7 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 
 ### Việc còn treo của Tài
 
-Bảo vệ `main` (F5) · **bấm "Tạo lại link đặt mật khẩu cho yourshop" ở `/gov` preview** (đóng mật khẩu `1` còn nằm trong database preview; code đã gỡ đường cấp nó) · thử lại một shop trên Chrome iPhone (bản sửa 403) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
+Bảo vệ `main` (F5) · **bấm "Tạo lại link đặt mật khẩu cho yourshop" ở `/gov` preview** (đóng mật khẩu `1` còn nằm trong database preview; code đã gỡ đường cấp nó) · gửi thử một góp ý trên Chrome iPhone (lượt ghé đã 200) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách riêng đang chờ: ca 2FA chập chờn
 ~3% (`admin-auth.spec.ts:217`), ca impersonation không đứng một mình (`admin-http.spec.ts` ~240).
 
 ### Thứ tự đọc cho phiên mới
