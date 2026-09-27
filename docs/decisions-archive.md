@@ -1,5 +1,7 @@
 # Nhật ký lát — lưu trữ
 
+> Hồ sơ lịch sử: giữ nguyên chữ của lúc đó. Trước 27/09 "template" được gọi là "khuôn" (Tài đổi tên ngày 27/09).
+
 Đây là **lịch sử theo ngày**, giữ để tra khi cần biết một quyết định cũ ra đời trong hoàn cảnh nào. Sổ quyết định
 đang dùng là [`decisions.md`](decisions.md); đừng thêm mục mới vào đây trừ khi đang chép một lát đã xong xuống.
 
@@ -606,7 +608,7 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 Ba bản không tranh, bản Áp phích và ba bản có tranh đều là bản thử tìm hướng; chúng được thay bằng **lát sáu
 khuôn**. Đã gỡ `components/coats.css`, `lib/publishing/coats.ts`, `components/coat-viewer.*`, `app/xem/` và mọi
 móc `coat` trong `shop-feedback-v2.tsx`. **Nguyên tắc thiết kế thì giữ nguyên** — `DESIGN.md` mục 1–8 và
-`thiet-ke-va-khuon.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
+`thiet-ke-va-template.md` mục 11–14 là thứ sáu khuôn mới kế thừa.
 
 ### Dời phần dữ liệu — Tài chốt 26/09 (tối)
 
@@ -729,7 +731,7 @@ Mỗi khuôn một số bản; bản phát hành ghim bản; CSS mỗi bản là
 mã băm giữ trong test). Chủ quán thấy khung "Khuôn" trong trình chỉnh: bản nháp dùng bản nào, trang khách chạy bản nào,
 nút "Dùng bản N" chỉ đổi bản nháp rồi Xem trước / Phát hành như thường. Sửa lỗi / bảo mật / luật Google sửa thẳng mọi
 bản. Hôm nay mọi khuôn mới có bản 1, nên khách chưa thấy gì khác. **Không migration** (`template_versions` có từ 003).
-Chi tiết `thiet-ke-va-khuon.md` mục 16. **Còn lại:** số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi.
+Chi tiết `thiet-ke-va-template.md` mục 16. **Còn lại:** số bản nền tảng `năm.tháng.lần` + nhật ký thay đổi.
 
 ### Trước đó — khuôn 6 làm lại: nút hạt ngọc (24/09)
 
@@ -753,7 +755,7 @@ khuôn, ghim theo bản phát hành của shop, shop tự chọn cập nhật. S
 
 Mọi ảnh/video shop tải lên chờ admin duyệt ở `/gov` trước khi phát hành được; trang đang chạy vẫn chạy. Tài báo
 24/09, nguyên văn: *"đã chạy xong cả hai"* (023 trên Neon production và preview) — Claude không có credential nên
-không tự kiểm được. Sau đó mới đẩy `main`. Chi tiết `thiet-ke-va-khuon.md` mục 10.
+không tự kiểm được. Sau đó mới đẩy `main`. Chi tiết `thiet-ke-va-template.md` mục 10.
 
 ### Trước đó — khuôn 1 · thẻ trôi (24/09) — đủ sáu khuôn
 
@@ -779,7 +781,7 @@ migration.** Tài cũng đã giao hướng cho khuôn 1 (thẻ trôi trên ảnh
 Kính khúc xạ thật, **cùng kết quả ở Chrome, Safari, Firefox**: tự vẽ cảnh sau kính, mỗi tấm kính mang bản sao đã
 căn, bẻ bằng `filter` (không `backdrop-filter`), cảnh cuộn cùng trang nên bộ lọc chạy một lần. Đo: lệch 0px ở cả ba
 lõi, vùng kính lệch ~4/255, cuộn không chậm đi khi CPU hãm 6 lần. Ngoại lệ `<svg>` vô hình Tài chốt. Chưa thử máy
-thật. Chi tiết `thiet-ke-va-khuon.md` mục 15. **Không migration.**
+thật. Chi tiết `thiet-ke-va-template.md` mục 15. **Không migration.**
 
 ### Trước đó — khuôn 5 · Ánh sáng tụ (23/09)
 
@@ -813,7 +815,7 @@ không mất tên, link Google, danh sách link, logo, ảnh. `publish()` ghi n�
 transaction; `live()` ghép hồ sơ, `preview()` thì không. Bảy bộ test xanh có output.
 
 Trước đó: `PRODUCT.md`, `DESIGN.md`, hệ áo khoác trang khách (`components/coats.css`), bàn xem `/xem` (chỉ ngoài
-production). Chi tiết ở [`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md).
+production). Chi tiết ở [`thiet-ke-va-template.md`](thiet-ke-va-template.md).
 
 ### Việc kế, theo thứ tự
 

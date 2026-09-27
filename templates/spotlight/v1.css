@@ -1,9 +1,9 @@
-/* Khuôn `spotlight` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+/* Template `spotlight` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
  * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
- * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-template.md mục 16. */
 
 /* =====================================================================
-   5 · KHUÔN 5 · ÁNH SÁNG TỤ. Nền tối; ánh sáng hổ phách tụ quanh nút Google (quầng của chính cái nút, qua
+   5 · TEMPLATE 5 · ÁNH SÁNG TỤ. Nền tối; ánh sáng hổ phách tụ quanh nút Google (quầng của chính cái nút, qua
    --c-btn-shadow, nên nó đi theo nút dù tên quán dài một hay hai dòng); lưới chấm nét quanh nút và nhoè dần khi ra
    xa. Hợp luật Google vì nó chỉ làm CTA nổi hơn. Chữ không bao giờ bị nhoè — chỉ lớp trang trí.
    Lớp trang trí là pseudo-element của các nút đã có, không thêm nút DOM nào; tâm của chúng ước theo chỗ nút Google

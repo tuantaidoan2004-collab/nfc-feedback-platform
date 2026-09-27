@@ -119,7 +119,7 @@ function sceneTokens(b: PageConfig['background']) {
 }
 
 /**
- * Khuôn 3: where each glass pane sits on the page. A pane repaints the scene behind it, shifted by its own offset, and
+ * Template 3: where each glass pane sits on the page. A pane repaints the scene behind it, shifted by its own offset, and
  * the scene scrolls with the page, so pane and scene never slide past each other: the refraction filter runs once and
  * the browser keeps the result. Measured again only when something changes size (a poster loading, a language switch,
  * turning the phone). A pane can move without changing size -- a line above it rewraps -- so every block that can push
@@ -151,7 +151,7 @@ function useGlassPlacement(enabled: boolean) {
 /**
  * The glass itself: bend the pane's copy of the scene at its rim, frost it, add a rim light. Built from the pane's own
  * shape (a blurred alpha is the height of the glass, its slope is the bend), so one filter fits every size with no
- * image and no script. Rules learned making it agree across engines (thiet-ke-va-khuon.md mục 15):
+ * image and no script. Rules learned making it agree across engines (thiet-ke-va-template.md mục 15):
  * feConvolveMatrix with preserveAlpha keeps every intermediate opaque, because engines disagree on half-transparent
  * displacement maps; the kernel reads right-minus-left written as `g 0 -g`, because convolution flips it; and the
  * region reaches past the pane, because engines disagree on what lies beyond a region's edge.
@@ -182,7 +182,7 @@ function GlassFilters() {
 }
 
 /**
- * Khuôn 6's Google button (`effects.googleButton` in its manifest): a raised orb holding the "G", with the label running round it. The ring and
+ * Template 6's Google button (`effects.googleButton` in its manifest): a raised orb holding the "G", with the label running round it. The ring and
  * the orb are decoration (aria-hidden); the label itself stays in the button, hidden only from sight, so the link's
  * name and the words every visitor is offered are exactly those of every other template.
  * The "G" is the four-part mark below used as a mask over a conic blend, so it takes Google's own colours, unaltered.
@@ -339,7 +339,7 @@ function resultMessage(result: CoordinatorResult | null | undefined): MessageKey
 
 /** The hint appears once the visitor has reached the bottom of the page and stayed two seconds, then stays. */
 /**
- * Khuôn 6's way out (thiet-ke-va-khuon.md mục 12): the tap covers this page for `ms`, then the same tab goes to Google.
+ * Template 6's way out (thiet-ke-va-template.md mục 12): the tap covers this page for `ms`, then the same tab goes to Google.
  * Only a plain tap is held back -- a long-press, a modified click or reduced motion get the browser's own behaviour at
  * once. Coming back with the Back button restores the page from the cache with the cover still on, so `pageshow`
  * takes it off; and if the navigation never happens (offline), the cover lifts by itself.

@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { AdminError } from './error';
+import { PLATFORM_NAME } from '../brand';
 
 /**
  * Time-based one-time codes for administrators (RFC 6238: HMAC-SHA1, thirty-second steps, six digits), written out
@@ -65,7 +66,7 @@ export function stepOf(secret: Buffer, digits: string, now: Date): number | null
 export const newSecret = () => randomBytes(20);
 /** What an authenticator app scans or accepts pasted. The label is what the person will see in their app. */
 export const enrolmentUri = (username: string, secret: Buffer) =>
-  `otpauth://totp/${encodeURIComponent(`NFC · ${username}`)}?secret=${base32(secret)}&issuer=${encodeURIComponent('NFC Feedback')}&algorithm=SHA1&digits=${DIGITS}&period=${STEP_SECONDS}`;
+  `otpauth://totp/${encodeURIComponent(`NFC · ${username}`)}?secret=${base32(secret)}&issuer=${encodeURIComponent(PLATFORM_NAME)}&algorithm=SHA1&digits=${DIGITS}&period=${STEP_SECONDS}`;
 
 /**
  * The secret at rest. Reading this table must not be enough to produce codes, or the second factor protects nothing

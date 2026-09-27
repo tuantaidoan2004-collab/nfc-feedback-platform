@@ -5,11 +5,11 @@ import { TEMPLATE_PRICES, isTemplateKey } from './templates';
  * quán và nền tảng thấy trước; chưa có kỳ thanh toán, chưa có gì tự tạm ngừng khi chưa trả (Tài, 26/09: cần cảm nhận của
  * khách trước khi thu thật).
  *
- * - Mỗi khuôn một giá thuê mỗi tháng cho mỗi trang (`pricePerMonth` trong manifest của gói). Khuôn 6 miễn phí.
- * - Mỗi quán hai suất miễn phí, cho **hai trang có phí đang chạy lâu nhất**; khuôn 6 không chiếm suất. Đóng một trang được
+ * - Mỗi template một giá thuê mỗi tháng cho mỗi trang (`pricePerMonth` trong manifest của gói). Template 6 miễn phí.
+ * - Mỗi quán hai suất miễn phí, cho **hai trang có phí đang chạy lâu nhất**; template 6 không chiếm suất. Đóng một trang được
  *   miễn thì trang có phí cũ nhất tiếp theo được miễn (khi có kỳ: từ kỳ sau).
  * - Chỉ trang **đang chạy** tính tiền: nháp chưa chạy; tạm ngừng là gói tạm dừng theo (Tài, 25/09); đóng là hết.
- * - Đổi khuôn: giá theo khuôn **đang chạy trên trang khách**; khi có kỳ, giá mới tính từ kỳ sau (Tài, 26/09).
+ * - Đổi template: giá theo template **đang chạy trên trang khách**; khi có kỳ, giá mới tính từ kỳ sau (Tài, 26/09).
  * - Thẻ NFC không tính phí trong app: thẻ chỉ là vật chứa link, bán riêng (Tài, 26/09).
  * "Lâu nhất" hôm nay đo bằng lúc tạo trang: chưa có cột "bắt đầu chạy". Đủ cho số dự kiến; khi thu thật thì ghi mốc riêng.
  */

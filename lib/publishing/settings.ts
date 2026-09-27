@@ -1,16 +1,16 @@
 import { PublishingError, type PageConfig } from './config';
 
 /**
- * Bảng cài đặt của một bản khuôn (lát P2, `docs/goi-va-trang.md` mục 2). Trình chỉnh không biết khuôn nào có gì: nó
+ * Bảng cài đặt của một bản template (lát P2, `docs/goi-va-trang.md` mục 2). Trình chỉnh không biết template nào có gì: nó
  * đọc bảng này và vẽ ô. Hai loại ô:
  *
- * - **Ô có sẵn** của trình chỉnh, trỏ vào phần diện mạo đã có trong `PageConfig`: bố cục, nền (kèm những kiểu nền khuôn
- *   nhận), watermark, nút góp ý. Khuôn không mở ô nào thì chủ quán không đổi được phần đó — server từ chối.
- * - **Ô chung** do khuôn tự khai: màu, thanh kéo, lựa chọn, bật/tắt. Giá trị nằm ở `config.settings[key]`; trang khách
+ * - **Ô có sẵn** của trình chỉnh, trỏ vào phần diện mạo đã có trong `PageConfig`: bố cục, nền (kèm những kiểu nền template
+ *   nhận), watermark, nút góp ý. Template không mở ô nào thì chủ quán không đổi được phần đó — server từ chối.
+ * - **Ô chung** do template tự khai: màu, thanh kéo, lựa chọn, bật/tắt. Giá trị nằm ở `config.settings[key]`; trang khách
  *   đưa màu và số thành biến CSS `--s-<key>`, lựa chọn và bật/tắt thành thuộc tính `data-s-<key>` trên trang, để tệp CSS
- *   của đúng bản khuôn đó đọc. Thêm một ô chung vào bản mới không cần sửa dashboard.
+ *   của đúng bản template đó đọc. Thêm một ô chung vào bản mới không cần sửa dashboard.
  *
- * Nội dung (tên, link Google, câu hỏi, nút link, logo, poster) không nằm trong bảng: nó là của trang, khuôn nào cũng
+ * Nội dung (tên, link Google, câu hỏi, nút link, logo, poster) không nằm trong bảng: nó là của trang, template nào cũng
  * có. Luật Google không đi qua đây: ô không bao giờ chạm nút Google (test hợp đồng của skin).
  */
 export type BackgroundKind = PageConfig['background']['kind'];

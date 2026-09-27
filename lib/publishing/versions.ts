@@ -1,9 +1,9 @@
 import { EVERY_BUILT_IN, type SettingField } from './settings';
 
 /**
- * Bản khuôn (Tài giao Claude quyết, 24/09; `docs/thiet-ke-va-khuon.md` mục 16).
+ * Bản template (Tài giao Claude quyết, 24/09; `docs/thiet-ke-va-template.md` mục 16).
  *
- * Mỗi khuôn có số bản riêng, số nguyên từ 1. Bản phát hành của shop ghim một bản (`page_releases.template_version_id`),
+ * Mỗi template có số bản riêng, số nguyên từ 1. Bản phát hành của shop ghim một bản (`page_releases.template_version_id`),
  * và trang khách vẽ đúng bản đó: CSS của nó nằm trong `templates/<khoá>/v<bản>.css`, tệp đóng băng, mã băm giữ
  * trong `tests/contracts/skin.spec.ts`. Đổi diện mạo = thêm một bản vào `manifest.json` của gói và một tệp mới; shop đang chạy **không đổi**
  * cho tới khi chủ quán tự chuyển bản nháp sang bản mới, xem trước, rồi phát hành.

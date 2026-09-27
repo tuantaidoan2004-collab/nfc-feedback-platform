@@ -35,7 +35,7 @@ async function shopOn(f:F,key:string,n=1){
  await new OwnerSetupLinks(f.db).consume(made.setupToken,`password-of-quan-${n}`);
  return {...made,token:(await new OwnerAuth(f.db).login(`quan-${n}`,`password-of-quan-${n}`)).token};
 }
-// A second version of khuôn 6 with one field of every kind, which the code does not ship yet.
+// A second version of template 6 with one field of every kind, which the code does not ship yet.
 const OWN:SettingField[]=[{kind:'color',key:'glow',label:'Màu quầng',default:'#FFCC00'},{kind:'range',key:'blur',label:'Độ nhoè',min:0,max:40,step:4,default:12},
  {kind:'choice',key:'mood',label:'Không khí',options:[{value:'calm',label:'Êm'},{value:'bright',label:'Sáng'}],default:'calm'},{kind:'toggle',key:'sparkle',label:'Lấp lánh',default:false}];
 const WITH_V2={...TEMPLATE_RELEASES,'big-button':[...TEMPLATE_RELEASES['big-button'],{version:2,date:'2026-10-01',notes:'Bản thử',settings:OWN}]};
@@ -48,7 +48,7 @@ test('each template shows and accepts only what its version offers; content is a
  expect(tables).toEqual([[],[{kind:'background',allow:['solid','gradient']},{kind:'feedbackButton'}],
   [{kind:'background',allow:['solid','gradient','media']},{kind:'watermark'},{kind:'feedbackButton'}]]);
 
- // Khuôn 6: nothing about the look moves; the name, the link and the buttons do.
+ // Template 6: nothing about the look moves; the name, the link and the buttons do.
  let state=await design.read(six.token,six.slug),c=state.draft.config;
  for(const change of [{layout:'card' as const},{background:{kind:'solid' as const,color:'#000000'}},{watermark:{...c.watermark,enabled:true}},
   {feedbackButton:{...c.feedbackButton!,color:'#FF0000'}}])
@@ -56,13 +56,13 @@ test('each template shows and accepts only what its version offers; content is a
  await expect(save(design,six,state.draft.revision,{...c,settings:{glow:'#FFFFFF'}})).rejects.toMatchObject({status:400,code:'INVALID_SETTING'});
  await save(design,six,state.draft.revision,{...c,name:'Quán Sáu Mới',googleUrl:'https://maps.google.com/?cid=8'});
 
- // Khuôn 3 paints its glass scene from two colours: a gradient is open, a photo is not; the plane is open, watermark not.
+ // Template 3 paints its glass scene from two colours: a gradient is open, a photo is not; the plane is open, watermark not.
  state=await design.read(glass.token,glass.slug);c=state.draft.config;
  const r=(await save(design,glass,state.draft.revision,{...c,background:{kind:'gradient',colors:['#102030','#A0B0C0'],angle:90},feedbackButton:{...c.feedbackButton!,color:'#123456'}})).revision;
  await expect(save(design,glass,r,{...c,background:{kind:'media',media:{kind:'image',url:'https://media.example/a.jpg'},loop:true}})).rejects.toMatchObject({code:'SETTING_LOCKED'});
  await expect(save(design,glass,r,{...c,watermark:{...c.watermark,enabled:true}})).rejects.toMatchObject({code:'SETTING_LOCKED'});
 
- // Khuôn 1 takes every kind of background and the watermark, but not the layout.
+ // Template 1 takes every kind of background and the watermark, but not the layout.
  state=await design.read(one.token,one.slug);c=state.draft.config;
  await save(design,one,state.draft.revision,{...c,background:{kind:'solid',color:'#224433'},watermark:{...c.watermark,enabled:!c.watermark.enabled}});
  await expect(save(design,one,state.draft.revision+1,{...c,layout:'card'})).rejects.toMatchObject({code:'SETTING_LOCKED'});

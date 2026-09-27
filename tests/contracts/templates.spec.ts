@@ -5,7 +5,7 @@ import { manifestProblems } from '../../lib/publishing/template-manifest';
 import { TEMPLATE_KEYS, TEMPLATE_NAMES, effectsOf, templateConfig } from '../../lib/publishing/templates';
 
 /**
- * Gói khuôn (lát M1): each template is a folder under templates/, and nothing else in the code lists templates. These
+ * Gói template (lát M1): each template is a folder under templates/, and nothing else in the code lists templates. These
  * checks are what a designer's package has to pass before it reaches a guest.
  */
 const folders = readdirSync('templates', { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name);

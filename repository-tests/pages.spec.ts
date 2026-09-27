@@ -202,7 +202,7 @@ test('the page list: the owner copies a page or takes a template from the librar
  expect((await pages.list(shop.token,shop.slug)).pages[2].label).toBe('Quầy bar tầng 1');
  for(const body of [{template:'nope',label:''},{copy:'khong-co',label:''},{template:'minimal',label:'x'.repeat(61)},{template:'minimal'},{copy:shop.slug,template:'minimal',label:''},{page:shop.slug,label:'<b>'}])
   await expect('page' in body?pages.rename(shop.token,shop.slug,body):pages.create(shop.token,shop.slug,body)).rejects.toMatchObject({status:expect.any(Number)});
- // Prices (lát P5, nothing charged yet): two running paid pages take the free places, khuôn 6 is free, a third costs 10k.
+ // Prices (lát P5, nothing charged yet): two running paid pages take the free places, template 6 is free, a third costs 10k.
  let listed=await pages.list(shop.token,shop.slug);
  expect([listed.monthly,listed.pages.map(p=>[p.price.monthly,p.price.free,p.price.billable])]).toEqual([0,[[0,'slot',true],[0,'slot',true],[0,'template',false]]]);
  const third=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Bàn 3'});
@@ -227,7 +227,7 @@ test('only the owner makes pages or changes a template: each decides what the sh
 test('a page moved to another template keeps its link, cards and content, and takes the new look',async({f})=>{
  const shop=await shopOn(f,1),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
  let state=await design.read(shop.token,shop.slug);
- const content={...state.draft.config,name:'Quán Đổi Khuôn',googleUrl:'https://maps.google.com/?cid=99',
+ const content={...state.draft.config,name:'Quán Đổi Template',googleUrl:'https://maps.google.com/?cid=99',
   links:[{label:{vi:'Instagram',en:'Instagram'},url:'https://instagram.com/q',icon:'instagram' as const}]};
  const {SERVICE_LABELS}=await import('../lib/publishing/policy');content.links[0].label={...SERVICE_LABELS[0]};
  const saved=(await design.save(shop.token,shop.slug,{expectedRevision:state.draft.revision,config:content})).revision;
@@ -235,7 +235,7 @@ test('a page moved to another template keeps its link, cards and content, and ta
  expect(moved.revision).toBe(saved+1);
  state=await design.read(shop.token,shop.slug);
  expect(state.template).toMatchObject({key:'glass',draft:1});
- expect(state.draft.config).toMatchObject({name:'Quán Đổi Khuôn',googleUrl:'https://maps.google.com/?cid=99',links:content.links,
+ expect(state.draft.config).toMatchObject({name:'Quán Đổi Template',googleUrl:'https://maps.google.com/?cid=99',links:content.links,
   background:{kind:'gradient',colors:['#1B2B4A','#8FB3D9'],angle:160}});
  // Nothing changed for guests until it is published; then the same link and card show the new template.
  expect((await resolver.live({slug:shop.slug})).template).toBe('minimal');

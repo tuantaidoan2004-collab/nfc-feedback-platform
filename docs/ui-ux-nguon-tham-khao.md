@@ -2,7 +2,7 @@
 
 Tài chốt 27/09: *"Mọi câu chữ trong lời video trên doc tôi gửi đều rất quan trọng… Lấy doc đó làm cơ sở cho các thiết kế
 sau này."* Tệp này là bản tóm tắt để làm việc. Nó đứng **sau** `google-policy.md` (luật Google thắng mọi thứ), và đọc
-cùng `PRODUCT.md`, `DESIGN.md`, `thiet-ke-va-khuon.md`.
+cùng `PRODUCT.md`, `DESIGN.md`, `thiet-ke-va-template.md`.
 
 **Nguồn gốc:** tệp PDF của Tài *"nguồn tham khảo UI:UX"*, 66 trang: lời thoại kèm ảnh của bốn video uxpeak (sửa một trang
 sản phẩm qua 15 lỗi; sáu nguyên lý tâm lý UX; ba cặp A/B về paywall, giá và trang đặt phòng; thanh điều hướng dưới trên
@@ -118,7 +118,7 @@ nhiều nội dung, khai trong manifest (`effects`, lát M2).
   iOS cùng dùng WebKit) **chưa chắc** giữ lâu như vậy. Cách làm: đếm trên trang cũ, hết 4 giây thì mở tab mới. Nếu trình
   duyệt chặn (mở ra `null`), **ngay lúc đó** popup đổi thành một nút "Mở Google" — một chạm của khách, không phải nút bỏ
   qua đếm ngược. Thử trên iPhone thật trước khi phát hành.
-- Thay ranh giới 300ms cũ (`thiet-ke-va-khuon.md` mục 12) và mức chặn 300 trong `template-manifest.ts` trong cùng lát.
+- Thay ranh giới 300ms cũ (`thiet-ke-va-template.md` mục 12) và mức chặn 300 trong `template-manifest.ts` trong cùng lát.
 - Đi kèm ý 3 (lời cảm ơn và tim bung ra) trong cùng popup.
 
 ### Ý 2 — Đăng ký cuốn như uxpeak, không đòi tiền lúc đầu
@@ -140,7 +140,7 @@ muốn dùng tiếp thì vào đó trả.
 
 Tài chốt: không dùng 😍 nói hộ cảm xúc của khách. Dùng chữ **"Cảm ơn quý khách đã ghé…"** — lời của quán — bung ra cùng
 hiệu ứng tim nhẹ như pháo hoa khi popup hiện, rồi tan. **Shop sửa được câu này trong trình chỉnh template**, và câu mới
-**phải qua admin duyệt** trước khi phát hành (như cửa duyệt ảnh, `thiet-ke-va-khuon.md` mục 10), để Tài yên tâm.
+**phải qua admin duyệt** trước khi phát hành (như cửa duyệt ảnh, `thiet-ke-va-template.md` mục 10), để Tài yên tâm.
 
 - Chữ tự do đặt sát lời mời Google → qua cả dây bẫy chữ (`google-policy.md` mục 3b: từ "đánh giá" cạnh "quà", "nhắc tên")
   **và** cửa duyệt. Không bao giờ hình ngôi sao. Tôn trọng "giảm chuyển động" (chỉ hiện, không bung).

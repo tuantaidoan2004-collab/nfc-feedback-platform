@@ -474,7 +474,7 @@ test('pages: a picture of each, copy one, make one from the library, bring conte
  // (A copy takes no cards with it, so the one card on that page is this one.)
  await expect(page.locator('[data-cards] [data-card-page]',{hasText:copy})).toHaveCount(1);
 
- // From the library: khuôn 6, nothing to adjust; its content comes from page one.
+ // From the library: template 6, nothing to adjust; its content comes from page one.
  await page.locator('[data-new-page] select').selectOption('big-button');
  await page.locator('[data-new-page] input').fill('Quầy bar');
  await page.getByRole('button',{name:'Tạo trang',exact:true}).click();

@@ -135,7 +135,7 @@ test('the template shop is created once, even when asked at the same time, and r
  expect(new Set(made.map(t=>t.shopId)).size).toBe(1);
  const row=(await f.db.query(`SELECT s.name,s.publishing_state,r.config_snapshot FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.is_template`)).rows;
  expect(row).toEqual([{name:'YOUR SHOP',publishing_state:'active',config_snapshot:templateConfig()}]);
- // A background is a picture, never a video (Tài 26/09): khuôn 1 starts on the still of the clip it once played.
+ // A background is a picture, never a video (Tài 26/09): template 1 starts on the still of the clip it once played.
  expect(row[0].config_snapshot.background).toEqual({kind:'media',media:{kind:'image',url:'/media/stem-background.jpg'},loop:true});
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.create'")).rows[0].n).toBe(1);
  expect((await f.db.query('SELECT count(*)::int n FROM owner_memberships_v2')).rows[0].n).toBe(0);
@@ -257,7 +257,7 @@ test('A33: each of the six templates is a bare skeleton with its own template ro
  // One row per template, shared by every shop on it, and no shop or sign-in attached to a skeleton.
  expect((await f.db.query('SELECT template_key FROM template_versions ORDER BY template_key')).rows.map(r=>r.template_key)).toEqual([...TEMPLATE_KEYS].sort());
  expect((await f.db.query('SELECT count(*)::int n FROM shops WHERE is_template')).rows[0].n).toBe(1);
- // Omitting the key means khuôn 1, so a caller from before A33 still gets the original page.
+ // Omitting the key means template 1, so a caller from before A33 still gets the original page.
  const old=await f.shops.create(f.actorId,{...input,ownerUsername:'cu-truoc',ownerEmail:'cu@example.com'});
  expect((await resolver.live({slug:old.slug})).template).toBe('standard');
 });

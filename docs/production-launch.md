@@ -15,7 +15,7 @@ Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pr
 | Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (21/09) |
 |---|---|---|---|
 | `/gov` | Quản trị nền tảng: tạo shop, cấp link đặt mật khẩu | admin **`tai`** + **mã 6 số** từ ứng dụng xác thực (đã đăng ký 21/09; 10 mã dự phòng Tài giữ) | **Dùng được** |
-| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Có**: shop khuôn `urr6ud` (`@yourshop`) và các shop Tài tạo (xem `/gov`). `caphe-demo` (shop giả, nháp) bị xoá ở migration 028 |
+| `/ZZZ/<slug>` | Dashboard chủ shop | `@handle` của chủ shop | **Có**: shop template `urr6ud` (`@yourshop`) và các shop Tài tạo (xem `/gov`). `caphe-demo` (shop giả, nháp) bị xoá ở migration 028 |
 | `/<slug>` | Trang khách | không cần | **Có**: `/urr6ud`. Cảnh báo "Nguy hiểm" của Chrome trên tên miền cũ **đã hết** sau khi chuyển `.com` |
 | `/t/<mã>` | Link ghi vào thẻ NFC | không cần | **Chưa ghi thẻ nào.** Lô thẻ đầu **phải** mang `.com`; mã thẻ chứa cả tên miền và không sửa được sau khi ghi |
 | `/` | Cửa trước của tên miền | không cần | Trang tĩnh ngắn: đây là gì, ai vận hành, link Quyền riêng tư / Điều khoản. Trước 26/09 nó chuyển sang trang demo 4Râu (dữ liệu giả) — đã gỡ ở lát A3 |
@@ -27,7 +27,7 @@ Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đ�
 
 ## Còn phải làm trên production (tính tới 21/09)
 
-- [x] ~~Đăng nhập `/gov`, tạo shop khuôn~~ — xong 21/09.
+- [x] ~~Đăng nhập `/gov`, tạo shop template~~ — xong 21/09.
 - [ ] **Tạo shop thật đầu tiên** và ghi thẻ NFC cho nó. Kiểm đường dẫn trong dashboard là `.com` trước khi ghi.
 - [ ] **Thử tải một ảnh lên** từ dashboard — phép kiểm CORS bucket R2 và hai khoá R2 của production.
 - [x] **21/09: `MEDIA_PUBLIC_ORIGIN` = `https://media.quitesensational-review-bio.com`** (custom domain của bucket `nfc-media`, Production và Preview). Tài tải lên thử, link ra đúng `media.…`. **r2.dev vẫn bật** cho ảnh đã lưu trước đó; tắt khi không còn cấu hình nào trỏ `pub-….r2.dev`. Ảnh đại diện cũ trên `r2.dev` phải tải lại, vì `lib/owner/profile.ts` chỉ nhận ảnh dưới `MEDIA_PUBLIC_ORIGIN`. Bản ghi DNS `media` **để đám mây cam** (R2 bắt buộc); luật "không bật cam" chỉ áp cho bản ghi trỏ Vercel.
@@ -39,7 +39,7 @@ Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đ�
 2. **Tài: thêm tên miền production vào CORS của bucket R2** (Cloudflare → R2 → `nfc-media` → Settings → CORS policy): `AllowedOrigins` thêm `https://quitesensational-review-bio.vercel.app`, giữ origin preview.
 3. **Tài: tạo admin `tai` trên database production** (lệnh dưới).
 4. **Agent: push `feat/local-app-foundation` lên `main`** (fast-forward) → Vercel deploy production. Agent kiểm bằng request không đăng nhập: `/gov/login` 200, `/owner/login?next=…` 200, `/api/owner/v2/x` 401.
-5. **Tài: vào `/gov` trên production**, tạo shop khuôn, rồi tạo shop thật. Tài khoản khuôn `yourshop` chỉ vào được bằng link đặt mật khẩu dùng một lần (mọi môi trường, từ 27/09).
+5. **Tài: vào `/gov` trên production**, tạo shop template, rồi tạo shop thật. Tài khoản template `yourshop` chỉ vào được bằng link đặt mật khẩu dùng một lần (mọi môi trường, từ 27/09).
 6. Ghi thẻ NFC cho khách bằng link `https://quitesensational-review-bio.vercel.app/t/<mã>`.
 
 ## Biến Production
@@ -83,14 +83,14 @@ Trước lát 19/09 production **đóng**: không có `NFC_ENV`, và `main` còn
 - Tài tạo admin `tai` trên database production bằng `bootstrap-admin.mjs --handle=Quitesensational --title="Admin Tài"`. Script in cảnh báo SSL của `pg` vì chưa đổi `sslmode` như `migrate.mjs`; đã sửa trong script.
 - Agent fast-forward `main` từ `df0a485` lên `c56cb7b` (19/09). Trong lúc build, tên miền production còn phục vụ bản `main` cũ với biến mới (Vercel đã redeploy bản cũ khi Tài thêm biến), nên lần kiểm đầu tưởng đã xong; phải kiểm một dấu hiệu chỉ bản mới có (chữ "@handle hoặc email" ở trang đăng nhập) và `vercel ls --prod` (trạng thái Building).
 - **Production mở, kiểm không đăng nhập:** `/gov/login` 200 · `/owner/login` 200 (có dòng "Quên mật khẩu? Liên hệ …") · `/ZZZ/<mã>` 307 về đăng nhập · `/gov` 307 về `/gov/login` · `/api/owner/v2/<mã>`, `/notifications`, `/profile` 401 · `/t/<mã lạ>` 200 (trang "chưa sẵn sàng") · header `x-frame-options: DENY`, `cache-control: private, no-store`, HSTS.
-- **Còn lại cho Tài:** đăng nhập `/gov` trên production bằng admin `tai`, tạo shop khuôn, tạo shop thật, rồi thử tải ảnh lên (kiểm CORS R2 và hai khoá R2 mới).
+- **Còn lại cho Tài:** đăng nhập `/gov` trên production bằng admin `tai`, tạo shop template, tạo shop thật, rồi thử tải ảnh lên (kiểm CORS R2 và hai khoá R2 mới).
 - **Từ giờ:** production deploy từ `main`. Mỗi lát xong trên branch và đã kiểm trên preview thì fast-forward `main`; lát có migration thì migrate Neon production **trước** khi đẩy `main`.
 
-## Tài khoản dashboard khuôn trên production (19/09)
+## Tài khoản dashboard template trên production (19/09)
 
-Tài hỏi tài khoản dashboard khuôn. Preview là `yourshop / 1`; production **từ chối** mật khẩu yếu đó (`TEST_ACCOUNT_FORBIDDEN`), nên lát mở production để lại một lỗ: **không có cách nào sửa khuôn trên production**. Agent không lường trước khi lên kế hoạch lát này.
+Tài hỏi tài khoản dashboard template. Preview là `yourshop / 1`; production **từ chối** mật khẩu yếu đó (`TEST_ACCOUNT_FORBIDDEN`), nên lát mở production để lại một lỗ: **không có cách nào sửa template trên production**. Agent không lường trước khi lên kế hoạch lát này.
 
-Sửa: trên production, nút ở `/gov` thành **"Tạo tài khoản cho khuôn (link đặt mật khẩu)"** và **"Tạo lại link đặt mật khẩu cho yourshop"** (`ShopProvisioning.templateAccountLink`). Tài khoản `yourshop` tạo ở trạng thái khoá (như chủ shop mới), `/gov` hiện link đặt mật khẩu dùng một lần 48 giờ; Tài tự đặt mật khẩu mạnh rồi đăng nhập dashboard khuôn bằng `@yourshop`. Cấp link mới cũng mở khoá đếm đăng nhập sai. **Từ 27/09 preview cũng vậy:** `yourshop / 1` bị gỡ hẳn (repo công khai thì mật khẩu cố định là mật khẩu ai cũng biết); cấp lại link thì khoá tài khoản và đăng xuất mọi phiên cũ trước.
+Sửa: trên production, nút ở `/gov` thành **"Tạo tài khoản cho template (link đặt mật khẩu)"** và **"Tạo lại link đặt mật khẩu cho yourshop"** (`ShopProvisioning.templateAccountLink`). Tài khoản `yourshop` tạo ở trạng thái khoá (như chủ shop mới), `/gov` hiện link đặt mật khẩu dùng một lần 48 giờ; Tài tự đặt mật khẩu mạnh rồi đăng nhập dashboard template bằng `@yourshop`. Cấp link mới cũng mở khoá đếm đăng nhập sai. **Từ 27/09 preview cũng vậy:** `yourshop / 1` bị gỡ hẳn (repo công khai thì mật khẩu cố định là mật khẩu ai cũng biết); cấp lại link thì khoá tài khoản và đăng xuất mọi phiên cũ trước.
 
 **Lỗi cũ test mới bắt được:** `OwnerSetupLinks.write` chỉ huỷ link còn mở **cùng loại** (`setup` hoặc `reset`). Link đặt mật khẩu đầu tiên (`setup`) vì thế **vẫn dùng được** sau khi admin cấp lại link (`reset`) cho chủ shop, cho tới khi hết 48 giờ. Giờ link mới huỷ mọi link còn mở của tài khoản.
 - 7 bộ trên commit `0aa2f47`: tsc exit 0 · eslint exit 0 · repository `116 passed` · contracts `73 passed` · client `75 passed` · public-v2 + browser-hardening `1 skipped, 16 passed` + `2 passed` · publishing `10 passed` + `2 passed` · owner `10 passed` + `2 passed` · admin `6 passed` + `2 passed`. Không có migration; đã đẩy lên `main`.

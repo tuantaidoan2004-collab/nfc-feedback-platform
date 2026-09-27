@@ -41,7 +41,7 @@ test('no template touches the private-feedback button or the Google invitation, 
   const protectedParts = /guest-float|guest-plane|guest-hint|google-/;
   for (const rule of all.filter(rule => /data-template/.test(rule.selector))) expect(rule.selector, rule.file).not.toMatch(protectedParts);
   // What carries meaning -- the invitation, the button, its words, its mark -- never animates at all. Decoration inside
-  // the button (khuôn 6's orb, ring and G) may only loop forever: an endless shimmer, never an entrance that arrives late.
+  // the button (template 6's orb, ring and G) may only loop forever: an endless shimmer, never an entrance that arrives late.
   for (const rule of all.filter(rule => /google-/.test(rule.selector)))
     for (const selector of rule.selector.split(',')) {
       const last = selector.trim().split(/\s+/).pop()!;
@@ -72,7 +72,7 @@ test('text tokens reach 4.5:1 on their surface, muted text included, in the defa
   }
 });
 
-// Khuôn 3: text sits on a frosted tint laid over whatever the scene shows. The tint alone must carry 4.5:1 in the two
+// Template 3: text sits on a frosted tint laid over whatever the scene shows. The tint alone must carry 4.5:1 in the two
 // worst cases -- pure black behind it and pure white behind it -- so no shop colour can make the text unreadable.
 test('glass: text on the frosted tint reaches 4.5:1 whether the scene behind is black or white', () => {
   // The tint's opacity is read from the stylesheet, where it is marked, so lowering it turns this test red.
@@ -89,7 +89,7 @@ test('glass: text on the frosted tint reaches 4.5:1 whether the scene behind is 
   }
 });
 
-// Bản khuôn (versions.ts, thiet-ke-va-khuon.md mục 16). A shop keeps the look it published until its owner chooses a
+// Bản template (versions.ts, thiet-ke-va-template.md mục 16). A shop keeps the look it published until its owner chooses a
 // newer version; these checks are what make "keeps" true rather than hoped for.
 const skinFiles = files.filter(file => file.name.startsWith('templates/'));
 test('every template version the platform ships has its own stylesheet, and every stylesheet is a version it ships', () => {

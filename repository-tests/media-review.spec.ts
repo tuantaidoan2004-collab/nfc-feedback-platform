@@ -9,7 +9,7 @@ import {PublishingAdmin,PublishingResolver} from '../lib/publishing/repository';
 import { templateConfig } from '../lib/publishing/templates';
 
 /**
- * Cửa duyệt ảnh (migration 023, docs/thiet-ke-va-khuon.md mục 10). Shops upload; nothing they upload reaches a guest
+ * Cửa duyệt ảnh (migration 023, docs/thiet-ke-va-template.md mục 10). Shops upload; nothing they upload reaches a guest
  * page until the operator approves it; the check sits where a shop publishes, so a page already live stays live.
  */
 /** The shop's page (migration 024): provisioning returns both ids. */

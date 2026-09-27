@@ -108,6 +108,12 @@ thư mục sang chỗ build riêng. Lát M1 thêm `templates/`: typecheck, eslin
 cả bốn bộ integration đỏ với `Can't resolve '../templates/standard/v1.css'` — trông như trang khách hỏng. Docker và CI
 chép cả repo nên không dính. Thêm thư mục gốc mới thì sửa danh sách trong `copyApp` cùng commit.
 
+**Test tìm phần tử thế nào (luật A10, 27/09, trước đợt cải tổ UI/UX).** Integration hỏi giao diện bằng câu chữ khoảng
+300 lần; đổi chữ hàng loạt là đỏ hàng loạt, và cám dỗ "nới test cho xanh" tới ngay sau đó. Từ lát S1: **giữ tên theo vai
+trò (`getByRole(…, {name})`) chỉ khi câu chữ là luật sản phẩm** — nút Google, lời hứa "không đăng lên Google", trang pháp
+lý, thông báo lỗi khách đọc; mọi thứ khác tìm bằng móc `data-*` ổn định. Mỗi lát cải tổ viết lại test của đúng bề mặt nó
+chạm, và không xoá một câu kiểm bất biến chỉ vì chữ đổi.
+
 **Chạy cả bộ integration một lệnh thì 11 test đỏ.** Ba lệnh harness **loại trừ nhau**, vì `publishing = owner || --publishing` nên `--owner`/`--admin` bật luôn publishing và đổi cách `/one` render:
 
 ```
@@ -267,7 +273,7 @@ coi một tính năng về quyền riêng tư là xong**: đó là lúc lời h�
 
 **Sổ quyết định chép lại một việc chưa kiểm được.** Bản ghi 21/09 viết "Tài báo đã tạo shop thật đầu tiên và ghi thẻ", đồng thời xoá việc đó khỏi danh sách còn treo của Tài — trong khi `production-launch.md` ngay cạnh vẫn để ô trống. Tài xác nhận 22/09: **chưa ghi thẻ**. Một câu như vậy làm cả lát sau đi sai hướng, vì "đã có khách thật" là điều kiện bật của A8/A9/A10. Luật: trạng thái production chỉ ghi khi **agent tự kiểm được**, hoặc kèm đúng chữ Tài nói và ngày; hai tệp nói khác nhau thì dừng lại hỏi, đừng chọn bên nghe xuôi hơn.
 
-**Nền mặc định của trang khách là một video 3 MB tải hết ngay mỗi lượt chạm.** Đo production 22/09 trên `/urr6ud`: HTML 4,6 KB · JS **128 KB** (167 KB trừ 39 KB polyfills có `noModule`, máy hiện đại bỏ qua) · ảnh shop 228 KB · **`/media/stem-background.mp4` 3.051 KB**. Thẻ `<video>` có `preload="auto"` + `autoPlay`, nên video chiếm **88% tổng byte** và tranh băng thông với đúng thứ khách cần thấy — nút Google. Nó là nền của shop khuôn, nên mọi quán không tự đổi đều gánh. Chưa đo trên điện thoại thật qua 4G (E6). Bài học chung: **đo byte thật trước khi tranh luận về thư viện** — cả cuộc bàn "có nên thêm một thư viện component 35 KB" là 1% của trang này.
+**Nền mặc định của trang khách là một video 3 MB tải hết ngay mỗi lượt chạm.** Đo production 22/09 trên `/urr6ud`: HTML 4,6 KB · JS **128 KB** (167 KB trừ 39 KB polyfills có `noModule`, máy hiện đại bỏ qua) · ảnh shop 228 KB · **`/media/stem-background.mp4` 3.051 KB**. Thẻ `<video>` có `preload="auto"` + `autoPlay`, nên video chiếm **88% tổng byte** và tranh băng thông với đúng thứ khách cần thấy — nút Google. Nó là nền của shop template, nên mọi quán không tự đổi đều gánh. Chưa đo trên điện thoại thật qua 4G (E6). Bài học chung: **đo byte thật trước khi tranh luận về thư viện** — cả cuộc bàn "có nên thêm một thư viện component 35 KB" là 1% của trang này.
 
 **Bàn giao sai hình dạng: dựng công cụ chỉnh khi người ta cần một bản dựng xong.** 22/09, Tài nói "cho tôi giao diện design để tôi điều chỉnh". Claude dựng hai artifact liên tiếp — một bàn vặn núm, một tủ áo khoác — và cả hai đều là **công cụ để Tài tự làm thiết kế**. Tài nói thẳng: "tôi tự edit thì tốc độ cũng như sự thực thi cũng không bằng bạn thực thi". Cái cần là **một trang hoàn chỉnh theo một phong cách, trong repo, mở trên preview**. Bài học: khi người ta xin "công cụ chỉnh", hỏi xem họ muốn **cầm cái vô-lăng** hay muốn **tới nơi**. Đa số là tới nơi. Và một artifact không phải chỗ trả bài cho thứ cuối cùng phải sống trong repo — nó không chạy được tính năng thật, không nằm trong 7 bộ test, không deploy.
 
@@ -312,27 +318,27 @@ bằng `span { display: none }`; link chỉ còn một SVG `aria-hidden`, nên t
 Cắt bằng `position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)` — mắt không thấy, tên
 vẫn còn. `getByRole('link', { name })` trong test bắt được lỗi này.
 
-**Ảnh chụp giữa lúc hoạt ảnh trông như lỗi xếp lớp.** Khuôn 5: chụp ngay sau khi mở thẻ góp ý thì trang hiện **sắc
+**Ảnh chụp giữa lúc hoạt ảnh trông như lỗi xếp lớp.** Template 5: chụp ngay sau khi mở thẻ góp ý thì trang hiện **sắc
 nét, đè lên** thẻ — trông như `isolation: isolate` vừa thêm đã đẩy thẻ xuống dưới. Thật ra thẻ đang `opacity` từ 0 lên
 trong 0,5 giây, và lớp làm mờ nền cũng đang hiện dần. Chờ 700ms thì đúng; `document.elementFromPoint` xác nhận
 `.guest-modal` ở trên. Trước khi sửa xếp lớp, **chờ hoạt ảnh xong rồi hỏi trình duyệt phần tử nào ở trên**, đừng tin
 một khung hình.
 
-**Một token dùng chung làm hỏng thứ phải bất biến.** Dòng mời góp ý (A2 — giống hệt ở mọi khuôn) lấy màu chữ từ
-`--forest-deep`, tức `--c-ink-2` của khuôn. Khuôn tối đặt `--c-ink-2` trắng, nên dòng mời thành chữ trắng trên viên
-sáng. Thứ bất biến thì **không đọc token của khuôn**; viết cứng giá trị và có test so hai khuôn.
+**Một token dùng chung làm hỏng thứ phải bất biến.** Dòng mời góp ý (A2 — giống hệt ở mọi template) lấy màu chữ từ
+`--forest-deep`, tức `--c-ink-2` của template. Template tối đặt `--c-ink-2` trắng, nên dòng mời thành chữ trắng trên viên
+sáng. Thứ bất biến thì **không đọc token của template**; viết cứng giá trị và có test so hai template.
 
-**Test tương phản so với một nền giả định thì không bắt được gì.** Ca khuôn 5 đầu tiên so màu chữ viên link với
+**Test tương phản so với một nền giả định thì không bắt được gì.** Ca template 5 đầu tiên so màu chữ viên link với
 `rgb(32, 33, 41)` — màu Claude *định* cho viên link — thay vì màu viên link **thật sự** được vẽ. Phá thử bằng cách gỡ
 token viên link: chữ thành trắng trên nền trắng mà ca vẫn xanh. Đo cả hai vế từ trình duyệt (`color` và
 `backgroundImage`/`backgroundColor` của chính phần tử). Chỉ phá thử mới lộ ra — lại một lần "test xanh ngay lần đầu
 thì cố tình phá mã".
 
-**So kích thước hai trang thì chờ hoạt ảnh xuất hiện xong.** Ca A2 (khuôn 5 vs khuôn 6) đo bề rộng dòng mời ngay khi
+**So kích thước hai trang thì chờ hoạt ảnh xuất hiện xong.** Ca A2 (template 5 vs template 6) đo bề rộng dòng mời ngay khi
 nó hiện: lần 271px, lần 272px, vì dòng mời bật vào bằng lò xo có vượt đà. Chờ `element.getAnimations()` xong rồi đo.
 Đừng chờ mọi hoạt ảnh của trang — nút máy bay nổi lên xuống vô hạn, `finished` của nó không bao giờ tới.
 
-**Bộ lọc SVG chạy trên ba lõi — bốn chỗ các lõi làm khác nhau** (khuôn 3, 23/09):
+**Bộ lọc SVG chạy trên ba lõi — bốn chỗ các lõi làm khác nhau** (template 3, 23/09):
 1. **`feComposite arithmetic` để lại alpha nửa vời.** `k2·a − k3·b + 0,5` cho alpha 0,5, và các lõi đọc bản đồ dịch
    chuyển nửa trong suốt mỗi lõi một kiểu: ba lõi ra ba hình. Tính độ dốc bằng `feConvolveMatrix preserveAlpha="true"`
    trên ảnh đục hoàn toàn.
@@ -352,13 +358,13 @@ chạy script ngoài harness trỏ vào `127.0.0.1:3317`.
 xuống dòng khác; viên link dời 17px nhưng cỡ không đổi, không ai báo, bản sao lệch. Theo dõi cả các khối **có thể đẩy**
 tấm kính (`.guest-sheet > *, .guest-body > *`), không chỉ tấm kính.
 
-**Thêm câu kiểm sau lần chạy cuối rồi commit luôn.** Khuôn 4: sau khi nhìn ảnh, Claude thêm một câu kiểm "thẻ nghiêng
+**Thêm câu kiểm sau lần chạy cuối rồi commit luôn.** Template 4: sau khi nhìn ảnh, Claude thêm một câu kiểm "thẻ nghiêng
 không thò qua mép phải" rồi commit mà **không chạy lại** bộ publishing; bảy bộ trên worktree tạm bắt được: thò 1,7px.
 Không có gì lên `main`, nhưng đúng là thứ tự sai. Và câu kiểm đó lộ một lỗi thiết kế thật: thẻ xoay quanh mép trên thì
 góc dưới thò ra theo **chiều cao** thẻ — shop nhiều link hơn sẽ thò nhiều hơn. Kiểm ở trường hợp xấu nhất (6 link),
 không ở trường hợp mẫu.
 
-**Hiệu ứng theo cuộn đặt quãng cố định thì trang ngắn không bao giờ chạy hết.** Khuôn 1 đặt `animation-range: 0 480px`,
+**Hiệu ứng theo cuộn đặt quãng cố định thì trang ngắn không bao giờ chạy hết.** Template 1 đặt `animation-range: 0 480px`,
 nhưng trang ngắn chỉ cuộn được ~128px (quãng cuộn dư của A1): nền dừng ở 25% hiệu ứng. Test cuộn tới 480px bắt được vì
 `scrollTo` bị chặn ở đáy. Dùng toàn quãng cuộn (`scroll(root)` không `animation-range`) để đáy trang luôn là 100%.
 
@@ -369,7 +375,7 @@ chúng không có ảnh https nên cửa dừng trước khi chạm database —
 Luật: khi mã mới đọc một bảng/cột, `grep` mọi danh sách migration (fixture **và** `run-local.mjs`) để chắc nơi nào
 chạy mã đó cũng có đủ migration nó cần — không chỉ migration mới nhất. Lỗi của Claude, lát cửa duyệt ảnh.
 
-**Nhận ra iPhone bằng `DeviceOrientationEvent.requestPermission` là sai.** Khuôn 6 định chỉ nghe cảm biến nghiêng khi
+**Nhận ra iPhone bằng `DeviceOrientationEvent.requestPermission` là sai.** Template 6 định chỉ nghe cảm biến nghiêng khi
 hàm đó *không* có (vì iPhone có nó và bắt xin quyền). Test đỏ: Chrome máy bàn bây giờ **cũng có** hàm đó, nên phép dò
 tắt luôn cả Chrome Android. Đúng là: chỉ lắng nghe sự kiện, **không bao giờ gọi** `requestPermission`. Máy nào không cho
 thì không có sự kiện — không cần đoán máy gì. Luật chung: dò **khả năng** bằng hành vi, đừng dò **loại máy** bằng một
@@ -380,15 +386,15 @@ hàm có mặt hay không.
 `for c in $css`. zsh **không tách từ** biến không có ngoặc kép (khác bash), nên vòng lặp chạy **một lần** với cả chuỗi
 nhiều dòng, `curl` nhận một URL hỏng, và lần nào cũng ra 0. Mọi con số 0 là của lệnh kiểm, không phải của deploy. Luật:
 trong zsh, lặp qua từng dòng bằng `${(f)css}` hoặc `while read -r c`; và trước khi tin một vòng kiểm, chạy tay nó một
-lần trên một thứ **chắc chắn có**. Lỗi của Claude, lát khuôn 6 hạt ngọc (ghi bù ở lát bản khuôn).
+lần trên một thứ **chắc chắn có**. Lỗi của Claude, lát template 6 hạt ngọc (ghi bù ở lát bản template).
 
-**Tách CSS ra nhiều tệp thì thứ tự nạp và độ ưu tiên đổi theo.** Lát bản khuôn chuyển diện mạo sáu khuôn từ
+**Tách CSS ra nhiều tệp thì thứ tự nạp và độ ưu tiên đổi theo.** Lát bản template chuyển diện mạo sáu template từ
 `skin.css` sang `components/skins/*.css`. Có hai rủi ro, đã chặn trước: (1) thêm `[data-template-version]` vào
 selector sẽ cộng độ ưu tiên và làm lệch thế cân với `skin.css`, nên bọc nó trong `:where()` (độ ưu tiên 0); (2) một
-luật của nền tảng nằm lẫn trong khối khuôn (`.guest-glass-filters`) suýt bị đóng băng theo khuôn 3. Test "selector chỉ
-nhắm khuôn và bản của chính tệp" bắt đúng loại này; luật đó đã trả về `skin.css`.
+luật của nền tảng nằm lẫn trong khối template (`.guest-glass-filters`) suýt bị đóng băng theo template 3. Test "selector chỉ
+nhắm template và bản của chính tệp" bắt đúng loại này; luật đó đã trả về `skin.css`.
 
-**Ca "impersonation" của bộ admin không đứng một mình được — có từ trước lát bản khuôn.** Lát bản khuôn đổi nhãn khuôn 4
+**Ca "impersonation" của bộ admin không đứng một mình được — có từ trước lát bản template.** Lát bản template đổi nhãn template 4
 thành "Chồng thẻ" mà quên sửa test, nên ca 1 (`generate a shop…`) đỏ ở dòng kiểm nhãn; kéo theo ca 5 (`impersonation:
 cookie…`) hết giờ 60s ở bước chủ quán đăng nhập rồi bấm `[data-view="settings"]`. Đã thử từng biến: chạy riêng ca 5 bằng
 `-g` trên commit lát này **và trên `main` cũ `2336c61`** thì đều hết giờ y hệt; cả bộ chạy đủ thì xanh. Vậy ca 5 cần một
@@ -480,8 +486,8 @@ thứ tự trong test, không phải lỗi migration. Luật: khi thêm migratio
 thêm gỡ N **trước** chúng; mọi chỗ gọi mã sản phẩm trên một schema cũ phải áp đủ migration tới N trước.
 
 **Gọi nhầm tên shop khi kiểm production.** Từ 25/09 Claude báo "trang Googy `/urr6ud`" sau mỗi lần deploy, nhưng
-`/urr6ud` là shop khuôn mẫu ("YOUR SHOP", khuôn 1); Googy dùng khuôn 6. Lộ ra khi in tiêu đề trang (26/09). Việc kiểm vẫn
-đúng về kỹ thuật, nhưng tên sai và mỗi lần kiểm ghi một lượt ghé vào shop khuôn mẫu. Luật: in **tiêu đề và khuôn** của
+`/urr6ud` là shop template ("YOUR SHOP", template 1); Googy dùng template 6. Lộ ra khi in tiêu đề trang (26/09). Việc kiểm vẫn
+đúng về kỹ thuật, nhưng tên sai và mỗi lần kiểm ghi một lượt ghé vào shop template. Luật: in **tiêu đề và template** của
 trang mình kiểm, và ghi đúng nó là gì — đừng đặt tên theo trí nhớ.
 
 **zsh: glob không đặt trong nháy là lỗi, không phải "không khớp".** Lát A3, lần thứ ba cùng một loại (trước là biến không

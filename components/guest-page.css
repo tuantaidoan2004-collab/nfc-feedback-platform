@@ -112,7 +112,7 @@
 .guest button.guest-plane:not(:disabled):active { transform: scale(.7); transition: transform .1s cubic-bezier(.3, 0, .5, 1); animation-play-state: paused; }
 @keyframes guest-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 /* A2: the plane and its invitation look the same under every template, so their ink is fixed rather than read
-   from --c-ink-2 -- a dark template made it light ink on this light pill (found building khuôn 5). */
+   from --c-ink-2 -- a dark template made it light ink on this light pill (found building template 5). */
 .guest .guest-hint {
   pointer-events: auto; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 999px; font-size: 13px; font-weight: 650; color: #17302a;
   background: #fbfcf7eb; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);

@@ -11,7 +11,7 @@ import {PublishingResolver} from '../lib/publishing/repository';
 import { TEMPLATE_KEYS, TEMPLATE_RELEASES, latestVersion } from '../lib/publishing/templates';
 
 /**
- * Bản khuôn (versions.ts, docs/thiet-ke-va-khuon.md mục 16). A shop's page keeps the template version it was published
+ * Bản template (versions.ts, docs/thiet-ke-va-template.md mục 16). A shop's page keeps the template version it was published
  * on. A newer version reaches it only when its owner moves the draft, looks at the preview and publishes.
  */
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
@@ -32,7 +32,7 @@ async function shopOn(f:F,key:string,n=1){
  await new OwnerSetupLinks(f.db).consume(made.setupToken,`password-of-quan-${n}`);
  return {...made,token:(await new OwnerAuth(f.db).login(`quan-${n}`,`password-of-quan-${n}`)).token};
 }
-// A second version of khuôn 6 that the code does not ship yet, so the whole path can run today.
+// A second version of template 6 that the code does not ship yet, so the whole path can run today.
 const WITH_V2={...TEMPLATE_RELEASES,'big-button':[...TEMPLATE_RELEASES['big-button'],{version:2,date:'2026-10-01',notes:'Bản thử',settings:[]}]};
 
 test('a page stays on its template version until the owner moves the draft, previews it and publishes',async({f})=>{
@@ -64,8 +64,8 @@ test('a page stays on its template version until the owner moves the draft, prev
  const same=(await design.read(shop.token,shop.slug)).draft.revision;
  expect(await design.version(shop.token,shop.slug,{action:'version',expectedRevision:same,version:1})).toEqual({revision:same});
  expect((await f.db.query("SELECT action,target FROM shop_activity WHERE action='design.version' ORDER BY at,id")).rows).toEqual([
-  {action:'design.version',target:'Bản nháp dùng khuôn bản 2'},{action:'design.version',target:'Bản nháp dùng khuôn bản 1'},
-  {action:'design.version',target:'Bản nháp dùng khuôn bản 2'}]);
+  {action:'design.version',target:'Bản nháp dùng template bản 2'},{action:'design.version',target:'Bản nháp dùng template bản 1'},
+  {action:'design.version',target:'Bản nháp dùng template bản 2'}]);
 });
 
 test('only a version the platform ships for this template, on the current draft',async({f})=>{
@@ -79,7 +79,7 @@ test('only a version the platform ships for this template, on the current draft'
  for(const body of [{action:'version',expectedRevision:revision,version:0},{action:'version',expectedRevision:revision,version:'2'},
   {action:'version',expectedRevision:revision,version:1.5},{action:'version',expectedRevision:revision},{action:'version',expectedRevision:revision,version:2,key:'glass'}])
   await expect(refused(body)).rejects.toMatchObject({code:'INVALID_DESIGN'});
- // A second version of khuôn 6 is not a version of any other template.
+ // A second version of template 6 is not a version of any other template.
  const glass=await shopOn(f,'glass',2);
  await expect(design.version(glass.token,glass.slug,{action:'version',expectedRevision:(await design.read(glass.token,glass.slug)).draft.revision,version:2}))
   .rejects.toMatchObject({code:'INVALID_TEMPLATE_VERSION'});

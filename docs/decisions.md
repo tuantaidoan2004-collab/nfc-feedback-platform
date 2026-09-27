@@ -48,7 +48,7 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 
 | Nền móng | Cấp hiện tại | Cấp tiếp theo |
 |---|---|---|
-| **Trang khách** | Chạy thật, một đường duy nhất (trang đã phát hành), đúng luật Google, chặn bot, "tốt" trên 4G, video chỉ ở poster | Section và gói khuôn (M1–M4) |
+| **Trang khách** | Chạy thật, một đường duy nhất (trang đã phát hành), đúng luật Google, chặn bot, "tốt" trên 4G, video chỉ ở poster | Section và gói template (M1–M4) |
 | **Dữ liệu** | Bề nổi cho chủ quán; dòng sự kiện hành vi đang thu (020) | **Dời** — đọc dòng sự kiện khi đã có khách thật (Tài 26/09) |
 | **Quản trị `/gov`** | Tạo quán, cấp link, duyệt ảnh, báo cáo tạm dừng, 2FA | Điều hành thật khi có dữ liệu (A21); tên miền riêng (P7) |
 | **Vận hành** | CI 7 bộ, production từ `main`, mã sao lưu xong | Tự chạy được không cần Vercel (I1); sao lưu chạy thật (Tài) |
@@ -150,19 +150,19 @@ Ghi số để sau này không tranh cãi bằng cảm giác:
 
 **Không cần cài thêm skill nào.** Thứ thiếu không phải kiến thức công cụ mà là **số đo từ production thật**, và
 production chưa có shop nào. Lát mục 7 sẽ tự mang theo phép đo đó.
-## 9–14. Thiết kế và khuôn → tệp riêng
+## 9–14. Thiết kế và template → tệp riêng
 
-Toàn bộ quyết định về **giao diện trang khách và mô hình khuôn** (22–23/09) nằm ở
-[`thiet-ke-va-khuon.md`](thiet-ke-va-khuon.md), để tệp này giữ được cỡ đọc-một-lần. Tóm tắt một dòng mỗi mục:
+Toàn bộ quyết định về **giao diện trang khách và mô hình template** (22–23/09) nằm ở
+[`thiet-ke-va-template.md`](thiet-ke-va-template.md), để tệp này giữ được cỡ đọc-một-lần. Tóm tắt một dòng mỗi mục:
 
 | | |
 |---|---|
 | **9** | Thiết kế trước tính năng; kiến trúc xương–thịt–da–áo khoác; hợp đồng áo khoác |
 | **10** | Ảnh và logo shop tải lên **phải qua admin duyệt**, chặn ở lúc phát hành |
-| **11** | **Khuôn là ổ cắm, tài khoản là phích** — nội dung ở tài khoản, diện mạo ở khuôn |
-| **12** | Sáu khuôn Tài chốt, và ba ranh giới đi kèm |
-| **13** | Hai luật dùng chung mọi khuôn: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
-| **14** | Ba chỗ suýt thủng khi tách nội dung khỏi khuôn, và thứ tự triển khai bắt buộc |
+| **11** | **Template là ổ cắm, tài khoản là phích** — nội dung ở tài khoản, diện mạo ở template |
+| **12** | Sáu template Tài chốt, và ba ranh giới đi kèm |
+| **13** | Hai luật dùng chung mọi template: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
+| **14** | Ba chỗ suýt thủng khi tách nội dung khỏi template, và thứ tự triển khai bắt buộc |
 
 ## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-27
 
@@ -175,7 +175,8 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
   branch**. `main` = `a16440d` (M1 gói template + tài liệu UI/UX), production Ready 27/09. Vercel Pro dùng thử tới **29/09**.
 - **Vercel (Tài chốt 27/09): xuống Hobby** khi hết dùng thử 29/09 — không gì hỏng (tháng 9 dùng ~0,08 giờ CPU trên hạn
-  4). Hobby **cấm dùng thương mại**: trước quán thật đầu tiên phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
+  4). Hobby **cấm dùng thương mại**: trước khi **trang chính bán dịch vụ** lên production (hoặc quán thật đầu tiên, mốc nào tới
+  trước) phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
   Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
@@ -187,21 +188,21 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
   `ORIGIN_DIFFERS_SAME_SITE`: đó là **`Origin: null`**. Sau deploy `7762d31`, các lượt ghé Chrome iPhone trả **200** (log production).
 - **Đẩy `main` do Tài chạy** (chế độ tự động của Claude Code chặn `git push`): Claude đưa lệnh đẩy có kiểm, Tài chạy, rồi
   Claude kiểm production (`vercel ls` / `vercel inspect`, rồi Chrome không giao diện mở một trang khách).
-- **`/urr6ud` là shop KHUÔN MẪU** ("YOUR SHOP", khuôn 1), không phải Googy. Tài bấm "Đưa khuôn về mặc định mới" 26/09:
-  khuôn mẫu giờ dùng ảnh nền mặc định, không poster. Mỗi lần kiểm production ghi một lượt ghé vào shop này.
+- **`/urr6ud` là shop TEMPLATE** ("YOUR SHOP", template 1), không phải Googy. Tài bấm "Đưa template về mặc định mới" 26/09:
+  template giờ dùng ảnh nền mặc định, không poster. Mỗi lần kiểm production ghi một lượt ghé vào shop này.
 - **Chưa ghi thẻ NFC nào, chưa có khách thật.** Hai branch Neon khác nhau — slug bên này không có bên kia.
 
 ### Hướng đi — Tài 26/09
 
 1. **Tạm dừng lát mới; đã duyệt lại toàn bộ** → `kien-truc-nen-tang.md`. Web là **tổ hợp module** (section · loại ô ·
-   hiệu ứng · gói khuôn), kho khuôn như Canva; **tự chạy được không cần Vercel**; sẵn sàng cho coder và designer.
+   hiệu ứng · gói template), kho template như Canva; **tự chạy được không cần Vercel**; sẵn sàng cho coder và designer.
 2. **Phần dữ liệu dời lại** (đọc dòng sự kiện, kho phân tích, AI…) — brainstorm lại khi mọi thứ khác ổn. Không dời: sao
    lưu, và **hạn giữ dữ liệu — hạn chót 9/2027**.
 3. **Video chỉ ở poster**, nền không bao giờ là video (E9).
 4. **Quyết định mới sửa hoặc xoá ý cũ** ở mọi tài liệu, không để chồng lên (cách làm của Tài).
 
-**I1 tự chạy được: xong 27/09** (`tu-chay.md`). **M1 gói khuôn: xong 27/09** — mỗi khuôn là `templates/<khoá>/`
-(`manifest.json` + `v<bản>.css`), `node scripts/templates.mjs` sinh registry; giá trị sáu khuôn so trước/sau giống hệt;
+**I1 tự chạy được: xong 27/09** (`tu-chay.md`). **M1 gói template: xong 27/09** — mỗi template là `templates/<khoá>/`
+(`manifest.json` + `v<bản>.css`), `node scripts/templates.mjs` sinh registry; giá trị sáu template so trước/sau giống hệt;
 hướng dẫn designer `templates/README.md`. Nền bị kéo theo thẻ khi cuộn và kéo-để-tải-lại dính trên Chrome iPhone → **M4**.
 Tiếp: **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
@@ -213,10 +214,14 @@ admin duyệt). Tài thêm tám hướng (trang chính trước đăng nhập, d
 trỏ nhiều màu, dashboard VIP, chuẩn Dropbox, video 3 phút, sao Google của quán) — **tất cả đều làm**; Claude suy ra và
 quyết thêm mười điều (mục 5 của tệp đó). Hành trình chung ở mục 6.
 **Audit xong 27/09** (`docs/audit-ui-ux-20260927.md`): chưa sẵn sàng cải tổ ngay; thiếu hệ thiết kế chung, M2, M3, và
-phải dọn nền trước. Lát kế: **S0 dọn nền**.
+phải dọn nền trước. **S0 dọn nền xong 27/09** (đổi "khuôn" → "template" khắp nơi, tiêu đề tab theo tên quán và
+`noindex` theo route, README/`local-development.md` viết lại, gỡ bộ bàn giao Antigravity 15/09, luật test A10). Lát kế: **S1
+hệ thiết kế nền tảng** — cần Tài chốt tên nền tảng. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+(`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
-**Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đổi ở mọi nơi (chữ trên dashboard và `/gov`, tài liệu,
-mã, `DESIGN.md`) đi cùng đợt audit trước cải tổ UI/UX; từ giờ viết mới thì dùng "template".
+**Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và
+`/gov`, mã, test, tài liệu, `DESIGN.md`, tên tệp `thiet-ke-va-template.md`); chỉ hồ sơ lịch sử giữ chữ cũ
+(`decisions-archive.md`, bản rà bảo mật 20/09, các migration đã chạy).
 
 ### Luật triển khai (Tài nới 23/09)
 
@@ -228,8 +233,8 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 Đã xong 27/09: bảo vệ `main` (F5, đẩy thẳng bị luật chặn) · cấp lại link `yourshop` trên preview · gửi góp ý trên Chrome
 iPhone. **Còn:** tạo **Hồ sơ doanh nghiệp Google** cho dịch vụ NFC ngay (đồng hồ 60 ngày cho C1) · chọn **màu chủ đạo và
 nhận diện nền tảng** (F6, trước S1) · mã QR ngân hàng + số Zalo cho tab Thanh toán (cài đặt admin, không vào GitHub) ·
-kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · chọn Vercel Pro hay VPS **trước quán thật đầu
-tiên** · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách
+kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · chọn Vercel Pro hay VPS **trước khi trang chính
+bán dịch vụ lên production** · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách
 riêng đang chờ: ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`, gặp lại 27/09), ca impersonation không đứng một mình
 (`admin-http.spec.ts` ~240).
 
@@ -239,7 +244,7 @@ riêng đang chờ: ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`, gặp l�
 2. **`decisions.md` mục 1–8**, rồi `docs/kien-truc-nen-tang.md`, rồi khối này ← bạn đang ở đây
 3. `docs/operations-gotchas.md` — mọi bẫy đã dính, **lệnh 7 bộ test**
 4. `docs/google-policy.md` — luật cứng, thắng mọi thứ
-5. Chỉ khi làm giao diện/khuôn: `PRODUCT.md`, `DESIGN.md`, `docs/thiet-ke-va-khuon.md`
+5. Chỉ khi làm giao diện/template: `PRODUCT.md`, `DESIGN.md`, `docs/thiet-ke-va-template.md`
 6. Chỉ khi cần: `docs/roadmap-slices.md` (việc còn lại), `docs/production-launch.md` mục "Đường vào", `docs/agents-board.md`
 
 ### Dựng môi trường

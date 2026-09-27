@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sinh registry khuôn từ các gói `templates/<khoá>/` (lát M1, 27/09). Không nơi nào khác trong mã liệt kê khuôn.
+ * Sinh registry template từ các gói `templates/<khoá>/` (lát M1, 27/09). Không nơi nào khác trong mã liệt kê template.
  *
  *   node scripts/templates.mjs          ghi lib/publishing/templates.generated.ts và components/guest-styles.ts
  *   node scripts/templates.mjs --check  chỉ so; thoát 1 nếu hai tệp đó cũ hơn các gói (test hợp đồng gọi lệnh này)
@@ -25,7 +25,7 @@ const packages = readdirSync(dir, { withFileTypes: true }).filter(entry => entry
   return manifest;
 }).sort((a, b) => a.number - b.number);
 for (const [i, manifest] of packages.entries())
-  if (packages.findIndex(other => other.number === manifest.number) !== i) fail(`hai khuôn cùng "number" ${manifest.number}`);
+  if (packages.findIndex(other => other.number === manifest.number) !== i) fail(`hai template cùng "number" ${manifest.number}`);
 
 const banner = '// Sinh bởi `node scripts/templates.mjs` từ templates/*/ — đừng sửa tay (lát M1).\n';
 const registry = `${banner}import type { TemplateManifest } from './template-manifest';
@@ -33,8 +33,8 @@ const registry = `${banner}import type { TemplateManifest } from './template-man
 export const TEMPLATE_KEYS = [${packages.map(p => `'${p.key}'`).join(', ')}] as const;
 export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = ${JSON.stringify(packages, null, 2)};
 `;
-const styles = `${banner}// Mọi tệp CSS trang khách mặc, theo thứ tự: trang, lớp da chung, rồi từng bản khuôn đóng băng (sau skin.css để token
-// của bản khuôn đè mặc định). Mọi selector gói trong \`.guest\` (tests/contracts/skin.spec.ts), nên dashboard nạp chúng
+const styles = `${banner}// Mọi tệp CSS trang khách mặc, theo thứ tự: trang, lớp da chung, rồi từng bản template đóng băng (sau skin.css để token
+// của bản template đè mặc định). Mọi selector gói trong \`.guest\` (tests/contracts/skin.spec.ts), nên dashboard nạp chúng
 // (pages-panel.tsx khung trang khách) cũng không bị đổi kiểu. Dưới \`next dev\`, route mang CSS toàn cục mới tải lại mọi
 // trang đang mở -- kể cả dashboard -- lần đầu nó được khung.
 import './guest-page.css';

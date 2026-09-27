@@ -7,10 +7,10 @@ If context is missing, read the local decision checkpoint first, then the Obsidi
 Memory is on demand only. Do not create daily sync, reminders, or background project work. Refresh the decision checkpoint when needed for continuity or explicitly requested. Do not mirror full transcripts. Obsidian is the canonical durable product context; GitHub holds source and a concise decision checkpoint. Keep newer explicit owner instructions authoritative and flag conflicting records.
 
 Design and template work reads four files first: **`PRODUCT.md`** (who uses this and for what), **`DESIGN.md`**
-(how it must look), **`docs/thiet-ke-va-khuon.md`** (the template decisions of 22–23/09) and
+(how it must look), **`docs/thiet-ke-va-template.md`** (the template decisions of 22–23/09) and
 **`docs/ui-ux-nguon-tham-khao.md`** (Tài's UI/UX reference, the basis for every design since 27/09). They outrank any
 design skill or upstream style guide; `docs/google-policy.md` outranks all of them. Since 27/09 the word is
-**template**, not "khuôn". Other kinds of work do not need them.
+**template**, not "khuôn" (renamed everywhere in S0). Other kinds of work do not need them.
 
 Shipping rule, relaxed by Tài on 2026-09-23: **a slice does not have to be seen on preview first.** Finish it, get
 the seven suites green with real output, push `main`. Two rules are not relaxed: a slice **with a migration** waits

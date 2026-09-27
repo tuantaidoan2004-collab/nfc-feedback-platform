@@ -150,7 +150,7 @@ export class OwnerDesign {
       // Choosing the version already in use changed nothing, so it leaves no line in the books.
       if (result.revision === expected) return result;
       await this.audit(db, access, 'impersonation.design.version', { version, revision: result.revision });
-      await recordActivity(db, access, 'design.version', `Bản nháp dùng khuôn bản ${version}`);
+      await recordActivity(db, access, 'design.version', `Bản nháp dùng template bản ${version}`);
       return result;
     });
   }
@@ -167,7 +167,7 @@ export class OwnerDesign {
       if (access.actor.kind !== 'owner' || access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
       const result = await this.admin(access, db).changeTemplate(page, expected, key).catch(translate);
       if (result.revision === expected) return result;
-      await recordActivity(db, access, 'design.template', `Bản nháp dùng khuôn ${key}`);
+      await recordActivity(db, access, 'design.template', `Bản nháp dùng template ${key}`);
       return result;
     });
   }

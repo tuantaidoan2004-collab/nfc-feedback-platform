@@ -32,7 +32,7 @@ test('every template keeps the Google invitation in the server HTML', () => {
   }
 });
 
-// Khuôn 3's one exception to "a template adds no DOM node": an invisible <svg> holding the glass filters. It must be
+// Template 3's one exception to "a template adds no DOM node": an invisible <svg> holding the glass filters. It must be
 // the last thing on the page, hidden from assistive technology, never display:none, and it must leave the Google
 // invitation byte for byte as every other template renders it.
 test('the glass filters are the page\'s last node and change nothing about the Google invitation', () => {

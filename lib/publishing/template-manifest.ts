@@ -3,25 +3,25 @@ import { SETTING_KEY, type SettingField } from './settings';
 import type { TemplateRelease } from './versions';
 
 /**
- * Gói khuôn (lát M1, 27/09; `docs/kien-truc-nen-tang.md` mục 3). Mỗi khuôn là một thư mục `templates/<khoá>/`:
+ * Gói template (lát M1, 27/09; `docs/kien-truc-nen-tang.md` mục 3). Mỗi template là một thư mục `templates/<khoá>/`:
  * `manifest.json` (tệp này mô tả hình dạng của nó) và một tệp CSS cho mỗi bản, `v<bản>.css`, đóng băng khi đã phát hành.
  * `node scripts/templates.mjs` đọc các thư mục và sinh `lib/publishing/templates.generated.ts` cùng
- * `components/guest-styles.ts`; không nơi nào khác trong mã liệt kê khuôn. Designer thêm hay sửa khuôn mà không đụng TypeScript.
+ * `components/guest-styles.ts`; không nơi nào khác trong mã liệt kê template. Designer thêm hay sửa template mà không đụng TypeScript.
  *
  * - `key`: tên thư mục, chữ thường và gạch nối; không bao giờ đổi, vì bản phát hành của shop ghim theo nó.
  * - `number`, `name`: hiện cho chủ quán là "<số> · <tên>"; `number` cũng là thứ tự trong mọi danh sách.
  * - `pricePerMonth`: giá mỗi trang mỗi tháng, đồng (`pricing.ts`); 0 là miễn phí và không chiếm suất miễn phí.
  * - `page`: khung trắng trang mới bắt đầu, đè lên trang mặc định. Chỉ bố cục, nền, watermark và `links: []` — không bao
  *   giờ là nội dung của ai (DESIGN.md mục 8).
- * - `effects`: hiệu ứng nền tảng khuôn dùng. Mã của chúng vẫn nằm trong trang khách cho tới lát M2.
+ * - `effects`: hiệu ứng nền tảng template dùng. Mã của chúng vẫn nằm trong trang khách cho tới lát M2.
  * - `versions`: cũ nhất trước; ngày, ghi chú cho chủ quán, và bảng ô được chỉnh (`settings.ts`).
  */
 export type TemplateEffects = {
-  /** Khuôn 6: lớp sương 300 ms trước khi sang Google, Google mở cùng tab (thiet-ke-va-khuon.md mục 12). */
+  /** Template 6: lớp sương 300 ms trước khi sang Google, Google mở cùng tab (thiet-ke-va-template.md mục 12). */
   leaveTransitionMs?: number;
-  /** Khuôn 3: kính khúc xạ (thiet-ke-va-khuon.md mục 15). */
+  /** Template 3: kính khúc xạ (thiet-ke-va-template.md mục 15). */
   glass?: boolean;
-  /** Khuôn 6: nút Google dạng hạt ngọc, chữ chạy vòng quanh. */
+  /** Template 6: nút Google dạng hạt ngọc, chữ chạy vòng quanh. */
   googleButton?: 'orb';
 };
 export type TemplatePage = Partial<Pick<PageConfig, 'layout' | 'background' | 'watermark'>> & { links?: [] };
@@ -54,7 +54,7 @@ export function manifestProblems(value: unknown, folder: string, stylesheets: re
   if (!Number.isInteger(value.pricePerMonth) || Number(value.pricePerMonth) < 0) say('"pricePerMonth" là số đồng, nguyên, không âm');
   if (!object(value.page)) say('"page" phải là object');
   else {
-    for (const key of Object.keys(value.page)) if (!PAGE_KEYS.includes(key)) say(`"page" chỉ nhận ${PAGE_KEYS.join(', ')}; "${key}" là nội dung của trang, không của khuôn`);
+    for (const key of Object.keys(value.page)) if (!PAGE_KEYS.includes(key)) say(`"page" chỉ nhận ${PAGE_KEYS.join(', ')}; "${key}" là nội dung của trang, không của template`);
     if ('links' in value.page && !(Array.isArray(value.page.links) && value.page.links.length === 0)) say('"page.links" chỉ được là []');
     try { startingPage({ page: value.page as TemplatePage }); } catch { say('"page" không tạo được một trang hợp lệ'); }
   }
@@ -63,7 +63,7 @@ export function manifestProblems(value: unknown, folder: string, stylesheets: re
     for (const key of Object.keys(value.effects)) if (!EFFECT_KEYS.includes(key)) say(`hiệu ứng lạ "${key}"`);
     const e = value.effects;
     if ('leaveTransitionMs' in e && !(Number.isInteger(e.leaveTransitionMs) && Number(e.leaveTransitionMs) > 0 && Number(e.leaveTransitionMs) <= 300))
-      say('"leaveTransitionMs" từ 1 tới 300 (thiet-ke-va-khuon.md mục 12, ranh giới 2)');
+      say('"leaveTransitionMs" từ 1 tới 300 (thiet-ke-va-template.md mục 12, ranh giới 2)');
     if ('glass' in e && e.glass !== true) say('"glass" chỉ ghi khi là true');
     if ('googleButton' in e && e.googleButton !== 'orb') say('"googleButton" chỉ nhận "orb"');
   }

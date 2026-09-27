@@ -19,48 +19,53 @@ Phần còn lại của tệp này nói về **trang khách**, trừ mục 7.
 
 ---
 
-## 1. Xương · thịt · da · áo khoác
+## 1. Xương · thịt · da · template
 
 | Lớp | Là gì | Đổi được không |
 |---|---|---|
 | **Xương** | DOM trang khách: nút nào có, thứ tự nào, hiện lúc nào | **Không** |
 | **Thịt** | Hành vi: máy trạng thái lượt ghé, beacon, xoá dữ liệu, thẻ góp ý | **Không** |
-| **Da** | CSS nền: phần tử nào là cột, đâu là CTA, bố cục neo | Chung cho mọi áo |
-| **Áo khoác** | Một bó token: màu, bộ chữ, cỡ, tỉ lệ, bo góc, nhịp thở, nền | **Đây là chỗ khác nhau** |
+| **Da** | CSS nền: phần tử nào là cột, đâu là CTA, bố cục neo | Chung cho mọi template |
+| **Template** (một bản) | Một bó token và CSS trong `templates/<khoá>/v<bản>.css`: màu, bộ chữ, cỡ, tỉ lệ, bo góc, nhịp thở, nền | **Đây là chỗ khác nhau** |
 
-### Hợp đồng của một áo khoác
+### Hợp đồng của một template
 
-> **Áo khoác chỉ đặt token CSS. Nó không được thêm, bớt, đổi thứ tự hay làm chậm bất kỳ nút DOM nào.**
+> **Template chỉ đặt token và CSS. Nó không được thêm, bớt, đổi thứ tự hay làm chậm bất kỳ nút DOM nào.**
 >
-> Một ngoại lệ có rào, Tài chốt 23/09: thẻ `<svg>` vô hình chứa bộ lọc kính của khuôn 3 — `thiet-ke-va-khuon.md` mục 15.
+> Ngoại lệ có rào là **hiệu ứng của nền tảng** mà template khai trong manifest (`effects`): thẻ `<svg>` bộ lọc kính của
+> template 3 (Tài chốt 23/09, `thiet-ke-va-template.md` mục 15), nút Google hạt ngọc của template 6. Hiệu ứng là mã của
+> nền tảng, có test riêng; template chỉ bật nó, không viết nó (lát M2 tách chúng thành module).
 
-Đây là toàn bộ cơ chế an toàn. Mọi test trong `tests/contracts/google-policy.spec.ts` kiểm **cấu trúc**; áo khoác
-không chạm được vào cấu trúc, nên không áo nào phá được các test đó — theo cấu tạo, không nhờ cẩn thận.
+Đây là toàn bộ cơ chế an toàn. Mọi test trong `tests/contracts/google-policy.spec.ts` kiểm **cấu trúc**; template
+không chạm được vào cấu trúc, nên không template nào phá được các test đó — theo cấu tạo, không nhờ cẩn thận.
 
-`PageConfig` lưu **một chuỗi**: `coat: '<id>'`. Không lưu token. Thêm áo mới không migrate gì.
+Bản phát hành của trang **ghim một template và một bản** (`page_releases.template_version_id`); trang khách mang
+`data-template` và `data-template-version`. Không lưu token trong dữ liệu. Thêm template = thêm một gói
+(`templates/README.md`), không migrate gì.
 
-**Luật sửa áo:** chỉ được tinh chỉnh, **không đổi căn tính**. Muốn đổi hẳn thì đẻ áo mới, id mới. Nếu không, một
+**Luật sửa template:** bản đã phát hành thì **đóng băng**; đổi diện mạo là **thêm bản mới**, và muốn đổi hẳn căn tính
+thì làm template mới, khoá mới. Nếu không, một
 sáng chủ quán mở trang lên thấy quán mình khác hẳn mà không ai hỏi họ.
 
 ---
 
-## 2. Bốn sàn — áo nào không qua thì không vào tủ
+## 2. Bốn sàn — template nào không qua thì không vào kho
 
-Mỗi sàn có một test. Test chạy cho **từng áo**, không chỉ áo mặc định.
+Mỗi sàn có một test. Test chạy cho **từng template**, không chỉ template mặc định.
 
 | # | Sàn | Đo bằng |
 |---|---|---|
 | 1 | Nút Google trọn trong màn hình đầu, không cuộn | bố cục neo (mục 3) — bất biến, không phải kiểm sau |
 | 2 | Tương phản ≥ **4,5:1** cho: chữ trên nút Google · chữ thân trên nền khối · **chữ mờ** (ghi chú, dòng pháp lý) | tính từ token |
 | 3 | Nút Google nổi hơn mọi thứ quanh nó, đặc biệt là nút góp ý riêng | cỡ chữ · chiều cao · bề rộng |
-| 4 | Áo thêm **≤ 40 KB** bộ chữ, **và ≤ 200 KB tranh** nếu là dòng có tranh | tổng woff2 + tranh sau khi nén |
+| 4 | Template thêm **≤ 40 KB** bộ chữ, **và ≤ 200 KB tranh** nếu là dòng có tranh | tổng woff2 + tranh sau khi nén |
 
-Sàn 4 được nâng 22/09 theo quyết định của Tài: dòng áo **có tranh** cần tài sản riêng. Tranh là **của nền
+Sàn 4 được nâng 22/09 theo quyết định của Tài: dòng template **có tranh** cần tài sản riêng. Tranh là **của nền
 tảng** — nằm trong repo, không qua cửa duyệt ở `docs/decisions.md` mục 10 (cửa đó chỉ dành cho ảnh shop tự tải).
 Bản kê ảnh ở [`docs/anh-can-cho-ao-khoac.md`](docs/anh-can-cho-ao-khoac.md). Nâng trần thì **phải đo lại trên
 điện thoại thật qua 4G** trước khi giao cho quán đầu tiên; mỗi 100 KB ≈ 0,27 giây ở 3 Mbps.
 
-Sàn 2 hay gãy nhất ở **chữ mờ trên áo tối**. Đó cũng là chỗ đặt dòng pháp lý — thứ bắt buộc phải đọc được.
+Sàn 2 hay gãy nhất ở **chữ mờ trên template tối**. Đó cũng là chỗ đặt dòng pháp lý — thứ bắt buộc phải đọc được.
 
 ---
 
@@ -84,9 +89,9 @@ Dùng `100dvh`, không `100vh`: thanh địa chỉ Safari di động làm `100vh
 
 ---
 
-## 4. Token — lớp "da", chung cho mọi áo
+## 4. Token — lớp "da", chung cho mọi template
 
-Áo khoác đặt lại giá trị; **không áo nào được thêm tên token mới**.
+Template đặt lại giá trị; **không template nào được thêm tên token mới**.
 
 ```
 màu        --c-c1 --c-c2 --c-angle          nền trang
@@ -110,27 +115,27 @@ tỉ lệ      --c-radius --c-btn-radius        bo góc khối · nút
 bề mặt     --c-sheet-shadow --c-btn-shadow
            --c-pill-bg --c-pill-ink --c-pill-radius --c-pill-shadow
 
-nút Google --c-btn-fill                     nền nút Google; mặc định pha từ --c-brand (khuôn 4)
+nút Google --c-btn-fill                     nền nút Google; mặc định pha từ --c-brand (template 4)
 
 sàn        --c-floor                        chỗ chừa cho nút góp ý (mục 6c)
-           --c-overscroll                   quãng cuộn dư, luật A1 (thiet-ke-va-khuon.md mục 13)
+           --c-overscroll                   quãng cuộn dư, luật A1 (thiet-ke-va-template.md mục 13)
 ```
 
 **Đã nối vào mã (A36, 23/09):** tên và giá trị mặc định ở `components/skin.css`; `guest-page.css` đọc `--c-paper
 --c-ink --c-ink-2 --c-muted --c-line --c-brand --c-on-brand --c-accent --c-font --c-display --c-h1 --c-h1-weight
 --c-h1-track --c-h1-case --c-radius --c-btn-radius --c-btn-h --c-logo --c-poster --c-floor --c-overscroll`. Mặc định = diện
-mạo trước A36. Nút Google pha bốn nấc màu từ `--c-brand` (khuôn 6); cỡ chữ và logo Google trong nút lớn theo
-`--c-btn-h`. Khuôn 5 nối thêm `--c-btn-shadow --c-pill-bg --c-pill-ink`, và nút Gửi pha từ `--c-brand`. Khuôn 3 nối
+mạo trước A36. Nút Google pha bốn nấc màu từ `--c-brand` (template 6); cỡ chữ và logo Google trong nút lớn theo
+`--c-btn-h`. Template 5 nối thêm `--c-btn-shadow --c-pill-bg --c-pill-ink`, và nút Gửi pha từ `--c-brand`. Template 3 nối
 `--c-c1 --c-c2 --c-angle` (trang đặt inline từ màu nền của shop). **Chưa nối:** `--c-fab`, `--c-body`, `--c-density`, `--c-sheet-shadow`,
-`--c-pill-radius --c-pill-shadow`. Nối từng cái khi một khuôn cần tới.
+`--c-pill-radius --c-pill-shadow`. Nối từng cái khi một template cần tới.
 
-Nút Google của khuôn gốc giờ **pha** từ `--c-brand` thay vì bốn mã màu cứng; sai khác mỗi nấc vài đơn vị RGB (tinh
+Nút Google của template gốc giờ **pha** từ `--c-brand` thay vì bốn mã màu cứng; sai khác mỗi nấc vài đơn vị RGB (tinh
 chỉnh, không đổi căn tính). Trình duyệt không có `color-mix()` giữ bốn mã cũ nhờ `@supports`.
 
 `tests/contracts/skin.spec.ts` giữ ba điều: không tên token nào ngoài danh sách này · mọi token được đọc đều có mặc
 định · chữ trên nền đạt 4,5:1 (sàn 2) và `--c-btn-h` ≥ 56px cho mặc định **và mọi khối `[data-template]`**.
 
-`--c-density` là thứ làm hai áo **khác nhau về tỉ lệ** chứ không chỉ khác màu. Mọi khoảng cách viết bằng
+`--c-density` là thứ làm hai template **khác nhau về tỉ lệ** chứ không chỉ khác màu. Mọi khoảng cách viết bằng
 `calc(<số> * var(--u))` với `--u: calc(1px * var(--c-density))`.
 
 ---
@@ -140,7 +145,7 @@ chỉnh, không đổi căn tính). Trình duyệt không có `color-mix()` gi�
 **Luật đầu tiên, trước cả thẩm mỹ: dấu tiếng Việt.** Tên quán in cỡ lớn mà dấu ngã trên `ê` lệch hoặc dấu nặng
 dưới `ô` đặt sai thì hỏng cả trang, và lỗi này **chỉ lộ khi in to**.
 
-Trước khi nhận một bộ chữ vào bất kỳ áo nào, render chuỗi này ở cỡ tiêu đề và nhìn:
+Trước khi nhận một bộ chữ vào bất kỳ template nào, render chuỗi này ở cỡ tiêu đề và nhìn:
 
 ```
 Nguyễn Đỗ Quỳnh · ẫ ộ ự ỡ ặ ề ố ỷ ẳ ữ ợ
@@ -187,7 +192,7 @@ nút thật, vì nó là thứ duy nhất khách cần bấm. Mọi thứ quanh 
 ## 6c. Đáy trang có hai hình dạng, cả hai đều phải tử tế
 
 `useBottomHint` chỉ hiện dòng mời góp ý **sau khi khách cuộn hết trang rồi đợi 2 giây** — cố ý, để không nài nỉ
-khi khách chưa xem xong. Nên áo phải vẽ cả hai trạng thái:
+khi khách chưa xem xong. Nên template phải vẽ cả hai trạng thái:
 
 | Trạng thái | Hình dạng |
 |---|---|
@@ -199,7 +204,14 @@ dung không bao giờ được chạm vào nó. Thiếu nó thì thẻ và dải
 
 ---
 
-## 7. Trang giới thiệu nền tảng (chưa dựng)
+## 7. Bề mặt của nền tảng: trang chính, dashboard, `/gov`
+
+**Màu chủ đạo (Tài chốt 27/09): tím, theo tinh thần uxpeak** (`docs/ui-ux-nguon-tham-khao.md` mục 1f) — nền tối, thẻ kính
+viền mảnh, nút viên thuốc tím. **Chế độ sáng cho ban ngày: trắng, cam, sữa tươi** — sáng, "fresh". Hai chế độ dùng chung
+một bộ token nền tảng (lát S1); trang khách **không** dùng màu này — nó giữ màu của từng quán qua template. Mã màu cụ
+thể chốt trong S1, và phải qua được sàn 2 (tương phản 4,5:1) ở cả hai chế độ.
+
+### Trang giới thiệu (chưa dựng)
 
 Đây là chỗ **duy nhất** hiệu ứng nặng đáng tiền: WebGL, thư viện chuyển động, ảnh lớn. Nó chạy trên wifi, không
 có luật Google, và mỗi hiệu ứng là một câu "bọn tôi làm giao diện tử tế". Không lấy ngân sách 600 KB của trang
@@ -209,74 +221,74 @@ khách áp vào đây, và **không lấy hiệu ứng của trang này đem san
 
 ## 8. Nhãn hiệu — luật cứng của thiết kế
 
-1. **Không áo nào mang tên một hãng.** Không có áo tên "Apple", "Sentry", "Starbucks". Mượn hình học bảng màu thì
+1. **Không template nào mang tên một hãng.** Không có template tên "Apple", "Sentry", "Starbucks". Mượn hình học bảng màu thì
    được; mượn tên thì không. Chính kho `awesome-design-md` cũng viết "Sentri-Inspired" — họ né có chủ ý.
-2. **Không dùng logo, ảnh sản phẩm, bộ chữ độc quyền của hãng khác** trong áo, trong demo, trong ảnh chụp đưa cho
+2. **Không dùng logo, ảnh sản phẩm, bộ chữ độc quyền của hãng khác** trong template, trong demo, trong ảnh chụp đưa cho
    shop xem. SF Pro không có giấy phép web; `system-ui` trên iPhone thì có.
 3. **Ảnh và logo shop tải lên phải qua duyệt** trước khi lên trang (`docs/decisions.md` mục 10).
 
 ---
 
-## 9. Tủ khuôn
+## 9. Kho template
 
-**Sáu áo khoác dựng thử ngày 22–23/09 đã bị xoá** (Tài, 23/09): ba bản không tranh và ba bản có tranh chỉ là
-bản thử để tìm hướng, và chúng được thay bằng **lát sáu khuôn** — xem `docs/thiet-ke-va-khuon.md` mục 12.
+**Sáu template dựng thử ngày 22–23/09 đã bị xoá** (Tài, 23/09): ba bản không tranh và ba bản có tranh chỉ là
+bản thử để tìm hướng, và chúng được thay bằng **lát sáu template** — xem `docs/thiet-ke-va-template.md` mục 12.
 
 Cái **còn lại và vẫn có hiệu lực** là phần nguyên tắc ở mục 1–8 của tệp này: hợp đồng lớp trình bày, bốn sàn,
 bố cục neo, luật dấu tiếng Việt, luật nhãn hiệu, hai luật dùng chung (trang luôn dài hơn màn hình · nút máy bay
-giấy bất biến), và kỹ thuật nét tay bằng bộ lọc SVG. Sáu khuôn mới kế thừa toàn bộ những thứ đó.
+giấy bất biến), và kỹ thuật nét tay bằng bộ lọc SVG. Sáu template mới kế thừa toàn bộ những thứ đó.
 
-Mỗi khuôn khi vào mã ghi một mục ở đây: id · tên · dùng cho ngành nào · bộ chữ và số KB · kết quả bốn sàn.
+Mỗi template khi vào mã ghi một mục ở đây: id · tên · dùng cho ngành nào · bộ chữ và số KB · kết quả bốn sàn.
 
-**Sáu khoá đã vào mã (A33, 23/09)** — mới là bộ xương, **chưa có diện mạo riêng**. Mỗi khoá có một cấu hình
-(`templateConfig(key)` trong `lib/publishing/config.ts`), một hàng `template_versions`, và tới trang khách dưới
-dạng `data-template="<key>"` trên `main.guest`. Chưa có dòng CSS nào đọc thuộc tính đó.
+**Sáu template đang chạy** (khoá vào mã ở A33 23/09, diện mạo 23–24/09, thành gói ở M1 27/09). Mỗi template là một gói
+`templates/<khoá>/` (manifest + CSS từng bản), một hàng `template_versions` mỗi bản, và tới trang khách dưới dạng
+`data-template="<key>"` + `data-template-version` trên `main.guest`.
 
-| # | id | Tên | Cấu hình hiện có |
+| # | id | Tên | Khung trắng (`page` trong manifest) |
 |---|---|---|---|
-| 1 | `standard` | Bản gốc | nền ảnh (ảnh tĩnh mặc định), nhân bản từ shop khuôn — **có diện mạo** (thẻ trôi), xem dưới |
+| 1 | `standard` | Bản gốc | nền ảnh (ảnh tĩnh mặc định), nhân bản từ shop template — **có diện mạo** (thẻ trôi), xem dưới |
 | 2 | `minimal` | Tối giản | `full-bleed`, nền đặc `#140F22` — **có diện mạo**, xem dưới |
 | 3 | `glass` | Kính | `full-bleed`, chuyển sắc `#1B2B4A → #8FB3D9` — **có diện mạo**, xem dưới |
 | 4 | `deco` | Thẻ trang trí | `full-bleed`, nền đặc `#1A1326` — **có diện mạo** (chồng thẻ), xem dưới |
 | 5 | `spotlight` | Ánh sáng tụ | `full-bleed`, nền đặc `#0E0F13` — **có diện mạo**, xem dưới |
 | 6 | `big-button` | Nút lớn | `full-bleed`, nền trắng sữa `#F6F3EE` — **nút hạt ngọc** (24/09), xem dưới |
 
-Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng khuôn có diện mạo.
+Bộ chữ, số KB và kết quả bốn sàn ghi vào đây khi từng template có diện mạo.
 
-**Khuôn 6 · `big-button` · Nút lớn** (làm lại 24/09 theo Tài) — gói rẻ nhất: trắng sữa và **một nút Google hạt ngọc**.
+**Template 6 · `big-button` · Nút lớn** (làm lại 24/09 theo Tài) — gói rẻ nhất: trắng sữa và **một nút Google hạt ngọc**.
 Hạt tròn phồng như nổi lên khỏi mặt giấy (sáng đỉnh, bóng mềm ở chân, quầng ấm quanh chân), chứa chữ **G bốn màu của
 Google, không đổi màu** (vẽ bằng dải màu xoay tròn cắt theo hình chữ G). Quanh hạt là **chính chữ của nút**, in hoa,
-giãn rộng; chữ gốc vẫn nằm trong nút (chỉ ẩn khỏi mắt) nên trình đọc màn hình nghe đúng câu mọi khuôn khác nói. Mặt
+giãn rộng; chữ gốc vẫn nằm trong nút (chỉ ẩn khỏi mắt) nên trình đọc màn hình nghe đúng câu mọi template khác nói. Mặt
 hạt như gương: một vệt sáng lướt ngang; trên Android ánh sáng theo độ nghiêng của máy — trang chỉ **lắng nghe**, không
 bao giờ xin quyền cảm biến, nên iPhone (không có quyền thì không có sự kiện) giữ vệt sáng tự lướt. Chạm nút: lớp sương
 300ms rồi cùng tab sang Google (như trước). Hình dạng nút là **quyết định của nền tảng** (`effects.googleButton` trong manifest, `data-button=
-"orb"`), không phải luật của khuôn, nên hàng rào "khuôn không đụng nút Google" vẫn đứng. Chrome và WebKit ra y hệt;
+"orb"`), không phải luật của template, nên hàng rào "template không đụng nút Google" vẫn đứng. Chrome và WebKit ra y hệt;
 Firefox bỏ qua `textLength` nên chữ vòng dồn về một phía. 0 KB tài nguyên.
 
-**Khuôn 5 · `spotlight` · Ánh sáng tụ** (23/09) — quán tối, bar, cà phê đêm. Nền than, chữ kem; nút Google màu hổ
+**Template 5 · `spotlight` · Ánh sáng tụ** (23/09) — quán tối, bar, cà phê đêm. Nền than, chữ kem; nút Google màu hổ
 phách với **quầng sáng của chính nó** (`--c-btn-shadow`), nên ánh sáng đi theo nút dù tên quán dài bao nhiêu. Quanh
 nút là lưới chấm sắc và một vũng sáng thở chậm (7 giây); ra xa thì cùng lưới chấm đó **nhoè** (`blur 2.5px`) và mờ đi.
 Chỉ lớp trang trí nhoè, chữ không bao giờ. Lớp trang trí là pseudo-element của `.guest-body` và `.guest-bg`, không thêm
 nút DOM. Tâm vũng sáng ước ở ~180px dưới mép thân trang; tên quán hai dòng thì lệch vài chục px — ánh sáng mềm nên
 chấp nhận. `system-ui`, **0 KB**. Bốn sàn: (1) nút trong màn đầu · (2) test `skin.spec.ts` + đo thật viên link và ô
-nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "khuôn 5".
+nhập trong thẻ góp ý · (3) nút là thứ duy nhất phát sáng · (4) 0 KB. Test: `publishing.spec.ts`, ca "template 5".
 
-**Khuôn 1 · `standard` · Bản gốc — thẻ trôi** (24/09, Tài chốt ý 1 + 2; bố cục ảnh "Hero Bold") — giữ **màu** bản gốc
+**Template 1 · `standard` · Bản gốc — thẻ trôi** (24/09, Tài chốt ý 1 + 2; bố cục ảnh "Hero Bold") — giữ **màu** bản gốc
 (giấy sáng, xanh rừng), đổi **bố cục**: nền (video của shop) đứng yên, chỉ thẻ cuộn. Mép trên thẻ **mờ dần** từ trong
 suốt tới giấy đặc, trên một dải làm nhoè nền — cuộn lên thì thẻ che dần nền không có đường cắt. Chữ luôn bắt đầu dưới
 dải mờ (test giữ). Nền **thở** theo cuộn: phóng 1 → 1,08 và tối 0 → 35% trên toàn quãng cuộn (scroll-driven animation,
-chỉ `transform`/`opacity`; trình duyệt chưa có thì nền đứng yên). Link lưới ô như khuôn 2. **Khuôn 1 là khuôn mọi shop
+chỉ `transform`/`opacity`; trình duyệt chưa có thì nền đứng yên). Link lưới ô như template 2. **Template 1 là template mọi shop
 hiện có đang dùng** (production `urr6ud`, ba shop preview) — đẩy `main` là chúng đổi diện mạo. Ý 3 (tự lấy màu từ ảnh
 nền để thẻ và nền cùng tông) đi với lát cửa duyệt ảnh.
 
-**Khuôn 2 · `minimal` · Tối giản** (24/09, theo ảnh "Minimal Dark Card" Tài gửi) — ngành nào cũng hợp. Một thẻ tối
+**Template 2 · `minimal` · Tối giản** (24/09, theo ảnh "Minimal Dark Card" Tài gửi) — ngành nào cũng hợp. Một thẻ tối
 trên nền tím than, **quầng tím mờ quanh thẻ** (lớp `::before` làm nhoè một lần — filter tĩnh, không backdrop-filter, nên
 cuộn không tốn thêm), hai mảng màu uốn, dấu cộng, lớp hạt nhiễu — tất cả SVG/CSS, **0 KB**, không cần tạo ảnh (máy này
 không có công cụ tạo ảnh; RunComfy là dịch vụ trả phí chưa mở). Link là lưới ô đều: 1 · 2 · 3 · 2×2 · 3+2 · 3+3. Nút
 Google trắng. Ô poster trống thì ẩn; shop có poster thì poster vẫn hiện. **Khác ảnh:** tên quán nằm trong thẻ (đặt ngoài
 thì phải đoán tên dài mấy dòng, tên dài sẽ đè logo); không có dòng khẩu hiệu dưới tên (không có chỗ trong xương).
 
-**Khuôn 4 · `deco` · Chồng thẻ** (24/09, theo ảnh Tài gửi) — quán trẻ, trà sữa, đồ uống. Nền tím than, thẻ nội dung
+**Template 4 · `deco` · Chồng thẻ** (24/09, theo ảnh Tài gửi) — quán trẻ, trà sữa, đồ uống. Nền tím than, thẻ nội dung
 nghiêng −2°, phía sau là thẻ thứ hai nghiêng −9° — **chính là ô poster**: shop có poster thì poster nằm đó, chưa có thì
 thẻ hồng mặt cười. Hình vẽ tay (dấu cộng, tim, mũi tên cong) bằng SVG nội tuyến có bộ lọc bút sáp. Link là hàng dọc có
 mũi tên. Nút Google **trắng đặc** — nối token mới `--c-btn-fill`, và chữ nút đọc `--c-on-brand`. `system-ui`, **0 KB**.
@@ -284,23 +296,23 @@ mũi tên. Nút Google **trắng đặc** — nối token mới `--c-btn-fill`, 
 lực và gợi ý; chữ viết tay có dấu tiếng Việt chưa có bộ chữ); thanh "nhắn riêng" giữ nút máy bay bất biến (A2); tên quán
 nằm dưới logo chứ không cạnh. Phần kéo thả trang trí vẫn là A35.
 
-**Khuôn 3 · `glass` · Kính** (23/09) — quán hiện đại, spa, cà phê sáng. Thân trang và viên link là kính khúc xạ
-thật trên một cảnh màu do khuôn vẽ; nút Google đặc, xanh lam. **Cùng một kết quả ở Chrome, Safari, Firefox** — cách
-làm, số đo và giới hạn ở `docs/thiet-ke-va-khuon.md` mục 15. `system-ui`, **0 KB** tài nguyên (bộ lọc là SVG nội tuyến,
+**Template 3 · `glass` · Kính** (23/09) — quán hiện đại, spa, cà phê sáng. Thân trang và viên link là kính khúc xạ
+thật trên một cảnh màu do template vẽ; nút Google đặc, xanh lam. **Cùng một kết quả ở Chrome, Safari, Firefox** — cách
+làm, số đo và giới hạn ở `docs/thiet-ke-va-template.md` mục 15. `system-ui`, **0 KB** tài nguyên (bộ lọc là SVG nội tuyến,
 ~1,5 KB HTML). Bốn sàn: (1) nút trong màn đầu · (2) chữ trên lớp sương qua 4,5:1 kể cả khi sau lưng đen hay trắng tuyền ·
 (3) nút Google là thứ duy nhất đặc giữa đám kính · (4) 0 KB. Nối thêm `--c-c1 --c-c2 --c-angle`.
 
-**Khuôn tối đầu tiên làm lộ bốn chỗ viết cứng màu sáng**, đã nối vào token: viên link (`--c-pill-bg`, `--c-pill-ink`),
+**Template tối đầu tiên làm lộ bốn chỗ viết cứng màu sáng**, đã nối vào token: viên link (`--c-pill-bg`, `--c-pill-ink`),
 ô nhập trong thẻ góp ý (`--c-paper`, `--c-line`), nút Gửi (pha từ `--c-brand`), bóng nút Google (`--c-btn-shadow`). Và
-hai chỗ **tách khỏi token** có chủ ý: chữ của dòng mời góp ý (A2 — phải giống hệt ở mọi khuôn) và chữ trong danh sách
-ngôn ngữ (điện thoại tự vẽ nó trên nền trắng). Test mới giữ A2: nút máy bay và dòng mời đo ra giống hệt nhau giữa khuôn
-5 và khuôn 6.
+hai chỗ **tách khỏi token** có chủ ý: chữ của dòng mời góp ý (A2 — phải giống hệt ở mọi template) và chữ trong danh sách
+ngôn ngữ (điện thoại tự vẽ nó trên nền trắng). Test mới giữ A2: nút máy bay và dòng mời đo ra giống hệt nhau giữa template
+5 và template 6.
 
-**Diện mạo từng khuôn nằm ở `templates/<khoá>/v<bản>.css` (25/09; gói khuôn từ M1, 27/09)**: mỗi bản khuôn một tệp đóng băng, selector
+**Diện mạo từng template nằm ở `templates/<khoá>/v<bản>.css` (25/09; gói template từ M1, 27/09)**: mỗi bản template một tệp đóng băng, selector
 `.guest[data-template="…"]:where([data-template-version="…"])`. `skin.css` chỉ giữ phần của nền tảng. Luật đổi
-bản ở `thiet-ke-va-khuon.md` mục 16.
+bản ở `thiet-ke-va-template.md` mục 16.
 
 **Lớp da đã dựng lại (A36, 23/09)** ở `components/skin.css`, sau khi mất cùng `coats.css`: token (mục 4), `--c-floor`,
 quãng cuộn dư, cách bày link theo số lượng. Nút máy bay giấy **không** nằm ở đó mà ở `guest-page.css`, và test cấm
 mọi khối `[data-template="…"]` chạm vào nó. **Con tam giác** (mục 6c) chưa dựng lại — nó thuộc diện mạo, chưa được
-chốt cho sáu khuôn mới.
+chốt cho sáu template mới.

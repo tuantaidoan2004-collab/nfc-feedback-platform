@@ -99,16 +99,16 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
 
  // The template comes first: one button, then a row marked as the template with its page live and no owner.
- await page.getByRole('button',{name:'Tạo shop khuôn',exact:true}).click();
+ await page.getByRole('button',{name:'Tạo shop template',exact:true}).click();
  const templateRow=page.locator('tr[data-template]');
  await expect(templateRow).toHaveCount(1);
- await expect(templateRow).toContainText('KHUÔN');
+ await expect(templateRow).toContainText('TEMPLATE');
  await expect(templateRow).toContainText('YOUR SHOP');
- await expect(page.getByRole('button',{name:'Tạo shop khuôn',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Tạo shop template',exact:true})).toHaveCount(0);
  await expect(templateRow.getByRole('button')).toHaveCount(0);
  page.once('dialog',dialog=>dialog.accept());
- await page.getByRole('button',{name:'Đưa khuôn về mặc định mới',exact:true}).click();
- await expect(page.getByRole('main')).toContainText('Khuôn đã dùng cấu hình mặc định mới');
+ await page.getByRole('button',{name:'Đưa template về mặc định mới',exact:true}).click();
+ await expect(page.getByRole('main')).toContainText('Template đã dùng cấu hình mặc định mới');
  expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.reset'")).rows[0].n).toBe(1);
  const templateSlug=(await admin.db.query('SELECT slug FROM shops WHERE is_template')).rows[0].slug;
  expect((await page.request.get(`/${templateSlug}`)).status()).toBe(200);
@@ -117,7 +117,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
- // Six templates to choose from (A33); khuôn 1 is preselected so a hurried operator still gets the original page.
+ // Six templates to choose from (A33); template 1 is preselected so a hurried operator still gets the original page.
  const choice=page.locator('select[data-template-choice]');
  await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Chồng thẻ','5 · Ánh sáng tụ','6 · Nút lớn']);
  await expect(choice).toHaveValue('standard');
@@ -157,7 +157,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await bio.getByRole('button',{name:/Trang bio/}).click();
  await expect(bio.locator(`tr[data-landing="${slug}"]`).getByRole('link',{name:'Truy cập'})).toHaveAttribute('href',`${origin}/${slug}`);
 
- // The editor draws what khuôn 3's version offers (lát P2): the two-colour scene and the plane, nothing else.
+ // The editor draws what template 3's version offers (lát P2): the two-colour scene and the plane, nothing else.
  await page.locator('[data-view="design"]').click();
  await expect(page.locator('[data-setting="background"] select option')).toHaveText(['Chuyển màu','Một màu']);
  await expect(page.locator('[data-setting="feedbackButton"]')).toBeVisible();
@@ -169,13 +169,13 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
 
  // The template's account comes as a single-use link here too: no fixed `yourshop / 1` in any environment (27/09).
  await page.goto('/gov');
- await page.getByRole('button',{name:'Tạo tài khoản cho khuôn (link đặt mật khẩu)',exact:true}).click();
+ await page.getByRole('button',{name:'Tạo tài khoản cho template (link đặt mật khẩu)',exact:true}).click();
  const templateLink=page.locator('[data-template-link] code');
  await expect(templateLink).toContainText('/owner/setup/');
  const templateSetup=(await templateLink.textContent())!;
  await expect(templateRow).toContainText('yourshop');
  await expect(templateRow.getByRole('button')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Tạo tài khoản cho khuôn (link đặt mật khẩu)',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Tạo tài khoản cho template (link đặt mật khẩu)',exact:true})).toHaveCount(0);
  // Still signed in as the shop owner above, whose account has no access to the template: start from signed out.
  await page.context().clearCookies({name:'nfc_owner_v2'});
  const signInTemplate=async(password:string)=>{

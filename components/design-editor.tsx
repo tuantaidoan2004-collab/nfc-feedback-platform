@@ -24,10 +24,10 @@ const ERRORS: Record<string, string> = {
   SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện (cần khấc 2 hoặc 3).',
   IMPERSONATION_SCOPE: 'Phiên này chỉ để xem. Mở phiên "Sửa giao diện" để chỉnh.',
   SHOP_SUSPENDED: 'Shop đang bị tạm khoá nên chưa phát hành được.',
-  INVALID_TEMPLATE_VERSION: 'Bản khuôn này không còn. Đã tải lại danh sách bản.',
-  SETTING_LOCKED: 'Khuôn này không cho đổi phần diện mạo đó. Đã tải lại bản nháp.',
-  INVALID_SETTING: 'Có một tuỳ chỉnh của khuôn không hợp lệ. Đã tải lại bản nháp.',
-  OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop đổi được khuôn, vì khuôn quyết định giá của trang.',
+  INVALID_TEMPLATE_VERSION: 'Bản template này không còn. Đã tải lại danh sách bản.',
+  SETTING_LOCKED: 'Template này không cho đổi phần diện mạo đó. Đã tải lại bản nháp.',
+  INVALID_SETTING: 'Có một tuỳ chỉnh của template không hợp lệ. Đã tải lại bản nháp.',
+  OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop đổi được template, vì template quyết định giá của trang.',
   PAGE_NOT_FOUND: 'Không tìm thấy trang này. Tải lại dashboard.',
   PAGE_CLOSED: 'Trang này đã đóng vĩnh viễn nên không sửa được nữa.',
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
@@ -186,14 +186,14 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
 
   /** Puts the page on another template, keeping its content; the guest page changes only on Publish. */
   const switchTemplate = async (template: string) => {
-    if (!window.confirm('Đổi trang này sang khuôn khác? Nội dung giữ nguyên, diện mạo theo khuôn mới. Khách chỉ thấy sau khi Phát hành.')) return;
+    if (!window.confirm('Đổi trang này sang template khác? Nội dung giữ nguyên, diện mạo theo template mới. Khách chỉ thấy sau khi Phát hành.')) return;
     setBusy(true); setNotice('');
     try {
       const revision = await saved();
       if (revision === null) return;
       const result = await send('POST', { action: 'template', expectedRevision: revision, template });
       await load(); onChanged?.();
-      if (result) setNotice('Bản nháp đã sang khuôn mới. Bấm Xem trước để thử; khách chỉ thấy sau khi Phát hành.');
+      if (result) setNotice('Bản nháp đã sang template mới. Bấm Xem trước để thử; khách chỉ thấy sau khi Phát hành.');
     } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
     finally { setBusy(false); }
   };
@@ -219,7 +219,7 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
       const result = await send('POST', { action: 'version', expectedRevision: revision, version });
       if (!result) { await load(); return; }
       await load();
-      setNotice(`Bản nháp giờ dùng khuôn bản ${version}. Bấm Xem trước để thử; khách chỉ thấy sau khi Phát hành.`);
+      setNotice(`Bản nháp giờ dùng bản ${version} của template. Bấm Xem trước để thử; khách chỉ thấy sau khi Phát hành.`);
     } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
     finally { setBusy(false); }
   };
@@ -250,7 +250,7 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
       <p role="status" className={styles.notice} data-design-notice>{notice}</p>
     </div>
 
-    <fieldset className={styles.panel} data-template-panel><legend>Khuôn</legend>
+    <fieldset className={styles.panel} data-template-panel><legend>Template</legend>
       {/* A template version is frozen: the live page keeps its version until the shop chooses another and publishes. */}
       <p className={styles.hint} data-template-state>{isTemplateKey(state.template.key) ? TEMPLATE_NAMES[state.template.key] : state.template.key} ·
         bản nháp dùng <strong>bản {state.template.draft}</strong>{state.template.live === null ? '.'
@@ -263,7 +263,7 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
             ? <small>Bản nháp đang dùng</small>
             : <button type="button" disabled={busy} onClick={() => void switchVersion(release.version)}>Dùng bản {release.version}</button>}
         </li>)}</ol>
-      {canManage && <div className={styles.toolRow} data-template-switch><label>Đổi sang khuôn khác<select value={state.template.key}
+      {canManage && <div className={styles.toolRow} data-template-switch><label>Đổi sang template khác<select value={state.template.key}
         disabled={busy} onChange={e => void switchTemplate(e.target.value)}>
         {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}
         {!isTemplateKey(state.template.key) && <option value={state.template.key}>{state.template.key}</option>}</select></label></div>}
@@ -282,7 +282,7 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
     </fieldset>
 
     {!offers('layout') && !backgroundField && !offers('watermark') && !offers('feedbackButton') && !ownFields.length &&
-      <p className={styles.panel} data-no-settings>Khuôn này không có tuỳ chỉnh diện mạo: chỉ cần điền nội dung bên dưới.</p>}
+      <p className={styles.panel} data-no-settings>Template này không có tuỳ chỉnh diện mạo: chỉ cần điền nội dung bên dưới.</p>}
 
     {offers('layout') && <fieldset className={styles.panel} data-setting="layout"><legend>Bố cục</legend>
       <div className={styles.choices} role="radiogroup" aria-label="Bố cục">{([['full-bleed', 'Tràn màn hình'], ['card', 'Dạng thẻ']] as const).map(([value, label]) =>
@@ -325,7 +325,7 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
       {offers('watermark') && <label className={styles.choice} data-setting="watermark"><input type="checkbox" checked={config.watermark.enabled} onChange={e => change({ watermark: { ...config.watermark, enabled: e.target.checked } })} />Hiện watermark &quot;YOUR LOGO&quot; chạy chéo</label>}
     </div></fieldset>}
 
-    {ownFields.length > 0 && <fieldset className={styles.panel} data-setting="own"><legend>Tuỳ chỉnh của khuôn</legend><div className={styles.grid2}>
+    {ownFields.length > 0 && <fieldset className={styles.panel} data-setting="own"><legend>Tuỳ chỉnh của template</legend><div className={styles.grid2}>
       {ownFields.map(field => {
         const value = config.settings?.[field.key] ?? field.default;
         if (field.kind === 'color') return <label key={field.key} data-setting={field.key}>{field.label}<input type="color" value={String(value)} onChange={e => setting(field.key, e.target.value.toUpperCase())} /></label>;

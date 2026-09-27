@@ -422,7 +422,7 @@ test('A36: one to six links each get their designed arrangement, and icon-only l
   }
 });
 
-// A shop on a given template, because a draft keeps the template it was made on (thiet-ke-va-khuon.md mục 12).
+// A shop on a given template, because a draft keeps the template it was made on (thiet-ke-va-template.md mục 12).
 async function templateShop(f: Fixture, key: TemplateKey, slug: string, patch: Partial<PageConfig> = {}) {
   const shop = randomUUID();
   await f.db.query('INSERT INTO shops(id,slug,name)VALUES($1,$2,$3)', [shop, slug, `Quán ${slug}`]);
@@ -434,7 +434,7 @@ async function templateShop(f: Fixture, key: TemplateKey, slug: string, patch: P
 const bigButtonShop = (f: Fixture) => templateShop(f, 'big-button', 'six');
 const googleStub = (page: Page) => page.route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
 
-test('khuôn 6: one giant Google button in the middle of the phone, the same in every other respect', async ({ page, fixture: f }) => {
+test('template 6: one giant Google button in the middle of the phone, the same in every other respect', async ({ page, fixture: f }) => {
   await bigButtonShop(f);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/six'); await loaded(page);
@@ -461,7 +461,7 @@ test('khuôn 6: one giant Google button in the middle of the phone, the same in 
   await expect(page.locator('[data-google]')).toHaveAttribute('target', '_blank');
 });
 
-// Bản khuôn (versions.ts): the one variable here is the version the release is pinned to -- same shop, same
+// Bản template (versions.ts): the one variable here is the version the release is pinned to -- same shop, same
 // configuration, same template key. Version 1's look must not follow the shop onto a version with its own stylesheet.
 test('a page is dressed by the template version it was published on, never by another version of the same template', async ({ page, fixture: f }) => {
   const shop = await bigButtonShop(f);
@@ -479,7 +479,7 @@ test('a page is dressed by the template version it was published on, never by an
   expect(await paper()).not.toBe('#f6f3ee');
 });
 
-test('khuôn 6: a tap covers the page for 300 ms, then the same tab goes to Google, with the tap recorded', async ({ page, fixture: f }) => {
+test('template 6: a tap covers the page for 300 ms, then the same tab goes to Google, with the tap recorded', async ({ page, fixture: f }) => {
   const shop = await bigButtonShop(f); await googleStub(page);
   await page.goto('/six'); await loaded(page);
   const started = Date.now();
@@ -497,7 +497,7 @@ test('khuôn 6: a tap covers the page for 300 ms, then the same tab goes to Goog
   await expect(page.locator('main[data-leaving]')).toHaveCount(0);
 });
 
-test('khuôn 6: with reduced motion the tap goes straight to Google, no cover', async ({ page, fixture: f }) => {
+test('template 6: with reduced motion the tap goes straight to Google, no cover', async ({ page, fixture: f }) => {
   await bigButtonShop(f); await googleStub(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   // The cover would last only 300 ms, so watch for it rather than look for it afterwards.
@@ -510,11 +510,11 @@ test('khuôn 6: with reduced motion the tap goes straight to Google, no cover', 
   expect(covered).toBe(false);
 });
 
-// Khuôn 5 · Ánh sáng tụ: a dark page where light gathers on the Google button and the pattern blurs with distance.
+// Template 5 · Ánh sáng tụ: a dark page where light gathers on the Google button and the pattern blurs with distance.
 const luminance = (rgb: string) => { const [r, g, b] = rgb.match(/[\d.]+/g)!.slice(0, 3).map(n => Number(n) / 255)
   .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 const contrast = (a: string, b: string) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-test('khuôn 5: light gathers on the Google button, and every text stays readable on the dark page', async ({ page, fixture: f }) => {
+test('template 5: light gathers on the Google button, and every text stays readable on the dark page', async ({ page, fixture: f }) => {
   await templateShop(f, 'spotlight', 'five', { links: [
     { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
     { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' }] });
@@ -557,7 +557,7 @@ test('the private-feedback button and its invitation look the same under a dark 
   expect(await look('five')).toEqual(await look('six'));
 });
 
-// Khuôn 3 · Kính (thiet-ke-va-khuon.md mục 15): every pane carries a copy of the scene shifted by exactly where it sits,
+// Template 3 · Kính (thiet-ke-va-template.md mục 15): every pane carries a copy of the scene shifted by exactly where it sits,
 // refracted by a filter every engine runs; the scene scrolls with the page so the filter never has to run again.
 const glassPlacement = (page: Page) => page.evaluate(() => {
   const main = document.querySelector('main')!, m = main.getBoundingClientRect();
@@ -566,7 +566,7 @@ const glassPlacement = (page: Page) => page.evaluate(() => {
     return [Math.abs(parseFloat(pane.style.getPropertyValue('--gx')) - (box.left - m.left)), Math.abs(parseFloat(pane.style.getPropertyValue('--gy')) - (box.top - m.top))];
   }));
 });
-test('khuôn 3: glass panes carry an aligned, refracted copy of the scene, and the Google button stays solid', async ({ page, fixture: f }) => {
+test('template 3: glass panes carry an aligned, refracted copy of the scene, and the Google button stays solid', async ({ page, fixture: f }) => {
   await templateShop(f, 'glass', 'three', { links: [
     { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
     { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
@@ -589,8 +589,8 @@ test('khuôn 3: glass panes carry an aligned, refracted copy of the scene, and t
   await expect.poll(() => glassPlacement(page)).toBeLessThan(1);
 });
 
-// Khuôn 4 · Chồng thẻ (ảnh Tài gửi 24/09): a tilted card over a second card that is the shop's poster slot.
-test('khuôn 4: a tilted card over the poster card, links as rows, and nothing covers the Google button', async ({ page, fixture: f }) => {
+// Template 4 · Chồng thẻ (ảnh Tài gửi 24/09): a tilted card over a second card that is the shop's poster slot.
+test('template 4: a tilted card over the poster card, links as rows, and nothing covers the Google button', async ({ page, fixture: f }) => {
   // Six links: the tallest card a shop can make, so the tilt's reach to the right is measured at its worst.
   await templateShop(f, 'deco', 'four', { links: [
     { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
@@ -622,8 +622,8 @@ test('khuôn 4: a tilted card over the poster card, links as rows, and nothing c
   expect(await page.locator('.guest-body').evaluate(body => body.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
 });
 
-// Khuôn 2 · Tối giản (ảnh "Minimal Dark Card" Tài gửi 24/09): one dark card with a blurred glow around it, links as tiles.
-test('khuôn 2: a dark card with a glow around it, and links laid out as even tiles for every count', async ({ page, fixture: f }) => {
+// Template 2 · Tối giản (ảnh "Minimal Dark Card" Tài gửi 24/09): one dark card with a blurred glow around it, links as tiles.
+test('template 2: a dark card with a glow around it, and links laid out as even tiles for every count', async ({ page, fixture: f }) => {
   const all = [
     { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const },
     { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' as const },
@@ -656,9 +656,9 @@ test('khuôn 2: a dark card with a glow around it, and links laid out as even ti
   }
 });
 
-// Khuôn 1 · Bản gốc, thẻ trôi (Tài chốt 24/09, ý 1 + 2): the background stays put, only the card scrolls; the card's top
+// Template 1 · Bản gốc, thẻ trôi (Tài chốt 24/09, ý 1 + 2): the background stays put, only the card scrolls; the card's top
 // edge fades from clear to paper over a blurred band, and the background eases in and darkens as the page scrolls.
-test('khuôn 1: a floating card whose top fades into the background, text only on solid paper, and a background that breathes', async ({ page, fixture: f }) => {
+test('template 1: a floating card whose top fades into the background, text only on solid paper, and a background that breathes', async ({ page, fixture: f }) => {
   await templateShop(f, 'standard', 'one-std', { links: [
     { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
     { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
@@ -705,7 +705,7 @@ test('an uploaded picture that is still waiting for review cannot be published; 
   await expect(page.locator('[data-google]')).toBeVisible();
 });
 
-// Tài báo 24/09: trên shop khuôn 6 thật, thẻ góp ý mở được nhưng không bấm được gì, kèm "Chưa kết nối được".
+// Tài báo 24/09: trên shop template 6 thật, thẻ góp ý mở được nhưng không bấm được gì, kèm "Chưa kết nối được".
 // The private card has to work under every template: open it, pick a star, write, send, see the thanks.
 test('private feedback works end to end under every one of the six templates', async ({ page, fixture: f }) => {
   const { TEMPLATE_KEYS } = await import('../lib/publishing/templates');
@@ -717,7 +717,7 @@ test('private feedback works end to end under every one of the six templates', a
     await expect(page.locator('.guest-connection'), key).toHaveCount(0);
     await openCard(page);
     await star(page, 4).click();
-    await page.locator('#message').fill(`Góp ý thử ở khuôn ${key}`);
+    await page.locator('#message').fill(`Góp ý thử ở template ${key}`);
     await sendButton(page).click();
     await expect(page.locator('[data-thanks]'), key).toBeVisible();
   }
@@ -738,9 +738,9 @@ test('a guest who reloads after the shop republishes can still send feedback', a
   await expect(page.locator('[data-thanks]')).toBeVisible();
 });
 
-// Khuôn 6: on Android tilting the phone moves the light on the orb; iPhone asks permission for the sensor, so there the
+// Template 6: on Android tilting the phone moves the light on the orb; iPhone asks permission for the sensor, so there the
 // page never listens -- a guest page never asks a visitor for anything.
-test('khuôn 6: the light on the orb follows the tilt of the phone, and the visitor is never asked for the sensor', async ({ page, fixture: f }) => {
+test('template 6: the light on the orb follows the tilt of the phone, and the visitor is never asked for the sensor', async ({ page, fixture: f }) => {
   await bigButtonShop(f);
   // Record any attempt to ask for the motion sensor: a guest page must never make one.
   await page.addInitScript(() => { (window as unknown as { asked: number }).asked = 0;
@@ -757,6 +757,17 @@ test('khuôn 6: the light on the orb follows the tilt of the phone, and the visi
   await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 75, gamma: -30 })));
   await page.waitForTimeout(200);
   expect(await tilt()).toEqual(['', '']);
+});
+
+// Lát S0 (audit A1): the tab carries the shop's own name -- it used to read "NFC Feedback · Bản thử" on every shop --
+// and a guest page is never indexed, while the platform's front page is.
+test('a guest page is titled with the shop name and never indexed; the front page can be', async ({ page }) => {
+  await page.goto('/one'); await loaded(page);
+  await expect(page).toHaveTitle((await page.locator('main h1').textContent())!.trim());
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  await page.goto('/');
+  expect(await page.title()).not.toMatch(/Bản thử/);
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 });
 
 // Lát P4: a paused page says so, with nothing of the page behind it; a closed page's link no longer exists.

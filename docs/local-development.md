@@ -1,42 +1,30 @@
-# Chạy app local
+# Chạy trên máy
+
+Viết lại 27/09 (lát S0). Bản cũ chỉ tới trang demo và dữ liệu trên trình duyệt — đã gỡ ở lát A3.
 
 ## Chuẩn bị
 
-Node.js 24 và pnpm 11.19.0. Các phiên bản package được chốt trong package.json và pnpm-lock.yaml.
+- **Node 24** (qua nvm) và thư viện đã cài: `pnpm install --frozen-lockfile`.
+- **Không dùng `pnpm <script>`**: gọi thẳng `node node_modules/…` (xem `docs/operations-gotchas.md`).
+- **PostgreSQL** cho các bộ test có database. Trên máy Tài: Postgres.app, binary ở
+  `/Applications/Postgres.app/Contents/Versions/latest/bin` (không có trong `PATH`).
 
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
-```
+## Ba cách chạy, tuỳ việc
 
-Mở http://127.0.0.1:3000/t/demo. Dashboard mẫu: http://127.0.0.1:3000/demo/dashboard.
+**1. Bảy bộ test** — cách chính để biết mọi thứ còn đúng. Lệnh đủ ở `docs/operations-gotchas.md` ("Có 7 bộ test").
+Bốn bộ integration dựng sẵn app, database riêng và dữ liệu thử mỗi lần chạy (`integration-tests/run-local.mjs`).
+Cluster test: cổng **55439**, `initdb … -E UTF8 --locale=en_US.UTF-8` — dựng cluster ở một đường dẫn ngắn (vd `/tmp/nfcpg`)
+vì socket Unix không chịu đường dẫn dài.
 
-## Phạm vi của bản đầu
+**2. Xem giao diện có dữ liệu** (dashboard, `/gov`): viết một spec tạm trong `integration-tests/` dùng fixture sẵn có
+(`repository-tests/owner-fixture.ts`), chạy bằng `node integration-tests/run-local.mjs --admin <tên spec>`, chụp ảnh, rồi
+**xoá spec** — không commit. Tài khoản trong đó là tài khoản thử sinh ra cho lần chạy.
 
-- Next.js/React/TypeScript chạy thật trên máy; chưa có Neon, R2, đăng nhập hoặc Vercel.
-- Dữ liệu DEMO được lưu localStorage, tách khỏi database production tương lai. Không nhập dữ liệu nhạy cảm hoặc dùng tiếp nhận khách thật.
-- Mỗi trình duyệt có một trải nghiệm demo `THỬ01`; sửa sao cập nhật cùng bản ghi. Chưa có khái niệm nhiều lần ghé/nhận diện người dùng thật.
-- Ba khách mẫu chỉ để minh họa dashboard. Link Google/Zalo/Instagram/booking chưa có địa chỉ shop thật và không chuyển đi.
-- Mỗi lần mở trang mặc định Tiếng Việt, chuyển English thủ công. Nội dung khách tự viết không dịch tự động.
-- Chọn 1–3 sao: nút góp ý phồng và đậm màu 3 nhịp, mở form. Chọn 4–5 hoặc bấm nút góp ý: dừng hiệu ứng. Reduced motion chỉ đổi màu, không phồng. Nút Google giữ nguyên vị trí và nội dung.
-- Ảnh event/logo là nội dung minh họa, không phải tài nguyên chính thức của 4Râu.
+**3. Dev server trần** (`.claude/launch.json`, cổng 3321, `next dev --webpack`): đủ cho trang tĩnh và trang pháp lý.
+Không có database thì trang khách, dashboard và `/gov` trả 404 — đúng thiết kế: route chỉ mở khi `NFC_ENV` và cờ tính năng
+được khai (`.env.example`).
 
-## Kiểm tra
+## Chạy như production trên một máy
 
-```sh
-pnpm lint
-pnpm typecheck
-pnpm build
-pnpm exec playwright install chromium
-pnpm test
-```
-
-Test trình duyệt chạy trên production build bằng Node.js, không cần tài khoản Vercel. GitHub Actions chạy cùng chuỗi trên Linux. Đây là kiểm tra nền app, không thay cho kiểm tra tenant/auth/database ở giai đoạn sau.
-
-## Bước tiếp theo
-
-Xem và duyệt cảm giác trang khách trước; sau đó triển khai DB/auth bằng môi trường development riêng, kiểm tra cách ly shop và retry/revision phía server. Chưa bật deploy production hoặc mua dịch vụ.
-
-## Nhánh dữ liệu server
-
-`/<shop>` và `/ZZZ/<shop>` đã có luồng API/PostgreSQL riêng, không dùng demo-store. Xem `docs/server-data.md` và `.env.example`; DB/auth thật chưa được kết nối. Các đường demo trên vẫn dùng để xem giao diện cũ.
+`docs/tu-chay.md`: Docker Compose gồm app, PostgreSQL và SeaweedFS; đã chạy thật 27/09. Hợp làm máy thử; làm máy chủ thật thì
+cần một máy luôn bật (`docs/audit-ui-ux-20260927.md` mục 1).

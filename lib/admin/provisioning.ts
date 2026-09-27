@@ -27,7 +27,7 @@ export type ProvisionedShop = {
 
 export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; googleUrl?: unknown; templateKey?: unknown };
 
-/** Absent means khuôn 1, so callers from before the six templates keep working. */
+/** Absent means template 1, so callers from before the six templates keep working. */
 const chosenTemplate = (value: unknown): TemplateKey | null => value === undefined ? 'standard' : isTemplateKey(value) ? value : null;
 
 const printable = (value: string) => ![...value].some(character => (character.codePointAt(0) ?? 0) < 32 || '<>'.includes(character));
@@ -160,7 +160,7 @@ export class ShopProvisioning {
     if ((await this.pool.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1 OR email=$2', [owner, email])).rowCount)
       throw new AdminError(409, 'OWNER_ALREADY_EXISTS');
     // Read before the shop row exists, so a missing or broken template stops the run with nothing written for this shop.
-    // Khuôn 1 is cloned from the template shop's live release, as before; the other five start from their bare skeleton.
+    // Template 1 is cloned from the template shop's live release, as before; the other five start from their bare skeleton.
     const config = key === 'standard' ? await this.fromTemplate(actorId, name, google) : validateConfig({ ...templateConfig(key), name, googleUrl: google });
 
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OwnerDashboard as Repository, Period } from '@/lib/owner/dashboard';
 import { copy } from '@/lib/copy';
 import { faceFor } from '@/lib/faces';
+import { PLATFORM_NAME } from '@/lib/brand';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
@@ -330,7 +331,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
         <p>Lý do: {impersonation.reason}</p>
         <button type="button" onClick={endStandIn}>Kết thúc phiên</button>
       </aside>}
-      <header className={styles.top}><p className={styles.brand}>NFC Feedback</p><h1>{title}</h1></header>
+      <header className={styles.top}><p className={styles.brand}>{PLATFORM_NAME}</p><h1>{title}</h1></header>
       <p role="status" aria-live="polite" className={styles.notice}>{notice}</p>
       {expired && (impersonation ? <Link href="/gov">Về trang quản trị</Link> : <a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập lại</a>)}
 

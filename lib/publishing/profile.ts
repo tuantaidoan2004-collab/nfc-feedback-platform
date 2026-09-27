@@ -5,9 +5,9 @@ import { assertPublishable } from './policy';
  * Hồ sơ của **trang** — nội dung do chủ quán sở hữu (migration 022; từ migration 024 mỗi TRANG một hàng, không phải mỗi
  * quán, vì Tài chốt 25/09 nội dung nằm ở từng trang — `docs/goi-va-trang.md` mục 3).
  *
- * Khuôn là ổ cắm, tài khoản là phích. Bản chụp release giữ **diện mạo** của lần phát hành đó và không bao giờ
- * bị sửa; các trường thuộc về tài khoản thì lấy từ bảng `page_profile` (tên `shop_profile` trước migration 027) lúc đọc. Nhờ vậy đổi khuôn chỉ là đổi
- * bộ xương: tên quán, link Google, danh sách link, logo, ảnh và câu hỏi tự chui vào ổ của khuôn mới.
+ * Template là ổ cắm, tài khoản là phích. Bản chụp release giữ **diện mạo** của lần phát hành đó và không bao giờ
+ * bị sửa; các trường thuộc về tài khoản thì lấy từ bảng `page_profile` (tên `shop_profile` trước migration 027) lúc đọc. Nhờ vậy đổi template chỉ là đổi
+ * bộ xương: tên quán, link Google, danh sách link, logo, ảnh và câu hỏi tự chui vào ổ của template mới.
  */
 export type ShopProfileRow = {
   name: string;

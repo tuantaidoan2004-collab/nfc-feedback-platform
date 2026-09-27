@@ -6,13 +6,13 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 
 | Chủ đề | Chốt |
 |---|---|
-| Khuôn nhân bản | **Một shop khuôn riêng, tên trung tính "YOUR SHOP"**, chỉ dùng để nhân bản. Nút Tạo shop sao chép **cấu hình** của khuôn, không bao giờ sao chép dữ liệu. `caphe-demo` (thật ra là 4Rau Barbershop) là một shop bình thường, không phải khuôn |
+| Template nhân bản | **Một shop template riêng, tên trung tính "YOUR SHOP"**, chỉ dùng để nhân bản. Nút Tạo shop sao chép **cấu hình** của template, không bao giờ sao chép dữ liệu. `caphe-demo` (thật ra là 4Rau Barbershop) là một shop bình thường, không phải template |
 | Thêm bàn | **Một trang, nhiều thẻ.** Mỗi bàn là một thẻ `/t/<mã>` có nhãn. Sửa nút một lần là áp cho mọi bàn; số liệu tách theo bàn ở mục "Nguồn thẻ" |
 | Dashboard | **Theo mẫu, không tùy biến.** Ba tab và ô chuyển shop, giống nhau cho mọi shop. Phần tùy biến nằm ở trang khách |
 | Bố cục trang khách | Hai lựa chọn: **tràn màn hình** (đang có) và **dạng thẻ** (gọn hơn) |
 | Google | **Luôn là nút nổi bật nhất**, có chữ nhấn như bản cũ. Không điền sẵn số sao (chốt 17/09) |
 | Phản hồi riêng | Nút **luôn hiện**, **gửi được khi chưa chấm sao**. API đã đổi ở lát B1 |
-| Nền | **Ảnh, không bao giờ là video** (Tài 26/09). Khuôn 1 dùng ảnh tĩnh `stem-background.jpg`; video chỉ ở poster |
+| Nền | **Ảnh, không bao giờ là video** (Tài 26/09). Template 1 dùng ảnh tĩnh `stem-background.jpg`; video chỉ ở poster |
 | QR | Không làm |
 
 ## Hành vi trang khách v2
@@ -24,7 +24,7 @@ Tài chốt trong buổi brainstorm 17/09, dựa trên hai ảnh trang review (t
 5. **Gửi xong:** hiện popup cảm ơn kiểu 3D nảy (giống hiệu ứng trên Canva) kèm pháo giấy. Dự kiến dùng `canvas-confetti` (MIT, nhỏ); popup chỉ cần CSS. Người đã bật "giảm chuyển động" thì bỏ hiệu ứng, chỉ hiện chữ cảm ơn.
 6. **Bấm Google:** khách rời sang Google như hiện tại.
 7. **Về sau:** khi khách đã xong phần đánh giá **nội bộ**, trang chuyển sang một màn "Cảm ơn quý khách", rồi trở lại bình thường khi hết phiên 15 phút.
-8. **Chuyển động:** đến từ thiết kế của khuôn (gradient, hạt, chiều sâu), không từ video nền. Video poster chạy lặp, không tiếng (`playsinline`), chỉ sau khi trang tải xong; ảnh khung đầu thay thế khi máy tiết kiệm pin hay tiết kiệm dữ liệu; có chế độ tĩnh cho người đã bật "giảm chuyển động".
+8. **Chuyển động:** đến từ thiết kế của template (gradient, hạt, chiều sâu), không từ video nền. Video poster chạy lặp, không tiếng (`playsinline`), chỉ sau khi trang tải xong; ảnh khung đầu thay thế khi máy tiết kiệm pin hay tiết kiệm dữ liệu; có chế độ tĩnh cho người đã bật "giảm chuyển động".
 
 ### Hai giới hạn đã nêu với Tài
 
@@ -45,14 +45,14 @@ Theo ảnh mockup. Khung chung gồm logo NFC Feedback, ô "Shop đang xem" (m�
 - `layout`: thêm `card`.
 - Icon: thêm `facebook`, `phone`. Link `tel:` cho nút Liên hệ; hiện `url()` chỉ nhận `https:`.
 - ~~Phản hồi riêng không cần sao trước~~: xong ở lát B1 (migration 010).
-- ~~Shop khuôn~~: xong ở lát A (migration 009).
+- ~~Shop template~~: xong ở lát A (migration 009).
 - Công tắc 4 vị trí: migration mới, chỉ thêm, giữ nguyên lịch sử của migration 008.
 
 ## Thứ tự lát
 
 | Lát | Nội dung |
 |---|---|
-| A | Shop khuôn "YOUR SHOP", Tạo shop sao chép từ khuôn, video nền mặc định |
+| A | Shop template "YOUR SHOP", Tạo shop sao chép từ template, video nền mặc định |
 | B | Trang khách v2: hai bố cục, nút mới, phản hồi riêng không cần sao, khung mở/thu gọn, popup cảm ơn — **xong 17/09** (B1 + B2) |
 | C | Dashboard mới: khung, ô chuyển shop, tab Dữ liệu |
 | D | Tab Thiết kế giao diện và công tắc 4 vị trí |
@@ -60,17 +60,17 @@ Theo ảnh mockup. Khung chung gồm logo NFC Feedback, ô "Shop đang xem" (m�
 
 Tải ảnh và video riêng cho từng shop cần **Cloudflare R2**; đó là việc Tài còn treo.
 
-## Lát A — shop khuôn — xong 2026-09-17
+## Lát A — shop template — xong 2026-09-17
 
-- **Migration 009:** cột `shops.is_template` và unique index cho tối đa một khuôn. Rollback từ chối khi khuôn đang tồn tại.
-- `ShopProvisioning.ensureTemplate()` tạo khuôn "YOUR SHOP" với `templateConfig()`: cấu hình mặc định cộng nền là ảnh tĩnh mặc định. Nút Tạo shop sao chép **bản phát hành đang chạy** của khuôn, rồi thay tên và link Google của shop mới. Khuôn được đọc **trước** khi ghi bất cứ thứ gì cho shop mới.
-- Sửa khuôn thì các shop tạo **sau đó** theo cấu hình mới; shop tạo trước giữ nguyên. Không sao chép lượt ghé, thẻ hay chủ shop.
+- **Migration 009:** cột `shops.is_template` và unique index cho tối đa một template. Rollback từ chối khi template đang tồn tại.
+- `ShopProvisioning.ensureTemplate()` tạo template "YOUR SHOP" với `templateConfig()`: cấu hình mặc định cộng nền là ảnh tĩnh mặc định. Nút Tạo shop sao chép **bản phát hành đang chạy** của template, rồi thay tên và link Google của shop mới. Template được đọc **trước** khi ghi bất cứ thứ gì cho shop mới.
+- Sửa template thì các shop tạo **sau đó** theo cấu hình mới; shop tạo trước giữ nguyên. Không sao chép lượt ghé, thẻ hay chủ shop.
 - Ảnh nền mặc định nằm ở `public/media/stem-background.jpg`. Tệp video cùng tên đã xoá 26/09; validator vẫn nhận đường dẫn video cũ để trang phát hành trước đó còn đọc được (trang khách chỉ hiện ảnh tĩnh). Mọi media khác phải là `https`.
-- `/gov`: nút **Tạo shop khuôn** (hiện khi chưa có khuôn); dòng khuôn ghi **KHUÔN**, không có chủ, không có nút; số "Shop đang có" không đếm khuôn.
+- `/gov`: nút **Tạo shop template** (hiện khi chưa có template); dòng template ghi **TEMPLATE**, không có chủ, không có nút; số "Shop đang có" không đếm template.
 - **Chưa thấy video trên trang khách.** Renderer hiện tại chưa vẽ nền, watermark, logo hay nút từ cấu hình; lát B làm việc này. Ngoài ra preview đang tắt `NFC_PUBLISHING_ENABLED`, nên trang khách vẫn chạy đường cũ, không đọc cấu hình.
-- Chưa có: sửa khuôn trong giao diện (lát D). Hiện khuôn chỉ sửa được qua thư viện.
-- **Tài khoản của khuôn:** `yourshop`, vào bằng link đặt mật khẩu dùng một lần cấp ở `/gov`, ở mọi môi trường. Mật khẩu cố định `yourshop / 1` (17/09) đã gỡ ngày 27/09 khi repo công khai.
-- **`caphe-demo` (4Rau) bỏ, Tài chốt 17/09.** Không làm nút "Phát hành từ khuôn". Khi bật publishing, trang đó hiện "Trang chưa sẵn sàng"; dữ liệu cũ giữ nguyên. Mọi chỉnh sửa làm trên khuôn.
+- Chưa có: sửa template trong giao diện (lát D). Hiện template chỉ sửa được qua thư viện.
+- **Tài khoản của template:** `yourshop`, vào bằng link đặt mật khẩu dùng một lần cấp ở `/gov`, ở mọi môi trường. Mật khẩu cố định `yourshop / 1` (17/09) đã gỡ ngày 27/09 khi repo công khai.
+- **`caphe-demo` (4Rau) bỏ, Tài chốt 17/09.** Không làm nút "Phát hành từ template". Khi bật publishing, trang đó hiện "Trang chưa sẵn sàng"; dữ liệu cũ giữ nguyên. Mọi chỉnh sửa làm trên template.
 - **Việc tiếp theo trước lát B:** bật `NFC_PUBLISHING_ENABLED=true` cho môi trường Preview trên Vercel, rồi push một commit để deploy lại.
 - Chỗ trải nghiệm còn thiếu, để lát C xử lý: chủ shop A đang đăng nhập mà mở dashboard shop B thì thấy "Không thể mở dashboard", không có lối đăng nhập bằng tài khoản khác.
 
@@ -90,8 +90,8 @@ Tài duyệt phạm vi 17/09, chia lát B làm hai: B1 (máy chủ) và B2 (giao
 
 Tài chốt trước khi làm: **ưu tiên xong nhanh, test nhanh, sửa nhanh**; lỗ hổng bảo mật và back-end sẽ do Astra rà và vá sau. Nguyên tắc sản phẩm vẫn giữ.
 
-- **Schema cấu hình v2** (`lib/publishing/config.ts`): thêm bố cục `card`, nút `facebook` và `phone`. Chỉ nút `phone` nhận link `tel:` (chữ số, có thể có `+`, 3–15 số); mọi nút khác vẫn phải `https`. `defaultConfig()` giờ tạo v2. Bản phát hành v1 vẫn hợp lệ và hiển thị như thường, nhưng không dùng được các phần mới. `template_versions.schema_version` vẫn là 1: đó là phiên bản khuôn trong database, không phải phiên bản cấu hình, và đổi nó thì cần migration.
-- **Khuôn trên preview vẫn là v1** (tạo ở lát A). Shop nhân bản từ khuôn cũng mang cấu hình v1 cho tới khi khuôn được lưu lại bằng editor (lát D).
+- **Schema cấu hình v2** (`lib/publishing/config.ts`): thêm bố cục `card`, nút `facebook` và `phone`. Chỉ nút `phone` nhận link `tel:` (chữ số, có thể có `+`, 3–15 số); mọi nút khác vẫn phải `https`. `defaultConfig()` giờ tạo v2. Bản phát hành v1 vẫn hợp lệ và hiển thị như thường, nhưng không dùng được các phần mới. `template_versions.schema_version` vẫn là 1: đó là phiên bản template trong database, không phải phiên bản cấu hình, và đổi nó thì cần migration.
+- **Template trên preview vẫn là v1** (tạo ở lát A). Shop nhân bản từ template cũng mang cấu hình v1 cho tới khi template được lưu lại bằng editor (lát D).
 - **Trang khách** (`components/shop-feedback-v2.tsx`, `guest-page.css`, `confetti.ts`):
   - nền màu, gradient hoặc video (chạy lặp, không tiếng, `playsinline`, có ảnh tĩnh). Máy bật giảm chuyển động thì không render video, chỉ hiện ảnh tĩnh. Chỉ video có sẵn trong app mới có ảnh tĩnh; video tải lên khác rơi về nền màu;
   - watermark "YOUR LOGO" trôi chéo, đứng yên khi giảm chuyển động;
@@ -119,7 +119,7 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 - **Gửi xong:** thẻ chuyển sang "Cảm ơn bạn nhé, chúng tôi biết ơn vì đóng góp từ phản hồi của bạn" kèm pháo giấy, và **chỉ đóng khi khách bấm Đóng** (bản B2 tự đóng sau khoảng 1 giây trên iPhone, vì chạm để cuộn cũng làm popup đóng).
 - **Nhấn nút:** mọi nút và link lún còn 96%; nút máy bay lún còn 70% rồi nảy lại khi thả. Nút Google, nút gửi và các nút mạng xã hội có lớp sáng và bóng kiểu Apple.
 - **Nút mặc định** của mọi trang mới: Instagram `https://www.instagram.com/quitesensational/`, Zalo `https://zalo.me/0961036265`, TikTok `https://www.tiktok.com/@taidoan450`. Link TikTok bỏ phần theo dõi `?_r=1&_t=…` trong link Tài gửi. Logo vẽ lại đơn giản bằng SVG.
-- **`/gov` có nút "Đưa khuôn về mặc định mới":** phát hành `templateConfig()` hiện tại thành release mới cho khuôn, có ghi sổ `template.reset`. Shop đã tạo trước đó giữ nguyên trang của mình.
+- **`/gov` có nút "Đưa template về mặc định mới":** phát hành `templateConfig()` hiện tại thành release mới cho template, có ghi sổ `template.reset`. Shop đã tạo trước đó giữ nguyên trang của mình.
 - Số điện thoại gọi lại (C) làm ở **lát B4** vì cần migration.
 
 **Còn lại:** câu hỏi cấu hình `text.question` không còn hiện trên trang; thẻ dùng câu cố định "Bạn cảm thấy thế nào?". Script Safari chạy tay (`integration-tests/safari-local.mjs`) vẫn giả định sao trên trang chính, nên đã lỗi thời.
@@ -142,15 +142,15 @@ Tài thử B2 trên iPhone ngày 17/09 rồi đổi hướng. Agent nêu trướ
 - Trang "Không thể mở dashboard" giờ có lối **đăng nhập bằng tài khoản khác** (chỗ thiếu đã ghi ở lát A).
 - Chưa làm: nội dung thật của hai tab kia; biểu đồ chưa có lựa chọn khoảng thời gian khác.
 
-## Tài khoản test của khuôn — sửa 2026-09-18
+## Tài khoản test của template — sửa 2026-09-18
 
 (18/09, đã thay 27/09) Nút "Đặt lại tài khoản test (yourshop / 1)" ở `/gov` giờ là **"Tạo lại link đặt mật khẩu cho yourshop"**: khoá tài khoản, đăng xuất phiên cũ, xoá bản đếm chặn đăng nhập, cấp link mới. Ghi sổ `template.account.link`.
 
-Điều này thay quy tắc cũ "gọi lại không bao giờ đặt lại mật khẩu": nút **Tạo** vẫn không đặt lại, nút **Đặt lại** thì có, và chỉ hiện khi khuôn đã có tài khoản.
+Điều này thay quy tắc cũ "gọi lại không bao giờ đặt lại mật khẩu": nút **Tạo** vẫn không đặt lại, nút **Đặt lại** thì có, và chỉ hiện khi template đã có tài khoản.
 
 ## Lát C2 — dashboard kiểu bảng điều khiển — 2026-09-18
 
-Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, ô số lớn, biểu đồ) và yêu cầu:
+Tài vào được dashboard template, gửi ảnh mẫu (thanh menu bên trái, ô số lớn, biểu đồ) và yêu cầu:
 
 - **Menu bên trái:** Tổng quan · Dữ liệu · Thiết kế & Link (gộp hai tab cũ) · Cài đặt. Trên điện thoại menu thành một hàng cuộn ngang ở đầu trang.
 - **Tổng quan** chỉ tải một gói nhẹ (`GET /api/owner/v2/<shop>/summary`), **không có danh sách phản hồi**, nên mở nhanh dù shop nhiều dữ liệu. Gồm:
@@ -190,7 +190,7 @@ Tài vào được dashboard khuôn, gửi ảnh mẫu (thanh menu bên trái, �
 ## Lát E1 — Thẻ NFC và mã ngắn — 2026-09-18
 
 **Đường dẫn, để khỏi nhầm (Tài hỏi 18/09):**
-- `/<mã shop>` là trang khách mở thẳng bằng mã shop, ví dụ `/pripi01r8e9u` (khuôn tạo ở lát A, mã 12 ký tự).
+- `/<mã shop>` là trang khách mở thẳng bằng mã shop, ví dụ `/pripi01r8e9u` (template tạo ở lát A, mã 12 ký tự).
 - `/ZZZ/<mã shop>` là dashboard. `ZZZ` là **tiền tố cố định** của mọi dashboard, không phải mã shop, và không tăng theo số shop.
 - `/t/<mã thẻ>` là link **ghi vào chip NFC**. Mỗi thẻ có mã riêng, khác mã shop.
 - Tên miền phía trước là `APP_ORIGIN` (preview: alias của branch). Link ghi vào chip gồm **cả tên miền**, nên **phải chốt tên miền thật trước khi ghi thẻ cho khách**; đổi tên miền sau đó thì thẻ đã ghi phải ghi lại (hoặc giữ tên miền cũ chạy song song).

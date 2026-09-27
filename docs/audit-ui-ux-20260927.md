@@ -34,7 +34,7 @@ Thứ tự đề xuất ở mục 4. Việc hạ tầng gấp (Vercel 29/09) ở
 | Deploy tự động từ GitHub | Repo thuộc **tài khoản cá nhân** và công khai — Hobby deploy được | Không |
 | Log chạy (`vercel logs`) | Pro giữ 1 ngày, **Hobby giữ 1 giờ** | Đọc log lỗi **trong vòng một giờ** (ghi vào `operations-gotchas.md`) |
 | Build | Hobby 2 vCPU: build chậm hơn | Không |
-| **Luật dùng thương mại** | Hobby **chỉ cho dùng cá nhân, phi thương mại**. Thương mại gồm "quảng cáo bán một sản phẩm hay dịch vụ" và mọi cách thu tiền | **Trước khi quán thật đầu tiên dùng** (dù chưa thu tiền): chuyển lên Pro (20 USD/tháng) hoặc sang tự chạy (I1). Hôm nay chỉ có shop thử của Tài → Hobby hợp lệ |
+| **Luật dùng thương mại** | Hobby **chỉ cho dùng cá nhân, phi thương mại**. Thương mại gồm "quảng cáo bán một sản phẩm hay dịch vụ" và mọi cách thu tiền | **Trước khi trang chính giới thiệu dịch vụ lên production, hoặc trước quán thật đầu tiên — mốc nào tới trước** (đính chính S0: trang chính bán dịch vụ đã là "quảng cáo bán dịch vụ"): chuyển lên Pro (20 USD/tháng) hoặc sang tự chạy (I1). Hôm nay chỉ có shop thử và trang cửa → Hobby hợp lệ |
 
 **Tự chạy trên MacBook Air M5 (16 GB, 500 GB):** chạy được về kỹ thuật — bộ Docker của I1 đã chạy thật trên máy Tài
 27/09. **Không nên làm máy chủ production**, vì bốn lý do không liên quan tới sức mạnh máy:
@@ -45,7 +45,7 @@ Thứ tự đề xuất ở mục 4. Việc hạ tầng gấp (Vercel 29/09) ở
 - Cơ sở dữ liệu nằm trên laptop thì sao lưu thành chuyện sống còn (`sao-luu.md`).
 - Dùng làm **máy thử** thì rất hợp: chạy đúng bộ production trên máy mình trước khi đổi chỗ.
 
-**Đề xuất:** ở Hobby tới trước quán thật đầu tiên. Khi đó chọn **Vercel Pro** (ít việc nhất) hoặc **một VPS nhỏ** chạy
+**Đề xuất:** ở Hobby tới trước khi trang chính bán dịch vụ lên production (hoặc quán thật đầu tiên). Khi đó chọn **Vercel Pro** (ít việc nhất) hoặc **một VPS nhỏ** chạy
 đúng bộ I1 (khoảng 5 USD/tháng; `tu-chay.md`). **Tài chốt**, vì cả hai là dịch vụ trả phí (`AGENTS.md`).
 
 ## 2. Mức sẵn sàng từng tầng
@@ -102,9 +102,11 @@ nội bộ của template hiện thẳng ra cho chủ quán. Đây là chỗ xa 
 **A7 · Vừa · Trạng thái trống hiện số 0:** biểu đồ "0 0 0 0 0 0", ô "Đánh giá Google —". Trái với quyết định G
 (`ui-ux-nguon-tham-khao.md` mục 5): trạng thái trống là bước đầu tiên.
 
-**A8 · Vừa · Ảnh thu nhỏ của trang** (mục Thiết kế & Link): mỗi khung là một iframe sandbox tải **cả trang khách, kèm
-JS không bao giờ chạy**; mỗi lần mở mục bắn **7 lỗi console** "Blocked script execution". Lỗi rác che lỗi thật, và mỗi
-trang thêm một lần tải thừa. Sửa: route thu nhỏ trả HTML không script, hoặc ảnh chụp tĩnh.
+**A8 · Thấp · Ảnh thu nhỏ của trang** (mục Thiết kế & Link): mỗi khung là một iframe sandbox không cho chạy script, nên
+mỗi lần mở mục bắn **7 lỗi console** "Blocked script execution" — lỗi rác che lỗi thật. **Đính chính (S0, 27/09):** bản
+đầu của audit viết mỗi khung "tải cả JS"; sai — script bị tắt thì trình duyệt không tải tệp JS ngoài; thứ bị chặn là
+các đoạn script **nội tuyến** Next nhúng trong HTML. Sửa cùng lát trình chỉnh (khung thu nhỏ được thay bằng xem trước
+sống), không ở S0.
 
 **A9 · Vừa · Nền "bị kéo theo" khi cuộn (Tài 27/09) — nguyên nhân khả dĩ, chưa đo trên máy thật.** Nền khai
 `position: fixed` (`guest-page.css:10`), **nhưng template 3 (Kính) đổi nó thành `absolute`** (`templates/glass/v1.css:41`)
@@ -133,7 +135,7 @@ tái hiện, production không có. Cảnh báo "preloaded but not used" chỉ c
 
 | # | Lát | Làm gì | Vì sao ở đây |
 |---|---|---|---|
-| **S0** | **Dọn nền** (V) | Đổi "khuôn" → "template" khắp nơi (A11); tiêu đề theo tên quán, bỏ "bản thử", `noindex` theo route (A1); README, `local-development.md`, gỡ tệp bàn giao cũ (A2); ảnh thu nhỏ không script (A8); luật test (A10) ghi vào `operations-gotchas.md` | Rẻ, không migration; mọi lát sau viết bằng từ mới |
+| **S0** | **Dọn nền** (V) | Đổi "khuôn" → "template" khắp nơi (A11); tiêu đề theo tên quán, bỏ "bản thử", `noindex` theo route (A1); README, `local-development.md`, gỡ tệp bàn giao cũ (A2); luật test (A10) ghi vào `operations-gotchas.md` | Rẻ, không migration; mọi lát sau viết bằng từ mới |
 | **S1** | **Hệ thiết kế nền tảng** (V–L) | Token + component chung: nút (chính · phụ · nguy hiểm), thẻ, ô nhập, chọn, chip, thanh tiến độ, thanh dưới, bảng thành danh sách thẻ trên điện thoại, hộp thoại, thông báo, trạng thái trống. Áp vào `/gov` trước (ít người thấy, sửa A5), rồi dashboard: thanh dưới, mục có URL (A3, A4) | Dashboard VIP, onboarding, trình chỉnh đều dựng trên nó |
 | **M2** | Module hiệu ứng | Tách kính, nghiêng, chuyển cảnh; thêm **popup cảm ơn 4 giây → Google tab mới**, tim bung, con trỏ màu của template | Ý 1, ý 3 của Tài đi vào đúng chỗ |
 | **M3** | Section (mig) | `PageConfig` v3: danh sách section; poster, link thành section | Mở đường cho sự kiện, video |
@@ -172,7 +174,7 @@ không phải biết gì về Google Cloud.
 3. **Mã QR ngân hàng và số Zalo** cho tab Thanh toán — lưu trong cài đặt admin, **không** đưa vào GitHub (`AGENTS.md`).
 4. **Kịch bản video 3 phút** (Claude viết nháp khi Tài muốn; dựng bằng HyperFrames).
 5. **Search Console:** xác minh tên miền bằng bản ghi DNS, sau khi trang chính được mở lập chỉ mục (A1).
-6. **Trước quán thật đầu tiên:** chọn Vercel Pro hay VPS (mục 1).
+6. **Trước khi trang chính bán dịch vụ lên production:** chọn Vercel Pro hay VPS (mục 1).
 
 ## Nguồn
 

@@ -364,7 +364,7 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
 .dialog h2 { margin: 0; font-size: 18px; }
 @media (max-width: 900px) { .meRow { margin: 0 0 0 auto; } .inbox { left: auto; right: 0; transform: none; } }
 
-/* Khuôn: one version per row, its notes beside it (the link grid above squeezed the notes into one narrow column). */
+/* Template: one version per row, its notes beside it (the link grid above squeezed the notes into one narrow column). */
 .versionList { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .versionList li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px;
   border: 1px solid var(--line); border-radius: 12px; }

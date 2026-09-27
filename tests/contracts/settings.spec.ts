@@ -28,7 +28,7 @@ test('every shipped version has a well-formed table: known kinds, unique keys, d
     }
     expect(own(fields).length, `${where}: validateConfig stores at most 16`).toBeLessThanOrEqual(16);
   }
-  // Tài, 25/09: khuôn 6 is the cheapest pack and has nothing to adjust.
+  // Tài, 25/09: template 6 is the cheapest pack and has nothing to adjust.
   for (const release of TEMPLATE_RELEASES['big-button']) expect(release.settings).toEqual([]);
 });
 

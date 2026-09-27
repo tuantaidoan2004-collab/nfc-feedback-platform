@@ -60,7 +60,7 @@ Kỷ luật bắt buộc: `paid_until` chỉ được là một ngày. Mọi cá
 ## 3. Bảng giá
 
 > **Đã thay (25–26/09):** bảng giá bên dưới — gói theo chi nhánh, phí theo số thẻ — không còn dùng. Giá nay theo
-> **trang**, mỗi khuôn một giá, hai suất miễn phí, khuôn 6 miễn phí; **thẻ không tính phí** trong app (Tài: thẻ chỉ là vật
+> **trang**, mỗi template một giá, hai suất miễn phí, template 6 miễn phí; **thẻ không tính phí** trong app (Tài: thẻ chỉ là vật
 > chứa link, bán riêng). Xem `goi-va-trang.md` mục 4 và 14. Phần dưới giữ làm lịch sử.
 
 Đơn vị tính là **chi nhánh**, không phải dashboard.

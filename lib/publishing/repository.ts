@@ -130,7 +130,7 @@ export class PublishingAdmin {
     });
   }
   /**
-   * Puts the draft on ANOTHER template (Tài, 25/09: đổi khuôn giữ link, thẻ và dữ liệu). The page keeps its content;
+   * Puts the draft on ANOTHER template (Tài, 25/09: đổi template giữ link, thẻ và dữ liệu). The page keeps its content;
    * its look becomes the new template's skeleton at its newest version, with that version's own fields at their
    * defaults. Nothing reaches guests until the draft is published.
    */

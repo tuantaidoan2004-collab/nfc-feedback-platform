@@ -4,7 +4,7 @@ import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 
 /**
- * The operator's half of the image gate (migration 023, `docs/thiet-ke-va-khuon.md` mục 10). Shops upload; nothing
+ * The operator's half of the image gate (migration 023, `docs/thiet-ke-va-template.md` mục 10). Shops upload; nothing
  * they upload reaches a guest page until it is approved here. A decision is final for that upload: to change a refused
  * image the shop uploads a new one, which queues again.
  */

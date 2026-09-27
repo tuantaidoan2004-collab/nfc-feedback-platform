@@ -1,50 +1,50 @@
 # Gói, trang và phiên bản — mô hình Tài chốt 25/09/2026
 
 Buổi brainstorm 25/09 (Claude đề xuất, Tài chọn từng điểm). Tệp này là nguồn cho mọi lát về dashboard nhiều trang, kho
-khuôn, tính tiền và phiên bản. Luật Google (`google-policy.md`) vẫn đứng trên tệp này.
+template, tính tiền và phiên bản. Luật Google (`google-policy.md`) vẫn đứng trên tệp này.
 
 ## 1. Ba lớp, cập nhật độc lập
 
 | Lớp | Gồm | Cập nhật |
 |---|---|---|
 | **Nền tảng** | dashboard của quán, app admin, API, database | Một bản cho mọi người, luôn mới nhất, không ai chọn ở lại bản cũ. Số bản `năm.tháng.lần` (vd `26.9.3`) + nhật ký thay đổi |
-| **Khuôn** | diện mạo trang khách | Mỗi khuôn có bản riêng (1, 2, 3…); trang ghim bản; chủ quán tự chọn lên bản mới (`thiet-ke-va-khuon.md` mục 16) |
-| **Nội dung** | tên, link Google, logo, nút link, poster, dữ liệu góp ý | Thuộc **trang**; đổi khuôn hay đổi bản không mất gì |
+| **Template** | diện mạo trang khách | Mỗi template có bản riêng (1, 2, 3…); trang ghim bản; chủ quán tự chọn lên bản mới (`thiet-ke-va-template.md` mục 16) |
+| **Nội dung** | tên, link Google, logo, nút link, poster, dữ liệu góp ý | Thuộc **trang**; đổi template hay đổi bản không mất gì |
 
-Tính năng dashboard ra riêng, không kéo theo khuôn. Sửa lỗi / bảo mật / luật Google ở khuôn thì sửa thẳng mọi bản, không
+Tính năng dashboard ra riêng, không kéo theo template. Sửa lỗi / bảo mật / luật Google ở template thì sửa thẳng mọi bản, không
 cho chọn.
 
-## 2. Chỗ nối dashboard ↔ khuôn: bảng cài đặt
+## 2. Chỗ nối dashboard ↔ template: bảng cài đặt
 
-Mỗi bản khuôn mang một **bảng cài đặt**: danh sách ô chủ quán được chỉnh (màu, phông, poster, độ trong kính…), mỗi ô có
-loại, giới hạn, mặc định. Trình chỉnh **không biết khuôn nào có gì**: nó đọc bảng và tự vẽ ô. Nên:
+Mỗi bản template mang một **bảng cài đặt**: danh sách ô chủ quán được chỉnh (màu, phông, poster, độ trong kính…), mỗi ô có
+loại, giới hạn, mặc định. Trình chỉnh **không biết template nào có gì**: nó đọc bảng và tự vẽ ô. Nên:
 
-- Bản khuôn mới thêm ô → trình chỉnh tự hiện ô đó, không sửa dashboard.
-- Chỉ khi khuôn cần **một loại ô chưa từng có** (vd kéo thả sticker) mới cần một bản nền tảng; loại ô đó dùng được cho
-  mọi khuôn sau.
+- Bản template mới thêm ô → trình chỉnh tự hiện ô đó, không sửa dashboard.
+- Chỉ khi template cần **một loại ô chưa từng có** (vd kéo thả sticker) mới cần một bản nền tảng; loại ô đó dùng được cho
+  mọi template sau.
 - Lên bản mới: một hàm chuyển cài đặt cũ sang mới, ô mới lấy mặc định; xem trước rồi mới phát hành.
-- **Khuôn 6 có bảng cài đặt rỗng** (Tài: khuôn 6 không có tuỳ chọn chỉnh) — chủ quán chỉ điền nội dung.
+- **Template 6 có bảng cài đặt rỗng** (Tài: template 6 không có tuỳ chọn chỉnh) — chủ quán chỉ điền nội dung.
 
-Hiện trạng (25/09): trình chỉnh viết cứng một bộ ô chung cho cả 6 khuôn. Phải thay bằng bảng cài đặt **trước** khi có
-bản 2 của bất kỳ khuôn nào.
+Hiện trạng (25/09): trình chỉnh viết cứng một bộ ô chung cho cả 6 template. Phải thay bằng bảng cài đặt **trước** khi có
+bản 2 của bất kỳ template nào.
 
 ## 3. Quán và trang
 
-Một **quán** (tài khoản: thành viên, quyền, hồ sơ, thanh toán) có **nhiều trang**. Mỗi trang = một link, một khuôn + bản,
+Một **quán** (tài khoản: thành viên, quyền, hồ sơ, thanh toán) có **nhiều trang**. Mỗi trang = một link, một template + bản,
 bản nháp và bản phát hành, các thẻ NFC của nó, trạng thái riêng, gói riêng.
 
-Dashboard có **danh sách trang**: ảnh xem trước thu nhỏ, link, khuôn + bản, giá ("Miễn phí" / "10k/tháng"), nút Sửa ·
+Dashboard có **danh sách trang**: ảnh xem trước thu nhỏ, link, template + bản, giá ("Miễn phí" / "10k/tháng"), nút Sửa ·
 Nhân bản · Tạm dừng · Huỷ.
 
 **Tạo trang mới, hai cách** (Tài):
-1. **Nhân bản trang đang chọn** — bản sao đầy đủ (khuôn, cài đặt, nội dung), link mới. Dùng cho phòng VIP / bàn 1 /
+1. **Nhân bản trang đang chọn** — bản sao đầy đủ (template, cài đặt, nội dung), link mới. Dùng cho phòng VIP / bàn 1 /
    quầy bar đổi poster hay phông.
-2. **Lấy pack nguyên bản từ kho** — khuôn trống, chưa có nội dung. Trong trình chỉnh có nút **"Nhập dữ liệu từ trang
+2. **Lấy pack nguyên bản từ kho** — template trống, chưa có nội dung. Trong trình chỉnh có nút **"Nhập dữ liệu từ trang
    khác"** để chép tên, link Google, logo, nút link từ một trang có sẵn.
 
 Nội dung nằm ở từng trang (không tự đồng bộ giữa các trang). Đổi link Google cho mọi trang một lúc là việc sau, nếu cần.
 
-**Đổi sang khuôn khác** trong cùng trang: được. Giữ link, thẻ NFC, dữ liệu; đổi diện mạo và giá thuê. Xem trước rồi
+**Đổi sang template khác** trong cùng trang: được. Giữ link, thẻ NFC, dữ liệu; đổi diện mạo và giá thuê. Xem trước rồi
 mới phát hành.
 
 **Thay đổi cấu trúc dữ liệu:** hôm nay một `shop` vừa là quán vừa là trang. Mô hình này tách thành quán → trang. Làm
@@ -52,8 +52,8 @@ bây giờ, khi chưa ghi thẻ NFC nào và chưa có khách thật.
 
 ## 4. Tính tiền
 
-- **Kho khuôn**, mỗi khuôn một giá thuê/tháng. Hôm nay khuôn 1–5 = **10k/tháng**, **khuôn 6 = 0đ**.
-- **Hai suất miễn phí** mỗi quán. Khuôn 6 **không chiếm** suất. Hai suất luôn áp cho **hai trang có phí đang chạy lâu
+- **Kho template**, mỗi template một giá thuê/tháng. Hôm nay template 1–5 = **10k/tháng**, **template 6 = 0đ**.
+- **Hai suất miễn phí** mỗi quán. Template 6 **không chiếm** suất. Hai suất luôn áp cho **hai trang có phí đang chạy lâu
   nhất**: huỷ một trang được miễn thì trang có phí cũ nhất tiếp theo được miễn **từ kỳ sau**.
 - Tiền = tổng giá các trang có phí đang chạy, trừ hai suất miễn phí. Mỗi dòng trong dashboard ghi rõ trang đó miễn phí
   hay bao nhiêu.
@@ -75,35 +75,35 @@ bây giờ, khi chưa ghi thẻ NFC nào và chưa có khách thật.
 ## 6. App admin
 
 Cùng mã nguồn, **tên miền riêng** (vd `admin.<tên miền>`), chặn ở cửa theo tên miền, đăng nhập riêng có 2FA như `/gov`
-bây giờ. Quản lý quán, trang, kho khuôn (bản "thử" chỉ admin thấy → "mở" cho khách), xác nhận thanh toán, báo cáo tạm
+bây giờ. Quản lý quán, trang, kho template (bản "thử" chỉ admin thấy → "mở" cho khách), xác nhận thanh toán, báo cáo tạm
 dừng khẩn cấp, duyệt ảnh.
 
 ## 7. Phát hành
 
 - Preview (Neon preview) là bản thử; `main` là production.
 - Mỗi lần đẩy `main` = một số bản nền tảng + một dòng nhật ký.
-- Khuôn mới / bản khuôn mới vào kho ở trạng thái **thử** (chỉ admin), rồi **mở**.
+- Template mới / bản template mới vào kho ở trạng thái **thử** (chỉ admin), rồi **mở**.
 
 ## 8. Thứ tự lát (Claude đề xuất)
 
 | # | Lát | Migration |
 |---|---|---|
-| P1 | **Tách quán / trang**: bảng trang dưới quán; link, khuôn + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang — **xong 25/09** (mục 10) | Có, lớn (024) |
-| P2 | **Bảng cài đặt theo bản khuôn**; trình chỉnh đọc bảng; khuôn 6 rỗng — **xong 25/09** (mục 11) | Không |
-| P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi khuôn — **xong 25/09** (mục 12) | Nhỏ (025) |
+| P1 | **Tách quán / trang**: bảng trang dưới quán; link, template + bản, bản nháp/phát hành, thẻ, trạng thái chuyển sang trang — **xong 25/09** (mục 10) | Có, lớn (024) |
+| P2 | **Bảng cài đặt theo bản template**; trình chỉnh đọc bảng; template 6 rỗng — **xong 25/09** (mục 11) | Không |
+| P3 | **Danh sách trang** trong dashboard: xem trước thu nhỏ, nhân bản hai cách, nhập dữ liệu từ trang khác, đổi template — **xong 25/09** (mục 12) | Nhỏ (025) |
 | P4 | **Vòng đời trang**: chạy / tạm ngừng / đóng, link không cấp lại, nút tạm dừng khẩn cấp + báo cáo về admin — **xong 25/09** (mục 13) | Có (026) |
-| P5 | **Kho khuôn + tính tiền**: giá từng khuôn, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản — **phần hiện giá xong 26/09** (mục 14); phần thu tiền để sau | Có (phần thu) |
+| P5 | **Kho template + tính tiền**: giá từng template, hai suất miễn phí, kỳ tháng, admin xác nhận chuyển khoản — **phần hiện giá xong 26/09** (mục 14); phần thu tiền để sau | Có (phần thu) |
 | P6 | **Số bản nền tảng + nhật ký thay đổi** | Không |
 | P7 | **App admin trên tên miền riêng** | Không |
 
 ## 9. Chưa chốt
 
 - Cách xử lý báo cáo tạm dừng khẩn cấp (đền bù thế nào) — Tài: bàn sau.
-- Đổi từ khuôn 0đ sang khuôn có phí giữa kỳ: tính tiền từ lúc nào.
+- Đổi từ template 0đ sang template có phí giữa kỳ: tính tiền từ lúc nào.
 - Một thẻ NFC có chuyển được từ trang này sang trang khác của cùng quán không.
 - Dữ liệu góp ý của trang đã đóng: xoá ngay hay giữ bao lâu (phải khớp trang chính sách quyền riêng tư).
 - ~~Khung "Thẻ NFC" còn ghi cách tính tiền cũ~~ — đã bỏ ở P5 (26/09): thẻ không tính phí trong app.
-- ~~Đổi khuôn 0đ sang khuôn có phí giữa kỳ tính từ lúc nào~~ — **kỳ sau** (Tài, 26/09).
+- ~~Đổi template 0đ sang template có phí giữa kỳ tính từ lúc nào~~ — **kỳ sau** (Tài, 26/09).
 
 ## 10. P1 đã làm (25/09) — migration 024
 
@@ -126,12 +126,12 @@ dừng khẩn cấp, duyệt ảnh.
 
 ## 11. P2 đã làm (25/09) — bảng cài đặt, không migration
 
-- **Bảng nằm cùng bản khuôn** (`TemplateRelease.settings` trong `lib/publishing/versions.ts`; loại ô ở
+- **Bảng nằm cùng bản template** (`TemplateRelease.settings` trong `lib/publishing/versions.ts`; loại ô ở
   `lib/publishing/settings.ts`). Hai loại: **ô có sẵn** (bố cục · nền kèm kiểu nền nhận · watermark · nút góp ý) và **ô
-  chung** khuôn tự khai (màu · thanh kéo · lựa chọn · bật/tắt), lưu ở `config.settings`.
-- **Bản 1 của sáu khuôn mở** (Claude chọn theo những gì CSS của từng khuôn thật sự dùng — Tài đổi được, chỉ là dữ liệu):
+  chung** template tự khai (màu · thanh kéo · lựa chọn · bật/tắt), lưu ở `config.settings`.
+- **Bản 1 của sáu template mở** (Claude chọn theo những gì CSS của từng template thật sự dùng — Tài đổi được, chỉ là dữ liệu):
 
-  | Khuôn | Ô mở |
+  | Template | Ô mở |
   |---|---|
   | 1 · Bản gốc | nền (một màu, chuyển màu, ảnh/video) · watermark · nút góp ý |
   | 2 · Tối giản | nút góp ý |
@@ -140,36 +140,36 @@ dừng khẩn cấp, duyệt ảnh.
   | 5 · Ánh sáng tụ | nút góp ý |
   | 6 · Nút lớn | không ô nào (Tài) |
 
-  Không khuôn nào mở **bố cục**: cả sáu được thiết kế cho trang tràn màn hình.
-- **Trình chỉnh chỉ vẽ ô khuôn mở**; khuôn không mở ô nào thì hiện một dòng "chỉ cần điền nội dung". Nội dung (tên, link
+  Không template nào mở **bố cục**: cả sáu được thiết kế cho trang tràn màn hình.
+- **Trình chỉnh chỉ vẽ ô template mở**; template không mở ô nào thì hiện một dòng "chỉ cần điền nội dung". Nội dung (tên, link
   Google, poster, logo, nút link) luôn mở.
-- **Server là cửa:** đổi một ô khuôn không mở → `SETTING_LOCKED`; giá trị ô chung sai (không có trong bảng, sai kiểu,
+- **Server là cửa:** đổi một ô template không mở → `SETTING_LOCKED`; giá trị ô chung sai (không có trong bảng, sai kiểu,
   ngoài khoảng, lệch bước) → `INVALID_SETTING`, cả lúc lưu lẫn lúc phát hành. Giá trị cũ có từ trước bảng thì **giữ
   nguyên**, để trang vẫn lưu được nội dung.
 - **Đổi bản:** giá trị ô chung còn hợp thì giữ, ô mới lấy mặc định, ô không còn thì bỏ.
 - **Trang khách:** màu và số thành biến CSS `--s-<khoá>`, lựa chọn và bật/tắt thành `data-s-<khoá>` trên `main`.
   `validateConfig` chỉ nhận khoá ngắn và giá trị an toàn (màu `#RRGGBB`, số, true/false, chữ thường-số-gạch), tối đa 16.
-- **Cách thêm một ô vào khuôn:** làm bản mới (mục 16 của `thiet-ke-va-khuon.md`), khai ô trong `settings` của bản đó, và
+- **Cách thêm một ô vào template:** làm bản mới (mục 16 của `thiet-ke-va-template.md`), khai ô trong `settings` của bản đó, và
   tệp CSS của bản đó đọc `var(--s-<khoá>, <mặc định>)` hoặc `[data-s-<khoá>="…"]`. Test hợp đồng bắt CSS đọc ô không khai
-  hoặc thiếu giá trị dự phòng. **Chưa khuôn nào có ô chung**; đường này mới được thử bằng bản 2 giả trong test.
+  hoặc thiếu giá trị dự phòng. **Chưa template nào có ô chung**; đường này mới được thử bằng bản 2 giả trong test.
 
 ## 12. P3 đã làm (25/09) — migration 025
 
 - **Khung "Trang"** đầu mục Thiết kế & Link: mỗi trang một dòng — ảnh thu nhỏ, tên (chỉ chủ quán thấy; cột `pages.label`,
-  migration 025), link, khuôn + bản, "Đang chạy"/"Chưa phát hành". "Sửa trang này" đưa trình chỉnh **và** thẻ NFC sang
+  migration 025), link, template + bản, "Đang chạy"/"Chưa phát hành". "Sửa trang này" đưa trình chỉnh **và** thẻ NFC sang
   trang đó; thẻ mới thuộc trang đang chọn, bảng thẻ có cột Trang.
-- **Tạo trang** (chỉ chủ quán, vì mỗi trang là một gói): **Nhân bản** một trang (chép khuôn + bản, diện mạo, nội dung;
-  không chép thẻ) hoặc **Trang mới từ kho khuôn** (bộ xương trống, bản mới nhất). Trang mới là bản nháp ở một link mới
+- **Tạo trang** (chỉ chủ quán, vì mỗi trang là một gói): **Nhân bản** một trang (chép template + bản, diện mạo, nội dung;
+  không chép thẻ) hoặc **Trang mới từ kho template** (bộ xương trống, bản mới nhất). Trang mới là bản nháp ở một link mới
   vĩnh viễn; lên trang khách khi bấm Phát hành như mọi thay đổi. Đổi tên trang: ai có quyền thiết kế.
-- **Trình chỉnh:** "Đổi sang khuôn khác" (chỉ chủ quán) giữ nội dung, lấy diện mạo bộ xương của khuôn mới và ô chung ở
+- **Trình chỉnh:** "Đổi sang template khác" (chỉ chủ quán) giữ nội dung, lấy diện mạo bộ xương của template mới và ô chung ở
   mặc định; "Nhập dữ liệu từ trang khác" chép tên, link Google, câu hỏi, nút link, logo, poster vào bản nháp — chưa lưu,
   chủ quán xem rồi bấm Lưu nháp.
 - **Ảnh thu nhỏ** là chính trang đó vẽ tĩnh trong một iframe (`/ZZZ/<quán>/thumb/<trang>`, `sandbox` không cho chạy
-  script): bản nháp, chỉ người có quyền thiết kế xem được, **không ghi lượt ghé**, không chạy video. Kính của khuôn 3
+  script): bản nháp, chỉ người có quyền thiết kế xem được, **không ghi lượt ghé**, không chạy video. Kính của template 3
   cần JavaScript để căn nên trong ảnh chỉ hiện lớp sương. Chỉ app này được nhúng nó (`frame-ancestors 'self'`); mọi
   trang dashboard khác vẫn cấm nhúng.
 - **Ghi của dashboard mang trang trong thân JSON** (`page`), đọc thì `?page=` — xem gotcha "lỗi `?page=` của P1".
-- Khung "Khuôn" không còn bị bóp hẹp (mỗi bản một dòng).
+- Khung "Template" không còn bị bóp hẹp (mỗi bản một dòng).
 
 ## 13. P4 đã làm (25/09) — migration 026
 
@@ -190,13 +190,13 @@ dừng khẩn cấp, duyệt ảnh.
 ## 14. P5 phần hiện giá (26/09) — không migration, **chưa thu phí**
 
 Tài, 26/09: thẻ NFC không tính phí trong app ("chỉ là vật chứa link", bán riêng); trang **chưa thu phí thật** — cần cảm
-nhận của khách trước. Đổi khuôn có phí thì tính từ **kỳ sau**. Nên phần này chỉ hiện giá:
+nhận của khách trước. Đổi template có phí thì tính từ **kỳ sau**. Nên phần này chỉ hiện giá:
 
-- **Bảng giá** ở `lib/publishing/pricing.ts`: khuôn 1–5 10.000đ/tháng, khuôn 6 0đ; hai suất miễn phí cho hai trang có
-  phí **đang chạy** lâu nhất (khuôn 6 không chiếm suất; nháp, tạm ngừng, đóng không tính, không giữ suất); giá theo khuôn
+- **Bảng giá** ở `lib/publishing/pricing.ts`: template 1–5 10.000đ/tháng, template 6 0đ; hai suất miễn phí cho hai trang có
+  phí **đang chạy** lâu nhất (template 6 không chiếm suất; nháp, tạm ngừng, đóng không tính, không giữ suất); giá theo template
   **đang chạy trên trang khách**. "Lâu nhất" đo bằng lúc tạo trang — chưa có mốc "bắt đầu chạy".
-- **Dashboard:** mỗi dòng trang ghi giá ("Miễn phí (suất miễn phí)", "Miễn phí (khuôn miễn phí)", "10.000đ/tháng", hoặc
-  "…/tháng khi chạy" với trang nháp); tổng dự kiến kèm dòng **"Chưa thu phí trong giai đoạn thử"**; kho khuôn ghi giá
+- **Dashboard:** mỗi dòng trang ghi giá ("Miễn phí (suất miễn phí)", "Miễn phí (template miễn phí)", "10.000đ/tháng", hoặc
+  "…/tháng khi chạy" với trang nháp); tổng dự kiến kèm dòng **"Chưa thu phí trong giai đoạn thử"**; kho template ghi giá
   cạnh tên.
 - **`/gov`:** cột "Trang · dự kiến" cho từng quán.
 - **Thẻ NFC:** bỏ hẳn phí (hàm `cardMonthlyFee`, số "5 thẻ gồm trong gói"); khung thẻ chỉ còn số thẻ đang hoạt động.

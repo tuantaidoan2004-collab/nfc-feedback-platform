@@ -15,7 +15,7 @@ export type ShopRow = {
 };
 /** The owner's four positions, as the operator sees them (migration 012). */
 const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
-/** The six templates, named as in docs/thiet-ke-va-khuon.md mục 12. */
+/** The six templates, named as in docs/thiet-ke-va-template.md mục 12. */
 const allows = (row: ShopRow, scope: 'overview' | 'feedback' | 'design') =>
   scope === 'overview' ? row.support_level !== 'edit' : scope === 'feedback' ? ['view', 'full'].includes(row.support_level) : ['edit', 'full'].includes(row.support_level);
 
@@ -81,11 +81,11 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
   };
 
   const resetTemplate = async () => {
-    if (!window.confirm('Phát hành cấu hình mặc định mới cho khuôn? Shop đã tạo trước đó giữ nguyên trang của mình.')) return;
+    if (!window.confirm('Phát hành cấu hình mặc định mới cho template? Shop đã tạo trước đó giữ nguyên trang của mình.')) return;
     setBusy(true); setError('');
     try {
       const response = await fetch('/gov/api/template/reset', { method: 'POST', credentials: 'same-origin' });
-      setError(response.ok ? 'Khuôn đã dùng cấu hình mặc định mới. Shop tạo từ giờ sẽ theo khuôn này.' : failed(response.status));
+      setError(response.ok ? 'Template đã dùng cấu hình mặc định mới. Shop tạo từ giờ sẽ theo template này.' : failed(response.status));
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
@@ -96,7 +96,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
       if (!response.ok) { setError(failed(response.status)); return; }
       const body = await response.json().catch(() => ({}));
       // A single-use link to choose a strong password, in every environment (lát F6; no fixed test password since 27/09).
-      if (body.account?.setupUrl) { setTemplateLink(body.account.setupUrl); setError('Mở link bên dưới để đặt mật khẩu cho yourshop (dùng một lần, 48 giờ), rồi đăng nhập dashboard của dòng KHUÔN bằng @yourshop.'); }
+      if (body.account?.setupUrl) { setTemplateLink(body.account.setupUrl); setError('Mở link bên dưới để đặt mật khẩu cho yourshop (dùng một lần, 48 giờ), rồi đăng nhập dashboard của dòng TEMPLATE bằng @yourshop.'); }
       else setError('Máy chủ thiếu APP_ORIGIN nên không dựng được link đặt mật khẩu.');
       await refresh();
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
@@ -132,7 +132,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
 
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
-      <p className={styles.muted}>Một lần bấm tạo trang khách (theo khuôn đã chọn; khuôn 1 sao chép từ shop khuôn), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
+      <p className={styles.muted}>Một lần bấm tạo trang khách (theo template đã chọn; template 1 sao chép từ shop template), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
       <form className={styles.form} onSubmit={async event => {
         event.preventDefault(); setBusy(true); setError(''); setHandover(null);
         const form = new FormData(event.currentTarget), element = event.currentTarget;
@@ -152,7 +152,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
         <label>Tài khoản chủ shop<input name="ownerUsername" required maxLength={64} placeholder="caphe-banmai" pattern="[a-z0-9][a-z0-9_.\-]{2,63}"/></label>
         <label>Email chủ shop<input name="ownerEmail" type="email" required maxLength={254} placeholder="chu@example.com"/></label>
         <label>Đường dẫn Google (bỏ trống nếu chưa có)<input name="googleUrl" type="url" maxLength={2048} placeholder="https://maps.app.goo.gl/..."/></label>
-        <label>Khuôn<select name="templateKey" defaultValue="standard" data-template-choice>
+        <label>Template<select name="templateKey" defaultValue="standard" data-template-choice>
           {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}</select></label>
         <button disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo shop'}</button>
       </form>
@@ -177,10 +177,10 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
 
     <section className={styles.panel}>
       <div className={styles.row}><h2>Shop đang có ({shops.filter(row => !row.is_template).length})</h2>
-        {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop khuôn</button>}
-        {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa khuôn về mặc định mới</button>}
+        {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop template</button>}
+        {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa template về mặc định mới</button>}
         {shops.some(row => row.is_template && !row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản cho khuôn (link đặt mật khẩu)</button>}
+          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản cho template (link đặt mật khẩu)</button>}
         {shops.some(row => row.is_template && row.owner_username) &&
           <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo lại link đặt mật khẩu cho yourshop</button>}
         <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
@@ -191,7 +191,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
           <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang · dự kiến</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
-              <td>{row.is_template && <><strong>KHUÔN</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
+              <td>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
               <td>{origin ? <a href={`${origin}/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
               <td>{origin ? <a href={`${origin}/ZZZ/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
               <td>{row.is_template

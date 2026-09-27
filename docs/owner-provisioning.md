@@ -12,7 +12,7 @@ Tài khoản tạo ra mang **mật khẩu không dùng được**: `password_key
 
 `lib/owner/auth.ts` không bị sửa một dòng nào.
 
-## Khuôn chuẩn đã theo
+## Template chuẩn đã theo
 
 - Token CSPRNG 32 byte; DB **chỉ lưu SHA256** với domain riêng `nfc-owner-setup-v1`, tách khỏi domain phiên nên không thể đem token này dùng như session và ngược lại.
 - **Dùng một lần bằng thao tác nguyên tử**: `UPDATE … WHERE used_at IS NULL AND superseded_at IS NULL AND expires_at>clock_timestamp() RETURNING user_id`. Hai request đua nhau trên cùng một link thì đúng một cái thắng.

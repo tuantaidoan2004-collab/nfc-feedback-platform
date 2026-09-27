@@ -9,18 +9,18 @@ import { TEMPLATE_PRICES, TEMPLATE_KEYS } from '../../lib/publishing/templates';
 const page = (slug: string, templateKey: string, state = 'active', day = 1) => ({ slug, templateKey, state, createdAt: `2026-09-${String(day).padStart(2, '0')}T00:00:00Z` });
 const charged = (sheet: ReturnType<typeof priceSheet>) => Object.fromEntries(sheet.pages.map(p => [p.slug, [p.monthly, p.free]]));
 
-test('every template has a price; khuôn 6 is free; two free places per shop', () => {
+test('every template has a price; template 6 is free; two free places per shop', () => {
   expect(Object.keys(TEMPLATE_PRICES).sort()).toEqual([...TEMPLATE_KEYS].sort());
   expect(TEMPLATE_PRICES['big-button']).toBe(0);
   for (const key of TEMPLATE_KEYS.filter(key => key !== 'big-button')) expect(TEMPLATE_PRICES[key], key).toBe(10000);
   expect(FREE_PAGES).toBe(2);
 });
 
-test('the two oldest running paid pages are free, khuôn 6 takes no place, the third paid page is charged', () => {
+test('the two oldest running paid pages are free, template 6 takes no place, the third paid page is charged', () => {
   const sheet = priceSheet([page('a', 'standard', 'active', 1), page('six', 'big-button', 'active', 2), page('b', 'glass', 'active', 3), page('c', 'minimal', 'active', 4)]);
   expect(charged(sheet)).toEqual({ a: [0, 'slot'], six: [0, 'template'], b: [0, 'slot'], c: [10000, null] });
   expect(sheet.monthly).toBe(10000);
-  // Five khuôn 6 pages and two others still cost nothing.
+  // Five template 6 pages and two others still cost nothing.
   expect(priceSheet([...['1', '2', '3', '4', '5'].map((n, i) => page(`six${n}`, 'big-button', 'active', i + 1)), page('x', 'deco', 'active', 9), page('y', 'spotlight', 'active', 10)]).monthly).toBe(0);
 });
 

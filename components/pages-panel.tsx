@@ -24,7 +24,7 @@ const ERRORS: Record<string, string> = {
 };
 const templateName = (key: string) => isTemplateKey(key) ? TEMPLATE_NAMES[key] : key;
 /** What one page costs a month (lib/publishing/pricing.ts). Nothing is charged yet; the panel says so. */
-const priceLabel = (price: Price) => price.free === 'template' ? 'Miễn phí (khuôn miễn phí)' : price.free === 'slot' ? 'Miễn phí (suất miễn phí)'
+const priceLabel = (price: Price) => price.free === 'template' ? 'Miễn phí (template miễn phí)' : price.free === 'slot' ? 'Miễn phí (suất miễn phí)'
   : price.billable ? `${vnd(price.monthly)}/tháng` : `${vnd(price.list)}/tháng khi chạy`;
 const STATE: Record<PageSummary['state'], string> = { draft: 'Chưa phát hành', active: 'Đang chạy', paused: 'Tạm ngừng', closed: 'Đã đóng' };
 
@@ -48,10 +48,10 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
   const current = selected ?? (list.pages.find(page => page.state !== 'closed') ?? list.pages[0])?.slug;
   return <section className={styles.panel} aria-label="Trang" data-pages>
     <h2>Trang ({list.pages.length})</h2>
-    <p className={styles.hint}>Mỗi trang là một link riêng, với khuôn, nội dung và thẻ NFC riêng. Chọn một trang để sửa nó và thẻ của nó ở bên dưới.
+    <p className={styles.hint}>Mỗi trang là một link riêng, với template, nội dung và thẻ NFC riêng. Chọn một trang để sửa nó và thẻ của nó ở bên dưới.
       Trang mới là bản nháp: khách chỉ thấy sau khi bạn bấm <strong>Phát hành</strong>.</p>
     <p className={styles.hint} data-pages-price>Dự kiến: <strong>{vnd(list.monthly)}/tháng</strong> · {FREE_PAGES} trang có phí đầu tiên được miễn,
-      khuôn miễn phí không tính vào đó. <strong>Chưa thu phí</strong> trong giai đoạn thử.</p>
+      template miễn phí không tính vào đó. <strong>Chưa thu phí</strong> trong giai đoạn thử.</p>
     <ul className={styles.pageList}>{list.pages.map(page => <li key={page.slug} className={styles.pageRow} data-page={page.slug} aria-current={page.slug === current}>
       <div className={styles.thumb} aria-hidden="true">
         {/* A picture, so no script runs in it: server HTML and CSS only -- nothing hydrates, nothing is recorded. */}
@@ -83,11 +83,11 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
       </div>
     </li>)}</ul>
     {list.canManage && <div className={styles.toolRow} data-new-page>
-      <label>Trang mới từ kho khuôn<select value={template} onChange={e => setTemplate(e.target.value)}>
+      <label>Trang mới từ kho template<select value={template} onChange={e => setTemplate(e.target.value)}>
         {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]} — {TEMPLATE_PRICES[key] ? `${vnd(TEMPLATE_PRICES[key])}/tháng` : 'miễn phí'}</option>)}</select></label>
       <label>Tên trang<input value={label} maxLength={60} placeholder="Ví dụ: Quầy bar" onChange={e => setLabel(e.target.value)} /></label>
       <button type="button" disabled={busy} onClick={() => void send('POST', { template, label },
-        data => { setLabel(''); return `Đã tạo trang mới ${data.slug} từ khuôn ${templateName(template)}. Dùng "Nhập dữ liệu từ trang khác" để lấy nội dung của quán.`; })}>Tạo trang</button>
+        data => { setLabel(''); return `Đã tạo trang mới ${data.slug} từ template ${templateName(template)}. Dùng "Nhập dữ liệu từ trang khác" để lấy nội dung của quán.`; })}>Tạo trang</button>
     </div>}
     <p role="status" className={styles.notice} data-pages-notice>{notice}</p>
   </section>;

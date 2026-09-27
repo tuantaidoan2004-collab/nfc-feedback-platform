@@ -1,11 +1,11 @@
-/* Khuôn `big-button` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+/* Template `big-button` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
  * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
- * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-template.md mục 16. */
 
 /* =====================================================================
-   4 · KHUÔN 6 · NÚT LỚN (gói rẻ nhất; Tài làm lại 24/09). Trắng sữa và một nút Google duy nhất: hạt ngọc tròn phồng
+   4 · TEMPLATE 6 · NÚT LỚN (gói rẻ nhất; Tài làm lại 24/09). Trắng sữa và một nút Google duy nhất: hạt ngọc tròn phồng
    chứa chữ G, dòng "ĐÁNH GIÁ TRÊN GOOGLE" chạy vòng quanh (hình dạng nút ở `skin.css` mục 4 — `data-button="orb"`, quyết định
-   của nền tảng, không phải của khuôn). Ô poster trống thì ẩn; shop có poster thì poster vẫn hiện.
+   của nền tảng, không phải của template). Ô poster trống thì ẩn; shop có poster thì poster vẫn hiện.
    ===================================================================== */
 .guest[data-template="big-button"]:where([data-template-version="1"]) {
   --c-paper: #f6f3ee;

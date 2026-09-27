@@ -1,26 +1,26 @@
-# Thiết kế và khuôn — quyết định 22–23/09/2026
+# Thiết kế và template — quyết định 22–23/09/2026
 
 Tách khỏi [`decisions.md`](decisions.md) ngày 23/09 để tệp quyết định giữ được cỡ đọc-một-lần. Đây là toàn bộ
-phần **giao diện trang khách và mô hình khuôn**. Luật hình thức ở [`../DESIGN.md`](../DESIGN.md); ai dùng sản
+phần **giao diện trang khách và mô hình template**. Luật hình thức ở [`../DESIGN.md`](../DESIGN.md); ai dùng sản
 phẩm ở [`../PRODUCT.md`](../PRODUCT.md); luật Google ở [`google-policy.md`](google-policy.md) và nó thắng mọi
 thứ ở đây.
 
-Đọc tệp này khi làm giao diện hoặc khuôn. Việc khác thì không cần.
+Đọc tệp này khi làm giao diện hoặc template. Việc khác thì không cần.
 
 ---
 
 ## 0. Sáu áo khoác dựng thử đã bị xoá (Tài, 23/09/2026)
 
 Ba bản **không tranh** (Thẻ tối · Kính · Xếp lớp), bản **Áp phích**, và ba bản **có tranh** (Hero · Chia đôi ·
-Nhập vai) đều là **bản thử để tìm hướng**. Tài chốt bỏ hết: chúng được thay bằng **lát sáu khuôn** ở mục 12.
+Nhập vai) đều là **bản thử để tìm hướng**. Tài chốt bỏ hết: chúng được thay bằng **lát sáu template** ở mục 12.
 
 Đã xoá khỏi mã: `components/coats.css`, `lib/publishing/coats.ts`, `components/coat-viewer.{tsx,css}`,
 `app/xem/` và mọi móc `coat` trong `shop-feedback-v2.tsx`. Lấy lại được từ lịch sử git nếu cần tham khảo
 (`git show 5f80321 -- components/coats.css`).
 
 **Cái không bị xoá, vì nó là kiến thức chứ không phải kết quả:** mọi nguyên tắc ở `DESIGN.md`, mô hình
-khuôn/tài khoản ở mục 11, phạm vi sáu khuôn ở mục 12, hai luật dùng chung ở mục 13, và ba chỗ suýt thủng ở
-mục 14. Sáu khuôn mới kế thừa hết.
+template/tài khoản ở mục 11, phạm vi sáu template ở mục 12, hai luật dùng chung ở mục 13, và ba chỗ suýt thủng ở
+mục 14. Sáu template mới kế thừa hết.
 
 ---
 
@@ -131,7 +131,7 @@ lên thì gọi thẳng API là đi vòng được.
 - **Bảng `media_assets`**: mỗi lần chủ quán (hoặc hỗ trợ trong phiên thiết kế) xin link tải lên là một hàng `pending`,
   ghi ai xin (`owner:<id>` / `admin:<id>`), loại, cỡ. Từ chối bắt buộc có lý do (`CHECK`), quyết định có thời điểm.
 - **Chặn ở `PublishingAdmin.publish`** (`lib/publishing/media-gate.ts`): mọi URL ảnh/video trên trang (poster, ảnh tĩnh
-  của poster, logo, nền, ảnh tĩnh của nền) phải là tài sản **đã duyệt của chính shop hoặc của shop khuôn**. Ba câu trả
+  của poster, logo, nền, ảnh tĩnh của nền) phải là tài sản **đã duyệt của chính shop hoặc của shop template**. Ba câu trả
   lời, vì mỗi câu đòi shop làm một việc khác: `MEDIA_REJECTED` (thay ảnh) · `MEDIA_UNKNOWN` (URL không tải qua nền
   tảng — đóng lỗ cũ: trước 023 bản nháp nhận **mọi** URL https) · `MEDIA_PENDING` (chờ). Trình chỉnh trang nói rõ từng
   trường hợp. Đường dẫn dựng sẵn (`/media/…`) là của nền tảng, không cần duyệt.
@@ -151,14 +151,14 @@ lên thì gọi thẳng API là đi vòng được.
 - **Ảnh đại diện/ảnh bìa tài khoản** (migration 014, hiện trong dashboard, không lên trang khách) không qua cửa này.
 - **Hàng chờ có thể bị nhồi**: mỗi lần xin link là một hàng, kể cả khi không tải gì lên. Chưa giới hạn tần suất.
 
-## 11. Khuôn là bộ xương rỗng; dữ liệu và thiết lập nằm ở tài khoản (Tài chốt 23/09/2026)
+## 11. Template là bộ xương rỗng; dữ liệu và thiết lập nằm ở tài khoản (Tài chốt 23/09/2026)
 
 Tài nêu bằng một ví dụ, và ví dụ đó là toàn bộ mô hình:
 
-> Tài khoản `4raushop` đã có sẵn link dẫn tới trang sao. Khi đăng nhập vào **bản nhân bản rỗng** của khuôn, nó
+> Tài khoản `4raushop` đã có sẵn link dẫn tới trang sao. Khi đăng nhập vào **bản nhân bản rỗng** của template, nó
 > **tự động đưa link đó vào xương**, vào nút Google mà trước đó đang rỗng.
 
-Nói cách khác: **khuôn là ổ cắm, tài khoản là phích.** Khuôn chưa có não, chưa có chủ. Đổi khuôn thì chủ quán
+Nói cách khác: **template là ổ cắm, tài khoản là phích.** Template chưa có não, chưa có chủ. Đổi template thì chủ quán
 không phải gõ lại gì cả.
 
 ### Hạ tầng đã có sẵn — không cần cách mạng
@@ -172,7 +172,7 @@ page_releases(shop_id, template_version_id, config)
 ```
 
 `lib/publishing/repository.ts:32` chèn `template_key` **bằng tham số**, không hardcode. Chỉ có người gọi
-(`provisioning.ts:220`) đang truyền đúng một khoá `TEMPLATE_KEY`. Thêm khuôn thứ hai tới thứ sáu **không đổi một
+(`provisioning.ts:220`) đang truyền đúng một khoá `TEMPLATE_KEY`. Thêm template thứ hai tới thứ sáu **không đổi một
 dòng schema nào**.
 
 ### Chỗ lệch duy nhất, và nó là một chỗ trùng lặp
@@ -185,31 +185,31 @@ Google URL đang tồn tại **hai bản**:
 | `PageConfig.googleUrl` | một **bản sao** nằm trong draft và trong mọi release |
 
 Và `components/published-page.tsx:8` đọc **bản sao** (`c.googleUrl`), không đọc cột tài khoản. Nên hôm nay, đổi
-khuôn = phải chép lại URL vào cấu hình mới. Đó chính là thứ ví dụ `4raushop` cấm.
+template = phải chép lại URL vào cấu hình mới. Đó chính là thứ ví dụ `4raushop` cấm.
 
 Cùng bệnh với: `name`, `links`, `logo`, `poster`, `text.question` — tất cả đều là **của tài khoản** nhưng đang
-nằm trong cấu hình của khuôn.
+nằm trong cấu hình của template.
 
 ### Cách sửa — `schemaVersion 3`, một lát có migration
 
 Cắt `PageConfig` làm đôi theo đúng quyền sở hữu:
 
-| Của **tài khoản** (chủ quán sở hữu, đổi khuôn không mất) | Của **khuôn** (nền tảng sở hữu) |
+| Của **tài khoản** (chủ quán sở hữu, đổi template không mất) | Của **template** (nền tảng sở hữu) |
 |---|---|
 | `name` · `googleUrl` · `links[]` · `logo` · `poster` · câu hỏi | bố cục · nền · hiệu ứng · màu · watermark · nút góp ý |
 
 Trang khách **ghép hai thứ đó lúc render**, không lưu bản sao. Hệ quả:
 
-- Đổi khuôn = đổi **một chuỗi** `template_key`. Không chép, không gõ lại, không mất dữ liệu.
-- Sửa khuôn cho đẹp hơn thì **mọi tài khoản dùng khuôn đó đẹp lên cùng lúc**.
-- Nội dung của shop không bao giờ bị khuôn đụng vào.
+- Đổi template = đổi **một chuỗi** `template_key`. Không chép, không gõ lại, không mất dữ liệu.
+- Sửa template cho đẹp hơn thì **mọi tài khoản dùng template đó đẹp lên cùng lúc**.
+- Nội dung của shop không bao giờ bị template đụng vào.
 
 Chưa quyết: nội dung tài khoản nằm ở đâu — thêm cột vào `shops`, hay một bảng `shop_profile`, hay `shops.profile
 jsonb`. Quyết khi làm lát đó.
 
-## 12. Sáu khuôn — phạm vi Tài chốt 23/09/2026
+## 12. Sáu template — phạm vi Tài chốt 23/09/2026
 
-| # | Khuôn | Chốt |
+| # | Template | Chốt |
 |---|---|---|
 | 1 | Bản gốc, sửa vài điểm | — |
 | 2 | Tối giản (nền + ảnh đại diện) | chờ ảnh gốc để đối chiếu |
@@ -218,20 +218,20 @@ jsonb`. Quyết khi làm lát đó.
 | 5 | Hữu hình — ánh sáng tụ vào ô Google, đồ hoạ nhoè dần khi ra xa | hợp luật vì nó làm CTA nổi hơn |
 | 6 | Một nút Google khổng lồ giữa trang, hiệu ứng ấn, chuyển cảnh khi rời | **gói cho thuê rẻ nhất** — tiện, ít chức năng. **24/09 Tài chốt lại:** một hạt ngọc G bốn màu, chữ chạy vòng quanh, nền trắng sữa, vệt sáng gương, ánh sáng theo độ nghiêng máy — `DESIGN.md` mục 9 |
 
-**Khuôn là bộ xương, không gắn tài khoản nào (Tài, 23/09, lúc giao A33).** Sáu khuôn chỉ là sáu hàng
+**Template là bộ xương, không gắn tài khoản nào (Tài, 23/09, lúc giao A33).** Sáu template chỉ là sáu hàng
 `template_versions` với nội dung giữ chỗ (`YOUR SHOP`, link Google chung, không link, không logo, không ảnh). Không
-tạo shop hay tài khoản test cho từng khuôn. Cần xem một khuôn có dữ liệu thì **admin đăng nhập vào, đăng xuất là
-khuôn tự rỗng lại** — dữ liệu không bao giờ nằm trong khuôn. Mã A33: `templateConfig(key)` · `provisioning.ts`
-(`templateKey`, khoá lạ trả `INVALID_INPUT`) · ô chọn khuôn ở `/gov`. Test: `shop-provisioning.spec.ts` (hai ca
+tạo shop hay tài khoản test cho từng template. Cần xem một template có dữ liệu thì **admin đăng nhập vào, đăng xuất là
+template tự rỗng lại** — dữ liệu không bao giờ nằm trong template. Mã A33: `templateConfig(key)` · `provisioning.ts`
+(`templateKey`, khoá lạ trả `INVALID_INPUT`) · ô chọn template ở `/gov`. Test: `shop-provisioning.spec.ts` (hai ca
 A33), `google-policy.spec.ts` (luật Google cho từng khoá), `admin-http.spec.ts` (ô chọn).
 
 **Ba ranh giới đã chốt:**
 
-1. **Khuôn 4 có ràng buộc.** Kéo thả tự do trong **vùng an toàn loại trừ dải chứa nút Google**; xoay −15°…+15°;
+1. **Template 4 có ràng buộc.** Kéo thả tự do trong **vùng an toàn loại trừ dải chứa nút Google**; xoay −15°…+15°;
    toạ độ lưu theo phần trăm của khung tỉ lệ cố định nên sống sót trên màn 390px. Bốn sàn sống sót *theo cấu
    tạo*, không nhờ cửa duyệt. Bảng trắng đầy đủ chỉ làm khi có khách thật đòi.
-2. **Đã làm (23/09):** `effects.leaveTransitionMs` trong manifest của gói (trước M1: `LEAVE_TRANSITION_MS`) khai khuôn nào có chuyển cảnh; khuôn đó mất
-   `target="_blank"`. Diện mạo ở `DESIGN.md` mục 9. **Khuôn 6 chấp nhận trả 300ms** để chạy hoạt ảnh trước khi rời trang. Nút phải mở **cùng tab** — `target=
+2. **Đã làm (23/09):** `effects.leaveTransitionMs` trong manifest của gói (trước M1: `LEAVE_TRANSITION_MS`) khai template nào có chuyển cảnh; template đó mất
+   `target="_blank"`. Diện mạo ở `DESIGN.md` mục 9. **Template 6 chấp nhận trả 300ms** để chạy hoạt ảnh trước khi rời trang. Nút phải mở **cùng tab** — `target=
    "_blank"` cộng điều hướng trì hoãn sẽ bị iOS/Android chặn như popup. Và vế *"mây tan rồi hiện ra trang đích"*
    **bất khả thi**: trang Google là tên miền khác, không render dưới lớp mây được. Mây phủ trang mình, rồi
    trình duyệt nhảy sang Google. **Sắp thay (Tài chốt 27/09):** popup cảm ơn đếm đủ 4 giây rồi Google mở ở **tab mới**, trang cũ
@@ -244,35 +244,35 @@ A33), `google-policy.spec.ts` (luật Google cho từng khoá), `admin-http.spec
    46px, bỏ các độ lệch đường chân (đó là thẩm mỹ của áo thử), và nút tròn **cắt nhãn thay vì `display: none`** — bản
    cũ làm link mất tên với trình đọc màn hình.
 
-## 13. Hai luật dùng chung cho mọi khuôn (Tài chốt 23/09/2026)
+## 13. Hai luật dùng chung cho mọi template (Tài chốt 23/09/2026)
 
-Hai thứ này **không thuộc về khuôn nào**. Chúng nằm ở phạm vi `.guest[data-coat]` trong `components/coats.css`
-mục A, và không khuôn nào được ghi đè.
+Hai thứ này **không thuộc về template nào**. Chúng nằm ở phạm vi `.guest[data-coat]` trong `components/coats.css`
+mục A, và không template nào được ghi đè.
 
 > **Dựng lại ở A36 (23/09)**, sau khi mất cùng `coats.css`. Phạm vi giờ là `.guest[data-template]` trong
 > `components/skin.css`. A1: bản full-bleed kéo dài tờ giấy (`.guest-sheet`), bản thẻ kéo dài cả trang. A2: nút máy
 > bay **giữ nguyên** như ở `guest-page.css` (không lấy lại bản tối góc phải của áo thử); `tests/contracts/skin.spec.ts`
-> đỏ nếu bất kỳ khối khuôn nào chạm `.guest-float/.guest-plane/.guest-hint` hay khối Google. Đo lại tại 390×844:
+> đỏ nếu bất kỳ khối template nào chạm `.guest-float/.guest-plane/.guest-hint` hay khối Google. Đo lại tại 390×844:
 > quãng cuộn ≥ 128px ở cả hai bố cục, dòng mời không hiện sau 2,6 giây đứng yên (`publishing.spec.ts`, ca A36).
-> `overflow: clip` trong đoạn dưới **chưa** đặt lại: chưa khuôn nào có trang trí thò ra.
+> `overflow: clip` trong đoạn dưới **chưa** đặt lại: chưa template nào có trang trí thò ra.
 
-**A1 · Mọi khuôn luôn cao hơn màn hình điện thoại.** `useBottomHint` chỉ hiện dòng mời góp ý sau khi khách
-**cuộn hết trang**. Khuôn nào vừa khít màn hình thì "đã cuộn hết" đúng ngay giây đầu, và thanh góp ý bật ra lúc
-khách còn chưa đọc xong tên quán. Nên mỗi khuôn chừa sẵn một quãng cuộn: `min-height: calc(100dvh +
+**A1 · Mọi template luôn cao hơn màn hình điện thoại.** `useBottomHint` chỉ hiện dòng mời góp ý sau khi khách
+**cuộn hết trang**. Template nào vừa khít màn hình thì "đã cuộn hết" đúng ngay giây đầu, và thanh góp ý bật ra lúc
+khách còn chưa đọc xong tên quán. Nên mỗi template chừa sẵn một quãng cuộn: `min-height: calc(100dvh +
 var(--c-overscroll, 128px))` trên `.guest-sheet`. Đo tại 390×844: dư quãng cuộn **156px**, khoảng trống dưới chân
 trang **128px**, và dòng mời **không hiện lúc mở trang**.
 
-**A2 · Nút máy bay giấy giống hệt nhau ở mọi khuôn.** Khuôn đổi màu, đổi bố cục, đổi hiệu ứng — đường vào góp ý
+**A2 · Nút máy bay giấy giống hệt nhau ở mọi template.** Template đổi màu, đổi bố cục, đổi hiệu ứng — đường vào góp ý
 riêng thì không. Khách quen nó ở quán này phải nhận ra nó ở quán khác. Màu, vị trí, kích thước, con tam giác và
 hoạt ảnh đều cố định.
 
-**Một bẫy đã dính khi làm A1:** vòng cung trang trí của khuôn Áp phích thò xuống dưới thân trang **374px**, kéo
+**Một bẫy đã dính khi làm A1:** vòng cung trang trí của template Áp phích thò xuống dưới thân trang **374px**, kéo
 trang dài thêm chừng ấy khoảng trống vô nghĩa — đúng thứ A1 muốn tránh lại thành ra thừa. Sửa bằng
 `overflow: clip` (không phải `hidden`) trên `.guest[data-coat]`: nó cắt phần thò ra mà **không** biến phần tử
 thành khung cuộn và **không** tạo containing block, nên nút góp ý `position: fixed` vẫn neo vào màn hình — đã đo
 lại sau khi sửa: nút vẫn cách đáy đúng 18px.
 
-## 14. Ba chỗ suýt thủng khi tách nội dung khỏi khuôn (23/09/2026)
+## 14. Ba chỗ suýt thủng khi tách nội dung khỏi template (23/09/2026)
 
 Bảy bộ test bắt được ba lỗi mà đọc mã không thấy. Ghi lại vì chúng là **ranh giới của mô hình**, không phải lỗi vặt.
 
@@ -304,7 +304,7 @@ tên, bấm phát hành, trang khách **vẫn tên cũ**. Sửa: `publish()` ghi
 Mã mới `LEFT JOIN shop_profile`, nên **database chưa chạy 022 thì trang khách sập**. Luật 4 trong mục 5 vốn đã
 bắt migrate trước khi đẩy `main`; với lát này nó không còn là kỷ luật mà là điều kiện sống.
 
-## 15. Khuôn 3 · Kính — cùng một kết quả ở mọi trình duyệt (Tài chốt 23/09/2026)
+## 15. Template 3 · Kính — cùng một kết quả ở mọi trình duyệt (Tài chốt 23/09/2026)
 
 **Câu hỏi của Tài:** làm kính lỏng kiểu Apple (bài kube.io) sao cho tốc độ và hiển thị tương đương ở mọi trình
 duyệt; không lùi.
@@ -315,7 +315,7 @@ Nó còn bắt tính lại bộ lọc mỗi khung hình khi cuộn.
 
 **Cách đã làm — bốn quyết định:**
 
-1. **Tự vẽ thứ nằm sau kính.** Nền khuôn 3 là một *cảnh* do khuôn vẽ từ màu của shop (`--c-c1 --c-c2 --c-angle`,
+1. **Tự vẽ thứ nằm sau kính.** Nền template 3 là một *cảnh* do template vẽ từ màu của shop (`--c-c1 --c-c2 --c-angle`,
    trang đặt inline từ `PageConfig`), gồm ba vùng màu và một lớp sọc — kính chỉ trông như kính khi phía sau có chi
    tiết. Mỗi tấm kính (thân trang, từng viên link) mang **bản sao** của cảnh trong `::before`, dịch đúng bằng vị trí
    của nó (`--gx --gy`), rồi áp `filter: url(#nfc-glass-*)` — dạng `filter` thì Chrome, Safari, Firefox đều chạy.
@@ -324,9 +324,9 @@ Nó còn bắt tính lại bộ lọc mỗi khung hình khi cuộn.
 3. **Bộ lọc tự dựng bản đồ khúc xạ từ hình dạng tấm kính** (alpha làm mờ = chiều cao kính, độ dốc = độ bẻ), nên một
    bộ lọc hợp mọi cỡ, không ảnh, không script. Hai bộ: `nfc-glass-lg` (thân trang) và `nfc-glass-sm` (viên link).
 4. **Một thẻ `<svg>` vô hình** chứa bộ lọc — ngoại lệ duy nhất của luật "áo khoác không thêm nút DOM", Tài chốt
-   23/09. Rào: chỉ render cho khuôn khai `effects.glass` trong manifest, luôn là nút cuối của trang, `aria-hidden`,
+   23/09. Rào: chỉ render cho template khai `effects.glass` trong manifest, luôn là nút cuối của trang, `aria-hidden`,
    `focusable=false`, ẩn bằng cỡ 0 (không `display: none` — Safari bỏ qua bộ lọc trong phần tử đó). Test
-   `google-policy.spec.ts` giữ: khối lời mời Google giống từng byte với khuôn khác.
+   `google-policy.spec.ts` giữ: khối lời mời Google giống từng byte với template khác.
 
 **Nút Google không phải kính** (DESIGN.md mục 6b): nút đặc, xanh lam `--c-brand`. Mọi thứ quanh nó trong suốt nên nó
 càng nổi.
@@ -352,19 +352,19 @@ iPhone và Android thật** — hãm CPU trên máy Mac không thay được car
 **Rút gọn:** `prefers-reduced-transparency: reduce` → tấm đặc màu giấy, không bộ lọc, không bản sao. Trước khi JS chạy
 (hoặc nếu JS không chạy), tấm kính chỉ là lớp sương — bản sao hiện dần khi đã căn xong (`data-glass`).
 
-**Giới hạn:** kính chỉ bẻ được cảnh của khuôn, không bẻ ảnh hay video của shop. Nền `media` bị bỏ qua ở khuôn 3 (không
-tải video). Chủ quán muốn ảnh làm nền thì đó là khuôn khác.
+**Giới hạn:** kính chỉ bẻ được cảnh của template, không bẻ ảnh hay video của shop. Nền `media` bị bỏ qua ở template 3 (không
+tải video). Chủ quán muốn ảnh làm nền thì đó là template khác.
 
-## 16. Bản khuôn — shop giữ diện mạo đã phát hành cho tới khi tự chọn bản mới (Tài giao Claude quyết, 24/09/2026)
+## 16. Bản template — shop giữ diện mạo đã phát hành cho tới khi tự chọn bản mới (Tài giao Claude quyết, 24/09/2026)
 
-**Câu hỏi của Tài:** bản hoàn chỉnh tách khỏi bản thử; khi khuôn có diện mạo mới, khách **được chọn** cập nhật hay
+**Câu hỏi của Tài:** bản hoàn chỉnh tách khỏi bản thử; khi template có diện mạo mới, khách **được chọn** cập nhật hay
 không. Số phiên bản Tài giao Claude quyết.
 
 **Quyết định:**
 
-- **Khuôn có số bản riêng**, số nguyên từ 1 (`versions` trong `templates/<khoá>/manifest.json` từ lát M1, kèm ngày và một câu ghi chú cho chủ quán).
+- **Template có số bản riêng**, số nguyên từ 1 (`versions` trong `templates/<khoá>/manifest.json` từ lát M1, kèm ngày và một câu ghi chú cho chủ quán).
   Số bản nền tảng kiểu `năm.tháng.lần` (vd `26.9.3`) là việc riêng, **chưa làm**.
-- **Bản phát hành của shop ghim một bản khuôn.** Bảng `template_versions` (migration 003) và cột
+- **Bản phát hành của shop ghim một bản template.** Bảng `template_versions` (migration 003) và cột
   `page_releases.template_version_id` có sẵn từ đầu, nên lát này **không cần migration**. Trang khách mang
   `data-template` và `data-template-version`.
 - **Mỗi bản một tệp CSS đóng băng**: `templates/<khoá>/v<bản>.css` (từ lát M1; trước đó `components/skins/`). Mọi selector trong tệp có dạng
@@ -375,22 +375,22 @@ không. Số phiên bản Tài giao Claude quyết.
 - **Sửa lỗi, bảo mật, luật Google không phải bản mới**: sửa thẳng tệp của mọi bản đang chạy, vì không shop nào được
   chọn ở lại với trang lỗi hay trái luật Google. Sửa như vậy thì ghi lại mã băm trong `skin.spec.ts` cùng commit, và
   nói rõ lý do.
-- **Chủ quán chọn trong trình chỉnh** (khung "Khuôn"). Khung ghi bản nháp đang dùng bản nào và trang khách đang chạy bản
+- **Chủ quán chọn trong trình chỉnh** (khung "Template"). Khung ghi bản nháp đang dùng bản nào và trang khách đang chạy bản
   nào. Mỗi bản có ghi chú và nút "Dùng bản N": nút này chỉ đổi **bản nháp**, sau đó Xem trước và Phát hành như mọi
-  thay đổi khác. Muốn quay lại thì bấm bản cũ. Chỉ đổi bản **trong cùng khuôn**; đổi sang khuôn khác là việc khác.
-- **Shop mới dùng bản mới nhất** của khuôn được chọn.
+  thay đổi khác. Muốn quay lại thì bấm bản cũ. Chỉ đổi bản **trong cùng template**; đổi sang template khác là việc khác.
+- **Shop mới dùng bản mới nhất** của template được chọn.
 
 **Test giữ:**
 
-- `skin.spec.ts`: mỗi bản có đúng một tệp và mọi tệp đều được trang khách import; selector chỉ nhắm khuôn và bản của
-  chính tệp đó; `skin.css` không mặc áo cho khuôn nào; tên `@keyframes` không trùng; **mã băm từng tệp không đổi**
+- `skin.spec.ts`: mỗi bản có đúng một tệp và mọi tệp đều được trang khách import; selector chỉ nhắm template và bản của
+  chính tệp đó; `skin.css` không mặc áo cho template nào; tên `@keyframes` không trùng; **mã băm từng tệp không đổi**
   (bỏ qua chú thích và khoảng trắng).
 - `template-versions.spec.ts` (repository): shop chưa đổi bản thì trang khách vẫn chạy bản cũ; xem trước thấy bản
-  mới; phát hành xong mới đổi; quay lại được. Từ chối bản không có, bản của khuôn khác, bản nháp đã cũ, và thân
+  mới; phát hành xong mới đổi; quay lại được. Từ chối bản không có, bản của template khác, bản nháp đã cũ, và thân
   request sai. Shop mới dùng bản mới nhất.
 - `publishing.spec.ts`: cùng shop, cùng cấu hình, chỉ khác bản ghim. Sang bản 2 thì diện mạo của bản 1 không đi theo.
 
 **Chưa đóng băng, nói thẳng:** hiệu ứng nền tảng (`effects` trong manifest: chuyển cảnh, kính, nút hạt ngọc) và khung
 trắng (`page`) vẫn theo **khoá**, chưa theo bản. Bản mới nào cần đổi một trong
 chúng thì chuyển trường đó vào từng mục của `versions`, ngay trong lát làm bản mới. Nút hạt ngọc là phần của nền tảng,
-không thuộc bản của khuôn 6, vì luật Google của nút Google phải giống nhau ở mọi nơi.
+không thuộc bản của template 6, vì luật Google của nút Google phải giống nhau ở mọi nơi.

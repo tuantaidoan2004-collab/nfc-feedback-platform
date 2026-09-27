@@ -4,10 +4,10 @@ import { TEMPLATE_KEYS, TEMPLATE_MANIFESTS } from './templates.generated';
 import type { TemplateRelease } from './versions';
 
 /**
- * Khuôn nền tảng đang phát hành (lát M1): mọi thứ ở đây đọc từ gói `templates/<khoá>/manifest.json`, qua
- * `templates.generated.ts`. Sáu khuôn Tài chọn 23/09 (`docs/thiet-ke-va-khuon.md` mục 12). Khuôn là khung trắng: nó giữ
+ * Template nền tảng đang phát hành (lát M1): mọi thứ ở đây đọc từ gói `templates/<khoá>/manifest.json`, qua
+ * `templates.generated.ts`. Sáu template Tài chọn 23/09 (`docs/thiet-ke-va-template.md` mục 12). Template là khung trắng: nó giữ
  * bố cục, nền và hiệu ứng, không bao giờ giữ nội dung của một tài khoản; nội dung đến từ tài khoản lúc vẽ trang
- * (`page_profile`, migration 022/024/027). `standard` là khuôn 1 và giữ khoá cũ vì hàng `template_versions` của nó
+ * (`page_profile`, migration 022/024/027). `standard` là template 1 và giữ khoá cũ vì hàng `template_versions` của nó
  * đã có và bất biến. Không khoá nào mang tên thương hiệu (DESIGN.md mục 8).
  */
 export { TEMPLATE_KEYS };

@@ -1,11 +1,11 @@
-/* Khuôn `glass` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+/* Template `glass` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
  * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
- * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-template.md mục 16. */
 
 /* =====================================================================
-   6 · KHUÔN 3 · KÍNH. Kính khúc xạ thật, cùng một kết quả ở Chrome, Safari và Firefox
-   (thiet-ke-va-khuon.md mục 15). Không dùng `backdrop-filter: url()` — chỉ Chrome chạy. Thay vào đó:
-     1. Nền là một **cảnh** do khuôn tự vẽ từ màu của shop, và nó **cuộn cùng trang** (không `fixed`).
+   6 · TEMPLATE 3 · KÍNH. Kính khúc xạ thật, cùng một kết quả ở Chrome, Safari và Firefox
+   (thiet-ke-va-template.md mục 15). Không dùng `backdrop-filter: url()` — chỉ Chrome chạy. Thay vào đó:
+     1. Nền là một **cảnh** do template tự vẽ từ màu của shop, và nó **cuộn cùng trang** (không `fixed`).
      2. Mỗi tấm kính mang một **bản sao** của cảnh trong `::before`, dịch đúng bằng vị trí của nó (`--gx --gy`,
         do `useGlassPlacement` đo), rồi `filter: url(#nfc-glass-*)` bẻ bản sao đó ở viền.
      3. Kính và cảnh không bao giờ trượt qua nhau khi cuộn, nên bộ lọc chạy **một lần**; lúc cuộn chỉ là dịch ảnh.

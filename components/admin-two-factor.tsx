@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import styles from './admin.module.css';
+import { PLATFORM_NAME } from '@/lib/brand';
 
 type Started = { secret: string; uri: string };
 /**
@@ -45,7 +46,7 @@ export default function AdminTwoFactor() {
   if (started) return <main className={styles.login} data-two-factor="confirm">
     <p>QUẢN TRỊ NỀN TẢNG</p><h1>Nhập mã để bật</h1>
     <p>Mở ứng dụng xác thực (Google Authenticator, 1Password, Aegis…), chọn thêm tài khoản bằng cách nhập khoá, rồi dán khoá dưới đây.</p>
-    <p className={styles.muted}>Tên tài khoản: <strong>NFC Feedback</strong></p>
+    <p className={styles.muted}>Tên tài khoản: <strong>{PLATFORM_NAME}</strong></p>
     <p><code data-totp-secret>{started.secret}</code></p>
     <p className={styles.muted}>Hoặc mở đường dẫn này trên chính điện thoại đó: <a href={started.uri}>thêm vào ứng dụng xác thực</a></p>
     <form onSubmit={async event => {

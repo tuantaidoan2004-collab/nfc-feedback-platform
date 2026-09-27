@@ -1,12 +1,12 @@
-/* Khuôn `minimal` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+/* Template `minimal` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
  * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
- * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-template.md mục 16. */
 
 /* =====================================================================
-   8 · KHUÔN 2 · TỐI GIẢN (ảnh "Minimal Dark Card" Tài gửi 24/09). Một thẻ tối trên nền tím than; quanh thẻ là một quầng
+   8 · TEMPLATE 2 · TỐI GIẢN (ảnh "Minimal Dark Card" Tài gửi 24/09). Một thẻ tối trên nền tím than; quanh thẻ là một quầng
    tím mờ — cái "mờ xung quanh bìa" Tài muốn — vẽ bằng một lớp `::before` làm nhoè **một lần** (filter tĩnh, không
    backdrop-filter, nên cuộn không bắt tính lại). Nền: hai mảng màu uốn, dấu cộng và một lớp hạt nhiễu SVG, 0 KB.
-   Link là lưới ô chia đều theo số lượng (lưới 6 cột, dùng chung với khuôn 1): 1 → một ô ngang · 2 → hai nửa · 3 → ba ô · 4 → 2×2 ·
+   Link là lưới ô chia đều theo số lượng (lưới 6 cột, dùng chung với template 1): 1 → một ô ngang · 2 → hai nửa · 3 → ba ô · 4 → 2×2 ·
    5 → 3 + 2 · 6 → 3 + 3. Nút Google trắng đặc. Khác ảnh: tên quán nằm trong thẻ — đặt ra ngoài thì phải đoán trước tên
    dài mấy dòng, và tên dài sẽ đè lên logo.
    ===================================================================== */
@@ -37,7 +37,7 @@
 .guest[data-template="minimal"]:where([data-template-version="1"]) .guest-bg::after {
   opacity: .07; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="160" height="160" filter="url(%23g)" opacity="0.5"/></svg>') 0 0 / 160px 160px;
 }
-/* Tối giản: ô poster **trống** không hiện; shop có poster thì poster vẫn hiện — nó là nội dung của shop, khuôn không giấu. */
+/* Tối giản: ô poster **trống** không hiện; shop có poster thì poster vẫn hiện — nó là nội dung của shop, template không giấu. */
 .guest[data-template="minimal"]:where([data-template-version="1"]) .guest-poster-empty { display: none; }
 .guest[data-template="minimal"]:where([data-template-version="1"]) .guest-logo {
   margin: 40px auto 0; border-width: 4px; border-color: #ffffff;

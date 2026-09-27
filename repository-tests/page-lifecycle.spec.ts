@@ -83,7 +83,7 @@ test('the platform stops, restarts and handles reports; an owner cannot lift a s
  const report=await life.pause(shop.token,shop.slug,{action:'pause',page:shop.slug,reason:'Ảnh bị lỗi'});
  await expect(incidents.resolve(f.actorId,report.incident,{resolution:' '})).rejects.toMatchObject({code:'NOTE_REQUIRED'});
  await expect(incidents.resolve(f.actorId,report.incident,{resolution:'x',more:1})).rejects.toMatchObject({code:'INVALID_INPUT'});
- await incidents.resolve(f.actorId,report.incident,{resolution:'Đã gọi chủ quán, tặng một tháng khuôn 1'});
+ await incidents.resolve(f.actorId,report.incident,{resolution:'Đã gọi chủ quán, tặng một tháng template 1'});
  await expect(incidents.resolve(f.actorId,report.incident,{resolution:'lại'})).rejects.toMatchObject({status:409,code:'INCIDENT_ALREADY_RESOLVED'});
  expect(await incidents.open()).toEqual([]);
  // Handling the report leaves the page as it is: still stopped until someone starts it.

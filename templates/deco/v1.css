@@ -1,9 +1,9 @@
-/* Khuôn `deco` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
+/* Template `deco` · bản 1 — ĐÓNG BĂNG. Shop đã phát hành trên bản này thấy đúng tệp này cho tới khi chủ quán tự chọn bản mới.
  * Chỉ sửa ở đây khi là sửa lỗi / bảo mật / luật Google (mọi shop trên bản 1 nhận luôn); đổi diện mạo thì làm bản 2 ở
- * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-khuon.md mục 16. */
+ * tệp mới. `tests/contracts/skin.spec.ts` giữ mã băm của tệp này. Bối cảnh: docs/thiet-ke-va-template.md mục 16. */
 
 /* =====================================================================
-   7 · KHUÔN 4 · CHỒNG THẺ (ảnh Tài gửi 24/09). Nền tím than; thẻ nội dung nghiêng −2°; phía sau là thẻ thứ hai
+   7 · TEMPLATE 4 · CHỒNG THẺ (ảnh Tài gửi 24/09). Nền tím than; thẻ nội dung nghiêng −2°; phía sau là thẻ thứ hai
    nghiêng ngược — chính là ô **poster** của shop (có poster thì poster nằm đó, chưa có thì thẻ hồng mặt cười); hình vẽ
    tay (dấu cộng, tim, mũi tên cong) bằng SVG nội tuyến có bộ lọc bút sáp (DESIGN.md mục 6b), 0 KB tài nguyên.
    Link bày thành hàng dọc có mũi tên. Nút Google trắng đặc, nổi nhất trên nền tối.
@@ -44,7 +44,7 @@
 .guest[data-template="deco"]:where([data-template-version="1"]) .guest-poster-empty {
   border: 0; background: #ff4fa3 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g fill="none" stroke="%231a1326" stroke-width="7" stroke-linecap="round"><path d="M36 38v6M62 36v6"/><path d="M30 60c10 14 32 14 42-2"/></g></svg>') 6% 30% / 40% no-repeat;
 }
-/* Nhãn "POSTER SỰ KIỆN" là chỗ giữ trống, không phải nội dung: ở khuôn này thẻ mặt cười thay nó. */
+/* Nhãn "POSTER SỰ KIỆN" là chỗ giữ trống, không phải nội dung: ở template này thẻ mặt cười thay nó. */
 .guest[data-template="deco"]:where([data-template-version="1"]) .guest-poster-empty span { opacity: 0; }
 .guest[data-template="deco"]:where([data-template-version="1"]) .guest-logo {
   margin: 28px auto 0; transform: translateX(10px) rotate(-2deg);

@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { PublishingError, type PageConfig } from './config';
 
 /**
- * Cửa duyệt ảnh (migration 023, `docs/thiet-ke-va-khuon.md` mục 10): every picture or video a page shows must be an
+ * Cửa duyệt ảnh (migration 023, `docs/thiet-ke-va-template.md` mục 10): every picture or video a page shows must be an
  * approved asset before the page can be published. Checked where a shop publishes, never where a page is read: a page
  * already live stays live while its next image waits.
  *
