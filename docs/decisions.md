@@ -173,7 +173,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = lát M1 (gói khuôn) khi Tài đẩy; trước đó `7762d31`. Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = `d983702` (M1 gói template), production Ready và trang khách kiểm lại 27/09. Vercel Pro dùng thử tới **29/09**.
 - **I1 xong 27/09:** compose chạy thật trên Docker Desktop của Tài, `selfhost-smoke.mjs` qua đủ (`tu-chay.md`). Tầng đếm
   theo địa chỉ vẫn chạy trên Vercel (Tài kiểm SQL = 1).
 - **CI xanh lần đầu 27/09:** repo đã công khai, lượt #213 trên `4b9a5c4` qua đủ 8 job, gồm `self-host` (ảnh Tài gửi).
@@ -202,6 +202,9 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 hướng dẫn designer `templates/README.md`. Nền bị kéo theo thẻ khi cuộn và kéo-để-tải-lại dính trên Chrome iPhone → **M4**.
 Tiếp: **M2** module hiệu ứng → cột `purpose` cho số điện
 thoại → **M3** section → **M4** đợt cải tổ UI/UX cùng A16.
+
+**Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đổi ở mọi nơi (chữ trên dashboard và `/gov`, tài liệu,
+mã, `DESIGN.md`) đi cùng đợt audit trước cải tổ UI/UX; từ giờ viết mới thì dùng "template".
 
 ### Luật triển khai (Tài nới 23/09)
 
