@@ -254,6 +254,14 @@ chạy** cũng đúng là "đã duyệt mà chưa có shop", nên hai cú bấm 
 trước khi chạy. Sửa: chỉ làm nốt khi lần giữ đã quá 2 phút (tạo shop mất vài giây). Bài học: **nhánh "phục hồi" phải phân biệt
 được "đã chết" với "đang chạy"**, thường bằng thời gian.
 
+**Chữ gõ vào ô trước khi React nhận trang bị xoá, và nút phụ thuộc state khoá mãi.** CI đỏ ca D4b (27/09): runner chậm, test gõ
+tên quán vào ô `/bat-dau` do server vẽ **trước khi hydrate**; lúc hydrate React đặt lại ô có kiểm soát về state rỗng, nên ô trống
+và "Tiếp tục" bị khoá (`locator resolved to <button disabled>`). Máy Tài nhanh nên không thấy; người thật trên 4G chậm thì gặp
+đúng như vậy. Sửa: lúc khôi phục bản đang dựng, đọc giá trị ô trước và giữ nó; trang báo `data-start-ready` khi đã sẵn sàng. Ca
+tái hiện trong `public-v2.spec.ts` giữ JavaScript lại 1,5 giây rồi gõ — đỏ khi gỡ bản sửa, xanh 5/5 khi có. Bài học: **ô nhập có
+kiểm soát ở trang công khai phải chịu được người gõ trước khi JavaScript tải xong**; test mở thẳng một trang có form thì chờ dấu
+hiệu sẵn sàng, đừng tin `goto` xong là gõ được. Lỗi của Claude ở D4a–D4b.
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được

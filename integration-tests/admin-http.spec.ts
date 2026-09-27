@@ -537,6 +537,7 @@ test('D4b: an owner saves the page they built, it waits for approval, and signin
  await o.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  // The owner builds and saves: no account before this, no shop after it.
  await o.goto('/bat-dau');
+ await expect(o.locator('[data-start-ready]')).toBeVisible();
  await o.getByLabel('Tên quán',{exact:true}).fill('Tiệm Bánh Mây');
  await o.getByRole('button',{name:'Tiếp tục →'}).click();
  await o.locator('[data-template-card="minimal"]').click();

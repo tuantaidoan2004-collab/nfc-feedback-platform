@@ -71,8 +71,13 @@ export default function Builder() {
   const heading = useRef<HTMLHeadingElement>(null), first = useRef(true);
 
   // Read what this browser kept before writing anything back: the first render's empty state must not overwrite it.
-  const restored = useRef(false);
-  useEffect(() => { queueMicrotask(() => { restored.current = true; setState(restore()); }); }, []);
+  const restored = useRef(false), [ready, setReady] = useState(false), nameInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { queueMicrotask(() => {
+    // A name typed before the page's script took over (a slow phone, CI) is in the box but not in the state; without
+    // this the box shows it and "Tiếp tục" stays locked (lát D4b, seen on CI).
+    const typed = nameInput.current?.value ?? '', kept = restore();
+    restored.current = true; setState(typed.trim() && !kept.name.trim() ? { ...kept, name: typed } : kept); setReady(true);
+  }); }, []);
   useEffect(() => {
     if (!restored.current) return;
     try { window.localStorage.setItem(STORE, JSON.stringify(state)); } catch { /* Private window: nothing to keep. */ }
@@ -121,7 +126,7 @@ export default function Builder() {
   const frame = (key: TemplateKey) => link ? `/thu/${link.token}?khung=1&t=${key}` : null;
   const skip = <button type="button" className={styles.skip} onClick={() => go('save')}>Bỏ qua cho bây giờ</button>;
 
-  return <div className={styles.page} data-start-step={step}>
+  return <div className={styles.page} data-start-step={step} data-start-ready={ready || undefined}>
     <header className={styles.top}>
       <Link href="/" className={styles.home} aria-label="Về trang chính"><BrandLine /></Link>
       <span className={styles.signIn}><span className={styles.signInAsk}>Đã có tài khoản? </span><Link href="/owner/login">Đăng nhập</Link></span>
@@ -149,7 +154,7 @@ export default function Builder() {
         <p className={styles.lead}>Tên này nằm to nhất trên trang khách thấy khi chạm thẻ. Chưa cần tài khoản.</p>
         <form className={styles.form} onSubmit={event => { event.preventDefault(); void advance('template'); }}>
           <label className={styles.field}>Tên quán
-            <input name="name" value={state.name} maxLength={DRAFT_NAME_MAX} autoComplete="organization" placeholder="Cà Phê Ban Mai" autoFocus
+            <input ref={nameInput} name="name" value={state.name} maxLength={DRAFT_NAME_MAX} autoComplete="organization" placeholder="Cà Phê Ban Mai" autoFocus
               onChange={event => setState(current => ({ ...current, name: event.target.value }))} /></label>
           <button className={buttonClass('primary')} disabled={busy || !state.name.trim()}>{busy ? 'Đang dựng…' : 'Tiếp tục →'}</button>
         </form>

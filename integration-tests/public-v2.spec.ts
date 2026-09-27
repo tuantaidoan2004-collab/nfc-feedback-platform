@@ -223,6 +223,7 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   page.on('request', r => { if (r.url().includes('/api/v2/')) api.push(r.url()); });
   await page.goto('/'); await page.locator('[data-landing-start]').click();
   await expect(page).toHaveURL(/\/bat-dau$/);
+  await expect(page.locator('[data-start-ready]')).toBeVisible();
   await page.getByLabel('Tên quán', { exact: true }).fill('Cà Phê Ban Mai');
   await page.getByRole('button', { name: 'Tiếp tục →' }).click();
   // Six templates, each the owner's own page drawn live; template 1 is chosen until they pick.
@@ -282,6 +283,17 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   const forged = url!.replace(/\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/, (_, body: string, mac: string) => `.${body}.${mac.startsWith('A') ? 'B' : 'A'}${mac.slice(1)}`);
   await page.goto(forged);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Không mở được bản xem thử');
+});
+
+test('D4b: a name typed before the builder\'s script has loaded is kept, and Tiếp tục opens', async ({ page }) => {
+  // CI 27/09: on a slow runner the name went into the server-drawn box before hydration; the box showed it, the state
+  // did not, and "Tiếp tục" stayed locked. Holding the scripts back reproduces that on any machine.
+  await page.route('**/_next/static/chunks/**', async route => { await new Promise(resolve => setTimeout(resolve, 1500)); await route.continue(); });
+  await page.goto('/bat-dau', { waitUntil: 'commit' });
+  await page.getByLabel('Tên quán', { exact: true }).fill('Quán Gõ Sớm');
+  await expect(page.locator('[data-start-ready]')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByLabel('Tên quán', { exact: true })).toHaveValue('Quán Gõ Sớm');
+  await expect(page.getByRole('button', { name: 'Tiếp tục →' })).toBeEnabled();
 });
 
 test('Next HTTP saves private feedback without a rating and never echoes text', async ({ page, request, db }) => {
