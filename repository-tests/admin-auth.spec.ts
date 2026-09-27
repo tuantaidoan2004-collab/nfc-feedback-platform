@@ -214,6 +214,16 @@ test('enrolment cannot switch itself on, and cannot lock the only administrator 
  await expect(f.auth.beginEnrolment(session)).rejects.toThrow('TWO_FACTOR_ALREADY_ON');
 });
 
+/**
+ * The codes below are made from one `now`, and the server judges them by its own clock a few logins later. A 30-second
+ * step boundary falling in between moves the server one step on, so "thirty seconds out" becomes sixty and is refused
+ * by design: this case failed about one run in thirty (CI 27/09). Each phase starts with ten seconds of its step left.
+ */
+async function clearOfStepBoundary(margin=10){
+ const into=(Date.now()/1000)%30;
+ if(into>30-margin)await new Promise(resolve=>setTimeout(resolve,(30-into)*1000+250));
+}
+
 test('once on: the password alone is refused, a code is spent by using it, and a backup code works once',async({f})=>{
  const secret=password();await f.auth.bootstrap('boss',secret,async()=>{});
  const first=(await f.auth.login('boss',secret)).token;
@@ -230,6 +240,7 @@ test('once on: the password alone is refused, a code is spent by using it, and a
  await expect(f.auth.login('boss','wrong-password-entirely',undefined,code(app,stepAt(new Date())))).rejects.toThrow('ADMIN_LOGIN_FAILED');
 
  await freshLane();
+ await clearOfStepBoundary();
  const now=new Date(),digits=code(app,stepAt(now));
  await expect(f.auth.login('boss',secret,undefined,digits)).resolves.toBeTruthy();
  // The same code inside its own thirty seconds is already spent: reading it over a shoulder buys nothing.

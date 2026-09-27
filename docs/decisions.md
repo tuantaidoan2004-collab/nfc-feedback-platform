@@ -260,9 +260,9 @@ Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa c�
 iPhone. **Còn:** tạo **Hồ sơ doanh nghiệp Google** cho dịch vụ NFC ngay (đồng hồ 60 ngày cho C1) · chọn **màu chủ đạo và
 nhận diện nền tảng** (F6, trước S1) · mã QR ngân hàng + số Zalo cho tab Thanh toán (cài đặt admin, không vào GitHub) ·
 kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · **chạy migration 029** trên Neon production và preview (trước khi đẩy D4
-lên `main`) · **dựng VPS trước 29/09** (hoặc trả Pro thêm) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Hai việc tách
-riêng đang chờ: ca 2FA chập chờn ~3% (`admin-auth.spec.ts:217`, gặp lại 27/09), ca impersonation không đứng một mình
-(`admin-http.spec.ts` ~240).
+lên `main`) · **dựng VPS trước 29/09** (hoặc trả Pro thêm) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Việc tách
+riêng đang chờ: ca impersonation không đứng một mình
+(`admin-http.spec.ts` ~240). Ca 2FA chập chờn (`admin-auth.spec.ts`) đã sửa 27/09 (`operations-gotchas.md`).
 
 ### Thứ tự đọc cho phiên mới
 

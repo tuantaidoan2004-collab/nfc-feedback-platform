@@ -262,6 +262,14 @@ tái hiện trong `public-v2.spec.ts` giữ JavaScript lại 1,5 giây rồi gõ
 kiểm soát ở trang công khai phải chịu được người gõ trước khi JavaScript tải xong**; test mở thẳng một trang có form thì chờ dấu
 hiệu sẵn sàng, đừng tin `goto` xong là gõ được. Lỗi của Claude ở D4a–D4b.
 
+**Ca 2FA "chập chờn ~3%" (`admin-auth.spec.ts`, ca "once on") không chập chờn: nó thua ranh giới 30 giây.** Test tính `now` một
+lần rồi dựng mã "lệch 30 giây" từ đó vài lượt đăng nhập sau; server xét bằng đồng hồ của chính nó. Ranh giới 30 giây rơi vào
+giữa thì server đã sang ô mới, mã thành lệch 60 giây và bị từ chối **đúng luật** (DRIFT một bước). Vài giây trên 30 giây ≈ tỉ lệ đỏ
+đã thấy. Gọi nó là "chập chờn" từ 20/09 và để yên là sai: đỏ ba lần ngày 27/09 (máy Claude, CI). Chứng minh bằng cách **ép** phần đó
+bắt đầu 0,5 giây trước ranh giới → đỏ đúng dòng CI; sửa: mỗi phần dựa vào thời gian bắt đầu khi ô còn ít nhất 10 giây
+(`clearOfStepBoundary`) → xanh cả khi ép, 10/10 khi chạy lặp. Bài học: **một ca đỏ lặp lại với tỉ lệ ổn định là một lỗi có
+nguyên nhân**; test có mốc thời gian thì hỏi "nếu ranh giới rơi vào giữa thì sao", và ép nó rơi vào để kiểm.
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được
