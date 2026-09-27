@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import styles from './admin.module.css';
 import { buttonClass } from './platform/ui';
 
 import { vnd } from '@/lib/publishing/pricing';
 import { TEMPLATE_KEYS, TEMPLATE_NAMES } from '@/lib/publishing/templates';
+import { BUSY_HOURS, GOALS, SHOP_KINDS, peekDraft, type Draft } from '@/lib/start/draft';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
@@ -36,6 +37,16 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [standIn, setStandIn] = useState<ShopRow | null>(null);
   const [templateLink, setTemplateLink] = useState<string | null>(null);
+  // A page an owner built before having an account (lát D4) fills this form; the shop is still made from what is submitted.
+  const createForm = useRef<HTMLFormElement>(null);
+  const [draft, setDraft] = useState<(Draft & { expired: boolean }) | null | 'invalid'>(null);
+  const fromDraft = (value: string) => {
+    if (!value.trim()) { setDraft(null); return; }
+    const found = peekDraft(value); setDraft(found ? { ...found, expired: found.expiresAt.getTime() < Date.now() } : 'invalid');
+    const form = createForm.current; if (!found || !form) return;
+    (form.elements.namedItem('name') as HTMLInputElement).value = found.name;
+    (form.elements.namedItem('templateKey') as HTMLSelectElement).value = found.template;
+  };
 
   const refresh = async () => {
     const response = await fetch('/gov/api/shops', { credentials: 'same-origin' });
@@ -136,7 +147,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
       <p className={styles.muted}>Một lần bấm tạo trang khách (theo template đã chọn; template 1 sao chép từ shop template), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
-      <form className={styles.form} onSubmit={async event => {
+      <form ref={createForm} className={styles.form} onSubmit={async event => {
         event.preventDefault(); setBusy(true); setError(''); setHandover(null);
         const form = new FormData(event.currentTarget), element = event.currentTarget;
         try {
@@ -147,10 +158,16 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
           if (!response.ok) { setError(failed(response.status)); return; }
           const { shop } = await response.json();
           setHandover({ ...shop, expiresAt: shop.setupExpiresAt });
-          element.reset();
+          element.reset(); setDraft(null);
           await refresh();
         } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
       }}>
+        <label>Link bản nháp chủ quán gửi (nếu có)<input name="draft" data-draft-link placeholder="https://…/thu/…" onChange={event => fromDraft(event.target.value)}/></label>
+        {draft === 'invalid' && <p className={styles.muted} data-draft-summary>Không đọc được link này. Kiểm tra lại link chủ quán gửi.</p>}
+        {draft && draft !== 'invalid' && <p className={styles.muted} data-draft-summary>
+          Đã điền tên và template từ bản nháp{draft.expired ? ' (bản nháp đã hết hạn, vẫn dùng được để điền)' : ''}.
+          Loại quán: <strong>{draft.kind ? SHOP_KINDS[draft.kind] : 'chưa trả lời'}</strong> · Giờ đông: <strong>{draft.hours.map(hour => BUSY_HOURS[hour]).join(', ') || 'chưa trả lời'}</strong>
+          {' '}· Muốn: <strong>{draft.goals.map(goal => GOALS[goal]).join(', ') || 'chưa trả lời'}</strong></p>}
         <label>Tên shop<input name="name" required maxLength={100} placeholder="Cà Phê Ban Mai"/></label>
         <label>Tài khoản chủ shop<input name="ownerUsername" required maxLength={64} placeholder="caphe-banmai" pattern="[a-z0-9][a-z0-9_.\-]{2,63}"/></label>
         <label>Email chủ shop<input name="ownerEmail" type="email" required maxLength={254} placeholder="chu@example.com"/></label>

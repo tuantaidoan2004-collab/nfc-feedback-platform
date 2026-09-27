@@ -59,7 +59,7 @@ Thứ tự đề xuất ở mục 4. Việc hạ tầng gấp (Vercel 29/09) ở
 | **Dashboard** | Gọn, nhất quán; 6 mục; một component 429 dòng; mục đang xem **không nằm trên URL** | Một nửa |
 | **Trình chỉnh** | Một biểu mẫu dài khoảng 2.800px, không xem trước bên cạnh; chọn template bằng ô thả xuống | **Chưa** — xa "như Canva" nhất |
 | **`/gov`** | Chạy đủ việc, nhưng sơ sài nhất | **Chưa** |
-| **Trang chính / đăng ký** | Chưa có (`app/page.tsx` là trang cửa); shop do admin tạo | **Chưa** — D4 |
+| **Trang chính / đăng ký** | **D4a xong 27/09:** trang chính `/` (lập chỉ mục), dựng trang không cần tài khoản `/bat-dau`, QR, 3 câu hỏi; tài khoản vẫn do admin tạo từ link bản nháp | Một nửa — D4b |
 | **Test** | 7 bộ xanh, CI xanh; nhưng integration bám câu chữ | Cần luật trước khi đổi chữ |
 | **Tài liệu cho người mới** | `AGENTS.md`, `decisions.md` tốt; **mặt tiền repo lỗi thời** | Cần dọn |
 
@@ -132,7 +132,7 @@ trong ảnh demo, video 3 phút hay trang chính (`DESIGN.md` mục 8).
 áp lên **mọi** trang; `body` dùng Arial và ở chế độ tối nền `body` chuyển xanh rêu. Có quy tắc toàn cục như `.google-button`
 nên có thể đang chạm trang khách — dọn cùng M4, có đo trước/sau. Trang nền tảng đã tự phủ nền (`.platform`) nên không dính.
 
-**Tình trạng sau S0–S1 (27/09):** đã xử lý A1, A2, A3, A4, A5, A10, A11; A8 dời sang lát trình chỉnh; A6, A7, A9, A12, A13
+**Tình trạng sau S0–S1 (27/09):** đã xử lý A1, A2, A3, A4, A5, A10, A11 (A1 còn sót một chỗ, sửa ở D4a: `public/robots.txt` vẫn chặn cả site); A8 dời sang lát trình chỉnh; A6, A7, A9, A12, A13
 còn theo thứ tự mục 4.
 
 **Đã kiểm, không phải lỗi:** huy hiệu "1 Issue" trên trang đăng nhập khi chụp là của chế độ dev; thu console không

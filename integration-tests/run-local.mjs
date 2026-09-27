@@ -55,7 +55,9 @@ async function warm(origin) {
     '/api/owner/v2/one/pages', '/ZZZ/one/thumb/one', '/gov/api/incidents', `/gov/api/incidents/${zero}`, `/gov/api/pages/${zero}`,
     // The behaviour beacon (lát mục 7). A route compiled on its first call makes `next dev` reload every open
     // page, and a beacon fires while another test has a half-filled login form on screen.
-    `/api/v2/pages/visits/${zero}/events`];
+    `/api/v2/pages/visits/${zero}/events`,
+    // The builder before an account (lát D4): its page, its signing route, a draft link, and the crawler files.
+    '/bat-dau', '/api/start/drafts', '/thu/x.y.z', '/robots.txt', '/sitemap.xml'];
   await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
 }
 

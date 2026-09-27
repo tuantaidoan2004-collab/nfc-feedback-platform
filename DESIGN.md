@@ -13,7 +13,7 @@ Ghi lần đầu 22/09/2026. Ba bề mặt, ba luật khác nhau — đừng tr�
 |---|---|---|---|
 | **Trang khách** `/<slug>`, `/t/<mã>` | khách lạ, 4G, 30 giây | luật Google · tốc độ · tương phản | **≤ 600 KB** cả trang |
 | **Dashboard** `/ZZZ/<slug>` | chủ quán, đã đăng nhập, wifi | nhất quán · dùng được một tay | rộng rãi |
-| **Trang giới thiệu** (chưa có) | người chưa biết mình là ai | thuyết phục | rộng rãi, hiệu ứng nặng ở đây |
+| **Trang chính** `/`, dựng thử `/bat-dau` | người chưa biết mình là ai | thuyết phục | rộng rãi, hiệu ứng nặng ở đây |
 
 Phần còn lại của tệp này nói về **trang khách**, trừ mục 7.
 
@@ -215,7 +215,13 @@ Người xem chọn **Tối · Sáng · Theo máy** (mặc định theo máy), l
 Phần dùng chung ở `components/platform/ui.tsx`: nút bốn loại (chính · phụ · nguy hiểm · thận trọng, cộng loại nhạt), thẻ,
 ô nhập, huy hiệu, viên nhãn, thẻ đăng nhập, trạng thái trống. CSS nền tảng không được viết màu thẳng — test chặn.
 
-### Trang giới thiệu (chưa dựng)
+### Trang chính và luồng dựng thử (D4a, 27/09)
+
+`app/page.tsx` và `components/start/` mặc áo nền tảng (token `--p-*`, test chặn màu viết thẳng như mọi CSS nền tảng):
+thanh điều hướng viên thuốc, viên nhãn in hoa trên tiêu đề hai tông, nút viên thuốc, dấu tích trấn an (nguồn UI/UX mục 1f).
+Khung trang khách trong lưới template và trong khung điện thoại là **trang khách thật** vẽ ở bề rộng 390px rồi thu nhỏ —
+không ảnh chụp, nên không bao giờ lệch với template.
+
 
 Đây là chỗ **duy nhất** hiệu ứng nặng đáng tiền: WebGL, thư viện chuyển động, ảnh lớn. Nó chạy trên wifi, không
 có luật Google, và mỗi hiệu ứng là một câu "bọn tôi làm giao diện tử tế". Không lấy ngân sách 600 KB của trang

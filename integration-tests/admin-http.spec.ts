@@ -116,15 +116,22 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  const templateSlug=(await admin.db.query('SELECT slug FROM shops WHERE is_template')).rows[0].slug;
  expect((await page.request.get(`/${templateSlug}`)).status()).toBe(200);
 
- await page.getByLabel('Tên shop',{exact:true}).fill('Cà Phê Ban Mai');
+ // Lát D4: the owner built the page before having an account and sent its draft link; pasting it fills the form.
+ const draft=await page.request.post('/api/start/drafts',{headers:{origin:'http://127.0.0.1:3317'},data:{name:'Cà Phê Ban Mai',template:'glass',kind:'cafe',hours:['noon']}});
+ expect(draft.status()).toBe(200);
+ // Template 1 is preselected, so a hurried operator with no draft still gets the original page.
+ await expect(page.locator('select[data-template-choice]')).toHaveValue('standard');
+ await page.getByLabel('Link bản nháp chủ quán gửi (nếu có)',{exact:true}).fill((await draft.json()).url);
+ await expect(page.getByLabel('Tên shop',{exact:true})).toHaveValue('Cà Phê Ban Mai');
+ await expect(page.locator('[data-draft-summary]')).toContainText('Quán cà phê');
+ await expect(page.locator('[data-draft-summary]')).toContainText('Trưa');
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
- // Six templates to choose from (A33); template 1 is preselected so a hurried operator still gets the original page.
+ // Six templates to choose from (A33); the draft chose template 3.
  const choice=page.locator('select[data-template-choice]');
  await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Chồng thẻ','5 · Ánh sáng tụ','6 · Nút lớn']);
- await expect(choice).toHaveValue('standard');
- await choice.selectOption('glass');
+ await expect(choice).toHaveValue('glass');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
 
  await expect(page.getByRole('heading',{name:'Gửi liên kết này cho chủ shop'})).toBeVisible();

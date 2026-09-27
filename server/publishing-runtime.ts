@@ -7,7 +7,8 @@ import { PublishingResolver } from '@/lib/publishing/repository';
 import { publishingVisitPolicy } from '@/lib/publishing/visit-policy';
 import { VisitAccessDenied } from '@/lib/repositories/visit-ratings';
 export const publishingEnabled = () => visitsV2Enabled() && process.env.NFC_PUBLISHING_ENABLED === 'true';
-function keyring(): ProofKeyring {
+/** The render key: signs guest pages' render proofs, and (through a key derived from it) draft links (lát D4). */
+export function keyring(): ProofKeyring {
   const secret = process.env.NFC_RENDER_SIGNING_KEY;
   if (!secret || Buffer.byteLength(secret) < 32) throw new Error('RENDER_KEY_UNAVAILABLE');
   return { active: 'v1', keys: { v1: secret } };

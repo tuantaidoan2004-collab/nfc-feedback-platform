@@ -14,9 +14,9 @@ const origin = process.env.APP_ORIGIN;
 assert.ok(origin, 'APP_ORIGIN is required');
 const check = async (label, run) => { await run(); console.log(`ok  ${label}`); };
 
-await check('front door, terms and the Google guide render', async () => {
+await check('front page, terms and the Google guide render', async () => {
   const home = await fetch(`${origin}/`);
-  assert.equal(home.status, 200); assert.match(await home.text(), /Trang của quán, mở từ thẻ NFC/);
+  assert.equal(home.status, 200); assert.match(await home.text(), /Khách chạm thẻ trên bàn/);
   for (const path of ['/dieu-khoan', '/quyen-rieng-tu', '/huong-dan-google']) assert.equal((await fetch(`${origin}${path}`)).status, 200, path);
 });
 await check('a guest write without the published page\'s proof is refused', async () => {

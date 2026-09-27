@@ -172,12 +172,20 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**Phiên mới bắt đầu từ đây (27/09 tối):** đợt cải tổ đã xong S0 → S1 → M2 → M3 (audit `docs/audit-ui-ux-20260927.md` mục 4).
-**Lát kế: D4** — trang chính (landing, được lập chỉ mục, làm website cho Hồ sơ Google của Tài) + dựng trang trước khi có tài
-khoản + QR "thấy trang trên điện thoại mình" + 3 câu hỏi (`docs/ui-ux-nguon-tham-khao.md` mục 1f, 4, 5A–B). Hoặc **M2b** nếu Tài
-chọn. Trước khi trang chính bán dịch vụ lên production: Tài chọn Vercel Pro hay VPS (Hobby cấm thương mại). Đẩy `main` là
-**hai bước** (nhánh trước, CI xanh, rồi đúng commit đó lên `main`; `operations-gotchas.md`). Chờ Tài: thử lời cảm ơn trước
-Google trên Safari và Chrome iPhone — tab Google tự mở sau 4 giây hay hiện nút "Mở Google".
+**Phiên mới bắt đầu từ đây (27/09 khuya):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → **D4a** (audit `docs/audit-ui-ux-20260927.md`
+mục 4). **D4a nằm trên nhánh, chưa lên `main`:** trang chính là "quảng cáo bán dịch vụ", nên **Tài chọn Vercel Pro hay VPS trước**
+(Hobby từ 29/09 cấm thương mại) rồi mới đẩy `main`. **Lát kế: D4b** — "Lưu trang của tôi" tạo tài khoản ngay (migration); Tài chốt
+trước: quán tự tạo **chạy ngay** hay **chờ admin duyệt**. Hoặc **M2b**. Đẩy `main` là **hai bước** (nhánh trước, CI xanh, rồi đúng
+commit đó lên `main`; `operations-gotchas.md`). Chờ Tài: thử lời cảm ơn trước Google trên Safari và Chrome iPhone; quét QR ở
+`/bat-dau` bằng camera iPhone và Android (mã QR tự vẽ, mới chỉ được bộ đọc QR của Chrome kiểm).
+
+**D4a (27/09) làm gì, không migration:** `/` là trang chính (lập chỉ mục; `public/robots.txt` chặn cả site từ 10/09 đã gỡ, thay
+bằng `app/robots.ts` + `app/sitemap.ts`). `/bat-dau` dựng trang không cần tài khoản: tên → lưới 6 template là **trang khách thật**
+thu nhỏ → **QR** mở bản nháp trên điện thoại → 3 câu hỏi (bỏ qua được) → "Lưu trang của tôi". Bản nháp **không lưu trên máy chủ**:
+nằm trong link `/thu/<mã>`, ký bằng khoá dẫn xuất từ `NFC_RENDER_SIGNING_KEY`, sống 7 ngày, không ghi lượt ghé, qua dây bẫy chữ
+như tên trang. Bậc 1 của "Lưu": chủ quán gửi link cho Tài (Zalo/email/sao chép), Tài dán vào ô "Link bản nháp" ở `/gov` là form
+tạo shop tự điền tên, template và hiện ba câu trả lời. Mã QR do nền tảng tự vẽ (`lib/qr.ts`, không thêm gói). Mở ở mọi môi trường
+có `NFC_ENV`, như mọi bề mặt v2.
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
   branch**. `main` = `6db5735` (M3, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**, sau đó Hobby.
@@ -229,7 +237,7 @@ lớp sương, lời cảm ơn trước Google) qua một sổ đăng ký; templ
 tab mới (chặn thì có nút "Mở Google"); con trỏ góp ý đổi 4 màu của template. Lời cảm ơn shop tự sửa + admin duyệt là **M2b**
 (migration). **M3 section xong 27/09, không cần migration**: `PageConfig` v3 có `sections` (khối nào hiện, thứ
 tự nào); dữ liệu khối ở chỗ cũ; chỉ poster được đứng trên nút Google; trình chỉnh có khung "Các khối trên trang". Lát kế
-theo audit: **D4** trang chính + dựng trang trước tài khoản (hoặc M2b nếu Tài muốn lời cảm ơn tự sửa trước). **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+theo audit: **D4** — **D4a xong 27/09** (trên nhánh, chờ Tài chọn Pro/VPS để lên `main`); kế là D4b hoặc M2b. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
 (`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và

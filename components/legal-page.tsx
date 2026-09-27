@@ -5,7 +5,9 @@ import './legal-page.css';
  * The frame both legal pages share (A5). A draft for a lawyer to read (roadmap C2), and it says so first, so nobody
  * mistakes it for reviewed text. Contact details are Tài's own, as he decided on 21/09/2026.
  */
-export const CONTACT = { operator: 'Đoàn Tuấn Tài', email: 'tuantaidoan2004@gmail.com', phone: '0961 036 265', phoneHref: 'tel:+84961036265' };
+export const CONTACT = { operator: 'Đoàn Tuấn Tài', email: 'tuantaidoan2004@gmail.com', phone: '0961 036 265', phoneHref: 'tel:+84961036265',
+  /** The same number on Zalo, where owners send a draft page (lát D4). */
+  zaloHref: 'https://zalo.me/0961036265' };
 export const UPDATED = '21/09/2026';
 
 export function LegalPage({ title, children }: { title: string; children: React.ReactNode }) {

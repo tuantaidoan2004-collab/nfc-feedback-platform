@@ -191,7 +191,7 @@ test('gate off: no guest page and no write path at all', async ({ page, request,
   expect((await request.get('http://127.0.0.1:3318/ZZZ/one')).status()).toBe(404);
 });
 
-test('the retired demo and cookie-era routes are gone; the front door says where you are', async ({ page, request, db }) => {
+test('the retired demo and cookie-era routes are gone; the front page says what the platform is', async ({ page, request, db }) => {
   for (const path of ['/demo/dashboard', '/api/owner/one']) expect((await request.get(path)).status(), path).toBe(404);
   // `/t/demo` is now only a card code nobody was given; the sample barbershop it used to draw is gone.
   expect(await (await request.get('/t/demo')).text()).not.toContain('4Râu');
@@ -199,10 +199,81 @@ test('the retired demo and cookie-era routes are gone; the front door says where
   const api: string[] = [];
   page.on('request', r => { if (r.url().includes('/api/')) api.push(r.url()); });
   expect((await page.goto('/'))!.status()).toBe(200); await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Trang của quán, mở từ thẻ NFC' })).toBeVisible();
+  // Lát D4: the platform's front page, indexed, with the way in for an owner.
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Khách chạm thẻ trên bàn.');
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  await expect(page.locator('[data-landing-start]')).toHaveAttribute('href', '/bat-dau');
   await expect(page.getByRole('link', { name: 'Quyền riêng tư' })).toBeVisible();
+  await expect(page.getByText('Bạn vừa chạm thẻ ở quán mà tới đây?')).toBeVisible();
+  expect(api).toEqual([]);
+  const robots = await (await request.get('/robots.txt')).text();
+  expect(robots).toContain('Allow: /'); expect(robots).toContain('Disallow: /thu/'); expect(robots).toContain('Disallow: /gov');
+  expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>http://127.0.0.1:3317/</loc>');
+  for (const table of ['visit_sessions', 'rating_experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
+});
+
+test('D4: an owner builds a page with no account, sees it on a phone through the QR code, and keeps it', async ({ page, context, request, db }) => {
+  const api: string[] = [];
+  page.on('request', r => { if (r.url().includes('/api/v2/')) api.push(r.url()); });
+  await page.goto('/'); await page.locator('[data-landing-start]').click();
+  await expect(page).toHaveURL(/\/bat-dau$/);
+  await page.getByLabel('Tên quán', { exact: true }).fill('Cà Phê Ban Mai');
+  await page.getByRole('button', { name: 'Tiếp tục →' }).click();
+  // Six templates, each the owner's own page drawn live; template 1 is chosen until they pick.
+  const cards = page.locator('[data-template-card]');
+  await expect(cards).toHaveCount(6);
+  await expect(cards.first()).toHaveAttribute('aria-checked', 'true');
+  await expect(cards.locator('iframe')).toHaveCount(6);
+  await cards.filter({ hasText: '3 · Kính' }).click();
+  await expect(page.locator('[data-template-card="glass"]')).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('button', { name: 'Dùng template này →' }).click();
+
+  // The QR code and the link say the same thing; the link opens the page as a guest would see it.
+  await expect(page.locator('[data-start-qr] svg')).toBeVisible();
+  const url = await page.locator('[data-start-open]').getAttribute('href');
+  expect(url).toMatch(/^http:\/\/127\.0\.0\.1:3317\/thu\/v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
+  const phone = await context.newPage();
+  const shown = await phone.goto(url!);
+  expect(shown!.status()).toBe(200);
+  expect(shown!.headers()['referrer-policy']).toBe('no-referrer');
+  expect(shown!.headers()['cache-control']).toContain('no-store');
+  expect(shown!.headers()['x-frame-options']).toBe('SAMEORIGIN');
+  await expect(phone.locator('main.guest')).toHaveAttribute('data-template', 'glass');
+  await expect(phone.locator('main.guest')).toContainText('Cà Phê Ban Mai');
+  await expect(phone.locator('[data-google]')).toBeInViewport();
+  await expect(phone.locator('[data-draft-banner]')).toContainText('Bản xem thử');
+  await expect(phone.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  await phone.close();
+
+  // Three quick questions: one answered, one skipped; progress never went back to zero.
+  await page.getByRole('button', { name: 'Tiếp tục →' }).click();
+  await expect(page.locator('[data-start-intro] ol li')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Bắt đầu →' }).click();
+  const next = page.getByRole('button', { name: 'Tiếp tục →' });
+  await expect(next).toBeDisabled();
+  await page.getByRole('radio', { name: 'Quán cà phê' }).click(); await next.click();
+  await page.getByRole('button', { name: 'Trưa' }).click(); await page.getByRole('button', { name: 'Tối' }).click();
+  await expect(page.getByText('2 đã chọn')).toBeVisible(); await next.click();
+  await page.getByRole('button', { name: 'Bỏ qua cho bây giờ' }).click();
+  await page.getByRole('button', { name: 'Lưu trang của tôi' }).click();
+  const kept = await page.locator('[data-start-link]').textContent();
+  const payload = JSON.parse(Buffer.from(kept!.split('.')[kept!.split('.').length - 2], 'base64url').toString());
+  expect(payload).toMatchObject({ v: 1, n: 'Cà Phê Ban Mai', t: 'glass', k: 'cafe', h: ['noon', 'evening'] });
+  expect(payload.g).toBeUndefined();
+
+  // Nothing about the owner or a visit was written anywhere, and no guest API was called.
   expect(api).toEqual([]);
   for (const table of ['visit_sessions', 'rating_experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
+
+  // The same rules as a page's own name; a link from elsewhere is refused; a forged link opens nothing.
+  const post = (data: unknown, origin = 'http://127.0.0.1:3317') => request.post('/api/start/drafts', { headers: { origin }, data });
+  expect((await post({ name: 'Đánh giá 5 sao nhận quà', template: 'standard' })).status()).toBe(400);
+  expect((await post({ name: 'Quán <b>', template: 'standard' })).status()).toBe(400);
+  expect((await post({ name: 'Quán', template: 'nope' })).status()).toBe(400);
+  expect((await post({ name: 'Quán', template: 'standard' }, 'https://example.com')).status()).toBe(403);
+  const forged = kept!.replace(/\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/, (_, body: string, mac: string) => `.${body}.${mac.startsWith('A') ? 'B' : 'A'}${mac.slice(1)}`);
+  await page.goto(forged);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Không mở được bản xem thử');
 });
 
 test('Next HTTP saves private feedback without a rating and never echoes text', async ({ page, request, db }) => {
@@ -263,7 +334,10 @@ test('production gate stays closed even with flag true', async ({ page, request,
   const ownerShell=await request.get('http://127.0.0.1:3319/ZZZ/one');expect(ownerShell.headers()['cache-control']).toContain('no-store');
   for(const path of ['/api/owner/v2/one','/api/owner/v2/one/export','/owner/login?next=%2FZZZ%2Fone'])expect((await request.get(`http://127.0.0.1:3319${path}`)).status()).toBe(404);
   expect((await request.post('http://127.0.0.1:3319/api/owner/v2/login',{data:{}})).status()).toBe(404);
-  for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
+  for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange', '/api/start/drafts']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
+  // The builder is a v2 surface too (lát D4): closed until the deployment declares its environment. The front page is not.
+  expect((await request.get('http://127.0.0.1:3319/bat-dau')).status()).toBe(404);
+  expect((await request.get('http://127.0.0.1:3319/')).status()).toBe(200);
 });
 
 test('A5: the customer erases what they wrote from one quiet line at the foot, and Google never moves', async ({ page, db }) => {

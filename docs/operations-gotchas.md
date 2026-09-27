@@ -224,6 +224,23 @@ node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
 
 **Đặt con trỏ trong ô nhập sau khi đổi giá trị: dùng `useLayoutEffect`, đừng dùng `requestAnimationFrame`.** Khung vẽ sau đến trễ hơn các phím gõ tiếp theo, kéo con trỏ lùi và làm chữ nhảy chỗ. Test gõ bằng `pressSequentially` bắt được, nhưng chỉ lúc có lúc không (lát F5).
 
+**`public/robots.txt` chặn cả site suốt từ bản dựng đầu (10/09), kể cả sau khi S0 tuyên bố "lập chỉ mục mặc định".** Lát S0
+viết trong `app/layout.tsx` rằng trang chính và trang pháp lý "được lập chỉ mục", đặt `noindex` theo route — nhưng không ai
+mở `/robots.txt`: tệp tĩnh `Disallow: /` vẫn nằm đó, nên Google không bao giờ đọc được trang chính. Tìm ra ở lát D4a khi thêm
+`app/robots.ts` (hai nguồn cho cùng một đường `/robots.txt`). Sửa: xoá tệp tĩnh, `app/robots.ts` + `app/sitemap.ts` sinh từ
+`APP_ORIGIN`, test đọc `/robots.txt` thật. Bài học: **một lời hứa về lập chỉ mục chỉ đúng khi đã đọc `/robots.txt` và thẻ
+`meta robots` của chính trang đó**, không phải khi mã có vẻ đúng. Lỗi của Claude ở S0.
+
+**Lưu vào `localStorage` trong effect chạy ngay lần vẽ đầu thì ghi đè đúng thứ vừa định khôi phục.** Luồng `/bat-dau` (D4a)
+khôi phục bản đang dựng trong một `queueMicrotask`, nhưng effect "lưu mỗi khi state đổi" chạy trước microtask đó với state
+rỗng, nên tải lại trang là mất tên quán vừa gõ. Thấy khi xem tận mắt trong trình duyệt, không phải test nào bắt. Sửa: cờ
+`restored` — chưa khôi phục thì chưa ghi. Lỗi của Claude ở D4a.
+
+**Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
+kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
+`BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được
+(`tests/contracts/start-draft.spec.ts`). Đổi bộ mã hoá thì phải đọc lại bằng Chrome macOS rồi mới cập nhật hash.
+
 ## Kỷ luật khi làm
 
 **Đừng nối `git commit` sau các bước kiểm mà không có `&&`.** Đã lỡ push một lần khi typecheck đang đỏ vì các lệnh nằm trên dòng riêng. Chuỗi phải là `tsc && eslint && test && git commit && git push`.

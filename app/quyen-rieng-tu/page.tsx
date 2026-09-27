@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { CONTACT, LegalPage } from '@/components/legal-page';
 
 export const metadata: Metadata = { title: 'Quyền riêng tư' };
@@ -66,6 +67,12 @@ export default function Privacy() {
     <p>Nếu bạn đã xoá dữ liệu trình duyệt, dùng máy khác, hoặc muốn xoá cả số sao, hãy liên hệ
       {' '}<a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a> hoặc <a href={CONTACT.phoneHref}>{CONTACT.phone}</a>,
       kèm tên quán và khoảng thời gian bạn ghé.</p>
+
+    <h2 id="dung-thu">Khi chủ quán dựng thử trang</h2>
+    <p>Trang dựng thử ở <Link href="/bat-dau">/bat-dau</Link> không lưu gì trên máy chủ: tên quán, template và ba câu trả lời nằm
+      ngay trong đường link bản xem thử, có chữ ký để không ai làm giả, và link hết hạn sau 7 ngày. Trình duyệt của bạn
+      giữ bản đang dựng dở trong bộ nhớ trang để bạn quay lại làm tiếp; xoá dữ liệu trang web là mất. Mở link bản xem thử
+      không ghi lại lượt ghé nào. Chỉ khi bạn gửi link cho chúng tôi, chúng tôi mới đọc nó để tạo tài khoản cho quán.</p>
 
     <h2>Quyền của bạn</h2>
     <p>Bạn có quyền biết, xem, sửa, xoá dữ liệu của mình, và rút lại đồng ý. Liên hệ qua email hoặc số điện thoại

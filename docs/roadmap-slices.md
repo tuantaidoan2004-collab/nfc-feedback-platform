@@ -9,8 +9,8 @@ trước khi đẩy `main`).
 
 ## 0. Thứ tự của đợt cải tổ UI/UX (audit 27/09)
 
-Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0, S1, M2, M3 xong 27/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
-cho dashboard) → **M2** → **M3** → **D4** → tab Thanh toán → dashboard "thời tiết của quán" → trình chỉnh như Canva +
+Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0, S1, M2, M3, D4a xong 27/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
+cho dashboard) → **M2** → **M3** → **D4a** → **D4b** → tab Thanh toán → dashboard "thời tiết của quán" → trình chỉnh như Canva +
 kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
 ## 1. Kiến trúc module — hướng chính (Tài 26/09)
@@ -46,7 +46,8 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 | A21 | `/gov`: tìm quán, số liệu nền tảng, dùng được trên điện thoại | V | Cần dữ liệu thật |
 | A20 | Onboarding "3 bước bắt đầu" + màn trống có hướng dẫn | V | |
 | A23 | Dọn tệp R2 mồ côi | V | |
-| A31 | Trang giới thiệu nền tảng + nhận diện (thay trang `/` tĩnh hiện nay) | L | Cần F6. Không đụng trang khách |
+| **D4b** | **"Lưu trang của tôi" tạo tài khoản ngay**: shop + trang + tài khoản chủ quán từ bản nháp, không phải gửi link cho Tài; chống tạo hàng loạt; đăng nhập bằng Google cho chủ quán (xét bảo mật riêng) | V–L | **Mig** (nguồn gốc shop, trạng thái chờ duyệt). **Tài chốt trước:** quán tự tạo chạy ngay hay chờ admin duyệt. Bậc 1 (D4a): chủ quán gửi link bản nháp, admin dán vào `/gov` |
+| — | Video 3 phút trên trang chính, màn chào mừng của `/bat-dau` và trạng thái trống dashboard | N | Chờ video (`video-3-phut.md`) |
 | — | Chốt: đền bù khi tạm dừng khẩn cấp · thẻ chuyển giữa các trang · dữ liệu trang đã đóng | — | Tài quyết |
 
 ## 4. Dashboard của chủ quán
@@ -87,7 +88,7 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 ## 7. Dời lại — dữ liệu và quy mô (Tài 26/09: làm sau khi mọi thứ khác ổn, brainstorm lại)
 
 A8–A10 đọc dòng sự kiện (số liệu chuẩn, bảng theo ngày, so sánh bản phát hành) · D1 kho phân tích / tầng lạnh R2 · D2
-chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 sao Google của quán (**Tài 27/09 kéo lên**; đi thẳng Business Profile API, cần Tài có hồ sơ doanh nghiệp xác minh 60 ngày — `audit-ui-ux-20260927.md` mục 5) · D4 tự đăng ký + dùng thử (**Tài 27/09 kéo vào đợt cải tổ UI/UX**, luồng kiểu uxpeak, `ui-ux-nguon-tham-khao.md` ý 2) · D5 API/webhook đối
+chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 sao Google của quán (**Tài 27/09 kéo lên**; đi thẳng Business Profile API, cần Tài có hồ sơ doanh nghiệp xác minh 60 ngày — `audit-ui-ux-20260927.md` mục 5) · D5 API/webhook đối
 tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
 
 ## 8. Việc của Tài
@@ -100,7 +101,7 @@ luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạ
 
 ## Đã xong (một dòng mỗi việc; chi tiết trong `decisions.md`, các tệp được trỏ và lịch sử git)
 
-M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
+D4a trang chính + dựng trang trước tài khoản (`/`, `/bat-dau`, `/thu/<mã>`, QR tự vẽ, không migration, 27/09) · M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
 liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google, `/huong-dan-google`) · A27 `DESIGN.md`/`PRODUCT.md` ·
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi template (022) · A33 sáu khoá template · A36 lớp da · K1–K6 sáu template · K7
 bản template · P1 quán/trang (024) · P2 bảng cài đặt · P3 danh sách trang (025) · P4 vòng đời trang (026) · P5a hiện giá · P1d

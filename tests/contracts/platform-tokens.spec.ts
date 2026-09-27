@@ -45,7 +45,7 @@ test('every text pair reaches 4.5:1 in both themes', () => {
 test('platform stylesheets take their colours from the tokens, and read only tokens that exist', () => {
   // The only literal colours left are neutral shadows, a white switch knob, and the admin tick's own violet glow.
   const allowed = new Set(['#00000080', '#0003', '#fff', '#ffffff26', '#a855f766', '#c084fcb3']);
-  for (const file of ['components/owner-app.module.css', 'components/admin.module.css', 'components/platform/ui.module.css']) {
+  for (const file of ['components/owner-app.module.css', 'components/admin.module.css', 'components/platform/ui.module.css', 'components/start/builder.module.css', 'components/start/landing.module.css']) {
     const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const [literal] of source.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) expect(allowed, `${file}: ${literal}`).toContain(literal);
     for (const [, token] of source.matchAll(/var\((--p-[a-z0-9-]+)/g)) expect(dark.has(token), `${file}: ${token}`).toBe(true);
