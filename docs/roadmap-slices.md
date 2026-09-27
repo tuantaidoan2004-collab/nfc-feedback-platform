@@ -9,7 +9,7 @@ trước khi đẩy `main`).
 
 ## 0. Thứ tự của đợt cải tổ UI/UX (audit 27/09)
 
-Theo `docs/audit-ui-ux-20260927.md` mục 4: **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
+Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0 và S1 xong 27/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
 cho dashboard) → **M2** → **M3** → **D4** → tab Thanh toán → dashboard "thời tiết của quán" → trình chỉnh như Canva +
 kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 

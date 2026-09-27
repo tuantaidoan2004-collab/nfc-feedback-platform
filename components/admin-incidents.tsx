@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import styles from './admin.module.css';
+import { buttonClass } from './platform/ui';
 import type { IncidentForReview } from '@/lib/admin/page-incidents';
 
 /**
@@ -41,14 +42,14 @@ export default function AdminIncidents({ initial, origin }: { initial: IncidentF
     <h2>Báo cáo tạm dừng {items.length > 0 && <span>({items.length})</span>}</h2>
     <p className={styles.muted}>Chủ quán bấm tạm dừng khẩn cấp khi trang có lỗi: khách quét thấy &quot;Trang tạm ngừng&quot;, dữ liệu giữ nguyên.</p>
     {items.length === 0 ? <p className={styles.muted} data-incidents-empty>Không có báo cáo nào đang chờ.</p> :
-      <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 14 }}>{items.map(item => <li key={item.id} data-incident={item.id}>
+      <ul className={styles.items}>{items.map(item => <li key={item.id} data-incident={item.id}>
         <p><strong>{item.shop_name}</strong> · trang {origin ? <a href={`${origin}/${item.page_slug}`} target="_blank" rel="noreferrer">/{item.page_slug}</a> : `/${item.page_slug}`}
           {item.page_label && ` (${item.page_label})`} · <span data-incident-state>{item.page_state === 'paused' ? `tạm ngừng — ${REASONS[item.pause_reason ?? ''] ?? ''}` : item.page_state === 'closed' ? 'đã đóng' : 'đang chạy'}</span></p>
         <p className={styles.muted}>{new Date(item.created_at).toLocaleString('vi-VN')} · Chủ quán ghi: {item.reason}</p>
-        <div className={styles.row} style={{ justifyContent: 'flex-start', gap: 8 }}>
-          {item.page_state === 'paused' && <button disabled={busy === item.id} onClick={() => void act(item, 'resume')}>Mở lại trang</button>}
-          {item.page_state !== 'closed' && <button disabled={busy === item.id} onClick={() => void act(item, 'close')}>Đóng trang</button>}
-          <button disabled={busy === item.id} onClick={() => void resolve(item)}>Đã xử lý</button>
+        <div className={styles.actions}>
+          {item.page_state === 'paused' && <button className={buttonClass('primary')} disabled={busy === item.id} onClick={() => void act(item, 'resume')}>Mở lại trang</button>}
+          {item.page_state !== 'closed' && <button className={buttonClass('danger')} disabled={busy === item.id} onClick={() => void act(item, 'close')}>Đóng trang</button>}
+          <button className={buttonClass('secondary')} disabled={busy === item.id} onClick={() => void resolve(item)}>Đã xử lý</button>
         </div>
       </li>)}</ul>}
     {error && <p role="alert" className={styles.muted}>{error}</p>}

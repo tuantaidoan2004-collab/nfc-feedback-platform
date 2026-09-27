@@ -11,6 +11,9 @@ import AdminTwoFactor from '@/components/admin-two-factor';
 import AdminIncidents from '@/components/admin-incidents';
 import { PageIncidents, type IncidentForReview } from '@/lib/admin/page-incidents';
 import styles from '@/components/admin.module.css';
+import { AuthCard, Eyebrow } from '@/components/platform/ui';
+import ThemeToggle from '@/components/platform/theme';
+import { themeFromCookie } from '@/components/platform/shell';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
@@ -30,17 +33,17 @@ export default async function Page() {
   // A rejected session sends the visitor to the form; a database problem must not, or the two pages loop.
   catch (error) { if (error instanceof AdminError) principal = null; else unavailable = true; }
 
-  if (unavailable) return <main className={styles.login}><h1>Dịch vụ đang gián đoạn</h1><p>Vui lòng thử lại sau.</p></main>;
+  if (unavailable) return <AuthCard><h1>Dịch vụ đang gián đoạn</h1><p>Vui lòng thử lại sau.</p></AuthCard>;
   if (!principal) redirect('/gov/login');
   // Nothing else on this page until the second factor is on: "bắt buộc" has to mean the work is unreachable
   // without it, not that a banner asks nicely (lát A2).
   if (!principal.twoFactor) return <AdminTwoFactor/>;
 
   return <main className={styles.shell}>
-    <div className={styles.row}>
-      <div><p>QUẢN TRỊ NỀN TẢNG</p><h1>Xin chào, {principal.username}</h1></div>
-      <AdminSignOut/>
-    </div>
+    <header className={styles.top}>
+      <div><Eyebrow>Quản trị nền tảng</Eyebrow><h1>Xin chào, {principal.username}</h1></div>
+      <div className={styles.topTools}><ThemeToggle initial={await themeFromCookie()}/><AdminSignOut/></div>
+    </header>
     <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
     <AdminMedia initial={media}/>
     <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}/>

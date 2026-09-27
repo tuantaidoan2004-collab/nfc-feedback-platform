@@ -4,9 +4,11 @@ import { database } from '@/server/db';
 import OwnerDashboard from '@/components/owner-dashboard-v2';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
+import PlatformShell, { themeFromCookie } from '@/components/platform/shell';
+import { AuthCard } from '@/components/platform/ui';
 export const dynamic='force-dynamic';
 export const metadata={robots:{index:false,follow:false}};
-export default async function Page({params}:{params:Promise<{shop:string}>}) {
+export default async function Page({params,searchParams}:{params:Promise<{shop:string}>;searchParams:Promise<{view?:string}>}) {
  // With the owner gate closed there is no dashboard: the cookie-era one that used to answer here is gone (lát A3).
  if(!ownerEnabled())notFound();
  const slug=(await params).shop;
@@ -16,11 +18,13 @@ export default async function Page({params}:{params:Promise<{shop:string}>}) {
  try{access=await new OwnerAuth(database()).access(credential,slug,'shell');}
  catch(error){
   // A finished impersonation must not fall through to the owner's sign-in form: the administrator is not the owner.
-  if(error instanceof OwnerError && error.code==='IMPERSONATION_ENDED')return <main className="dashboard-wrap"><h1>Phiên xem thay mặt đã kết thúc</h1><p>Mở phiên mới từ trang quản trị nếu vẫn cần hỗ trợ shop này.</p><Link href="/gov">Về trang quản trị</Link></main>;
+  if(error instanceof OwnerError && error.code==='IMPERSONATION_ENDED')return <PlatformShell><AuthCard><h1>Phiên xem thay mặt đã kết thúc</h1><p>Mở phiên mới từ trang quản trị nếu vẫn cần hỗ trợ shop này.</p><Link href="/gov">Về trang quản trị</Link></AuthCard></PlatformShell>;
   if(error instanceof OwnerError && error.status===401)redirect(`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
   // Signed in as someone without this shop: offer the other door instead of a dead end.
-  return <main className="dashboard-wrap"><h1>Không thể mở dashboard</h1><p>Tài khoản đang đăng nhập chưa có quyền với shop này, hoặc dịch vụ đang gián đoạn.</p>
-   <p><a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập bằng tài khoản khác</a></p></main>;}
+  return <PlatformShell><AuthCard><h1>Không thể mở dashboard</h1><p>Tài khoản đang đăng nhập chưa có quyền với shop này, hoặc dịch vụ đang gián đoạn.</p>
+   <p><a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập bằng tài khoản khác</a></p></AuthCard></PlatformShell>;}
  const actor=access.actor;
- return <OwnerDashboard slug={access.slug} name={access.name} customerUrl={`${process.env.APP_ORIGIN ?? ''}/${access.slug}`} impersonation={actor.kind==='admin'?{admin:actor.adminHandle??actor.adminUsername,adminTitle:actor.adminTitle,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}/>;
+ // The platform's ground and theme wrap the dashboard here, not in a layout: /ZZZ/<shop>/thumb frames guest pages.
+ return <PlatformShell><OwnerDashboard slug={access.slug} name={access.name} customerUrl={`${process.env.APP_ORIGIN ?? ''}/${access.slug}`} impersonation={actor.kind==='admin'?{admin:actor.adminHandle??actor.adminUsername,adminTitle:actor.adminTitle,scope:actor.scope,reason:actor.reason,expiresAt:actor.expiresAt}:null}
+  initialView={(await searchParams).view ?? null} theme={await themeFromCookie()}/></PlatformShell>;
 }

@@ -1,0 +1,139 @@
+/*
+ * Quite Sensational — the platform's own look (lát S1, 27/09). Dashboard, /gov and the sign-in pages wear it; a shop's
+ * guest page never does (it wears its template, DESIGN.md mục 1–6). Every colour a platform surface uses is a token
+ * here, in two themes Tài chose: violet dark, in the spirit of uxpeak (docs/ui-ux-nguon-tham-khao.md mục 1f), and a
+ * daylight theme of white, orange and fresh milk. tests/contracts/platform-tokens.spec.ts holds every text pair to
+ * 4.5:1 in both themes and keeps the two copies of the daylight block identical.
+ *
+ * data-theme on the .platform element: "dark", "light", or "system" (follow the phone). The server renders it from the
+ * cookie ThemeToggle sets, so the first paint is already right.
+ */
+.platform {
+  color-scheme: dark;
+  --p-bg: #0c0a16;
+  --p-surface: #171428;
+  --p-surface-2: #201c38;
+  --p-sunken: #120f21;
+  --p-line: #2e2950;
+  --p-line-strong: #453d72;
+  --p-ink: #f5f3fb;
+  --p-ink-2: #cfc9e6;
+  --p-muted: #a8a1c6;
+  --p-accent: #7c3aed;
+  --p-accent-2: #6d28d9;
+  --p-accent-ink: #ffffff;
+  --p-accent-text: #b99dff;
+  --p-accent-soft: #7c3aed33;
+  --p-danger: #dc2626;
+  --p-danger-ink: #ffffff;
+  --p-danger-text: #fca5a5;
+  --p-success-text: #4ade80;
+  --p-warn-text: #fbbf24;
+  --p-warn-soft: #f59e0b24;
+  --p-hover: #ffffff10;
+  --p-focus: #c4b5fd;
+  --p-backdrop: #05030bcc;
+  --p-shadow: inset 0 1px 0 #ffffff0a, 0 18px 40px -24px #000000d9;
+  --p-glow-1: #5b21b659;
+  --p-glow-2: #7c3aed26;
+  --p-star: #ffffff38;
+  --p-chart-1: #a78bfa;
+  --p-chart-2: #7c3aed;
+  --p-radius-lg: 20px;
+  --p-radius: 14px;
+  --p-radius-sm: 10px;
+  --p-font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Daylight: white, orange, fresh milk. Chosen by hand, or by the phone when the viewer follows the system. */
+.platform[data-theme="light"] {
+  color-scheme: light;
+  --p-bg: #fff8f0;
+  --p-surface: #ffffff;
+  --p-surface-2: #fff1e2;
+  --p-sunken: #fdf0e1;
+  --p-line: #f1dfcb;
+  --p-line-strong: #e0c3a2;
+  --p-ink: #2a1a10;
+  --p-ink-2: #5a4232;
+  --p-muted: #7a604d;
+  --p-accent: #c2410c;
+  --p-accent-2: #a8370a;
+  --p-accent-ink: #ffffff;
+  --p-accent-text: #b03a0b;
+  --p-accent-soft: #c2410c1f;
+  --p-danger: #b91c1c;
+  --p-danger-ink: #ffffff;
+  --p-danger-text: #b91c1c;
+  --p-success-text: #047857;
+  --p-warn-text: #92400e;
+  --p-warn-soft: #f59e0b29;
+  --p-hover: #c2410c12;
+  --p-focus: #ea580c;
+  --p-backdrop: #2a1a1099;
+  --p-shadow: 0 1px 2px #2a1a100f, 0 14px 32px -20px #7b3a1052;
+  --p-glow-1: #fed7aa8c;
+  --p-glow-2: #ffedd5b3;
+  --p-star: #00000000;
+  --p-chart-1: #fb923c;
+  --p-chart-2: #c2410c;
+}
+@media (prefers-color-scheme: light) {
+  .platform[data-theme="system"] {
+    color-scheme: light;
+    --p-bg: #fff8f0;
+    --p-surface: #ffffff;
+    --p-surface-2: #fff1e2;
+    --p-sunken: #fdf0e1;
+    --p-line: #f1dfcb;
+    --p-line-strong: #e0c3a2;
+    --p-ink: #2a1a10;
+    --p-ink-2: #5a4232;
+    --p-muted: #7a604d;
+    --p-accent: #c2410c;
+    --p-accent-2: #a8370a;
+    --p-accent-ink: #ffffff;
+    --p-accent-text: #b03a0b;
+    --p-accent-soft: #c2410c1f;
+    --p-danger: #b91c1c;
+    --p-danger-ink: #ffffff;
+    --p-danger-text: #b91c1c;
+    --p-success-text: #047857;
+    --p-warn-text: #92400e;
+    --p-warn-soft: #f59e0b29;
+    --p-hover: #c2410c12;
+    --p-focus: #ea580c;
+    --p-backdrop: #2a1a1099;
+    --p-shadow: 0 1px 2px #2a1a100f, 0 14px 32px -20px #7b3a1052;
+    --p-glow-1: #fed7aa8c;
+    --p-glow-2: #ffedd5b3;
+    --p-star: #00000000;
+    --p-chart-1: #fb923c;
+    --p-chart-2: #c2410c;
+  }
+}
+
+/* The ground every platform page stands on: two soft glows and a few faint stars, all CSS, 0 KB. */
+.platform {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1px 1px at 12% 18%, var(--p-star) 50%, transparent 51%),
+    radial-gradient(1px 1px at 68% 9%, var(--p-star) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 86% 42%, var(--p-star) 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 64%, var(--p-star) 50%, transparent 51%),
+    radial-gradient(1px 1px at 92% 82%, var(--p-star) 50%, transparent 51%),
+    radial-gradient(900px 520px at 18% -8%, var(--p-glow-1), transparent 70%),
+    radial-gradient(760px 480px at 104% 12%, var(--p-glow-2), transparent 70%),
+    var(--p-bg);
+  background-attachment: fixed;
+  color: var(--p-ink);
+  font-family: var(--p-font);
+  line-height: 1.5;
+  accent-color: var(--p-accent);
+}
+.platform ::selection { background: var(--p-accent-soft); }
+.platform :focus-visible { outline: 3px solid var(--p-focus); outline-offset: 2px; }
+.platform a { color: var(--p-accent-text); }
+@media (prefers-reduced-motion: reduce) {
+  .platform *, .platform *::before, .platform *::after { transition: none !important; animation: none !important; }
+}

@@ -173,7 +173,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch**. `main` = `a16440d` (M1 gói template + tài liệu UI/UX), production Ready 27/09. Vercel Pro dùng thử tới **29/09**.
+  branch**. `main` = lát S1 khi Tài đẩy (trước đó `82a88e0`, S0). Vercel Pro dùng thử tới **29/09**.
 - **Vercel (Tài chốt 27/09): xuống Hobby** khi hết dùng thử 29/09 — không gì hỏng (tháng 9 dùng ~0,08 giờ CPU trên hạn
   4). Hobby **cấm dùng thương mại**: trước khi **trang chính bán dịch vụ** lên production (hoặc quán thật đầu tiên, mốc nào tới
   trước) phải lên Pro hoặc tự chạy trên VPS (audit mục 1). Log
@@ -215,8 +215,10 @@ trỏ nhiều màu, dashboard VIP, chuẩn Dropbox, video 3 phút, sao Google c�
 quyết thêm mười điều (mục 5 của tệp đó). Hành trình chung ở mục 6.
 **Audit xong 27/09** (`docs/audit-ui-ux-20260927.md`): chưa sẵn sàng cải tổ ngay; thiếu hệ thiết kế chung, M2, M3, và
 phải dọn nền trước. **S0 dọn nền xong 27/09** (đổi "khuôn" → "template" khắp nơi, tiêu đề tab theo tên quán và
-`noindex` theo route, README/`local-development.md` viết lại, gỡ bộ bàn giao Antigravity 15/09, luật test A10). Lát kế: **S1
-hệ thiết kế nền tảng** — cần Tài chốt tên nền tảng. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+`noindex` theo route, README/`local-development.md` viết lại, gỡ bộ bàn giao Antigravity 15/09, luật test A10). **S1 hệ thiết kế nền tảng xong 27/09**: tên **Quite Sensational** (`lib/brand.ts`); token tối tím / sáng trắng–cam–sữa,
+chọn Tối · Sáng · Theo máy; `/gov` và các trang đăng nhập dựng lại (nút theo loại việc, nhãn trên ô, bảng thành thẻ trên
+điện thoại); dashboard: thanh đáy trên điện thoại + "Thêm", mỗi mục một URL (`?view=`), nút Back đúng. Lát kế theo audit:
+**M2** module hiệu ứng. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
 (`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và

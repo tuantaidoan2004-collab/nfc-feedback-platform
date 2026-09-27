@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OwnerDashboard as Repository, Period } from '@/lib/owner/dashboard';
 import { copy } from '@/lib/copy';
 import { faceFor } from '@/lib/faces';
-import { PLATFORM_NAME } from '@/lib/brand';
 import styles from './owner-app.module.css';
 import DesignEditor from './design-editor';
 import CardsPanel from './cards-panel';
@@ -16,6 +15,9 @@ import AdminBadge from './admin-badge';
 import ProfilePanel, { Avatar, useProfile } from './profile-panel';
 import TeamPanel from './team-panel';
 import ActivityPanel from './activity-panel';
+import ThemeToggle from './platform/theme';
+import type { Theme } from './platform/theme-cookie';
+import { BrandLine } from './platform/ui';
 
 /**
  * Owner dashboard, lát C2 (2026-09-18). A left menu with four views. Overview loads only totals, so the dashboard
@@ -25,8 +27,13 @@ import ActivityPanel from './activity-panel';
 type Summary = Awaited<ReturnType<Repository['summary']>>;
 type Data = Awaited<ReturnType<Repository['read']>>;
 type View = 'home' | 'data' | 'design' | 'activity' | 'settings' | 'profile';
+/** On a phone the first three sit in the bottom bar; the rest open from "Thêm" (lát S1, audit A3). */
+const PRIMARY: View[] = ['home', 'data', 'design'];
+const isView = (value: string | null): value is View => !!value && VIEWS.some(([id]) => id === value);
 export type Impersonation = { admin: string; adminTitle: string | null; scope: 'overview' | 'feedback' | 'design'; reason: string; expiresAt: string };
 
+// Three dots drawn as small rings, so they read at the icon's stroke width (a zero-length path was nearly invisible).
+const MORE_ICON = 'M4.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M16.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0';
 const VIEWS: [View, string, string][] = [
   ['home', 'Tổng quan', 'M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z'],
   ['data', 'Dữ liệu', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
@@ -216,12 +223,30 @@ function DesignWorkspace({ slug, endpoint, origin, cards }: { slug: string; endp
   </>;
 }
 
-export default function OwnerDashboard({ slug, name, customerUrl, impersonation }: { slug: string; name: string; customerUrl: string; impersonation: Impersonation | null }) {
+export default function OwnerDashboard({ slug, name, customerUrl, impersonation, initialView, theme }: { slug: string; name: string; customerUrl: string; impersonation: Impersonation | null; initialView?: string | null; theme: Theme }) {
   const router = useRouter();
   const endpoint = `/api/owner/v2/${encodeURIComponent(slug)}`;
   // A design session sees only the editor: at position 2 the owner has hidden every figure from support.
   const designOnly = impersonation?.scope === 'design';
-  const [view, setView] = useState<View>(designOnly ? 'design' : 'home');
+  // Each view has its own address (?view=…), so the phone's Back button returns to the last view and a link can open
+  // one directly (audit A4). The server passes the view it was asked for, so the first paint is already right.
+  const [view, setViewState] = useState<View>(designOnly ? 'design' : isView(initialView ?? null) ? initialView as View : 'home');
+  const [more, setMore] = useState(false);
+  // History is written here, outside the state update: React may run an updater twice, and each run would push.
+  const setView = (next: View) => {
+    setMore(false);
+    if (next !== view) {
+      const url = new URL(window.location.href);
+      if (next === 'home') url.searchParams.delete('view'); else url.searchParams.set('view', next);
+      window.history.pushState(null, '', url);
+    }
+    setViewState(next);
+  };
+  useEffect(() => {
+    if (designOnly) return;
+    const back = () => { const asked = new URLSearchParams(window.location.search).get('view'); setMore(false); setViewState(isView(asked) ? asked : 'home'); };
+    window.addEventListener('popstate', back); return () => window.removeEventListener('popstate', back);
+  }, [designOnly]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [data, setData] = useState<Data | null>(null);
   const [notice, setNotice] = useState(''), [expired, setExpired] = useState(false), [loading, setLoading] = useState(false);
@@ -302,7 +327,10 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   const [focus, setFocus] = useState<string | null>(null);
   useEffect(() => {
     const thread = new URLSearchParams(window.location.search).get('thread');
-    if (thread && /^[0-9a-f-]{36}$/i.test(thread)) { void Promise.resolve().then(() => setFocus(thread)); window.history.replaceState(null, '', window.location.pathname); }
+    if (thread && /^[0-9a-f-]{36}$/i.test(thread)) {
+      void Promise.resolve().then(() => setFocus(thread));
+      const url = new URL(window.location.href); url.searchParams.delete('thread'); window.history.replaceState(null, '', url);
+    }
   }, [slug]);
   const openThread = (shop: string, sessionId: string) => {
     if (shop.toLowerCase() === slug.toLowerCase()) setFocus(sessionId);
@@ -311,8 +339,13 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
   const shown = (id: View) => id === 'activity' ? owner && !!perms?.includes('activity')
     : id === 'design' ? may('design') || may('cards') : id === 'profile' ? owner : true;
   const title = VIEWS.find(([id]) => id === view)![1];
+  const listed = VIEWS.filter(([id]) => (!designOnly || id === 'design') && shown(id));
+  const navButton = ([id, label, icon]: [View, string, string]) =>
+    <button key={id} type="button" data-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}><Icon path={icon} /><span>{label}</span></button>;
   return <div className={styles.app}>
     <aside className={styles.side}>
+      <div className={styles.brandRow}><BrandLine /></div>
+      <div className={styles.identity}>
       <div className={styles.avatar} aria-hidden="true">{initials(name)}</div>
       <p className={styles.shopName}>{name}</p>
       {owner ? <div className={styles.meRow}><button type="button" className={styles.me} data-me onClick={() => setView('profile')} aria-label="Mở hồ sơ của bạn">
@@ -321,9 +354,24 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
       {summary && summary.shops.length > 1 && <label className={styles.picker}>Shop đang xem
         <select value={slug} onChange={e => { if (e.target.value !== slug) router.push(`/ZZZ/${e.target.value}`); }}>
           {summary.shops.map(shop => <option key={shop.slug} value={shop.slug}>{shop.name}</option>)}</select></label>}
-      <nav className={styles.nav} aria-label="Phần của dashboard">{VIEWS.filter(([id]) => (!designOnly || id === 'design') && shown(id)).map(([id, label, icon]) =>
-        <button key={id} type="button" data-view={id} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}><Icon path={icon} /><span>{label}</span></button>)}</nav>
-      {owner && <button type="button" className={styles.logout} onClick={logout}>Đăng xuất</button>}
+      </div>
+      {/* One set of buttons for every width: a column on a computer; on a phone the first three become the bottom bar and
+          the rest, with the theme and sign-out, open from "Thêm" (audit A3). */}
+      <nav className={styles.nav} aria-label="Phần của dashboard" data-more={more || undefined}>
+        <div className={styles.primaryNav}>
+          {listed.filter(([id]) => PRIMARY.includes(id)).map(navButton)}
+          <button type="button" className={styles.moreButton} data-more-button aria-expanded={more} aria-controls="dashboard-more"
+            data-active={!PRIMARY.includes(view) || undefined} onClick={() => setMore(!more)}><Icon path={MORE_ICON} /><span>Thêm</span></button>
+        </div>
+        <div className={styles.secondaryNav} id="dashboard-more">
+          {listed.filter(([id]) => !PRIMARY.includes(id)).map(navButton)}
+          <div className={styles.navTools}>
+            <ThemeToggle initial={theme} />
+            {owner && <button type="button" className={styles.logout} onClick={logout}>Đăng xuất</button>}
+          </div>
+        </div>
+      </nav>
+      {more && <button type="button" className={styles.moreBackdrop} aria-label="Đóng" onClick={() => setMore(false)} />}
     </aside>
     <main className={styles.content}>
       {impersonation && <aside className={styles.impersonation} data-impersonation={impersonation.scope} role="note">
@@ -331,7 +379,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation 
         <p>Lý do: {impersonation.reason}</p>
         <button type="button" onClick={endStandIn}>Kết thúc phiên</button>
       </aside>}
-      <header className={styles.top}><p className={styles.brand}>{PLATFORM_NAME}</p><h1>{title}</h1></header>
+      <header className={styles.top}><h1>{title}</h1></header>
       <p role="status" aria-live="polite" className={styles.notice}>{notice}</p>
       {expired && (impersonation ? <Link href="/gov">Về trang quản trị</Link> : <a href={`/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`}>Đăng nhập lại</a>)}
 

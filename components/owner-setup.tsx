@@ -1,13 +1,13 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import styles from './owner-dashboard.module.css';
+import { AuthCard, Button, fieldClass } from './platform/ui';
 
 export default function OwnerSetup({ token, username }: { token: string; username: string }) {
   const router = useRouter();
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
-  return <main className={styles.login}>
-    <p>QUẢN LÝ SHOP</p><h1>Đặt mật khẩu</h1>
+  return <AuthCard eyebrow="Quản lý shop">
+    <h1>Đặt mật khẩu</h1>
     <p>Tài khoản <strong>{username}</strong>. Chỉ bạn biết mật khẩu này; người cấp tài khoản không xem được.</p>
     <form onSubmit={async event => {
       event.preventDefault(); setError('');
@@ -30,10 +30,10 @@ export default function OwnerSetup({ token, username }: { token: string; usernam
         router.replace(next ? `/owner/login?next=${encodeURIComponent(next)}` : '/owner/login'); router.refresh();
       } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
     }}>
-      <label>Mật khẩu mới<input name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>
-      <label>Nhập lại<input name="repeat" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>
-      <button disabled={busy}>{busy ? 'Đang lưu…' : 'Đặt mật khẩu'}</button>
+      <label className={fieldClass}>Mật khẩu mới<input name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>
+      <label className={fieldClass}>Nhập lại<input name="repeat" type="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label>
+      <Button variant="primary" disabled={busy}>{busy ? 'Đang lưu…' : 'Đặt mật khẩu'}</Button>
       <p role="alert">{error}</p>
     </form>
-  </main>;
+  </AuthCard>;
 }

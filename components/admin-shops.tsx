@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import styles from './admin.module.css';
+import { buttonClass } from './platform/ui';
 
 import { vnd } from '@/lib/publishing/pricing';
 import { TEMPLATE_KEYS, TEMPLATE_NAMES } from '@/lib/publishing/templates';
@@ -14,6 +15,8 @@ export type ShopRow = {
   pages: number; monthly: number;
 };
 /** The owner's four positions, as the operator sees them (migration 012). */
+/** What each publishing state means to the operator (migration 003); the raw word stays on data-publishing-state. */
+const STATES: Record<string, string> = { draft: 'nháp', active: 'đang chạy', suspended: 'bị treo' };
 const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
 /** The six templates, named as in docs/thiet-ke-va-template.md mục 12. */
 const allows = (row: ShopRow, scope: 'overview' | 'feedback' | 'design') =>
@@ -124,8 +127,8 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
           <option value="design" disabled={!allows(standIn, 'design')}>Sửa giao diện{allows(standIn, 'design') ? '' : ' (cần khấc 2 hoặc 3)'}</option>
         </select></label>
         <label>Lý do (chủ shop sẽ đọc)<input name="reason" required minLength={10} maxLength={200} placeholder="Shop nhờ kiểm vì sao số lượt mở giảm"/></label>
-        <button disabled={busy}>Mở dashboard</button>
-        <button type="button" disabled={busy} onClick={() => setStandIn(null)}>Huỷ</button>
+        <button className={buttonClass('primary')} disabled={busy}>Mở dashboard</button>
+        <button type="button" className={buttonClass('quiet')} disabled={busy} onClick={() => setStandIn(null)}>Huỷ</button>
       </form>
       {error && <p className={styles.muted} data-impersonate-error>{error}</p>}
     </section>}
@@ -154,7 +157,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
         <label>Đường dẫn Google (bỏ trống nếu chưa có)<input name="googleUrl" type="url" maxLength={2048} placeholder="https://maps.app.goo.gl/..."/></label>
         <label>Template<select name="templateKey" defaultValue="standard" data-template-choice>
           {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}</select></label>
-        <button disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo shop'}</button>
+        <button className={buttonClass('primary')} disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo shop'}</button>
       </form>
       {error && <p role="alert" className={styles.muted}>{error}</p>}
 
@@ -176,35 +179,35 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
     </section>
 
     <section className={styles.panel}>
-      <div className={styles.row}><h2>Shop đang có ({shops.filter(row => !row.is_template).length})</h2>
-        {!shops.some(row => row.is_template) && <button disabled={busy} onClick={makeTemplate}>Tạo shop template</button>}
-        {shops.some(row => row.is_template) && <button disabled={busy} onClick={resetTemplate}>Đưa template về mặc định mới</button>}
+      <div className={styles.head}><h2>Shop đang có ({shops.filter(row => !row.is_template).length})</h2>
+        {!shops.some(row => row.is_template) && <button className={buttonClass('secondary')} disabled={busy} onClick={makeTemplate}>Tạo shop template</button>}
+        {shops.some(row => row.is_template) && <button className={buttonClass('secondary')} disabled={busy} onClick={resetTemplate}>Đưa template về mặc định mới</button>}
         {shops.some(row => row.is_template && !row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản cho template (link đặt mật khẩu)</button>}
+          <button className={buttonClass('secondary')} disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo tài khoản cho template (link đặt mật khẩu)</button>}
         {shops.some(row => row.is_template && row.owner_username) &&
-          <button disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo lại link đặt mật khẩu cho yourshop</button>}
-        <button disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
+          <button className={buttonClass('secondary')} disabled={busy} onClick={() => void makeTemplateAccount()}>Tạo lại link đặt mật khẩu cho yourshop</button>}
+        <button className={buttonClass('quiet')} disabled={busy} onClick={endStandIn}>Kết thúc phiên xem thay mặt</button></div>
       {templateLink && <p data-template-link>Link đặt mật khẩu cho <strong>yourshop</strong>: <code>{templateLink}</code>{' '}
-        <button type="button" onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
+        <button type="button" className={buttonClass('secondary')} onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
       <div className={styles.wide}>
         <table className={styles.table}>
           <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang · dự kiến</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
-              <td>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
-              <td>{origin ? <a href={`${origin}/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
-              <td>{origin ? <a href={`${origin}/ZZZ/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
-              <td>{row.is_template
+              <td data-label="Shop" className={styles.shopCell}>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
+              <td data-label="Trang khách">{origin ? <a href={`${origin}/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
+              <td data-label="Dashboard">{origin ? <a href={`${origin}/ZZZ/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
+              <td data-label="Chủ shop">{row.is_template
                 ? row.owner_username ? <>{row.owner_username} <em>(tài khoản test)</em></> : <em>chưa có tài khoản, dùng để nhân bản</em>
                 : row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
-              <td>{row.active_tags}/{row.tags} hoạt động</td>
-              <td data-shop-monthly={row.monthly}>{row.pages} trang · {row.is_template ? '—' : `${vnd(row.monthly)}/tháng`}</td>
-              <td>{row.publishing_state}</td>
-              <td data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
-              <td>{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
-              <td>{row.owner_user_id && !row.is_template && <>
-                <button disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>
-                <button disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
+              <td data-label="Thẻ">{row.active_tags}/{row.tags} hoạt động</td>
+              <td data-label="Trang · dự kiến" data-shop-monthly={row.monthly}>{row.pages} trang · {row.is_template ? '—' : `${vnd(row.monthly)}/tháng`}</td>
+              <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
+              <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
+              <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
+              <td className={styles.rowActions}>{row.owner_user_id && !row.is_template && <>
+                <button className={buttonClass('secondary')} disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>
+                <button className={buttonClass('caution')} disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
               </>}</td>
             </tr>)}
             {!shops.length && <tr><td colSpan={9} className={styles.muted}>Chưa có shop nào.</td></tr>}

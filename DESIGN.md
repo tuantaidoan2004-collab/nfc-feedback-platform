@@ -209,7 +209,11 @@ dung không bao giờ được chạm vào nó. Thiếu nó thì thẻ và dải
 **Màu chủ đạo (Tài chốt 27/09): tím, theo tinh thần uxpeak** (`docs/ui-ux-nguon-tham-khao.md` mục 1f) — nền tối, thẻ kính
 viền mảnh, nút viên thuốc tím. **Chế độ sáng cho ban ngày: trắng, cam, sữa tươi** — sáng, "fresh". Hai chế độ dùng chung
 một bộ token nền tảng (lát S1); trang khách **không** dùng màu này — nó giữ màu của từng quán qua template. Mã màu cụ
-thể chốt trong S1, và phải qua được sàn 2 (tương phản 4,5:1) ở cả hai chế độ.
+thể **đã chốt trong S1** (27/09): `components/platform/platform.css` — tối tím `#7c3aed` trên nền `#0c0a16`, sáng cam
+`#c2410c` trên nền sữa `#fff8f0`; mọi cặp chữ qua 4,5:1 ở cả hai chế độ (`tests/contracts/platform-tokens.spec.ts`).
+Người xem chọn **Tối · Sáng · Theo máy** (mặc định theo máy), lưu bằng cookie `qs_theme`, máy chủ vẽ đúng ngay lần đầu.
+Phần dùng chung ở `components/platform/ui.tsx`: nút bốn loại (chính · phụ · nguy hiểm · thận trọng, cộng loại nhạt), thẻ,
+ô nhập, huy hiệu, viên nhãn, thẻ đăng nhập, trạng thái trống. CSS nền tảng không được viết màu thẳng — test chặn.
 
 ### Trang giới thiệu (chưa dựng)
 

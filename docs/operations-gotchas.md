@@ -114,6 +114,15 @@ trò (`getByRole(…, {name})`) chỉ khi câu chữ là luật sản phẩm** �
 lý, thông báo lỗi khách đọc; mọi thứ khác tìm bằng móc `data-*` ổn định. Mỗi lát cải tổ viết lại test của đúng bề mặt nó
 chạm, và không xoá một câu kiểm bất biến chỉ vì chữ đổi.
 
+**Một lỗi cú pháp trong một tệp CSS module làm sập cả app ở `next dev`, kể cả trang khách.** Lát S1: thừa một dấu `}` trong
+`owner-app.module.css` và một selector không có class cục bộ (`[data-template-link] code`) trong `admin.module.css` → cả
+bốn bộ integration đỏ, trang khách `/one` không hiện, log ghi `Syntax error … Unexpected }` và `is not pure`. Đọc log app
+tìm `Syntax error` trước khi đọc lỗi test. Selector trong CSS module phải có ít nhất một class hay id cục bộ.
+
+**Khổ mặc định của bộ integration là điện thoại: 390×844** (`playwright.integration.config.ts`). Từ S1, trên điện thoại
+Hoạt động, Cài đặt, Hồ sơ và Đăng xuất nằm sau nút "Thêm"; test bấm chúng qua `openView` / `signOut` trong chính tệp test.
+Test nào giả định màn hình máy tính phải tự `setViewportSize`.
+
 **Chạy cả bộ integration một lệnh thì 11 test đỏ.** Ba lệnh harness **loại trừ nhau**, vì `publishing = owner || --publishing` nên `--owner`/`--admin` bật luôn publishing và đổi cách `/one` render:
 
 ```

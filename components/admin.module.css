@@ -1,28 +1,61 @@
-/* Administration keeps its own stylesheet rather than importing the owner module: the two surfaces are
-   separate spaces, and a shared file invites a change meant for one to land on the other. */
-.login{max-width:390px;margin:12vh auto;padding:28px;background:#f5f7f3;border:1px solid #dbe5dc;border-radius:18px;box-shadow:0 15px 50px #17382c12;color:#17382c;font-family:Arial,sans-serif}
-.login form{display:grid;gap:18px}
-.login p{line-height:1.5}
-.login label{display:grid;gap:6px;font-size:13px}
-.login input{width:100%;min-width:0;border:1px solid #cdd9d0;background:white;color:#17382c;padding:10px;border-radius:8px;font:inherit;box-sizing:border-box}
-.shell{max-width:1200px;margin:auto;padding:32px 24px 64px;color:#17382c;background:#f5f7f3;min-height:100vh;font-family:Arial,sans-serif}
-.shell h1{font-size:32px;margin:8px 0}
-.shell p{line-height:1.6}
-.row{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
-.login button,.shell button{background:#214e3c;color:white;border:0;border-radius:10px;padding:12px 16px;font-size:14px;cursor:pointer}
-.login button:disabled,.shell button:disabled{opacity:.55;cursor:wait}
-.login :focus-visible,.shell :focus-visible{outline:3px solid #cd923c;outline-offset:3px}
-@media(max-width:650px){.login{margin:8vh 16px}.shell{padding:20px 14px 40px}.shell h1{font-size:25px}}
-.panel{background:white;border:1px solid #e0e8df;border-radius:14px;padding:20px;margin:20px 0;box-shadow:0 5px 18px #16362909}
-.panel h2{font-size:19px;margin:0 0 4px}
-.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:end;margin-top:14px}
-.form label{grid-column:span 1}
-.wide{overflow-x:auto}
-.table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
-.table th,.table td{text-align:left;padding:10px 12px;border-bottom:1px solid #e8eee7;vertical-align:top}
-.table th{font-weight:600;color:#52695e;white-space:nowrap}
-.table code{font-size:12px;word-break:break-all}
-.handover{background:#e6eee5;border:1px solid #cdd9d0;border-radius:12px;padding:16px;margin-top:16px}
-.handover code{display:block;word-break:break-all;background:white;border:1px solid #cdd9d0;border-radius:8px;padding:10px;margin:8px 0;font-size:13px}
-.muted{font-size:13px;color:#52695e;line-height:1.6}
-@media(max-width:650px){.form{grid-template-columns:1fr}}
+/* /gov (lát S1): the platform's look, from the --p-* tokens in platform/platform.css. Administration keeps its own
+   layout file rather than importing the owner module: the two surfaces are separate spaces. Buttons carry their kind
+   explicitly (buttonClass in platform/ui) -- no rule here styles a bare <button>, so a danger button stays red. */
+.shell { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+.top h1 { margin: 10px 0 0; font-size: clamp(26px, 4vw, 36px); line-height: 1.1; letter-spacing: -.02em; }
+.topTools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.shell p { line-height: 1.6; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.head h2 { flex: 1 1 100%; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.items { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; }
+.items > li { padding-top: 14px; border-top: 1px solid var(--p-line); }
+.items > li:first-child { padding-top: 0; border-top: 0; }
+.items p { margin: 0 0 4px; }
+.panel { background: var(--p-surface); border: 1px solid var(--p-line); border-radius: var(--p-radius-lg); padding: 22px; margin: 18px 0;
+  box-shadow: var(--p-shadow); }
+.panel h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.01em; }
+.muted { margin: 4px 0 0; font-size: 14px; color: var(--p-muted); line-height: 1.6; }
+.form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: end; margin-top: 16px; }
+.form label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--p-ink-2); }
+.form input, .form select { width: 100%; min-width: 0; min-height: 46px; padding: 10px 14px; border: 1px solid var(--p-line-strong);
+  border-radius: var(--p-radius); background: var(--p-sunken); color: var(--p-ink); font: inherit; font-size: 16px; font-weight: 400; }
+.form input::placeholder { color: var(--p-muted); }
+.form input:focus, .form select:focus { outline: none; border-color: var(--p-accent-text); box-shadow: 0 0 0 4px var(--p-accent-soft); }
+.form > button { justify-self: start; }
+.mediaItem { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; align-items: start; }
+.mediaThumb { width: 120px; border-radius: var(--p-radius-sm); background: var(--p-sunken); }
+.wide { overflow-x: auto; margin-top: 14px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 760px; }
+.table th, .table td { text-align: left; padding: 12px; border-bottom: 1px solid var(--p-line); vertical-align: top; }
+.table th { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--p-muted); white-space: nowrap; }
+.table code { font-size: 12px; word-break: break-all; color: var(--p-muted); }
+.table em { color: var(--p-muted); }
+.rowActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.handover { margin-top: 18px; padding: 18px; border: 1px solid var(--p-line-strong); border-radius: var(--p-radius); background: var(--p-accent-soft); }
+.handover code { display: block; margin: 8px 0; padding: 12px; border: 1px solid var(--p-line); border-radius: var(--p-radius-sm);
+  background: var(--p-sunken); color: var(--p-ink); font-size: 13px; word-break: break-all; }
+.codes { list-style: none; margin: 0; padding: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  border: 1px solid var(--p-line); border-radius: var(--p-radius); background: var(--p-sunken); font-size: 15px; }
+.shell [data-template-link] code { word-break: break-all; }
+
+/* A phone: the form stacks, and each shop becomes a card whose cells carry their column's name (audit A5). */
+@media (max-width: 700px) {
+  .shell { padding: 18px 14px 40px; }
+  .panel { padding: 16px; }
+  .form { grid-template-columns: minmax(0, 1fr); }
+  .wide { overflow: visible; }
+  .table { min-width: 0; }
+  .table thead { display: none; }
+  .table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 14px; padding: 14px 0; border-bottom: 1px solid var(--p-line); }
+  .table td { padding: 0; border: 0; }
+  .table td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--p-muted); }
+  .table td.shopCell, .table td.rowActions { grid-column: 1 / -1; }
+  .table td.shopCell::before { display: none; }
+  .table td.shopCell { font-size: 16px; font-weight: 700; }
+  .mediaItem { grid-template-columns: 88px minmax(0, 1fr); }
+  .mediaThumb { width: 88px; }
+}

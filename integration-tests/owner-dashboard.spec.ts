@@ -13,6 +13,10 @@ const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({}
  try{await db.query('TRUNCATE owner_identities_v2,shops,template_versions,owner_login_limits CASCADE');await provideFixture(await ownerFixture(db));}finally{await db.end();}
 }});
 const origin='http://127.0.0.1:3317';
+// Lát S1: at a phone's width (this suite's default) Hoạt động, Cài đặt, Hồ sơ and sign-out sit behind "Thêm", as a person
+// reaches them; these open it first when needed.
+async function openView(page:Page,view:string){const button=page.locator(`[data-view="${view}"]`);if(!(await button.isVisible()))await page.locator('[data-more-button]').click();await button.click();}
+async function signOut(page:Page){const button=page.getByRole('button',{name:'Đăng xuất'});if(!(await button.isVisible()))await page.locator('[data-more-button]').click();await button.click();}
 async function login(page:Page,user:{username:string;password:string},shop='one'){
  await page.goto(`/ZZZ/${shop}`);await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
  await page.getByLabel('@handle hoặc email',{exact:true}).fill(user.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(user.password);
@@ -79,8 +83,42 @@ test('Publishing v2 customer→owner login→real metrics/filter/handling/export
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`owner-${width}.png`),fullPage:true});}
  const headers=(await context.request.get('/ZZZ/one')).headers();// Next16 development overrides HTML caching; private data endpoints remain strictly no-store.
  expect(headers['cache-control']).toBe('no-cache, must-revalidate');expect(headers['x-frame-options']).toBe('DENY');
- await page.getByRole('button',{name:'Đăng xuất'}).click();await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
+ await signOut(page);await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
  expect((await context.request.get('/api/owner/v2/one')).status()).toBe(401);expect((await f.db.query('SELECT revoked_at FROM owner_auth_sessions_v2 WHERE token_hash=$1',[sessionHash(cookie.value)])).rows[0].revoked_at).not.toBeNull();
+ expect(errors).toEqual([]);
+});
+// Lát S1 (audit A3, A4): each view has its own address and Back returns to the last one; on a phone the navigation is a
+// bar at the bottom of the screen whose "Thêm" holds the rest, sign-out included; the theme chosen survives a reload.
+test('views have addresses, Back returns to the last one, a phone gets a bottom bar, and the theme is remembered',async({page,f})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await login(page,f.users[0]);
+ await page.locator('[data-view="data"]').click();await expect(page).toHaveURL(/\?view=data$/);
+ await openView(page,'settings');await expect(page).toHaveURL(/\?view=settings$/);
+ await page.goBack();await expect(page.locator('[data-view="data"]')).toHaveAttribute('aria-current','page');
+ await page.goBack();await expect(page.locator('[data-view="home"]')).toHaveAttribute('aria-current','page');
+ await expect(page.locator('[data-kpi="visits"]')).toBeVisible();
+ // A link straight to a view opens that view.
+ await page.goto('/ZZZ/one?view=settings');await expect(page.locator('[data-view="settings"]')).toHaveAttribute('aria-current','page');
+ await expect(page.locator('[data-support]')).toBeVisible();
+ // A phone: the bar sits at the bottom, every target in it at least 44px; the rest opens from "Thêm" and closes on choosing.
+ await page.setViewportSize({width:390,height:844});
+ const nav=page.getByRole('navigation',{name:'Phần của dashboard'});
+ const bar=(await nav.boundingBox())!;expect(bar.y+bar.height).toBeGreaterThan(840);
+ const targets=nav.locator('[data-view="home"], [data-view="data"], [data-view="design"], [data-more-button]');
+ await expect(targets).toHaveCount(4);
+ for(const box of await targets.evaluateAll(els=>els.map(el=>el.getBoundingClientRect()).map(r=>[r.width,r.height])))expect(Math.min(...box)).toBeGreaterThanOrEqual(44);
+ await expect(page.locator('[data-view="activity"]')).toBeHidden();
+ await page.locator('[data-more-button]').click();
+ await expect(page.locator('[data-view="profile"]')).toBeVisible();await expect(page.getByRole('button',{name:'Đăng xuất'})).toBeVisible();
+ await openView(page,'profile');
+ await expect(page).toHaveURL(/\?view=profile$/);await expect(page.locator('[data-view="profile"]')).toBeHidden();
+ await expect(page.locator('[data-more-button]')).toHaveAttribute('data-active','true');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ // Daylight, chosen by hand, is still daylight after a reload: the server paints it from the cookie.
+ await page.locator('[data-more-button]').click();await page.locator('[data-theme-choice="light"]').click();
+ await expect(page.locator('.platform')).toHaveAttribute('data-theme','light');
+ await page.reload();await expect(page.locator('.platform')).toHaveAttribute('data-theme','light');
+ await expect(page.locator('[data-view="profile"]')).toHaveAttribute('aria-current','page');
  expect(errors).toEqual([]);
 });
 test('the new shell: side menu views, week chart, data only on demand, and switching shop',async({page,f},info)=>{
@@ -89,7 +127,7 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[0].id,f.shops[1]]);
  const rows:string[]=[];page.on('request',r=>{if(/\/api\/owner\/v2\/one\?/.test(r.url()))rows.push(r.url());});
  await login(page,f.users[0]);
- await expect(page.getByText('NFC Feedback',{exact:true})).toBeVisible();
+ await expect(page.locator('[data-brand]')).toContainText('Quite Sensational');
  await expect(page.locator('[data-view="home"]')).toHaveAttribute('aria-current','page');
  await expect(page.locator('[data-week] li')).toHaveCount(7);
  await expect(page.locator('[data-week] [data-opens]').last()).toHaveAttribute('data-opens','1');
@@ -97,7 +135,7 @@ test('the new shell: side menu views, week chart, data only on demand, and switc
  await expect(page.locator('[data-design-editor]')).toBeVisible();await expect(page.locator('[data-week]')).toHaveCount(0);
  // Which template version the draft and the live page wear (versions.ts): here both are version 1.
  await expect(page.locator('[data-template-state]')).toContainText('bản nháp dùng bản 1, trang khách cũng đang chạy bản này.');
- await page.locator('[data-view="settings"]').click();
+ await openView(page,'settings');
  await expect(page.getByRole('region',{name:'Tài khoản'})).toContainText(f.users[0].username);
  await expect(page.locator('[data-support]')).toBeVisible();
  // Opening Data asks the server for nothing until a period is chosen.
@@ -226,7 +264,7 @@ test('password: change it in Hồ sơ, the old one stops working, the new one si
  try{
   const second=await other.newPage();await login(second,a);
   await login(page,a);
-  await page.locator('[data-view="profile"]').click();
+  await openView(page,'profile');
   const form=page.locator('[data-password-form]');
   await form.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('not-the-password');
   await form.getByLabel('Mật khẩu mới (ít nhất 12 ký tự)',{exact:true}).fill(next);
@@ -240,7 +278,7 @@ test('password: change it in Hồ sơ, the old one stops working, the new one si
   expect((await second.request.get('/api/owner/v2/one/summary')).status()).toBe(401);
   expect((await page.request.get('/api/owner/v2/one/summary')).status()).toBe(200);
   expect((await page.request.put('/api/owner/v2/password',{headers:{Origin:'https://invalid.example'},data:{current:next,next:'another-long-password'}})).status()).toBe(403);
-  await page.getByRole('button',{name:'Đăng xuất'}).click();await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
+  await signOut(page);await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
   await page.getByLabel('@handle hoặc email',{exact:true}).fill(a.username);await page.getByLabel('Mật khẩu',{exact:true}).fill(a.password);
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
   await login(page,{username:a.username,password:next});
@@ -279,12 +317,12 @@ test('profile: a channel-like page, edit name, @handle and bio, then sign in wit
  await page.setViewportSize({width:1280,height:900});
  await page.screenshot({path:info.outputPath('profile-1280.png'),fullPage:true});
  // Sign in again with the new @handle, then with the email, typed in capitals.
- await page.getByRole('button',{name:'Đăng xuất'}).click();
+ await signOut(page);
  // A Vietnamese phone keyboard puts marks into the handle (Telex: "yourshop" becomes "yoủshop"); the page says so.
  await page.getByLabel('@handle hoặc email',{exact:true}).fill('@hoa.cafè');await expect(page.locator('[data-accent-hint]')).toBeVisible();
  await page.getByLabel('@handle hoặc email',{exact:true}).fill('@hoa.cafe');await expect(page.locator('[data-accent-hint]')).toHaveCount(0);
  await login(page,{username:'@hoa.cafe',password:a.password});
- await page.getByRole('button',{name:'Đăng xuất'}).click();
+ await signOut(page);
  await f.db.query("UPDATE owner_identities_v2 SET email='hoa@example.com' WHERE id=$1",[a.id]);
  await login(page,{username:'Hoa@Example.com',password:a.password});
  expect(errors).toEqual([]);
@@ -297,7 +335,7 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
  await warm.request.post('/api/owner/v2/setup',{headers:{Origin:origin},data:{token:'0'.repeat(64),password:'not-a-real-password'}});await warm.close();
  await addExperience(f.db,'one',2,'Lời khách riêng tư');
  await login(page,f.users[0]);
- await page.locator('[data-view="settings"]').click();
+ await openView(page,'settings');
  const team=page.locator('[data-team]');
  await expect(team.locator('[data-member]')).toHaveCount(1);
  const invite=team.locator('[data-invite]');
@@ -334,7 +372,7 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
   await expect(an.getByRole('region',{name:'Tải dữ liệu'})).toHaveCount(0);
  }finally{await other.close();}
  // The owner reads the history; ⌘K (Ctrl+K) jumps to the search, which ignores accents.
- await page.locator('[data-view="activity"]').click();
+ await openView(page,'activity');
  const history=page.locator('[data-activity]');
  await expect(history.locator('[data-activity-row]')).toHaveCount(2);
  await page.keyboard.press('Control+k');
@@ -353,7 +391,7 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
  await page.keyboard.press('Escape');await expect(history.locator('[data-mentions]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath('activity-390.png'),fullPage:true});
- await page.locator('[data-view="settings"]').click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await openView(page,'settings');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath('team-390.png'),fullPage:true});
  expect(errors).toEqual([]);
 });

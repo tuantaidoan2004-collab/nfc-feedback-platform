@@ -9,6 +9,9 @@ const uri=process.env.NFC_TEST_DATABASE_URL,schema=process.env.NFC_TEST_SCHEMA;
 if(uri!=='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test'||!/^nfc_ui_test_[a-f0-9]{32}$/.test(schema??''))throw Error('Isolated harness required');
 const secret='a-sufficiently-long-admin-secret';
 const origin='http://127.0.0.1:3317';
+// Lát S1: at a phone's width (this suite's default) Hoạt động, Cài đặt and Hồ sơ sit behind "Thêm", as a person
+// reaches them; this opens it first when needed.
+async function openView(page:Page,view:string){const button=page.locator(`[data-view="${view}"]`);if(!(await button.isVisible()))await page.locator('[data-more-button]').click();await button.click();}
 const test=base.extend<{admin:{db:Pool;username:string;app:Buffer}}>({admin:async({},provide)=>{
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`});
  try{await db.query('TRUNCATE platform_admins,admin_login_limits CASCADE');
@@ -134,6 +137,13 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
  // What the shop would pay (lát P5): one running page on a free place.
  await expect(page.locator('tr',{has:page.getByRole('cell',{name:slug})}).locator('[data-shop-monthly]')).toHaveText('1 trang · 0đ/tháng');
+ // Lát S1 (audit A5): on a phone each shop is a card whose cells name their column, and nothing scrolls sideways.
+ const shopRow=page.locator('tr',{has:page.getByRole('cell',{name:slug})});
+ await expect(shopRow.locator('[data-publishing-state]')).toHaveText('đang chạy');
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(await shopRow.locator('[data-label="Chủ shop"]').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"Chủ shop"');
+ await page.setViewportSize({width:1280,height:800});
  // The chosen skeleton is the release's template, and it reaches the guest page as a skin hook only.
  expect((await admin.db.query(`SELECT tv.template_key FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id
    JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.slug=$1`,[slug])).rows).toEqual([{template_key:'glass'}]);
@@ -282,7 +292,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  await expect(page.getByText('Góp ý kín của khách')).toHaveCount(0);
  for(const name of ['Lưu xử lý','Đăng xuất',/^Ghi chú/])await expect(page.getByRole('button',{name})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
- await page.locator('[data-view="settings"]').click();
+ await openView(page,'settings');
  for(const name of ['Tắt','Khấc 1 · Xem','Khấc 2 · Sửa','Khấc 3 · Toàn quyền'])await expect(page.getByRole('radio',{name:new RegExp(`^${name}`)})).toBeDisabled();
 
  const cookies=(await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1');
@@ -322,7 +332,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await ownerPage.getByLabel('@handle hoặc email',{exact:true}).fill('quan-hotro');
   await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await ownerPage.locator('[data-view="settings"]').click();
+  await openView(ownerPage,'settings');
   const level=(name:string)=>ownerPage.getByRole('radio',{name:new RegExp(`^${name}`)});
   await expect(level('Tắt')).toBeChecked();
   await level('Khấc 1 · Xem').check();
@@ -362,7 +372,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
 
   // The owner sees both visits with the reason exactly as typed, and their own two switches.
   await ownerPage.reload();
-  await ownerPage.locator('[data-view="settings"]').click();
+  await openView(ownerPage,'settings');
   await expect(ownerPage.locator('[data-admin-visits] [data-admin-visit]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-admin-visit] [data-admin-badge="Quitesensational"]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-reason]').filter({hasText:overviewReason})).toHaveText(overviewReason);
@@ -390,7 +400,7 @@ test('position 2: support edits and publishes the page in a design session, sees
   await ownerPage.goto(`/ZZZ/${made.slug}`);
   await ownerPage.getByLabel('@handle hoặc email',{exact:true}).fill('quan-suaho');await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
   await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await ownerPage.locator('[data-view="settings"]').click();
+  await openView(ownerPage,'settings');
   await ownerPage.getByRole('radio',{name:/^Khấc 2 · Sửa/}).check();
   await expect(ownerPage.locator('[data-support="edit"]')).toBeVisible();
 
@@ -416,7 +426,7 @@ test('position 2: support edits and publishes the page in a design session, sees
   expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.design.publish'")).rows[0].n).toBe(1);
   await ownerPage.goto(`/${made.slug}`);await expect(ownerPage.getByRole('heading',{name:'Quán Đã Sửa Hộ',exact:true})).toBeVisible();
   // The owner sees the visit and its reason.
-  await ownerPage.goto(`/ZZZ/${made.slug}`);await ownerPage.locator('[data-view="settings"]').click();
+  await ownerPage.goto(`/ZZZ/${made.slug}`);await openView(ownerPage,'settings');
   await expect(ownerPage.locator('[data-admin-visit]')).toContainText('Sửa giao diện');
   await expect(ownerPage.locator('[data-reason]')).toHaveText('Shop nhờ đổi tên hiển thị và thêm nút gọi');
  }finally{await owner.close();}

@@ -3,7 +3,7 @@ import OwnerSetup from '@/components/owner-setup';
 import { OwnerSetupLinks } from '@/lib/owner/setup-link';
 import { database } from '@/server/db';
 import { ownerEnabled } from '@/server/owner-v2';
-import styles from '@/components/owner-dashboard.module.css';
+import { AuthCard } from '@/components/platform/ui';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
@@ -18,11 +18,11 @@ export default async function Page({ params }: { params: Promise<{ token: string
   try { link = await new OwnerSetupLinks(database()).inspect(token) as { username: string } | null; }
   catch { unavailable = true; }
 
-  if (unavailable) return <main className={styles.login}><h1>Dịch vụ đang gián đoạn</h1><p>Vui lòng thử lại sau.</p></main>;
+  if (unavailable) return <AuthCard><h1>Dịch vụ đang gián đoạn</h1><p>Vui lòng thử lại sau.</p></AuthCard>;
   // One message for expired, already used, replaced and never existed: which one it was is not the visitor's
   // business, and saying would tell someone guessing links whether they had found a real one.
-  if (!link) return <main className={styles.login}><p>QUẢN LÝ SHOP</p><h1>Liên kết không dùng được</h1>
-    <p>Liên kết đã hết hạn, đã được dùng, hoặc đã bị thay bằng liên kết mới. Hãy liên hệ nơi cấp tài khoản để xin liên kết khác.</p></main>;
+  if (!link) return <AuthCard eyebrow="Quản lý shop"><h1>Liên kết không dùng được</h1>
+    <p>Liên kết đã hết hạn, đã được dùng, hoặc đã bị thay bằng liên kết mới. Hãy liên hệ nơi cấp tài khoản để xin liên kết khác.</p></AuthCard>;
 
   return <OwnerSetup token={token} username={link.username}/>;
 }
