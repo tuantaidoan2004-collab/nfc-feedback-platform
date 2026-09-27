@@ -172,11 +172,19 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**Phiên mới bắt đầu từ đây (27/09 khuya):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → **D4a → D4b** (audit
-`docs/audit-ui-ux-20260927.md` mục 4). **D4 nằm trên nhánh, chưa lên `main`.** Thứ tự đẩy: Tài chạy **migration 029 trên Neon
-production và preview** → đẩy nhánh, CI xanh → đẩy đúng commit đó lên `main` (hai bước, `operations-gotchas.md`). **Vercel (Tài
+**Phiên mới bắt đầu từ đây (27/09 khuya):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → **M2b** (audit
+`docs/audit-ui-ux-20260927.md` mục 4). D4 đã lên production (`main` = `66b8c4c`, Neon 001–029). **M2b nằm trên nhánh, có
+migration 030**: Tài chạy 030 trên Neon production và preview → đẩy nhánh, CI xanh → đẩy đúng commit đó lên `main`. **Vercel (Tài
 chốt 27/09): Pro tới 29/09, rồi chuyển VPS** (bộ I1, `tu-chay.md`) — từ 29/09 trang chính chỉ được chạy trên VPS hoặc Pro trả tiền,
-không bao giờ trên Hobby. Lát kế: **M2b** (lời cảm ơn shop tự sửa + duyệt), hoặc D4c (đăng nhập bằng Google). Chờ Tài: thử lời
+không bao giờ trên Hobby. Lát kế theo audit: **P5b-lite** (tab Thanh toán, cần mã QR ngân hàng + Zalo của Tài), hoặc D4c (đăng
+nhập bằng Google, cần OAuth client).
+
+**M2b (27/09, migration 030):** lời cảm ơn trước Google do shop tự viết (`PageConfig.thanks`, tiếng Việt + tiếng Anh, ≤ 120 ký tự;
+chỉ dòng đầu của thẻ — câu "trang sẽ chuyển sang Google" vẫn là của nền tảng), chỉ ở template có thẻ cảm ơn (1–5). Không được
+nhắc sao/chấm điểm/hình ngôi sao (`thanksProblem`, luật 3 và 7) và qua dây bẫy quà/tên nhân viên. **Cửa duyệt chữ** giống cửa duyệt
+ảnh: lưu nháp thì câu vào `text_reviews`; phát hành bị chặn (`THANKS_PENDING/REJECTED/UNKNOWN`) tới khi Tài duyệt ở khung "Lời cảm
+ơn chờ duyệt" của `/gov`; trang đang chạy giữ câu cũ; câu đã duyệt dùng lại ở mọi trang của shop, và câu duyệt trên shop template
+đi theo shop nhân bản từ nó; đổi template giữ câu. Chờ Tài: thử lời
 cảm ơn trước Google trên Safari và Chrome iPhone; quét QR ở `/bat-dau` bằng camera iPhone và Android (mã QR tự vẽ, mới chỉ được
 bộ đọc QR của Chrome kiểm); Tài sẽ in link lên danh thiếp.
 
@@ -194,7 +202,7 @@ loạt: chung khe băm mật khẩu với đăng nhập, 20 lượt/giờ toàn 
 chờ. Báo chủ quán khi duyệt: Tài nhắn tay (Zalo/email hiện ở `/gov`). Bậc "gửi link bản nháp cho Tài" của D4a đã gỡ.
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch** (029 chờ Tài). `main` = `6db5735` (M3, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**.
+  branch** + 029 (Tài chạy 27/09); 030 chờ Tài. `main` = `66b8c4c` (D4, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**.
 - **Vercel → VPS (Tài chốt 27/09, thay quyết định "xuống Hobby" cùng ngày):** Pro tới 29/09, rồi chuyển sang VPS chạy bộ I1.
   Hobby **cấm dùng thương mại** và trang chính là quảng cáo bán dịch vụ, nên sau 29/09 production không được ở Hobby (audit
   mục 1). Log Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.
@@ -239,10 +247,10 @@ phải dọn nền trước. **S0 dọn nền xong 27/09** (đổi "khuôn" → 
 chọn Tối · Sáng · Theo máy; `/gov` và các trang đăng nhập dựng lại (nút theo loại việc, nhãn trên ô, bảng thành thẻ trên
 điện thoại); dashboard: thanh đáy trên điện thoại + "Thêm", mỗi mục một URL (`?view=`), nút Back đúng. **M2 module hiệu ứng xong 27/09**: `components/effects/` (kính, hạt ngọc,
 lớp sương, lời cảm ơn trước Google) qua một sổ đăng ký; template 1–5 bật lời cảm ơn + tim bung + đếm 4 giây rồi Google mở
-tab mới (chặn thì có nút "Mở Google"); con trỏ góp ý đổi 4 màu của template. Lời cảm ơn shop tự sửa + admin duyệt là **M2b**
-(migration). **M3 section xong 27/09, không cần migration**: `PageConfig` v3 có `sections` (khối nào hiện, thứ
+tab mới (chặn thì có nút "Mở Google"); con trỏ góp ý đổi 4 màu của template. Lời cảm ơn shop tự sửa + admin duyệt: **M2b xong 27/09**
+(migration 030). **M3 section xong 27/09, không cần migration**: `PageConfig` v3 có `sections` (khối nào hiện, thứ
 tự nào); dữ liệu khối ở chỗ cũ; chỉ poster được đứng trên nút Google; trình chỉnh có khung "Các khối trên trang". Lát kế
-theo audit: **D4** — **D4a, D4b xong 27/09** (trên nhánh, chờ Tài chạy 029 để lên `main`); kế là M2b hoặc D4c. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+theo audit: **D4a, D4b, M2b xong 27/09**; kế là P5b-lite hoặc D4c. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
 (`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và

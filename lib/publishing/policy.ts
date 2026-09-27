@@ -109,6 +109,18 @@ export function googleUrlProblem(value: string): 'host' | 'prefill' | null {
   return null;
 }
 
+/**
+ * The thank-you line (lát M2b) sits between the guest's tap on Google and Google itself, so it must never ask for a
+ * rating or a number of stars (google-policy.md luật 3 và 7): "cho quán 5 sao nhé" is exactly the prompt the rules
+ * forbid. Stars as a glyph are refused too (Tài: "không bao giờ hình ngôi sao"). Whole words, accents folded, like the
+ * trip-wire above; the administrator's review catches what words cannot.
+ */
+const RATING_WORDS = ['sao', 'star', 'stars', 'rating', 'rate', 'danh gia 5', 'cham diem', 'diem 10'];
+export function thanksProblem(value: string): 'rating' | 'reward' | 'naming' | null {
+  if (/[★☆⭐✩✪✫✬✭✮✯✰🌟]/u.test(value) || hits(plain(value), RATING_WORDS)) return 'rating';
+  return freeTextProblem(value);
+}
+
 /** Throws when a page may not be saved or published. Read paths never call this. */
 export function assertPublishable(config: PageConfig) {
   if (googleUrlProblem(config.googleUrl)) throw new PublishingError('POLICY_GOOGLE_URL');
@@ -119,5 +131,9 @@ export function assertPublishable(config: PageConfig) {
   }
   for (const value of [config.name, config.text.question.vi, config.text.question.en]) {
     if (freeTextProblem(value)) throw new PublishingError('POLICY_GOOGLE_EXCHANGE');
+  }
+  if (config.thanks) for (const value of [config.thanks.vi, config.thanks.en]) {
+    const problem = thanksProblem(value);
+    if (problem) throw new PublishingError(problem === 'rating' ? 'POLICY_THANKS_RATING' : 'POLICY_GOOGLE_EXCHANGE');
   }
 }

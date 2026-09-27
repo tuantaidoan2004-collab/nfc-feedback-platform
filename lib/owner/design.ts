@@ -10,6 +10,7 @@ import { recordActivity } from './activity';
 import { pageOf } from './pages';
 import type { PageRef, TemplateReleases } from '../publishing/repository';
 import { isTemplateKey, TEMPLATE_RELEASES } from '../publishing/templates';
+import { queueThanks, thanksReview } from '../publishing/thanks';
 
 /**
  * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an
@@ -22,7 +23,9 @@ import { isTemplateKey, TEMPLATE_RELEASES } from '../publishing/templates';
  */
 export type TemplateState = { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] };
 export type DesignState = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
-  template: TemplateState };
+  template: TemplateState;
+  /** Where the draft's own thank-you line stands (lát M2b); null when it uses the platform's. */
+  thanks: { state: 'unsent' | 'pending' | 'approved' | 'rejected'; reason: string | null } | null };
 /** The versions shipped per template. Injected so a test can ship a second version the code does not have yet. */
 
 const revisionOf = (value: unknown) => {
@@ -47,6 +50,9 @@ const translate = (error: unknown): never => {
     if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE' || error.code === 'POLICY_GOOGLE_URL') throw new OwnerError(400, error.code);
     // Cửa duyệt ảnh (migration 023): three answers, because each asks the shop for something different.
     if (error.code === 'MEDIA_PENDING' || error.code === 'MEDIA_REJECTED' || error.code === 'MEDIA_UNKNOWN') throw new OwnerError(409, error.code);
+    // Cửa duyệt chữ (migration 030): the same three answers for the thank-you line, and its own rule.
+    if (error.code === 'THANKS_PENDING' || error.code === 'THANKS_REJECTED' || error.code === 'THANKS_UNKNOWN') throw new OwnerError(409, error.code);
+    if (error.code === 'POLICY_THANKS_RATING') throw new OwnerError(400, error.code);
   }
   throw error;
 };
@@ -95,7 +101,8 @@ export class OwnerDesign {
     if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
     const live = (await this.pool.query(`SELECT r.id,r.config_snapshot,tv.version FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
       JOIN template_versions tv ON tv.id=r.template_version_id WHERE p.shop_id=$1 AND p.id=$2`, [page.shopId, page.pageId])).rows[0];
-    return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config: currentConfig(validateConfig(draft.config)) },
+    const config = currentConfig(validateConfig(draft.config));
+    return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config }, thanks: await thanksReview(this.pool, page.shopId, config),
       live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null,
       // Whether the upload buttons can work here: all R2 settings present.
       uploads: storageSettings() !== null,
@@ -116,6 +123,8 @@ export class OwnerDesign {
       if (lockedChange(settingsOf(this.releases, draft.template_key, Number(draft.version)), currentConfig(validateConfig(draft.config)), after!))
         throw new OwnerError(400, 'SETTING_LOCKED');
       const revision = await this.admin(access, db).saveDraft(page, expected, data.config).catch(translate);
+      // New words for the thank-you line wait for an administrator from here (migration 030); the live page keeps its own.
+      await queueThanks(db, page.shopId, after!, access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`);
       await this.audit(db, access, 'impersonation.design.save', { revision });
       await recordActivity(db, access, 'design.save', `Bản nháp ${revision}`);
       return { revision };

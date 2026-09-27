@@ -8,14 +8,17 @@ import { STEM_BACKGROUND, sectionsOf } from '@/lib/publishing/config';
 import { type TemplateRelease } from '@/lib/publishing/versions';
 import type { SettingField } from '@/lib/publishing/settings';
 import styles from './owner-app.module.css';
-import { TEMPLATE_KEYS, isTemplateKey, TEMPLATE_NAMES } from '@/lib/publishing/templates';
+import { TEMPLATE_KEYS, effectsOf, isTemplateKey, TEMPLATE_NAMES } from '@/lib/publishing/templates';
+import { DEFAULT_THANKS } from '@/lib/publishing/thanks';
+import { THANKS_MAX } from '@/lib/publishing/config';
 
 /**
  * Design & Link editor (lát D). Works on the saved draft: Save keeps it, Preview opens the saved draft in a new tab
  * exactly as it would publish, Publish makes it the live page. Media are https links until per-shop uploads exist.
  */
 type State = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
-  template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] } };
+  template: { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] };
+  thanks: { state: 'unsent' | 'pending' | 'approved' | 'rejected'; reason: string | null } | null };
 /** How the owner sees each block (lát M3). The poster is the one block above the Google button. */
 const SECTION_NAMES: Record<SectionKind, string> = { poster: 'Poster (trên cùng, phía trên nút Google)', links: 'Hàng nút liên kết' };
 const ICONS: [LinkIcon, string][] = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['zalo', 'Zalo'], ['phone', 'Gọi điện'], ['booking', 'Đặt lịch'], ['link', 'Liên kết']];
@@ -35,6 +38,11 @@ const ERRORS: Record<string, string> = {
   // Said in the shop's own interest, not as a scolding: the penalty for this lands on their Google listing.
   POLICY_LINK_LABEL: 'Chữ trên nút phải chọn từ danh sách có sẵn. Google cấm đổi quà lấy đánh giá và cấm nhờ khách nhắc tên nhân viên; hồ sơ Google bị phạt là hồ sơ của quán, nên nền tảng không cho đặt chữ tự do lên nút.',
   POLICY_GOOGLE_URL: 'Link đánh giá Google phải là link của Google: link "Nhận thêm đánh giá" trong Google Business Profile (g.page/r/…), link chia sẻ Google Maps (maps.app.goo.gl/…) hoặc trang của quán trên Google Maps. Không dùng link tới trang khác, và không thêm số sao hay câu mẫu vào link.',
+  // Cửa duyệt chữ (lát M2b, migration 030).
+  THANKS_PENDING: 'Lời cảm ơn mới đang chờ nền tảng duyệt. Trang hiện tại vẫn chạy như cũ; phát hành lại sau khi câu được duyệt, hoặc dùng lại lời mặc định để phát hành ngay.',
+  THANKS_REJECTED: 'Lời cảm ơn này đã bị từ chối (xem lý do ở khung Lời cảm ơn). Sửa câu, lưu nháp để gửi duyệt lại, hoặc dùng lời mặc định.',
+  THANKS_UNKNOWN: 'Lời cảm ơn chưa được gửi duyệt. Bấm Lưu nháp rồi chờ nền tảng duyệt.',
+  POLICY_THANKS_RATING: 'Lời cảm ơn không được nhắc sao, số sao hay chấm điểm. Khách tự quyết khi sang Google; một câu gợi số sao làm hồ sơ Google của quán bị phạt.',
   POLICY_GOOGLE_EXCHANGE: 'Tên quán hoặc câu hỏi đang nối việc đánh giá với quà, ưu đãi, số sao hay tên nhân viên. Google cấm điều này và phạt hồ sơ của quán. Sửa lại thành lời mời trung lập, ví dụ "Cảm nhận của bạn giúp quán tốt hơn".',
 };
 /** Which background choice a page is on. A video (only on pages from before 26/09) shows as a shop picture. */
@@ -148,7 +156,8 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
     const response = await fetch(`${endpoint}/design`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withPage(body as Record<string, unknown>)) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setNotice(ERRORS[data.error] ?? 'Chưa lưu được. Thử lại.');
+      // A publish the image gate refuses answers in UPLOAD_ERRORS' words (until M2b it fell through to the generic line).
+      setNotice(ERRORS[data.error] ?? UPLOAD_ERRORS[data.error] ?? 'Chưa lưu được. Thử lại.');
       if (['DRAFT_CONFLICT', 'SETTING_LOCKED', 'INVALID_SETTING'].includes(data.error)) await load();
       return null;
     }
@@ -171,7 +180,8 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
       const revision = await saved();
       if (revision === null) { tab?.close(); return; }
       // A saved draft is not what customers see; say so, since that is the natural thing to expect.
-      if (what === 'save') { setNotice('Đã lưu bản nháp. Khách chưa thấy thay đổi này; bấm Phát hành để đưa lên trang khách.'); return; }
+      // Reloaded, so the thank-you line's review state (queued by this save) is the server's, not the one from before.
+      if (what === 'save') { await load(); setNotice('Đã lưu bản nháp. Khách chưa thấy thay đổi này; bấm Phát hành để đưa lên trang khách.'); return; }
       if (what === 'preview') {
         const result = await send('POST', { action: 'preview', expectedRevision: revision });
         if (!result) { tab?.close(); return; }
@@ -300,6 +310,30 @@ export default function DesignEditor({ endpoint, origin, page, pages = [], canMa
       <p className={styles.hint} data-google-link-hint>Lấy trong Google Business Profile: <strong>Nhận thêm đánh giá</strong> (g.page/r/…), hoặc link
         chia sẻ của quán trên Google Maps. Chỉ nhận link của Google, không thêm số sao hay câu mẫu.</p>
     </fieldset>
+
+    {/* The shop's own thank-you line (lát M2b), only on templates whose card shows one before Google (manifest `effects`). */}
+    {!!effectsOf(state.template.key).thankYouSeconds && (() => {
+      const line = config.thanks, set = (lang: 'vi' | 'en', value: string) => {
+        const next = { ...(line ?? DEFAULT_THANKS), [lang]: value };
+        const empty = !next.vi.trim() && !next.en.trim();
+        change({ schemaVersion: 3, thanks: empty ? undefined : { vi: next.vi.trim() ? next.vi : DEFAULT_THANKS.vi, en: next.en.trim() ? next.en : DEFAULT_THANKS.en } });
+      };
+      const review = dirty ? null : state.thanks;
+      return <fieldset className={styles.panel} data-thanks-editor><legend>Lời cảm ơn trước khi sang Google</legend>
+        <p className={styles.hint}>Hiện khi khách bấm nút Google, trước khi Google mở. Viết lời của quán; câu về việc chuyển sang Google là của nền tảng.
+          Không nhắc sao, quà hay tên nhân viên. Nền tảng duyệt câu mới trước khi nó lên trang.</p>
+        <div className={styles.grid2}>
+          <label>Tiếng Việt<input value={line?.vi ?? ''} maxLength={THANKS_MAX} placeholder={DEFAULT_THANKS.vi} onChange={e => set('vi', e.target.value)} /></label>
+          <label>Tiếng Anh<input value={line?.en ?? ''} maxLength={THANKS_MAX} placeholder={DEFAULT_THANKS.en} onChange={e => set('en', e.target.value)} /></label>
+        </div>
+        <p className={styles.hint} data-thanks-state={line ? (review?.state ?? 'changed') : 'default'}>{!line ? 'Đang dùng lời mặc định của nền tảng.'
+          : !review ? 'Lưu nháp để gửi câu này đi duyệt.'
+          : review.state === 'approved' ? 'Đã duyệt: phát hành được.'
+          : review.state === 'pending' ? 'Đang chờ nền tảng duyệt. Trang đang chạy giữ lời cũ trong lúc chờ.'
+          : review.state === 'rejected' ? `Bị từ chối: ${review.reason}` : 'Lưu nháp để gửi câu này đi duyệt.'}</p>
+        {line && <button type="button" disabled={busy} onClick={() => change({ thanks: undefined })}>Dùng lại lời mặc định</button>}
+      </fieldset>;
+    })()}
 
     {!offers('layout') && !backgroundField && !offers('watermark') && !offers('feedbackButton') && !ownFields.length &&
       <p className={styles.panel} data-no-settings>Template này không có tuỳ chỉnh diện mạo: chỉ cần điền nội dung bên dưới.</p>}

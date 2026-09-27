@@ -1,6 +1,7 @@
 'use client';
 import type { CSSProperties, MouseEvent, ReactNode, RefObject } from 'react';
 import type { TemplateEffects } from '@/lib/publishing/template-manifest';
+import type { Localized } from '@/lib/publishing/config';
 import { GlassFilters, useGlassPlacement } from './glass';
 import { GoogleOrb, useTiltLight } from './orb';
 import { useLeaveTransition } from './leave';
@@ -32,7 +33,8 @@ export type EffectSlots = {
 };
 
 /** `beforeLeave`: what the page must do before an effect takes the guest away in a way the browser may not announce. */
-export function useTemplateEffects(effects: TemplateEffects, { reduced, lang, beforeLeave }: { reduced: boolean; lang: 'vi' | 'en'; beforeLeave: () => void }): EffectSlots {
+/** `thanks`: the page's own thank-you line (lát M2b), in place of the platform's first line. */
+export function useTemplateEffects(effects: TemplateEffects, { reduced, lang, beforeLeave, thanks: ownLine }: { reduced: boolean; lang: 'vi' | 'en'; beforeLeave: () => void; thanks?: Localized }): EffectSlots {
   const glass = !!effects.glass, orb = effects.googleButton === 'orb';
   const leaveMs = effects.leaveTransitionMs ?? 0, thankSeconds = effects.thankYouSeconds ?? 0;
   const pageRef = useGlassPlacement(glass);
@@ -48,7 +50,7 @@ export function useTemplateEffects(effects: TemplateEffects, { reduced, lang, be
     googleTarget: leaveMs ? {} : { target: '_blank', rel: 'noopener noreferrer' },
     onGoogleTap: event => { leave(event); thanks.start(event); },
     layers: <>
-      {thanks.state && <ThanksCard state={thanks.state} copy={THANKS_COPY[lang]} reduced={reduced} seconds={thankSeconds} />}
+      {thanks.state && <ThanksCard state={thanks.state} copy={ownLine ? { ...THANKS_COPY[lang], title: ownLine[lang] } : THANKS_COPY[lang]} reduced={reduced} seconds={thankSeconds} />}
       {glass && <GlassFilters />}
     </>,
   };

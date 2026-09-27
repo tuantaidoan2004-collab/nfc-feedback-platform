@@ -612,3 +612,27 @@ test('D4b: an owner saves the page they built, it waits for approval, and signin
  expect((await o.request.post('/api/owner/v2/login',{headers:{origin},data:{username:other,password:'refused-but-long-enough',next:null}})).status()).toBe(401);
  await owner.close();
 });
+
+test('M2b: a shop\'s own thank-you line waits in /gov, is approved or refused with a reason, and each decision is on the record',async({page,admin})=>{
+ const shop=(await admin.db.query("INSERT INTO shops(slug,name)VALUES('loi-cam-on','Quán Lời Cảm Ơn')RETURNING id")).rows[0].id;
+ const ask=async(vi:string)=>(await admin.db.query("INSERT INTO text_reviews(shop_id,kind,text_vi,text_en,submitted_by)VALUES($1,'thanks',$2,'Thanks!','owner:test')RETURNING id",[shop,vi])).rows[0].id;
+ const good=await ask('Cảm ơn bạn đã ghé quán, hẹn gặp lại!'),bad=await ask('Nhớ quay lại quán nhé, lần sau có quà!');
+ await page.goto('/gov/login');
+ await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ const panel=page.locator('[data-text-review]');
+ await expect(panel.locator(`[data-text-item="${good}"]`)).toContainText('Cảm ơn bạn đã ghé quán, hẹn gặp lại!');
+ await panel.locator(`[data-text-item="${good}"]`).getByRole('button',{name:'Duyệt'}).click();
+ await expect(panel.locator(`[data-text-item="${good}"]`)).toHaveCount(0);
+ await panel.locator(`[data-text-item="${bad}"]`).getByRole('button',{name:'Từ chối…'}).click();
+ await panel.getByLabel('Lý do (shop sẽ đọc)').fill('Không hứa quà trên trang, kể cả không nhắc đánh giá');
+ await panel.getByRole('button',{name:'Xác nhận từ chối'}).click();
+ await expect(panel.locator('[data-texts-empty]')).toBeVisible();
+ expect((await admin.db.query('SELECT id,state,reason FROM text_reviews ORDER BY created_at')).rows).toEqual([
+  {id:good,state:'approved',reason:null},{id:bad,state:'rejected',reason:'Không hứa quà trên trang, kể cả không nhắc đánh giá'}]);
+ expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'text.%' AND shop_id=$1 ORDER BY id",[shop])).rows).toEqual([{action:'text.approve'},{action:'text.reject'}]);
+ // Decided once: a second decision is refused.
+ expect((await page.request.post(`/gov/api/texts/${good}`,{headers:{origin},data:{decision:'reject',reason:'lại'}})).status()).toBe(409);
+});

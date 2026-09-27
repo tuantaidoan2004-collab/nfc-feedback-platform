@@ -180,6 +180,42 @@ test('the editor switches the poster block off and on, and the guest page follow
  await guest.reload();await expect(guest.locator('.guest-poster')).toHaveCount(1);
 });
 
+test('M2b: the shop writes its own thank-you line; it publishes only once approved, and the guest reads it before Google',async({page,context,f})=>{
+ page.on('dialog',dialog=>void dialog.accept());
+ // The fixture's template has no thank-you card; template 1 has (manifest effects.thankYouSeconds).
+ const revision=Number((await f.db.query('SELECT revision FROM page_drafts WHERE page_id=$1',[f.pages[0].pageId])).rows[0].revision);
+ const moved=await f.admin.changeTemplate(f.pages[0],revision,'standard');await f.admin.publish(f.pages[0],moved.revision);
+ const warm=await context.newPage();await warm.goto('/one');await warm.close();
+ await login(page,f.users[0]);
+ await page.locator('[data-view="design"]').click();
+ const box=page.locator('[data-thanks-editor]'),state=box.locator('[data-thanks-state]');
+ await expect(state).toHaveAttribute('data-thanks-state','default');
+ // A line that asks for stars never saves (google-policy.md luật 3, 7).
+ await box.getByLabel('Tiếng Việt',{exact:true}).fill('Cho quán 5 sao nhé!');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('không được nhắc sao');
+ await box.getByLabel('Tiếng Việt',{exact:true}).fill('Cảm ơn bạn đã ghé Shop one, hẹn gặp lại!');
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã lưu bản nháp');
+ await expect(state).toHaveAttribute('data-thanks-state','pending');
+ expect((await f.db.query("SELECT text_vi,text_en,state FROM text_reviews")).rows).toEqual([{text_vi:'Cảm ơn bạn đã ghé Shop one, hẹn gặp lại!',text_en:'Thank you for stopping by!',state:'pending'}]);
+ // Waiting words do not publish, and the live page keeps the platform's line meanwhile.
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();
+ await expect(page.locator('[data-design-notice]')).toContainText('đang chờ nền tảng duyệt');
+ const guest=await context.newPage();await guest.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ const thanksOnTap=async()=>{await guest.goto('/one');await expect(guest.locator('main[data-ready]')).toBeVisible();
+  await guest.locator('[data-google]').click();const title=guest.locator('.thanks-title');await expect(title).toBeVisible();return title.textContent();};
+ expect(await thanksOnTap()).toBe('Cảm ơn quý khách đã ghé!');
+ // Approved (in /gov; admin-http.spec.ts drives that screen), it publishes, and the guest reads it.
+ await f.db.query("UPDATE text_reviews SET state='approved',reviewed_at=clock_timestamp()");
+ await page.getByRole('button',{name:'Lưu nháp',exact:true}).click();await expect(state).toHaveAttribute('data-thanks-state','approved');
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+ expect(await thanksOnTap()).toBe('Cảm ơn bạn đã ghé Shop one, hẹn gặp lại!');
+ // The platform's line comes back with one button, and needs no review.
+ await box.getByRole('button',{name:'Dùng lại lời mặc định'}).click();await expect(state).toHaveAttribute('data-thanks-state','default');
+ await page.getByRole('button',{name:'Phát hành',exact:true}).click();await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+ expect(await thanksOnTap()).toBe('Cảm ơn quý khách đã ghé!');
+});
+
 test('the page editor: save, preview in a new tab, publish, and the customer page changes only after publishing',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // next dev reloads every open page the first time it compiles a route; compile /one and /preview before the editor holds state.

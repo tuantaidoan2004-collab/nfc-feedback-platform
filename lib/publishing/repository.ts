@@ -5,6 +5,7 @@ import { PublishingError, TEMPLATE_V1, sectionsOf, validateConfig, withoutVideoB
 import { assertPublishable } from './policy';
 import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
+import { assertThanksApproved } from './thanks';
 import type { RenderContext } from './proof';
 import { settingsOf, type TemplateRelease } from './versions';
 import { checkSettings, convertSettings } from './settings';
@@ -50,7 +51,9 @@ export async function templateVersionRow(db: PublishingDb, key: string, version:
 export function contentOf(config: PageConfig) {
   return { name: config.name, googleUrl: config.googleUrl, text: config.text, links: config.links, logo: config.logo, poster: config.poster,
     // The owner's arrangement of blocks (lát M3) is theirs too: a new template keeps the blocks where they put them.
-    sections: [...sectionsOf(config)] };
+    sections: [...sectionsOf(config)],
+    // And its own thank-you line (lát M2b): approved words stay approved on the new template.
+    ...(config.thanks ? { thanks: config.thanks } : {}) };
 }
 export class PublishingAdmin {
   /** `releases`: the template versions the platform ships (versions.ts); injected only by tests that need a second one. */
@@ -198,6 +201,8 @@ export class PublishingAdmin {
       const config = withoutVideoBackground(validateConfig(draft.config)); assertPublishable(config); await this.checkSettings(db, draft.template_version_id, config);
       // Every picture and video on the page must have passed review (migration 023). The page already live stays live.
       await assertMediaApproved(db, shopId, config);
+      // And the shop's own thank-you line, if it has one (migration 030, lát M2b).
+      await assertThanksApproved(db, shopId, config);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,
         [shopId, pageId, draft.template_version_id, config, expected, actor])).rows[0].id;
       // Nửa còn lại của migration 022: phát hành cũng ghi phần nội dung xuống hồ sơ — từ 024 là hồ sơ của TRANG.

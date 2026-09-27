@@ -270,6 +270,12 @@ bắt đầu 0,5 giây trước ranh giới → đỏ đúng dòng CI; sửa: m�
 (`clearOfStepBoundary`) → xanh cả khi ép, 10/10 khi chạy lặp. Bài học: **một ca đỏ lặp lại với tỉ lệ ổn định là một lỗi có
 nguyên nhân**; test có mốc thời gian thì hỏi "nếu ranh giới rơi vào giữa thì sao", và ép nó rơi vào để kiểm.
 
+**Phát hành bị cửa duyệt ảnh chặn chỉ hiện "Chưa lưu được. Thử lại." (từ lát 023 tới M2b).** Server trả đúng `MEDIA_PENDING`,
+`MEDIA_REJECTED`, `MEDIA_UNKNOWN`, nhưng trình chỉnh chỉ tra các mã đó trong bảng lỗi của **nút tải lên**, không trong bảng lỗi của
+Lưu/Phát hành, nên chủ quán không biết trang bị chặn vì ảnh đang chờ. Test chỉ kiểm server trả mã, không đọc câu hiện ra. Tìm ra ở
+M2b khi thêm ba mã tương tự cho lời cảm ơn. Sửa: Lưu/Phát hành tra cả hai bảng. Bài học: **một mã lỗi mới phải có test đọc đúng
+câu người dùng thấy**, không chỉ mã HTTP. Lỗi của Claude ở lát 023.
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được

@@ -103,6 +103,9 @@ Hoạt ảnh nhẹ tính bằng KB, và **có thể thêm vật thể trang trí
 
 ## 10. Ảnh và logo của shop phải qua duyệt trước khi lên trang (Tài, 22/09/2026)
 
+**Mở rộng sang chữ (M2b, 27/09, migration 030):** lời cảm ơn trước Google do shop tự viết đi qua cửa duyệt cùng kiểu —
+`text_reviews`, chặn lúc phát hành, khung "Lời cảm ơn chờ duyệt" ở `/gov` (`lib/publishing/thanks.ts`).
+
 **Tài phát hiện và chốt:** chủ quán có thể tải lên logo của hãng khác đã đăng ký nhãn hiệu, và trang đó nằm trên
 tên miền của nền tảng. Nên **bỏ đường tự đăng thẳng**: chủ quán chỉnh poster, logo, vật thể xong thì **gửi admin
 duyệt**, duyệt rồi mới lên trang.

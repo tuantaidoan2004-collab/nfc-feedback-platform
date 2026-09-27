@@ -136,7 +136,7 @@ muốn dùng tiếp thì vào đó trả.
 - Luật Google không liên quan tới luồng của chủ quán, trừ một điều: trong lúc hướng dẫn, không dạy chủ quán cách mời
   đánh giá trái mục 3 của `google-policy.md`.
 
-### Ý 3 — Cảm xúc lúc bấm nút Google: lời cảm ơn của quán (Tài chốt 27/09; **M2 làm câu mặc định + tim bung; shop tự sửa + admin duyệt là M2b**)
+### Ý 3 — Cảm xúc lúc bấm nút Google: lời cảm ơn của quán (Tài chốt 27/09; **M2 làm câu mặc định + tim bung; M2b (27/09, migration 030) làm phần shop tự sửa + admin duyệt là M2b**)
 
 Tài chốt: không dùng 😍 nói hộ cảm xúc của khách. Dùng chữ **"Cảm ơn quý khách đã ghé…"** — lời của quán — bung ra cùng
 hiệu ứng tim nhẹ như pháo hoa khi popup hiện, rồi tan. **Shop sửa được câu này trong trình chỉnh template**, và câu mới

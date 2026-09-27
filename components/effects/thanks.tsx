@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
+import { DEFAULT_THANKS } from '@/lib/publishing/thanks';
 
 /**
  * Effect module (lát M2): lời cảm ơn trước khi sang Google — `effects.thankYouSeconds` in a template's manifest.
@@ -18,10 +19,11 @@ import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from
  */
 export type ThanksCopy = { title: string; body: string; blocked: string; open: string };
 export const THANKS_COPY: Record<'vi' | 'en', ThanksCopy> = {
-  vi: { title: 'Cảm ơn quý khách đã ghé!',
+  // The first line is the shop's own when it has an approved one (lát M2b, PageConfig.thanks); the rest stays the platform's.
+  vi: { title: DEFAULT_THANKS.vi,
     body: 'Trang sẽ tự động chuyển sang Google. Quý khách thân mến hãy quay lại trang này để khám phá thêm nhé — Merci beaucoup!',
     blocked: 'Trình duyệt chưa cho mở tab mới.', open: 'Mở Google' },
-  en: { title: 'Thank you for stopping by!',
+  en: { title: DEFAULT_THANKS.en,
     body: 'Google opens in a new tab in a moment. Do come back to this page to see what else is on — merci beaucoup!',
     blocked: 'Your browser held the new tab back.', open: 'Open Google' },
 };

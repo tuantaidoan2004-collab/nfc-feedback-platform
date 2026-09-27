@@ -294,7 +294,7 @@ export default function ShopFeedbackV2(shop: Props) {
   const hint = useBottomHint();
   // What the template's package declares (templates/<khoá>/manifest.json, lát M1).
   // What the template's package switches on (templates/<khoá>/manifest.json); each effect is its own module (lát M2).
-  const fx = useTemplateEffects(effectsOf(shop.template), { reduced, lang, beforeLeave: client.flushEvents });
+  const fx = useTemplateEffects(effectsOf(shop.template), { reduced, lang, beforeLeave: client.flushEvents, thanks: shop.pageConfig?.thanks });
   const config = shop.pageConfig ?? { ...defaultConfig(shop.name),
     poster: shop.heroUrl && shop.heroKind ? { kind: shop.heroKind, url: shop.heroUrl } : null };
   const feedbackButton = config.feedbackButton ?? DEFAULT_FEEDBACK_BUTTON;

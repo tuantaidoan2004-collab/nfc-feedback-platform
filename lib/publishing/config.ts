@@ -36,7 +36,15 @@ export type PageConfig = {
   settings?: Record<string, string | number | boolean>;
   /** schemaVersion 3 only: the blocks and their order (lát M3). */
   sections?: Section[];
+  /**
+   * schemaVersion 3 only, optional (lát M2b): the shop's own thank-you line in the card that shows before Google opens.
+   * Absent means the platform's line (lib/publishing/thanks.ts). A page with one publishes only once an administrator
+   * has approved those exact words (migration 030).
+   */
+  thanks?: Localized;
 };
+/** How long the shop's thank-you line may be, in each language: it sits above the platform's line in a small card. */
+export const THANKS_MAX = 120;
 export class PublishingError extends Error { constructor(public readonly code: string) { super(code); } }
 function fail(): never { throw new PublishingError('INVALID_CONFIG'); }
 function keys(value: unknown, allowed: string[]): asserts value is Record<string, unknown> {
@@ -72,8 +80,10 @@ export function validateConfig(value: unknown): PageConfig {
   // `v2` below reads "version 2 or later": 3 keeps every rule of 2 and adds the sections.
   const v2 = version === 2 || version === 3, v3 = version === 3;
   const settings = v2 && Object.hasOwn(value as object, 'settings');
+  const thanks = v3 && Object.hasOwn(value as object, 'thanks');
   keys(value, ['schemaVersion', 'layout', 'name', 'poster', 'logo', 'background', 'watermark', 'text', 'googleUrl', 'links', ...(v2 ? ['feedbackButton'] : []),
-    ...(v3 ? ['sections'] : []), ...(settings ? ['settings'] : [])]);
+    ...(v3 ? ['sections'] : []), ...(settings ? ['settings'] : []), ...(thanks ? ['thanks'] : [])]);
+  if (thanks) { const line = value.thanks; keys(line, ['vi', 'en']); text(line.vi, THANKS_MAX); text(line.en, THANKS_MAX); }
   if (v3) {
     const list = value.sections;
     if (!Array.isArray(list) || list.length < 1 || list.length > SECTION_KINDS.length) fail();
