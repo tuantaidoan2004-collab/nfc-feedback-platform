@@ -59,7 +59,7 @@ production được trong thời gian Pro; **từ 29/09 phải đã chạy trên
 | **Dashboard** | Gọn, nhất quán; 6 mục; một component 429 dòng; mục đang xem **không nằm trên URL** | Một nửa |
 | **Trình chỉnh** | Một biểu mẫu dài khoảng 2.800px, không xem trước bên cạnh; chọn template bằng ô thả xuống | **Chưa** — xa "như Canva" nhất |
 | **`/gov`** | Chạy đủ việc, nhưng sơ sài nhất | **Chưa** |
-| **Trang chính / đăng ký** | **D4a–D4b xong 27/09:** trang chính `/` (lập chỉ mục), dựng trang không cần tài khoản `/bat-dau`, QR, 3 câu hỏi, "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` | **Có** (đăng nhập bằng Google là D4c) |
+| **Trang chính / đăng ký** | **D4a–D4b xong 27/09:** trang chính `/` (lập chỉ mục), dựng trang không cần tài khoản `/bat-dau`, QR, 3 câu hỏi, "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` | **Có** (đăng nhập bằng Google: D4c xong 28/09) |
 | **Test** | 7 bộ xanh, CI xanh; nhưng integration bám câu chữ | Cần luật trước khi đổi chữ |
 | **Tài liệu cho người mới** | `AGENTS.md`, `decisions.md` tốt; **mặt tiền repo lỗi thời** | Cần dọn |
 

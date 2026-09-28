@@ -1,5 +1,7 @@
 import {test as base,expect,type Page} from '@playwright/test';
 import {Pool} from 'pg';
+import http from 'node:http';
+import {createHash,randomUUID} from 'node:crypto';
 import {AdminAuth} from '../lib/admin/auth';
 import {code,fromBase32,newSecret,seal,stepAt} from '../lib/admin/totp';
 import {ShopProvisioning} from '../lib/admin/provisioning';
@@ -673,4 +675,87 @@ test('P5b-lite: the operator enters where money goes and records a payment; noth
  await expect(panel.locator('[data-billing-note]')).toContainText('dùng thử tới 15/01/2027');
  // The picture travels in the body; a body larger than this route's own limit is refused.
  expect((await page.request.put('/gov/api/payment-settings',{headers:{origin},data:{...saved,qr:`data:image/png;base64,${'A'.repeat(800_000)}`}})).status()).toBe(413);
+});
+
+/**
+ * Lát D4c: a stand-in for Google on 3329 (the harness points the dev app's two Google addresses at it). It does what
+ * Google does for this flow: remembers the PKCE challenge and nonce on /auth, sends the browser back with a code, and on
+ * /token checks the client's secret, the verifier and the redirect before answering with an ID token for `google.who`.
+ */
+const GOOGLE_CLIENT='harness-client.apps.googleusercontent.com';
+const google={who:{sub:'5550001',email:'chu.moi@gmail.com',email_verified:true} as Record<string,unknown>,
+ codes:new Map<string,{nonce:string|null;challenge:string|null;redirect:string|null;who:Record<string,unknown>}>()};
+let fakeGoogle:http.Server;
+test.beforeAll(async()=>{
+ fakeGoogle=http.createServer(async(req,res)=>{
+  const url=new URL(req.url!,'http://127.0.0.1:3329');
+  if(url.pathname==='/auth'){
+   const code=randomUUID();
+   google.codes.set(code,{nonce:url.searchParams.get('nonce'),challenge:url.searchParams.get('code_challenge'),redirect:url.searchParams.get('redirect_uri'),who:{...google.who}});
+   res.writeHead(302,{location:`${url.searchParams.get('redirect_uri')}?code=${code}&state=${encodeURIComponent(url.searchParams.get('state')??'')}`});res.end();return;
+  }
+  if(url.pathname==='/token'){
+   let body='';for await(const chunk of req)body+=chunk;
+   const form=new URLSearchParams(body),entry=google.codes.get(form.get('code')??'');
+   const ok=entry&&form.get('client_id')===GOOGLE_CLIENT&&form.get('client_secret')==='harness-google-secret'&&form.get('redirect_uri')===entry.redirect
+    &&createHash('sha256').update(form.get('code_verifier')??'').digest('base64url')===entry.challenge;
+   if(!ok){res.writeHead(400,{'content-type':'application/json'});res.end('{"error":"invalid_grant"}');return;}
+   google.codes.delete(form.get('code')!);
+   const claims={iss:'https://accounts.google.com',aud:GOOGLE_CLIENT,exp:Math.floor(Date.now()/1000)+300,nonce:entry.nonce,...entry.who};
+   res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({id_token:`e30.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`}));return;
+  }
+  res.writeHead(404);res.end();
+ });
+ await new Promise<void>(resolve=>fakeGoogle.listen(3329,'127.0.0.1',()=>resolve()));
+});
+test.afterAll(()=>new Promise<void>(resolve=>fakeGoogle.close(()=>resolve())));
+
+test('D4c: an owner saves with Google, signs in with Google, and an older account links Google from Hồ sơ; nothing links by email',async({browser,admin})=>{
+ // Fresh names per run: the harness keeps one database for the whole file, so a repeated run must not meet its own rows.
+ const run=`${Date.now()}`.slice(-9),sub=(n:number)=>`${n}${run}`;
+ const context=await browser.newContext(),o=await context.newPage();
+ await o.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ const googleLogin=async()=>{await context.clearCookies();await o.goto('/owner/login');await o.locator('[data-google-login] button').click();};
+ // Saving a page with Google: no email, no password; the account is Google's, and the page waits for approval.
+ google.who={sub:sub(1),email:`chu.moi.${run}@gmail.com`,email_verified:true};
+ await o.goto('/bat-dau');await expect(o.locator('[data-start-ready]')).toBeVisible();
+ await o.getByLabel('Tên quán',{exact:true}).fill('Quán Đăng Nhập Google');await o.getByRole('button',{name:'Tiếp tục →'}).click();
+ await o.getByRole('button',{name:'Dùng template này →'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
+ await o.getByRole('button',{name:'Bỏ qua cho bây giờ'}).click();
+ await o.getByLabel('@handle',{exact:true}).fill(`google-${run}`);
+ await o.locator('[data-start-google]').click();
+ await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
+ await expect(o.getByRole('heading',{level:1})).toHaveText('Quán Đăng Nhập Google đang chờ duyệt');
+ expect((await admin.db.query("SELECT email,google_sub FROM owner_identities_v2 WHERE username=$1",[`google-${run}`])).rows).toEqual([{email:`chu.moi.${run}@gmail.com`,google_sub:sub(1)}]);
+ expect((await admin.db.query("SELECT count(*)::int n FROM shop_signups s JOIN owner_identities_v2 i ON i.id=s.owner_user_id WHERE i.username=$1",[`google-${run}`])).rows[0].n).toBe(1);
+ // Signed out, the same Google account signs back in.
+ await googleLogin();await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
+ // A Google account no account is linked to opens nothing and says what to do -- even when its email matches an account.
+ const actor=(await admin.db.query('SELECT id FROM platform_admins LIMIT 1')).rows[0].id;
+ const owner=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Có Mật Khẩu',ownerUsername:`co-mat-khau-${run}`,ownerEmail:`cu.${run}@gmail.com`,googleUrl:''});
+ await new OwnerSetupLinks(admin.db).consume(owner.setupToken,'old-owner-password');
+ google.who={sub:sub(2),email:`cu.${run}@gmail.com`,email_verified:true};
+ await googleLogin();
+ await expect(o).toHaveURL(/\/owner\/login\?google=GOOGLE_NOT_LINKED$/);
+ await expect(o.locator('[data-google-notice]')).toContainText('chưa nối với tài khoản nào');
+ // Linked on purpose, from Hồ sơ, while signed in with the password: then Google opens that dashboard.
+ await o.goto(`/ZZZ/${owner.slug}`);
+ await o.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await o.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
+ await o.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ await openView(o,'profile');
+ await o.locator('[data-google-connect] button').click();
+ await expect(o.locator('[data-google-notice]')).toContainText('Đã kết nối Google');
+ await expect(o.locator('[data-google-link]')).toHaveAttribute('data-google-link','linked');
+ expect((await admin.db.query("SELECT google_sub FROM owner_identities_v2 WHERE username=$1",[`co-mat-khau-${run}`])).rows[0].google_sub).toBe(sub(2));
+ await googleLogin();
+ await expect(o).toHaveURL(new RegExp(`/ZZZ/${owner.slug}$`));await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ // An unverified address, and a trip this browser never started, open nothing.
+ google.who={sub:sub(3),email:`new.${run}@example.com`,email_verified:false};
+ await googleLogin();
+ await expect(o).toHaveURL(/\/owner\/login\?google=GOOGLE_EMAIL_UNVERIFIED$/);
+ const stray=await o.request.get('/api/owner/v2/google/callback?code=x&state=y');
+ expect(await stray.text()).toContain('google=TRIP_INVALID');expect(stray.headers()['set-cookie']??'').not.toContain('nfc_owner_v2=');
+ // The door to Google itself: only this site's own pages may open it.
+ expect((await o.request.post('/api/owner/v2/google/start',{headers:{origin:'https://evil.test','content-type':'application/x-www-form-urlencoded'},data:'intent=login'})).status()).toBe(403);
+ await context.close();
 });

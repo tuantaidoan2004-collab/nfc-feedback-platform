@@ -172,13 +172,21 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**Phiên mới bắt đầu từ đây (28/09):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → **P5b-lite** (audit
-`docs/audit-ui-ux-20260927.md` mục 4). D4 đã lên production (`main` = `66b8c4c`, Neon 001–029). **M2b và P5b-lite nằm trên
-nhánh, có migration 030 và 031**: Tài chạy cả hai trên Neon production và preview → đẩy nhánh, CI xanh → đẩy đúng commit đó lên
-`main` → Tài nhập thông tin nhận tiền ở `/gov` (khung Thanh toán). **Vercel (Tài
+**Phiên mới bắt đầu từ đây (28/09):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → P5b-lite → **D4c** (audit
+`docs/audit-ui-ux-20260927.md` mục 4). Production: `main` = `296d835` (tới P5b-lite), Neon **001–031**, thông tin nhận tiền Tài đã
+nhập ở `/gov` 28/09. **D4c nằm trên nhánh, có migration 032**: Tài chạy 032 trên Neon production và preview → đặt
+`NFC_GOOGLE_CLIENT_ID`/`NFC_GOOGLE_CLIENT_SECRET` trên Vercel (Production + Preview) và cấu hình Google Cloud (`production-launch.md`
+mục "Đăng nhập bằng Google") → đẩy nhánh, CI xanh → đẩy đúng commit đó lên `main`. **Vercel (Tài
 chốt 27/09): Pro tới 29/09, rồi chuyển VPS** (bộ I1, `tu-chay.md`) — từ 29/09 trang chính chỉ được chạy trên VPS hoặc Pro trả tiền,
-không bao giờ trên Hobby. Lát kế: **D4c** đăng nhập bằng Google cho chủ quán (Tài tạo OAuth client "QuiteSensational" trên
-Google Cloud 28/09; Tài tự đặt client ID/secret vào biến môi trường), hoặc dashboard "thời tiết của quán" theo audit.
+không bao giờ trên Hobby. Lát kế theo audit: dashboard **"thời tiết của quán"** (tóm tắt hôm nay, trạng thái trống thành bước
+đầu), rồi trình chỉnh như Canva + kho template (M5), rồi M4.
+
+**D4c (28/09, migration 032):** đăng nhập bằng Google cho chủ quán, OAuth 2.0 mã một lần + PKCE + state + nonce, không thư viện
+(`lib/owner/google.ts`). Ba việc, không hơn: **lưu trang ở `/bat-dau` bằng Google** ("Tiếp tục với Google", đứng trước phần mật
+khẩu; vẫn chọn @handle; email là của Google; không có mật khẩu; trang vẫn chờ duyệt), **đăng nhập bằng Google** ở `/owner/login`
+cho tài khoản đã nối, **kết nối Google** trong Hồ sơ khi đang đăng nhập. **Không bao giờ nối theo email** (email của tài khoản cũ
+chưa ai xác minh). Callback trả một trang nhỏ tự chuyển tiếp chứ không chuyển hướng, vì cookie phiên `SameSite=Strict` không đi
+theo chuỗi chuyển hướng bắt đầu từ Google. Chưa có: ngắt kết nối Google (tài khoản tạo bằng Google không có mật khẩu).
 
 **P5b-lite (28/09, migration 031; Tài chốt 27/09 mục 5H):** không cổng thanh toán. Chủ quán (chỉ chủ, không quản lý) có mục
 **Thanh toán** trong dashboard: phí hằng tháng (bảng giá P5a), trạng thái (chưa có kỳ · dùng thử/đã trả tới ngày · còn/quá N
@@ -211,7 +219,7 @@ loạt: chung khe băm mật khẩu với đăng nhập, 20 lượt/giờ toàn 
 chờ. Báo chủ quán khi duyệt: Tài nhắn tay (Zalo/email hiện ở `/gov`). Bậc "gửi link bản nháp cho Tài" của D4a đã gỡ.
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch** + 029 (Tài chạy 27/09); 030 chờ Tài. `main` = `66b8c4c` (D4, đã đẩy 27/09). Vercel Pro dùng thử tới **29/09**.
+  branch** + 029–031 (Tài chạy 27–28/09); 032 chờ Tài. `main` = `296d835` (P5b-lite, đã đẩy 28/09). Vercel Pro dùng thử tới **29/09**.
 - **Vercel → VPS (Tài chốt 27/09, thay quyết định "xuống Hobby" cùng ngày):** Pro tới 29/09, rồi chuyển sang VPS chạy bộ I1.
   Hobby **cấm dùng thương mại** và trang chính là quảng cáo bán dịch vụ, nên sau 29/09 production không được ở Hobby (audit
   mục 1). Log Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.
@@ -259,7 +267,7 @@ lớp sương, lời cảm ơn trước Google) qua một sổ đăng ký; templ
 tab mới (chặn thì có nút "Mở Google"); con trỏ góp ý đổi 4 màu của template. Lời cảm ơn shop tự sửa + admin duyệt: **M2b xong 27/09**
 (migration 030). **M3 section xong 27/09, không cần migration**: `PageConfig` v3 có `sections` (khối nào hiện, thứ
 tự nào); dữ liệu khối ở chỗ cũ; chỉ poster được đứng trên nút Google; trình chỉnh có khung "Các khối trên trang". Lát kế
-theo audit: **D4a, D4b, M2b xong 27/09**; kế là P5b-lite hoặc D4c. **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
+theo audit: **D4a, D4b, M2b xong 27/09; P5b-lite, D4c 28/09**; kế là dashboard "thời tiết của quán". **Màu nền tảng (Tài 27/09):** tím như uxpeak; chế độ sáng trắng–cam–sữa
 (`DESIGN.md` mục 7). Nháp video 3 phút: `docs/video-3-phut.md`.
 
 **Tên gọi (Tài 27/09):** không gọi "khuôn" nữa, gọi **template**. Đã đổi ở mọi nơi trong lát S0 (chữ trên dashboard và

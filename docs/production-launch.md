@@ -4,7 +4,7 @@ Phần đầu tệp là **bản đồ dùng hằng ngày**: vào đâu, đăng n
 
 ## Đường vào
 
-Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–029** (030 của M2b và 031 của P5b-lite chờ Tài chạy) (số mới nhất luôn ở khối "TIẾP TỤC TỪ ĐÂY" của `decisions.md`).
+Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cloudflare đăng ký tên miền, DNS trỏ Vercel bằng CNAME **DNS only**). `https://quitesensational-review-bio.vercel.app` **308 về đây** — link cũ vẫn chạy nhưng **đừng ghi nó vào thẻ**. Deploy từ **`main`**, database là **branch Neon production**, đã migrate **001–031** (032 của D4c chờ Tài chạy) (số mới nhất luôn ở khối "TIẾP TỤC TỪ ĐÂY" của `decisions.md`).
 
 **Hàm chạy ở `sin1` (Singapore)**, cùng vùng với Neon. Trước 21/09 nó chạy ở `iad1` (Washington DC) nên mỗi truy vấn là một vòng Thái Bình Dương ~250ms; xem `decisions.md` mục 8. Kiểm bằng `curl -s -D - -o /dev/null <url> | grep x-vercel-id` → phải thấy `::sin1::`.
 
@@ -27,6 +27,19 @@ Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pr
 Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đổi `r` thành dấu hỏi, `s` thành dấu sắc, nên mật khẩu đúng vẫn báo sai (bẫy ở `operations-gotchas.md`).
 
 **Muốn biết database production có sống không:** đăng nhập `/gov`. Trang đó đọc database để xác thực; `/gov/login` và `/owner/login` trả 200 **không** chứng minh gì vì chúng không đọc database. Đây là cách kiểm sau mỗi lần xoay credential hoặc chạy migration.
+
+## Đăng nhập bằng Google (D4c, 28/09)
+
+OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:
+
+- **Branding:** tên Quite Sensational; home page `/`, privacy `/quyen-rieng-tu`, terms `/dieu-khoan` trên tên miền chính;
+  authorized domain `quitesensational-review-bio.com`. **Audience:** External; Testing (thêm email thử) tới khi mở cho quán thật
+  thì Publish. **Data access:** chỉ `openid`, `userinfo.email`, `userinfo.profile`.
+- **Authorized JavaScript origins:** tên miền chính và alias preview. **Authorized redirect URIs:**
+  `https://quitesensational-review-bio.com/api/owner/v2/google/callback` và cùng đường trên alias preview.
+- **Biến môi trường** (Production + Preview, Sensitive): `NFC_GOOGLE_CLIENT_ID`, `NFC_GOOGLE_CLIENT_SECRET`. Thiếu một trong hai thì
+  nút Google không hiện, mọi thứ khác chạy như cũ. Tự chạy trên VPS: đặt đúng hai biến này.
+- `NFC_GOOGLE_AUTH_URL`/`NFC_GOOGLE_TOKEN_URL` chỉ dành cho harness (Google giả) và **chỉ có tác dụng khi `NFC_ENV=local`**.
 
 ## Còn phải làm trên production (tính tới 21/09)
 

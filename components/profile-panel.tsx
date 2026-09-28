@@ -4,6 +4,8 @@ import { PORTRAIT, shrinkImage, shrinkNotice } from '@/lib/client/shrink-image';
 import type { Profile } from '@/lib/owner/profile';
 import styles from './owner-app.module.css';
 import RoleBadge from './role-badge';
+import GoogleForm from './google-button';
+import { googleMessage } from '@/lib/owner/google-messages';
 
 /**
  * Hồ sơ (lát F2, Tài 2026-09-18): the signed-in person's own page, laid out like a YouTube channel — cover across
@@ -78,6 +80,14 @@ function Picture({ label, field, profile, onSaved }: { label: string; field: 'av
 }
 
 export default function ProfilePanel({ slug, profile, setProfile, password }: { slug: string; profile: Profile | null; setProfile: (p: Profile) => void; password: ReactNode }) {
+  // What came back from "Kết nối Google" (`?google=`), said once and taken off the address so a reload does not repeat it.
+  const [googleNotice, setGoogleNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href), code = url.searchParams.get('google');
+    if (!code) return;
+    queueMicrotask(() => setGoogleNotice(googleMessage(code)));
+    url.searchParams.delete('google'); window.history.replaceState(null, '', url);
+  }, []);
   const [editing, setEditing] = useState(false), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ displayName: '', handle: '', bio: '' });
   if (!profile) return <p className={styles.hint}>Đang tải hồ sơ…</p>;
@@ -128,6 +138,14 @@ export default function ProfilePanel({ slug, profile, setProfile, password }: { 
       <p className={styles.hint}>Đăng nhập bằng <strong>@{profile.handle}</strong>{profile.email ? <> hoặc email <strong>{profile.email}</strong></> : null}. Quên mật khẩu thì liên hệ quản trị NFC để đặt lại.</p>
       {password}
     </section>
+    {/* Google as a way in (lát D4c): linked only from here, while signed in -- never by matching an email. */}
+    {profile.google.available && <section className={styles.panel} aria-label="Google" data-google-link={profile.google.linked ? 'linked' : 'none'}><h2>Google</h2>
+      {googleNotice && <p role="status" className={styles.hint} data-google-notice>{googleNotice}</p>}
+      {profile.google.linked
+        ? <p className={styles.hint}>Đã kết nối Google: bấm <strong>Đăng nhập bằng Google</strong> ở trang đăng nhập là vào thẳng.</p>
+        : <><p className={styles.hint}>Kết nối tài khoản Google để lần sau đăng nhập một chạm, không cần mật khẩu.</p>
+          <GoogleForm fields={{ intent: 'link', next: `/ZZZ/${slug}` }} data-google-connect="">Kết nối Google</GoogleForm></>}
+    </section>}
     <section className={styles.panel} aria-label="Shop của bạn"><h2>Shop của bạn</h2>
       <ul className={styles.list}>{profile.shops.map(shop => <li key={shop.slug} className={styles.shopLine}><strong>{shop.name}</strong> {badge(shop)}
         {shop.role !== 'owner' && shop.roleIcon && <label className={styles.switchRow} data-badge-toggle={shop.slug}><span>Hiện {shop.roleIcon} cạnh tên tôi</span>

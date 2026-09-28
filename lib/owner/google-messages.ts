@@ -1,0 +1,22 @@
+/** What each `?google=<code>` the way back from Google carries says to the person (lát D4c). Unknown codes say nothing. */
+export const GOOGLE_MESSAGES: Record<string, string> = {
+  LINKED: 'Đã kết nối Google. Lần sau bấm "Đăng nhập bằng Google" là vào thẳng.',
+  CANCELLED: 'Đã huỷ bước đăng nhập bằng Google.',
+  TRIP_INVALID: 'Bước đăng nhập Google đã quá 10 phút hoặc không khớp trình duyệt này. Thử lại.',
+  GOOGLE_REFUSED: 'Google chưa xác nhận được tài khoản. Thử lại.',
+  GOOGLE_EMAIL_UNVERIFIED: 'Tài khoản Google này chưa xác minh email, nên chưa dùng được ở đây.',
+  GOOGLE_NOT_LINKED: 'Tài khoản Google này chưa nối với tài khoản nào. Đăng nhập bằng @handle và mật khẩu rồi bấm "Kết nối Google" trong Hồ sơ, hoặc dựng trang mới.',
+  GOOGLE_ALREADY_LINKED: 'Tài khoản Google này đã nối với một tài khoản khác.',
+  GOOGLE_OTHER_LINKED: 'Tài khoản của bạn đã nối với một tài khoản Google khác.',
+  LOGIN_REQUIRED: 'Phiên đăng nhập đã hết. Đăng nhập lại rồi kết nối Google.',
+  OWNER_ALREADY_EXISTS: '@handle này, hoặc email của tài khoản Google này, đã có tài khoản. Chọn @handle khác, hoặc đăng nhập.',
+  INVALID_USERNAME: '@handle cần 3–64 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.',
+  INVALID_ZALO: 'Số Zalo cần 8 đến 15 chữ số.',
+  INVALID_EMAIL: 'Email của tài khoản Google này không dùng được ở đây.',
+  DRAFT_EXPIRED: 'Bản nháp đã hết hạn. Dựng lại rồi lưu nhé.',
+  INVALID_DRAFT: 'Bản nháp không còn hợp lệ. Dựng lại rồi lưu nhé.',
+  TOO_MANY_ATTEMPTS: 'Đang có nhiều lượt lưu cùng lúc. Thử lại sau ít phút.',
+  SIGNUPS_FULL: 'Hôm nay chúng tôi đã nhận đủ trang chờ duyệt. Thử lại sau nhé.',
+  SERVICE_UNAVAILABLE: 'Dịch vụ đang gián đoạn. Thử lại sau.',
+};
+export const googleMessage = (code: string | null | undefined) => (code && GOOGLE_MESSAGES[code]) || null;

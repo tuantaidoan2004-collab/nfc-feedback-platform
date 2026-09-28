@@ -132,7 +132,7 @@ muốn dùng tiếp thì vào đó trả.
   (thu tiền: kỳ tháng, chuyển khoản QR, admin bấm "đã nhận"). Không cần dịch vụ trả phí nào.
 - Áp 1b, 1c: cho chủ quán **dựng trang của mình trước** (tên, template, màu, xem trước ngay), rồi mới tạo tài khoản
   ("Tiếp tục"). Tiến độ không bắt đầu từ 0. Dòng thời gian dùng thử có câu "sẽ nhắc trước khi tới hạn".
-- **Đăng nhập bằng Google cho chủ quán** là việc mới (hôm nay chỉ @handle + mật khẩu), phải cân nhắc riêng về bảo mật.
+- **Đăng nhập bằng Google cho chủ quán: làm ở D4c (28/09)** — "Tiếp tục với Google" đứng đầu, không nối theo email. Ghi chú cũ: là việc mới, phải cân nhắc riêng về bảo mật.
 - Luật Google không liên quan tới luồng của chủ quán, trừ một điều: trong lúc hướng dẫn, không dạy chủ quán cách mời
   đánh giá trái mục 3 của `google-policy.md`.
 

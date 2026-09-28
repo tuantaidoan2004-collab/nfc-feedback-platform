@@ -5,6 +5,7 @@ import { BrandLine, Eyebrow, buttonClass } from '../platform/ui';
 import { TEMPLATE_KEYS, TEMPLATE_NAMES, type TemplateKey } from '@/lib/publishing/templates';
 import { BUSY_HOURS, DRAFT_NAME_MAX, GOALS, SHOP_KINDS, type BusyHour, type Goal, type ShopKind } from '@/lib/start/draft';
 import styles from './builder.module.css';
+import { GoogleMark } from '../google-button';
 
 /**
  * Building a page before there is an account (lát D4; docs/ui-ux-nguon-tham-khao.md mục 1f, 5A–B, 6): the name, a
@@ -64,7 +65,7 @@ function Shot({ src, title }: { src: string | null; title: string }) {
   return <span ref={box} className={styles.shot}>{src && <iframe src={src} title={title} loading="lazy" tabIndex={-1} />}</span>;
 }
 
-export default function Builder() {
+export default function Builder({ google = false, notice = null }: { google?: boolean; notice?: string | null }) {
   const [state, setState] = useState<State>(START);
   const [link, setLink] = useState<DraftLink | null>(null);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [savedAs, setSavedAs] = useState<string | null>(null), [accented, setAccented] = useState(false);
@@ -109,6 +110,23 @@ export default function Builder() {
   // Kept in the list's own order, whatever order they were tapped in: the summary reads like the question.
   const toggle = <T extends string>(list: T[], value: T, order: Record<T, string>) =>
     (Object.keys(order) as T[]).filter(key => key === value ? !list.includes(value) : list.includes(key));
+  /**
+   * Saving with Google (lát D4c): the handle and Zalo from this form, a fresh signature for the page as it is, then a
+   * whole-page post that leaves for Google. The account is made when Google sends the owner back.
+   */
+  const withGoogle = async (form: HTMLFormElement) => {
+    const data = new FormData(form), handle = String(data.get('username') ?? '').trim().replace(/^@/, '').toLowerCase();
+    if (!/^[a-z0-9][a-z0-9_.-]{2,63}$/.test(handle)) { setError(saveProblem('INVALID_USERNAME')); return; }
+    setBusy(true); setError('');
+    try {
+      signedFor.current = ''; const fresh = await signed(state);
+      const out = document.createElement('form'); out.method = 'post'; out.action = '/api/owner/v2/google/start';
+      for (const [name, value] of Object.entries({ intent: 'signup', token: fresh.token, username: handle, zalo: String(data.get('zalo') ?? '') })) {
+        const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; out.appendChild(input);
+      }
+      document.body.appendChild(out); out.submit();
+    } catch (failure) { setError(problem((failure as Error).message)); setBusy(false); }
+  };
   const save = async (form: FormData) => {
     setBusy(true); setError('');
     try {
@@ -138,6 +156,7 @@ export default function Builder() {
     </div>
 
     <main className={styles.main}>
+      {notice && <p role="status" className={styles.error} data-google-notice>{notice}</p>}
       {!savedAs && BACK[step] && <button type="button" className={styles.back} aria-label="Quay lại" onClick={() => go(BACK[step]!)}>←</button>}
 
       {savedAs && <section className={styles.panel} data-start-done>
@@ -254,9 +273,15 @@ export default function Builder() {
           <label className={styles.field}>@handle<input name="username" required maxLength={64} autoComplete="username" autoCapitalize="none"
             autoCorrect="off" spellCheck={false} placeholder="caphe-banmai" onChange={event => setAccented(/[^ -~]/.test(event.target.value))} /></label>
           {accented && <p className={styles.note} data-accent-hint>@handle không có dấu. Nếu đang bật bộ gõ tiếng Việt, chuyển sang bàn phím tiếng Anh (🌐) rồi gõ lại.</p>}
+          <label className={styles.field}>Số Zalo, để chúng tôi báo khi trang được duyệt (không bắt buộc)<input name="zalo" type="tel" inputMode="tel" maxLength={20} autoComplete="tel" placeholder="0961 036 265" /></label>
+          {/* Google first, as uxpeak does (lát D4c): the address is Google's, so there is no email or password to type. */}
+          {google && <>
+            <button type="button" className={buttonClass('secondary')} disabled={busy} data-start-google onClick={event => void withGoogle(event.currentTarget.form!)}>
+              <GoogleMark />Tiếp tục với Google</button>
+            <span className={styles.note}>hoặc đặt mật khẩu:</span>
+          </>}
           <label className={styles.field}>Email<input name="email" type="email" required maxLength={254} autoComplete="email" placeholder="ban@example.com" /></label>
           <label className={styles.field}>Mật khẩu (ít nhất 12 ký tự)<input name="password" type="password" required minLength={12} maxLength={256} autoComplete="new-password" /></label>
-          <label className={styles.field}>Số Zalo, để chúng tôi báo khi trang được duyệt (không bắt buộc)<input name="zalo" type="tel" inputMode="tel" maxLength={20} autoComplete="tel" placeholder="0961 036 265" /></label>
           <button className={buttonClass('primary')} disabled={busy} data-start-keep>{busy ? 'Đang lưu…' : 'Lưu trang của tôi'}</button>
           <span className={styles.note}>Không cần trả tiền để bắt đầu.</span>
         </form>

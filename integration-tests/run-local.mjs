@@ -20,6 +20,10 @@ const owner = platformAdmin || process.argv.includes('--owner');
 const signingFixture = randomBytes(32).toString('hex');
 // The administrator's second factor is sealed with this; without it the app refuses to store a secret at all.
 const totpFixture = randomBytes(32).toString('hex');
+// Google sign-in (lát D4c) against a stand-in for Google that admin-http.spec.ts runs on 3329. The two addresses move only
+// because the dev apps declare NFC_ENV=local (lib/owner/google.ts); the built app keeps Google's own.
+const googleFixture = { NFC_GOOGLE_CLIENT_ID: 'harness-client.apps.googleusercontent.com', NFC_GOOGLE_CLIENT_SECRET: 'harness-google-secret',
+  NFC_GOOGLE_AUTH_URL: 'http://127.0.0.1:3329/auth', NFC_GOOGLE_TOKEN_URL: 'http://127.0.0.1:3329/token' };
 // Still an allowlist: only these names cross into the children. CI and CHROME_PATH tell Playwright which real
 // Chrome to launch (playwright.chrome.ts); without them a GitHub runner would look for Tài's Mac app (lát A4).
 // DISPLAY and XAUTHORITY are what `xvfb-run` puts in this process's environment: the one case that opens a headed
@@ -63,7 +67,9 @@ async function warm(origin) {
     // The text gate (lát M2b): /gov's decision route.
     `/gov/api/texts/${zero}`,
     // The billing tab (lát P5b-lite): the owner's read, and /gov's two writes.
-    '/api/owner/v2/one/billing', '/gov/api/payments', '/gov/api/payment-settings'];
+    '/api/owner/v2/one/billing', '/gov/api/payments', '/gov/api/payment-settings',
+    // Google sign-in (lát D4c).
+    '/api/owner/v2/google/start', '/api/owner/v2/google/callback'];
   await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
 }
 
@@ -72,7 +78,7 @@ async function startApp(name, port, flag, builtApp) {
   // The built app deliberately leaves NFC_ENV unset: the production gate test proves feature flags alone
   // never open v2. Dev apps declare it so the rest of the suite exercises the enabled surfaces.
   const env = { ...safeEnv, NODE_ENV: builtApp ? 'production' : 'development', ...(builtApp ? {} : { NFC_ENV: 'local' }), SERVER_DATA_ENABLED: 'true', DATABASE_URL: scoped.href,
-    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: flag, NFC_RENDER_SIGNING_KEY: signingFixture, NFC_TOTP_KEY: totpFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
+    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: flag, NFC_RENDER_SIGNING_KEY: signingFixture, NFC_TOTP_KEY: totpFixture, ...googleFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
   const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...(builtApp ? ['start'] : ['dev', '--webpack']), '--hostname', '127.0.0.1', '--port', String(port)],
     { cwd, env, stdio: ['ignore', log.fd, log.fd] });
   children.push(child);
@@ -89,7 +95,7 @@ try {
   // Every mode has the published guest page since lát A3b, so every mode has the publishing schema. 021 must follow
   // 003, as it does on Neon (filename order): it replaces the receipt trigger 003 installs. Before 003 it was a no-op,
   // 003 then put the strict trigger back, and a customer's erase answered 503 -- but only here, never in production.
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '003_publishing.sql', '021_erase_on_request.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql','030_text_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql', ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql','029_shop_signups.sql','031_billing.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '003_publishing.sql', '021_erase_on_request.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql','030_text_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql', ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql','029_shop_signups.sql','031_billing.sql','032_google_sign_in.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');

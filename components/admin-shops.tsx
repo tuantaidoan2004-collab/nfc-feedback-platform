@@ -205,10 +205,10 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
               <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
               <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
-              <td className={styles.rowActions}>{row.owner_user_id && !row.is_template && <>
+              <td className={styles.rowActions}><div>{row.owner_user_id && !row.is_template && <>
                 <button className={buttonClass('secondary')} disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>
                 <button className={buttonClass('caution')} disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
-              </>}</td>
+              </>}</div></td>
             </tr>)}
             {!shops.length && <tr><td colSpan={9} className={styles.muted}>Chưa có shop nào.</td></tr>}
           </tbody>

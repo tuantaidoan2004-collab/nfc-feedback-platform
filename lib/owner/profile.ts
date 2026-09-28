@@ -1,3 +1,4 @@
+import { googleSettings } from './google';
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OwnerError, sessionHash, transaction, username, type OwnerCredential } from './auth';
@@ -13,6 +14,8 @@ import { UPLOAD_EXPIRES_SECONDS } from './media';
 export type Profile = {
   id: string; handle: string; displayName: string | null; bio: string | null; avatarUrl: string | null; coverUrl: string | null;
   email: string | null; joinedAt: string; uploads: boolean;
+  /** Whether a Google account is linked (migration 032, lát D4c), and whether this deployment offers Google at all. */
+  google: { linked: boolean; available: boolean };
   /** Each shop with the person's role there: the owner, or a role with its icon and colour (migration 015). */
   shops: { slug: string; name: string; role: 'owner' | 'manager'; roleName: string | null; roleIcon: string | null; roleColor: string | null; showBadge: boolean }[];
 };
@@ -32,7 +35,8 @@ function text(value: unknown, max: number) {
 }
 
 export class OwnerProfiles {
-  constructor(private pool: Pool, private settings: StorageSettings | null = storageSettings(), private now: () => Date = () => new Date()) {}
+  constructor(private pool: Pool, private settings: StorageSettings | null = storageSettings(), private now: () => Date = () => new Date(),
+    private googleAvailable = !!googleSettings()) {}
 
   /** The signed-in person, never a stand-in: the impersonation cookie belongs to the shop's paths, not to a person. */
   private async user(db: PoolClient, credential: OwnerCredential, lock = false) {
@@ -61,7 +65,8 @@ export class OwnerProfiles {
         FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id LEFT JOIN shop_roles r ON r.id=m.role_id
         WHERE m.user_id=$1 AND m.active AND s.publishing_state='active' ORDER BY m.role='owner' DESC,s.name`, [u.id])).rows;
       return { id: u.id, handle: u.username, displayName: u.display_name, bio: u.bio, avatarUrl: u.avatar_url, coverUrl: u.cover_url,
-        email: u.email ?? null, joinedAt: (u.created_at as Date).toISOString(), shops, uploads: !!this.settings };
+        email: u.email ?? null, joinedAt: (u.created_at as Date).toISOString(), shops, uploads: !!this.settings,
+        google: { linked: !!u.google_sub, available: this.googleAvailable } };
     });
   }
 

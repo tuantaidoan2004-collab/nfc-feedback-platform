@@ -74,7 +74,8 @@ export default function Privacy() {
       link hết hạn sau 7 ngày. Trình duyệt của bạn giữ bản đang dựng dở trong bộ nhớ trang; xoá dữ liệu trang web là mất. Mở
       link bản xem thử không ghi lại lượt ghé nào.</p>
     <p>Khi bạn lưu, chúng tôi giữ tài khoản của bạn (@handle, email, mật khẩu đã băm — không ai đọc được mật khẩu), trang bạn
-      dựng, ba câu trả lời, và số Zalo nếu bạn để lại. Chỉ người vận hành nền tảng thấy chúng, để duyệt trang và báo bạn khi
+      dựng, ba câu trả lời, và số Zalo nếu bạn để lại. Nếu bạn dùng Google, chúng tôi chỉ giữ mã tài khoản Google và email
+      Google xác nhận cho bạn — không giữ mật khẩu Google, danh bạ hay quyền nào khác, và không đăng gì thay bạn. Chỉ người vận hành nền tảng thấy chúng, để duyệt trang và báo bạn khi
       trang được mở. Để đếm số lần lưu, địa chỉ mạng chỉ được giữ dưới dạng băm, và bị xoá ở lượt lưu hay lượt đăng nhập kế tiếp sau một giờ. Trang bị từ chối thì tài
       khoản bị khoá; muốn xoá hẳn, liên hệ chúng tôi.</p>
 

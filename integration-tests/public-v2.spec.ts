@@ -354,7 +354,7 @@ test('production gate stays closed even with flag true', async ({ page, request,
   const ownerShell=await request.get('http://127.0.0.1:3319/ZZZ/one');expect(ownerShell.headers()['cache-control']).toContain('no-store');
   for(const path of ['/api/owner/v2/one','/api/owner/v2/one/export','/owner/login?next=%2FZZZ%2Fone'])expect((await request.get(`http://127.0.0.1:3319${path}`)).status()).toBe(404);
   expect((await request.post('http://127.0.0.1:3319/api/owner/v2/login',{data:{}})).status()).toBe(404);
-  for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange', '/api/start/drafts', '/api/start/signup']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
+  for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange', '/api/start/drafts', '/api/start/signup', '/api/owner/v2/google/start']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
   // The builder is a v2 surface too (lát D4): closed until the deployment declares its environment. The front page is not.
   expect((await request.get('http://127.0.0.1:3319/bat-dau')).status()).toBe(404);
   expect((await request.get('http://127.0.0.1:3319/')).status()).toBe(200);

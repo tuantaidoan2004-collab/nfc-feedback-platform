@@ -276,6 +276,17 @@ Lưu/Phát hành, nên chủ quán không biết trang bị chặn vì ảnh đa
 M2b khi thêm ba mã tương tự cho lời cảm ơn. Sửa: Lưu/Phát hành tra cả hai bảng. Bài học: **một mã lỗi mới phải có test đọc đúng
 câu người dùng thấy**, không chỉ mã HTTP. Lỗi của Claude ở lát 023.
 
+**Đăng nhập bằng Google xong mà dashboard vẫn đòi đăng nhập: cookie `SameSite=Strict` không đi theo chuyển hướng bắt đầu từ
+Google.** Cookie phiên chủ quán là Strict. Nếu callback trả `302 → /ZZZ/<slug>`, cả chuỗi chuyển hướng bắt đầu từ trang của
+Google (khác site), nên trình duyệt không gửi cookie vừa đặt. Vì vậy callback (lát D4c, `server/google.ts` `hop`) trả một trang
+HTML nhỏ tự chuyển tiếp: lần điều hướng đó do trang của mình mở, cùng site, cookie đi theo. Test integration đi hết luồng và
+kiểm dashboard thật mở được, để không ai "đơn giản hoá" nó thành redirect. Cookie của lượt đi Google thì phải là **Lax**, vì nó
+phải đi theo lần Google gửi người dùng về.
+
+**Test chạy lặp (`--repeat-each`) đỏ vì trùng với chính dữ liệu của lần chạy trước.** Harness giữ một database cho cả tệp, nên ca
+D4c dùng @handle và mã Google cố định thì lần lặp thứ hai gặp `OWNER_ALREADY_EXISTS`, trông như lỗi chập chờn. Ca nào tạo tài
+khoản thì sinh tên riêng cho mỗi lượt. Lỗi của Claude ở D4c, bắt được khi chạy lặp trước khi commit.
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được

@@ -136,6 +136,16 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
     actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, adminHandle: row.handle ?? null, adminTitle: row.title ?? null, sessionId: row.id, scope: row.scope, reason: row.reason,
       expiresAt: (row.expires_at as Date).toISOString() } };
 }
+/**
+ * A new eight-hour session for an account whose sign-in has just been proven -- by its password here, or by Google
+ * (lib/owner/google.ts). The browser's previous session, if any, ends with it.
+ */
+export async function openSession(db: PoolClient, userId: string, previous?: string) {
+  if (previous && /^[a-f0-9]{64}$/.test(previous)) await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE token_hash=$1', [sessionHash(previous)]);
+  const token = randomBytes(32).toString('hex');
+  const row = (await db.query("INSERT INTO owner_auth_sessions_v2(token_hash,user_id,expires_at)VALUES($1,$2,clock_timestamp()+interval '8 hours')RETURNING expires_at", [sessionHash(token), userId])).rows[0];
+  return { token, expiresAt: row.expires_at as Date, userId };
+}
 export class OwnerAuth {
   constructor(private pool: Pool) {}
   /** Internal bootstrap only. No registration/provisioning HTTP route; real administrative authority required later. */
@@ -163,10 +173,7 @@ export class OwnerAuth {
       const derived = await passwordKey(password, user?.password_salt ?? '0'.repeat(32));
       const matches = timingSafeEqual(derived, Buffer.from(user?.password_key ?? '0'.repeat(64), 'hex'));
       if (!user?.active || !matches) return null;
-      if (previous && /^[a-f0-9]{64}$/.test(previous)) await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE token_hash=$1', [sessionHash(previous)]);
-      const token = randomBytes(32).toString('hex');
-      const row = (await db.query("INSERT INTO owner_auth_sessions_v2(token_hash,user_id,expires_at)VALUES($1,$2,clock_timestamp()+interval '8 hours')RETURNING expires_at", [sessionHash(token), user.id])).rows[0];
-      return { token, expiresAt: row.expires_at as Date, userId: user.id as string };
+      return openSession(db, user.id as string, previous);
     });
     if (!result) throw new OwnerError(401, 'LOGIN_FAILED'); return result;
   }

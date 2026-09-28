@@ -26,7 +26,11 @@ export function zaloNumber(value: unknown): string | null | undefined {
   return /^[0-9]{8,15}$/.test(digits) ? digits : undefined;
 }
 
-export type SignupInput = { draft: Draft; username: unknown; email: unknown; password: unknown; zalo: unknown };
+/**
+ * Either a password the owner chose, or their Google account (lát D4c): Google has proven the address, so the email is
+ * Google's and no password is stored -- the key is random, and only Google or a reset link opens the account.
+ */
+export type SignupInput = { draft: Draft; username: unknown; zalo: unknown } & ({ email: unknown; password: unknown } | { google: { sub: string; email: string } });
 export type WaitingSignup = {
   id: string; shop_name: string; template_key: string; kind: string | null; hours: string[]; goals: string[]; zalo: string | null;
   created_at: string; username: string; email: string; decision: 'approved' | null;
@@ -37,14 +41,17 @@ export class ShopSignups {
 
   async create(input: SignupInput, address: string | null) {
     const name = username(typeof input.username === 'string' ? input.username.replace(/^@/, '') : input.username);
-    const email = ownerEmail(input.email), zalo = zaloNumber(input.zalo);
+    const google = 'google' in input ? input.google : null;
+    const email = ownerEmail(google ? google.email : 'email' in input ? input.email : null), zalo = zaloNumber(input.zalo);
     if (!name) throw new OwnerError(400, 'INVALID_USERNAME');
     if (!email) throw new OwnerError(400, 'INVALID_EMAIL');
-    if (!validPassword(input.password)) throw new OwnerError(400, 'WEAK_PASSWORD');
+    const password = 'password' in input ? input.password : null;
+    if (!google && !validPassword(password)) throw new OwnerError(400, 'WEAK_PASSWORD');
     if (zalo === undefined) throw new OwnerError(400, 'INVALID_ZALO');
-    const { draft } = input, password = input.password, contact: string | null = zalo;
+    const { draft } = input, contact: string | null = zalo;
     const result = await transaction(this.pool, async db => {
-      if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked)
+      // The KDF slot only when there is a password to hash; Google's way in hashes nothing.
+      if (!google && !(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked)
         return { error: 'TOO_MANY_ATTEMPTS' } as const;
       // The address is kept as a hash for its hour and no longer: swept here as sign-in sweeps its own rows.
       await db.query("DELETE FROM owner_login_limits WHERE window_start<clock_timestamp()-interval '1 hour'");
@@ -61,22 +68,24 @@ export class ShopSignups {
       const waiting = (await db.query("SELECT count(*)::int n FROM shop_signups WHERE decision IS NULL")).rows[0].n as number;
       if (waiting >= SIGNUP_LIMITS.waiting) return { error: 'SIGNUPS_FULL' } as const;
       if ((await db.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1 OR email=$2', [name, email])).rowCount) return { error: 'OWNER_ALREADY_EXISTS' } as const;
-      const salt = randomBytes(16).toString('hex'), key = (await passwordKey(password as string, salt)).toString('hex');
+      if (google && (await db.query('SELECT 1 FROM owner_identities_v2 WHERE google_sub=$1', [google.sub])).rowCount) return { error: 'GOOGLE_ALREADY_LINKED' } as const;
+      const salt = randomBytes(16).toString('hex');
+      const key = google ? randomBytes(32).toString('hex') : (await passwordKey(password as string, salt)).toString('hex');
       // A savepoint, so a name taken by a racing twin comes back as an answer and the limiter rows above still commit.
       await db.query('SAVEPOINT signup');
       try {
-        const userId = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key,email)VALUES($1,$2,$3,$4)RETURNING id',
-          [name, salt, key, email])).rows[0].id as string;
+        const userId = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key,email,google_sub)VALUES($1,$2,$3,$4,$5)RETURNING id',
+          [name, salt, key, email, google?.sub ?? null])).rows[0].id as string;
         const id = (await db.query(`INSERT INTO shop_signups(owner_user_id,shop_name,template_key,kind,hours,goals,zalo)VALUES($1,$2,$3,$4,$5,$6,$7)RETURNING id`,
           [userId, draft.name, draft.template, draft.kind, draft.hours, draft.goals, contact])).rows[0].id as string;
-        return { id, username: name };
+        return { id, username: name, userId };
       } catch (error) {
         if (!duplicate(error)) throw error;
         await db.query('ROLLBACK TO SAVEPOINT signup');
         return { error: 'OWNER_ALREADY_EXISTS' } as const;
       }
     });
-    if ('error' in result) throw new OwnerError(result.error === 'OWNER_ALREADY_EXISTS' ? 409 : result.error === 'SIGNUPS_FULL' ? 503 : 429, result.error!);
+    if ('error' in result) throw new OwnerError(result.error === 'OWNER_ALREADY_EXISTS' || result.error === 'GOOGLE_ALREADY_LINKED' ? 409 : result.error === 'SIGNUPS_FULL' ? 503 : 429, result.error!);
     return result;
   }
 
