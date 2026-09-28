@@ -186,7 +186,8 @@ không bao giờ trên Hobby. Lát kế theo audit: dashboard **"thời tiết c
 khẩu; vẫn chọn @handle; email là của Google; không có mật khẩu; trang vẫn chờ duyệt), **đăng nhập bằng Google** ở `/owner/login`
 cho tài khoản đã nối, **kết nối Google** trong Hồ sơ khi đang đăng nhập. **Không bao giờ nối theo email** (email của tài khoản cũ
 chưa ai xác minh). Callback trả một trang nhỏ tự chuyển tiếp chứ không chuyển hướng, vì cookie phiên `SameSite=Strict` không đi
-theo chuỗi chuyển hướng bắt đầu từ Google. Chưa có: ngắt kết nối Google (tài khoản tạo bằng Google không có mật khẩu).
+theo chuỗi chuyển hướng bắt đầu từ Google; vì cùng lý do, ai đang "Kết nối Google" được đọc lúc bấm nút và mang trong cookie
+lượt đi có chữ ký (bản đầu đọc ở callback, hỏng trên production 28/09 — Tài bắt được). Chưa có: ngắt kết nối Google (tài khoản tạo bằng Google không có mật khẩu).
 
 **P5b-lite (28/09, migration 031; Tài chốt 27/09 mục 5H):** không cổng thanh toán. Chủ quán (chỉ chủ, không quản lý) có mục
 **Thanh toán** trong dashboard: phí hằng tháng (bảng giá P5a), trạng thái (chưa có kỳ · dùng thử/đã trả tới ngày · còn/quá N

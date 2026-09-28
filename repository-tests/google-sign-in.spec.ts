@@ -40,14 +40,20 @@ test('linking needs a live session, happens once, and never takes a Google accou
  await f.db.query("UPDATE owner_identities_v2 SET email='same@gmail.com' WHERE id=$1",[id]);
  // A Google account with the same email is still not this account until it is linked on purpose.
  expect(await failure(f.google.signIn('222'))).toBe('GOOGLE_NOT_LINKED');
- expect(await failure(f.google.link(undefined,'222'))).toBe('LOGIN_REQUIRED');
+ // Who links is read from a live session when the trip starts, then carried in the signed trip.
+ expect(await failure(f.google.signedIn(undefined))).toBe('LOGIN_REQUIRED');
  const {token}=await f.auth.login('co-mat-khau','a-long-owner-password');
- expect(await f.google.link(token,'222')).toEqual({linked:true});
- expect(await f.google.link(token,'222')).toEqual({linked:true});
- expect(await failure(f.google.link(token,'333'))).toBe('GOOGLE_OTHER_LINKED');
+ expect(await f.google.signedIn(token)).toBe(id);
+ expect(await f.google.link(id,'222')).toEqual({linked:true});
+ expect(await f.google.link(id,'222')).toEqual({linked:true});
+ expect(await failure(f.google.link(id,'333'))).toBe('GOOGLE_OTHER_LINKED');
  expect((await f.google.signIn('222')).userId).toBe(id);
  const other=await f.auth.bootstrap('nguoi-khac','another-long-password',async()=>{});
- const theirs=(await f.auth.login('nguoi-khac','another-long-password')).token;
- expect(await failure(f.google.link(theirs,'222'))).toBe('GOOGLE_ALREADY_LINKED');
+ expect(await failure(f.google.link(other,'222'))).toBe('GOOGLE_ALREADY_LINKED');
+ // A session that has ended starts no trip; an account closed meanwhile is not linked on the way back.
+ await f.db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1',[id]);
+ expect(await failure(f.google.signedIn(token))).toBe('LOGIN_REQUIRED');
+ await f.db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1',[other]);
+ expect(await failure(f.google.link(other,'444'))).toBe('LOGIN_REQUIRED');
  expect((await f.db.query('SELECT google_sub FROM owner_identities_v2 WHERE id=$1',[other])).rows[0].google_sub).toBeNull();
 });

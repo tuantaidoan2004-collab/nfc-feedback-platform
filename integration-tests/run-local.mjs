@@ -20,10 +20,12 @@ const owner = platformAdmin || process.argv.includes('--owner');
 const signingFixture = randomBytes(32).toString('hex');
 // The administrator's second factor is sealed with this; without it the app refuses to store a secret at all.
 const totpFixture = randomBytes(32).toString('hex');
-// Google sign-in (lát D4c) against a stand-in for Google that admin-http.spec.ts runs on 3329. The two addresses move only
+// Google sign-in (lát D4c) against a stand-in for Google that admin-http.spec.ts runs on 3329. The browser meets it at
+// `localhost`, another site than the app's 127.0.0.1, as Google is on production: a SameSite=Strict cookie then stays
+// behind on the way back, exactly as it does there (a stand-in on 127.0.0.1 hid that, 28/09). The two addresses move only
 // because the dev apps declare NFC_ENV=local (lib/owner/google.ts); the built app keeps Google's own.
 const googleFixture = { NFC_GOOGLE_CLIENT_ID: 'harness-client.apps.googleusercontent.com', NFC_GOOGLE_CLIENT_SECRET: 'harness-google-secret',
-  NFC_GOOGLE_AUTH_URL: 'http://127.0.0.1:3329/auth', NFC_GOOGLE_TOKEN_URL: 'http://127.0.0.1:3329/token' };
+  NFC_GOOGLE_AUTH_URL: 'http://localhost:3329/auth', NFC_GOOGLE_TOKEN_URL: 'http://127.0.0.1:3329/token' };
 // Still an allowlist: only these names cross into the children. CI and CHROME_PATH tell Playwright which real
 // Chrome to launch (playwright.chrome.ts); without them a GitHub runner would look for Tài's Mac app (lát A4).
 // DISPLAY and XAUTHORITY are what `xvfb-run` puts in this process's environment: the one case that opens a headed

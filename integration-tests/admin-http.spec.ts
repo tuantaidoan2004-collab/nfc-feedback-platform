@@ -692,7 +692,10 @@ test.beforeAll(async()=>{
   if(url.pathname==='/auth'){
    const code=randomUUID();
    google.codes.set(code,{nonce:url.searchParams.get('nonce'),challenge:url.searchParams.get('code_challenge'),redirect:url.searchParams.get('redirect_uri'),who:{...google.who}});
-   res.writeHead(302,{location:`${url.searchParams.get('redirect_uri')}?code=${code}&state=${encodeURIComponent(url.searchParams.get('state')??'')}`});res.end();return;
+   // A page the person clicks on, as Google's account chooser is: the way back then starts on this other site, and a
+   // SameSite=Strict cookie stays behind -- a 302 here would have kept the app's own page as the initiator and hidden that.
+   const back=`${url.searchParams.get('redirect_uri')}?code=${code}&state=${encodeURIComponent(url.searchParams.get('state')??'')}`.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+   res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(`<!doctype html><a id="choose-account" href="${back}">Chọn tài khoản</a>`);return;
   }
   if(url.pathname==='/token'){
    let body='';for await(const chunk of req)body+=chunk;
@@ -706,7 +709,8 @@ test.beforeAll(async()=>{
   }
   res.writeHead(404);res.end();
  });
- await new Promise<void>(resolve=>fakeGoogle.listen(3329,'127.0.0.1',()=>resolve()));
+ // Every interface: the browser reaches it as localhost (another site), the app's server as 127.0.0.1.
+ await new Promise<void>(resolve=>fakeGoogle.listen(3329,()=>resolve()));
 });
 test.afterAll(()=>new Promise<void>(resolve=>fakeGoogle.close(()=>resolve())));
 
@@ -714,8 +718,9 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  // Fresh names per run: the harness keeps one database for the whole file, so a repeated run must not meet its own rows.
  const run=`${Date.now()}`.slice(-9),sub=(n:number)=>`${n}${run}`;
  const context=await browser.newContext(),o=await context.newPage();
- await o.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- const googleLogin=async()=>{await context.clearCookies();await o.goto('/owner/login');await o.locator('[data-google-login] button').click();};
+ // The app, and the stand-in for Google at localhost:3329 -- a different site, as Google is.
+ await o.route('**/*',r=>{const url=new URL(r.request().url());return url.hostname==='127.0.0.1'||url.host==='localhost:3329'?r.continue():r.abort();});
+ const googleLogin=async()=>{await context.clearCookies();await o.goto('/owner/login');await o.locator('[data-google-login] button').click();await o.locator('#choose-account').click();};
  // Saving a page with Google: no email, no password; the account is Google's, and the page waits for approval.
  google.who={sub:sub(1),email:`chu.moi.${run}@gmail.com`,email_verified:true};
  await o.goto('/bat-dau');await expect(o.locator('[data-start-ready]')).toBeVisible();
@@ -723,7 +728,7 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  await o.getByRole('button',{name:'Dùng template này →'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
  await o.getByRole('button',{name:'Bỏ qua cho bây giờ'}).click();
  await o.getByLabel('@handle',{exact:true}).fill(`google-${run}`);
- await o.locator('[data-start-google]').click();
+ await o.locator('[data-start-google]').click();await o.locator('#choose-account').click();
  await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
  await expect(o.getByRole('heading',{level:1})).toHaveText('Quán Đăng Nhập Google đang chờ duyệt');
  expect((await admin.db.query("SELECT email,google_sub FROM owner_identities_v2 WHERE username=$1",[`google-${run}`])).rows).toEqual([{email:`chu.moi.${run}@gmail.com`,google_sub:sub(1)}]);
@@ -743,7 +748,7 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  await o.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await o.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
  await o.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
  await openView(o,'profile');
- await o.locator('[data-google-connect] button').click();
+ await o.locator('[data-google-connect] button').click();await o.locator('#choose-account').click();
  await expect(o.locator('[data-google-notice]')).toContainText('Đã kết nối Google');
  await expect(o.locator('[data-google-link]')).toHaveAttribute('data-google-link','linked');
  expect((await admin.db.query("SELECT google_sub FROM owner_identities_v2 WHERE username=$1",[`co-mat-khau-${run}`])).rows[0].google_sub).toBe(sub(2));

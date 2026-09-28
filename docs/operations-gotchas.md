@@ -283,6 +283,14 @@ HTML nhỏ tự chuyển tiếp: lần điều hướng đó do trang của mìn
 kiểm dashboard thật mở được, để không ai "đơn giản hoá" nó thành redirect. Cookie của lượt đi Google thì phải là **Lax**, vì nó
 phải đi theo lần Google gửi người dùng về.
 
+**"Kết nối Google" trên production luôn báo "Phiên đăng nhập đã hết", còn test thì xanh (28/09, Tài bắt được).** Bước callback
+đọc cookie phiên để biết ai đang kết nối, nhưng cookie đó là Strict và lượt quay về bắt đầu từ trang của Google, nên trình duyệt
+không gửi. Test không thấy vì **hai lớp che**: Google giả ở `127.0.0.1` cùng site với app (cổng khác vẫn là cùng site), và nó
+chuyển hướng 302 ngay nên trang của mình vẫn là nơi khởi xướng. Sửa: đọc người đang đăng nhập **lúc bấm nút** (cùng site) và mang
+trong cookie lượt đi có chữ ký; Google giả giờ ở `localhost` (site khác) và là một trang người dùng bấm "chọn tài khoản", như
+Google thật — ca đỏ đúng câu Tài thấy trước khi sửa, xanh 3/3 sau. Bài học: **đồ giả của một bên thứ ba phải giả cả ranh giới
+site và việc người dùng bấm**, không chỉ giả API. Lỗi của Claude ở D4c.
+
 **Test chạy lặp (`--repeat-each`) đỏ vì trùng với chính dữ liệu của lần chạy trước.** Harness giữ một database cho cả tệp, nên ca
 D4c dùng @handle và mã Google cố định thì lần lặp thứ hai gặp `OWNER_ALREADY_EXISTS`, trông như lỗi chập chờn. Ca nào tạo tài
 khoản thì sinh tên riêng cho mỗi lượt. Lỗi của Claude ở D4c, bắt được khi chạy lặp trước khi commit.

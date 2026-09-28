@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { authorizationUrl, googleSettings, newTrip, sealTrip, type GoogleIntent } from '@/lib/owner/google';
 import { username } from '@/lib/owner/auth';
 import { zaloNumber } from '@/lib/start/signup';
-import { ownerEnabled, safeDestination } from '@/server/owner-v2';
+import { ownerEnabled, ownerToken, safeDestination } from '@/server/owner-v2';
+import { GoogleAccounts } from '@/lib/owner/google';
+import { database } from '@/server/db';
 import { fromThisSite } from '@/server/same-origin';
 import { openStartDraft } from '@/server/start';
 import { tripCookie, tripSecret } from '@/server/google';
@@ -27,7 +29,11 @@ export async function POST(request: Request) {
   if (kind === 'login') intent = { kind, next: safeDestination(field('next')) };
   else if (kind === 'link') {
     const next = safeDestination(field('next')); if (!next) return new Response(null, { status: 400 });
-    intent = { kind, next };
+    // Read now, while this site's own page sends the session cookie; the way back from Google will not (SameSite=Strict).
+    let userId: string;
+    try { userId = await new GoogleAccounts(database()).signedIn(await ownerToken()); }
+    catch { return back(origin, `${next}?view=profile`, 'LOGIN_REQUIRED'); }
+    intent = { kind, next, userId };
   } else if (kind === 'signup') {
     // The builder's own checks, repeated: a trip for a draft that will not save is not worth sending to Google.
     const draft = field('token') ?? '', name = username((field('username') ?? '').replace(/^@/, '')), zalo = zaloNumber(field('zalo') ?? '');

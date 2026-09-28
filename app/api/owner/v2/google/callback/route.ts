@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       const home = intent.next ?? ((slug: string | null) => slug ? `/ZZZ/${slug}` : '/owner/cho-duyet')(await new OwnerSetupLinks(pool).dashboardSlug(session.userId));
       return hop(request, home, session);
     }
-    if (intent.kind === 'link') { await google.link(previous, account.sub); return hop(request, `${intent.next}?view=profile&google=LINKED`); }
+    if (intent.kind === 'link') { await google.link(intent.userId, account.sub); return hop(request, `${intent.next}?view=profile&google=LINKED`); }
     // Saving a page: the draft is read from its signature again, now, and the account is Google's.
     const draft = openStartDraft(intent.draft);
     const saved = await new ShopSignups(pool).create({ draft, username: intent.username, zalo: intent.zalo, google: account }, clientAddress(request));

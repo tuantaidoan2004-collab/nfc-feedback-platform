@@ -17,7 +17,7 @@ import { openSession, OwnerError, sessionHash, transaction, type OwnerCredential
 export type GoogleSettings = { clientId: string; clientSecret: string; authUrl: string; tokenUrl: string };
 export type GoogleIntent =
   | { kind: 'login'; next: string | null }
-  | { kind: 'link'; next: string }
+  | { kind: 'link'; next: string; userId: string }
   | { kind: 'signup'; draft: string; username: string; zalo: string | null };
 /** What travels in the short-lived cookie between leaving for Google and coming back. */
 export type GoogleTrip = { state: string; verifier: string; nonce: string; intent: GoogleIntent; expires: number };
@@ -103,12 +103,23 @@ export class GoogleAccounts {
     });
   }
 
-  /** Links this Google account to the one signed in now. A Google account already linked elsewhere stays where it is. */
-  async link(credential: OwnerCredential, sub: string) {
+  /**
+   * Who is signed in, read when "Kết nối Google" is pressed. It must be read then, on this site, and carried in the signed
+   * trip: the owner's session cookie is SameSite=Strict, so on the way back from Google's page the browser does not send
+   * it (28/09 on production: every link attempt answered "Phiên đăng nhập đã hết").
+   */
+  async signedIn(credential: OwnerCredential) {
     if (typeof credential !== 'string' || !/^[a-f0-9]{64}$/.test(credential)) throw new OwnerError(401, 'LOGIN_REQUIRED');
+    const user = (await this.pool.query(`SELECT u.id FROM owner_auth_sessions_v2 a JOIN owner_identities_v2 u ON u.id=a.user_id
+      WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active`, [sessionHash(credential)])).rows[0];
+    if (!user) throw new OwnerError(401, 'LOGIN_REQUIRED');
+    return user.id as string;
+  }
+
+  /** Links this Google account to the account that started the trip. A Google account already linked elsewhere stays there. */
+  async link(userId: string, sub: string) {
     return transaction(this.pool, async db => {
-      const user = (await db.query(`SELECT u.id,u.google_sub FROM owner_auth_sessions_v2 a JOIN owner_identities_v2 u ON u.id=a.user_id
-        WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active FOR UPDATE OF u`, [sessionHash(credential)])).rows[0];
+      const user = (await db.query('SELECT id,google_sub FROM owner_identities_v2 WHERE id=$1 AND active FOR UPDATE', [userId])).rows[0];
       if (!user) throw new OwnerError(401, 'LOGIN_REQUIRED');
       if (user.google_sub === sub) return { linked: true };
       if (user.google_sub) throw new OwnerError(409, 'GOOGLE_OTHER_LINKED');
