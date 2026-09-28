@@ -14,6 +14,7 @@ import NotificationBell from './notification-bell';
 import AdminBadge from './admin-badge';
 import ProfilePanel, { Avatar, useProfile } from './profile-panel';
 import TeamPanel from './team-panel';
+import BillingPanel from './billing-panel';
 import ActivityPanel from './activity-panel';
 import ThemeToggle from './platform/theme';
 import type { Theme } from './platform/theme-cookie';
@@ -26,7 +27,7 @@ import { BrandLine } from './platform/ui';
  */
 type Summary = Awaited<ReturnType<Repository['summary']>>;
 type Data = Awaited<ReturnType<Repository['read']>>;
-type View = 'home' | 'data' | 'design' | 'activity' | 'settings' | 'profile';
+type View = 'home' | 'data' | 'design' | 'activity' | 'billing' | 'settings' | 'profile';
 /** On a phone the first three sit in the bottom bar; the rest open from "Thêm" (lát S1, audit A3). */
 const PRIMARY: View[] = ['home', 'data', 'design'];
 const isView = (value: string | null): value is View => !!value && VIEWS.some(([id]) => id === value);
@@ -39,6 +40,8 @@ const VIEWS: [View, string, string][] = [
   ['data', 'Dữ liệu', 'M4 20V10m6 10V4m6 16v-7m4 7H2'],
   ['design', 'Thiết kế & Link', 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Zm9-13 4 4'],
   ['activity', 'Hoạt động', 'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
+  // The billing tab (lát P5b-lite): the shop's owner only.
+  ['billing', 'Thanh toán', 'M3 7h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Zm0 4h18M7 15h4'],
   ['settings', 'Cài đặt', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.5a7.5 7.5 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.2 1.3l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.3Z'],
   ['profile', 'Hồ sơ', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 9a8 8 0 0 1 16 0'],
 ];
@@ -337,7 +340,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation,
     else router.push(`/ZZZ/${encodeURIComponent(shop)}?thread=${sessionId}`);
   };
   const shown = (id: View) => id === 'activity' ? owner && !!perms?.includes('activity')
-    : id === 'design' ? may('design') || may('cards') : id === 'profile' ? owner : true;
+    : id === 'design' ? may('design') || may('cards') : id === 'profile' || id === 'billing' ? owner : true;
   const title = VIEWS.find(([id]) => id === view)![1];
   const listed = VIEWS.filter(([id]) => (!designOnly || id === 'design') && shown(id));
   const navButton = ([id, label, icon]: [View, string, string]) =>
@@ -471,6 +474,7 @@ export default function OwnerDashboard({ slug, name, customerUrl, impersonation,
         {summary && <AdminVisits visits={summary.adminVisits} />}
       </section>}
 
+      {view === 'billing' && owner && <BillingPanel endpoint={endpoint} />}
       {view === 'profile' && owner && <ProfilePanel slug={slug} profile={profile} setProfile={setProfile} password={<PasswordForm />} />}
       {focus && <ThreadDialog endpoint={endpoint} sessionId={focus} canWrite={!!canComment} me={me} topic={key => TOPICS[key] ?? key} onClose={() => setFocus(null)} />}
     </main>

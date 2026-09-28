@@ -61,7 +61,9 @@ async function warm(origin) {
     // Saving it (lát D4b): the signup route, the waiting page, and /gov's decision route.
     '/api/start/signup', '/owner/cho-duyet', `/gov/api/signups/${zero}`,
     // The text gate (lát M2b): /gov's decision route.
-    `/gov/api/texts/${zero}`];
+    `/gov/api/texts/${zero}`,
+    // The billing tab (lát P5b-lite): the owner's read, and /gov's two writes.
+    '/api/owner/v2/one/billing', '/gov/api/payments', '/gov/api/payment-settings'];
   await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
 }
 
@@ -87,7 +89,7 @@ try {
   // Every mode has the published guest page since lát A3b, so every mode has the publishing schema. 021 must follow
   // 003, as it does on Neon (filename order): it replaces the receipt trigger 003 installs. Before 003 it was a no-op,
   // 003 then put the strict trigger back, and a customer's erase answered 503 -- but only here, never in production.
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '003_publishing.sql', '021_erase_on_request.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql','030_text_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql', ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql','029_shop_signups.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '003_publishing.sql', '021_erase_on_request.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql','030_text_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql', ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql','029_shop_signups.sql','031_billing.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');

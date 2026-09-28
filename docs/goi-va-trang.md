@@ -187,7 +187,10 @@ dừng khẩn cấp, duyệt ảnh.
   vẫn ở mục 9. Hôm nay chỉ admin đóng được; "Huỷ gói → hết kỳ → tạm ngừng 30 ngày → đóng" là P5.
 - Dashboard mở mặc định trang đầu tiên **chưa đóng**.
 
-## 14. P5 phần hiện giá (26/09) — không migration, **chưa thu phí**
+## 14. P5 phần hiện giá (26/09) — không migration
+
+**Cập nhật 28/09:** thu phí bắt đầu có đường bằng P5b-lite (tab Thanh toán, migration 031; `decisions.md`). Dòng "Chưa thu
+phí trong giai đoạn thử" ở danh sách trang đã đổi thành chỉ tới mục Thanh toán.
 
 Tài, 26/09: thẻ NFC không tính phí trong app ("chỉ là vật chứa link", bán riêng); trang **chưa thu phí thật** — cần cảm
 nhận của khách trước. Đổi template có phí thì tính từ **kỳ sau**. Nên phần này chỉ hiện giá:

@@ -636,3 +636,41 @@ test('M2b: a shop\'s own thank-you line waits in /gov, is approved or refused wi
  // Decided once: a second decision is refused.
  expect((await page.request.post(`/gov/api/texts/${good}`,{headers:{origin},data:{decision:'reject',reason:'lại'}})).status()).toBe(409);
 });
+
+test('P5b-lite: the operator enters where money goes and records a payment; nothing of it lives in the code',async({page,admin})=>{
+ const shop=(await admin.db.query("INSERT INTO shops(slug,name)VALUES('thu-tien','Quán Thu Tiền')RETURNING id")).rows[0].id;
+ await page.goto('/gov/login');
+ await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
+ await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
+ await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ const panel=page.locator('[data-billing]');
+ // Test values only: a made-up bank, a made-up account, a one-pixel picture.
+ const form=panel.locator('[data-payment-settings]');
+ await form.getByLabel('Ngân hàng',{exact:true}).fill('Ngân hàng Thử');await form.getByLabel('Chủ tài khoản').fill('NGUYEN VAN THU');
+ await form.getByLabel('Số tài khoản').fill('0123 456 789');await form.getByLabel('Zalo nhận biên lai').fill('0912345678');
+ await form.locator('[data-qr-file]').setInputFiles({name:'qr.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
+ await expect(form.locator('[data-qr-preview]')).toBeVisible();
+ await form.getByRole('button',{name:'Lưu thông tin'}).click();
+ await expect(panel.locator('[data-billing-note]')).toContainText('Đã lưu thông tin nhận thanh toán');
+ const saved=(await admin.db.query("SELECT value FROM platform_settings WHERE key='payment'")).rows[0].value;
+ expect(saved).toMatchObject({bank:'Ngân hàng Thử',holder:'NGUYEN VAN THU',account:'0123456789',zalo:'0912345678'});
+ expect(saved.qr).toMatch(/^data:image\/jpeg;base64,/);
+ // A payment for the shop, then the list says how far it has paid.
+ const record=panel.locator('[data-record-payment]');
+ await record.getByLabel('Quán').selectOption(shop);
+ await record.getByLabel('Số tiền đã nhận (đồng)').fill('30000');
+ await record.getByLabel('Đã trả tới hết ngày').fill('2026-12-31');
+ await record.getByRole('button',{name:'Ghi nhận'}).click();
+ await expect(panel.locator('[data-billing-note]')).toContainText('Quán Thu Tiền đã trả tới 31/12/2026');
+ expect((await admin.db.query('SELECT kind,amount_vnd,covers_until::text FROM shop_payments WHERE shop_id=$1',[shop])).rows).toEqual([{kind:'payment',amount_vnd:30000,covers_until:'2026-12-31'}]);
+ expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='billing.record' AND shop_id=$1",[shop])).rows[0].n).toBe(1);
+ // A trial is recorded at zero, whatever the amount box said.
+ await record.getByLabel('Loại').selectOption('trial');
+ await expect(record.getByLabel('Số tiền đã nhận (đồng)')).toHaveCount(0);
+ await record.getByLabel('Quán').selectOption(shop);await record.getByLabel('Dùng thử tới hết ngày').fill('2027-01-15');
+ await record.getByRole('button',{name:'Ghi nhận'}).click();
+ await expect(panel.locator('[data-billing-note]')).toContainText('dùng thử tới 15/01/2027');
+ // The picture travels in the body; a body larger than this route's own limit is refused.
+ expect((await page.request.put('/gov/api/payment-settings',{headers:{origin},data:{...saved,qr:`data:image/png;base64,${'A'.repeat(800_000)}`}})).status()).toBe(413);
+});

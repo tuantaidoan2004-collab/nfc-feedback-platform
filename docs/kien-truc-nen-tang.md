@@ -21,7 +21,7 @@ Danh sách lát còn lại (cập nhật tới 26/09) ở [`roadmap-slices.md`](
 - **Quán → trang → bản phát hành → thẻ.** Một quán nhiều trang; mỗi trang một link vĩnh viễn, một template@bản, cài đặt, nội
   dung, bản nháp và các bản phát hành **bất biến**; thẻ trỏ vào trang.
 - **Dữ liệu hai cấp:** bề nổi cho chủ quán xem · hành vi cho "engine" sau này (đang thu từ 21/09; đọc để sau — Tài 26/09).
-- **Kinh doanh:** giá theo template/trang, hai suất miễn phí mỗi quán, thẻ bán riêng; **chưa thu phí** (Tài 26/09).
+- **Kinh doanh:** giá theo template/trang, hai suất miễn phí mỗi quán, thẻ bán riêng; thu bằng chuyển khoản, Tài ghi nhận ở `/gov` (P5b-lite, 28/09); chưa tự tạm ngừng khi quá hạn.
 
 ## 2. Hôm nay đã "module" tới đâu — đánh giá thật
 

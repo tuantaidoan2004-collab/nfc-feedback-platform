@@ -30,4 +30,4 @@ export const adminFailure = (error: unknown) => {
 // error type is translated, so an administrative route never answers with an owner error code.
 const translate = (error: unknown) => { throw error instanceof OwnerError ? new AdminError(error.status, error.code) : new AdminError(400, 'INVALID_INPUT'); };
 export function adminOrigin(request: Request) { try { ownerOrigin(request); } catch (error) { translate(error); } }
-export async function adminInput(request: Request) { try { return await ownerInput(request); } catch (error) { return translate(error); } }
+export async function adminInput(request: Request, limit?: number) { try { return await ownerInput(request, limit); } catch (error) { return translate(error); } }

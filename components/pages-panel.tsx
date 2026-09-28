@@ -51,7 +51,7 @@ export default function PagesPanel({ shop, endpoint, origin, list, selected, onS
     <p className={styles.hint}>Mỗi trang là một link riêng, với template, nội dung và thẻ NFC riêng. Chọn một trang để sửa nó và thẻ của nó ở bên dưới.
       Trang mới là bản nháp: khách chỉ thấy sau khi bạn bấm <strong>Phát hành</strong>.</p>
     <p className={styles.hint} data-pages-price>Dự kiến: <strong>{vnd(list.monthly)}/tháng</strong> · {FREE_PAGES} trang có phí đầu tiên được miễn,
-      template miễn phí không tính vào đó. <strong>Chưa thu phí</strong> trong giai đoạn thử.</p>
+      template miễn phí không tính vào đó. Hạn và cách thanh toán ở mục <strong>Thanh toán</strong>.</p>
     <ul className={styles.pageList}>{list.pages.map(page => <li key={page.slug} className={styles.pageRow} data-page={page.slug} aria-current={page.slug === current}>
       <div className={styles.thumb} aria-hidden="true">
         {/* A picture, so no script runs in it: server HTML and CSS only -- nothing hydrates, nothing is recorded. */}

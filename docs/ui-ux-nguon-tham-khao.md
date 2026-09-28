@@ -207,11 +207,14 @@ Tài; Claude viết nháp khi Tài muốn.
 **G. Trạng thái trống là bước đầu tiên, không phải số 0.** Dashboard mới không hiện "0 lượt quét"; nó hiện việc kế tiếp
 ("Dán thẻ lên bàn và quét thử") và coi mỗi việc làm xong là một nấc tiến độ (1b).
 
-**H. Thanh toán: một trang mã QR, biên lai qua Zalo (Tài chốt 27/09).** Tab Thanh toán hiện **mã QR ngân hàng của
+**H. Thanh toán: một trang mã QR, biên lai qua Zalo (Tài chốt 27/09; làm ở P5b-lite 28/09, migration 031).** Tab Thanh toán hiện **mã QR ngân hàng của
 Tài** và lời nhắn "chụp biên lai gửi qua Zalo"; admin bấm "đã nhận" ở `/gov`. Không cổng thanh toán. Mã QR và số Zalo
 là dữ liệu thanh toán của Tài: nằm trong **cài đặt admin**, không bao giờ trong GitHub (`AGENTS.md`). Vẫn giữ **dòng thời
 gian** dùng thử (hôm nay · ngày nhắc · ngày tới hạn) và câu "Chúng tôi sẽ nhắc trước khi tới hạn" (1c). Hết hạn mà chưa
 trả thì nói thật điều sẽ xảy ra ("khách quét thẻ sẽ thấy Trang tạm ngừng") — khung "sợ mất" chỉ dùng khi là sự thật.
+**Bản P5b-lite (28/09)** hiện ngày tới hạn và số ngày còn/quá, và câu "Chúng tôi nhắc qua Zalo trước khi tới hạn" — Tài nhắc tay,
+`/gov` liệt kê quán tới hạn trong 7 ngày. Chưa có gì tự tạm ngừng, nên tab chỉ nói "đã quá hạn N ngày"; câu "khách quét thẻ sẽ thấy
+Trang tạm ngừng" chỉ được dùng khi Tài quyết cách tạm ngừng và nó chạy thật (P5b).
 
 **I. Khi khách quay lại tab cũ sau Google:** trang chỉ được **cảm ơn**, không bật ưu đãi hay nội dung chỉ dành cho người đã
 bấm Google (luật 8). Sự kiện của quán phải luôn hiện cho **mọi** khách, có bấm Google hay không.

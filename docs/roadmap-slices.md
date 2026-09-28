@@ -9,7 +9,7 @@ trước khi đẩy `main`).
 
 ## 0. Thứ tự của đợt cải tổ UI/UX (audit 27/09)
 
-Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0, S1, M2, M3, D4a, D4b, M2b xong 27/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
+Theo `docs/audit-ui-ux-20260927.md` mục 4 (**S0, S1, M2, M3, D4a, D4b, M2b xong 27/09; P5b-lite 28/09**): **S0** dọn nền (đổi "khuôn" → "template", tiêu đề theo tên quán, README) → **S1** hệ thiết kế nền tảng (token + component chung, `/gov` trước, rồi thanh dưới và URL
 cho dashboard) → **M2** → **M3** → **D4a** → **D4b** → tab Thanh toán → dashboard "thời tiết của quán" → trình chỉnh như Canva +
 kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
@@ -40,7 +40,7 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
 | # | Việc | Cỡ | Ghi chú |
 |---|---|---|---|
-| P5b | Thu tiền: kỳ tháng, chuyển khoản QR, admin bấm "đã nhận", huỷ → hết kỳ → tạm ngừng 30 ngày → đóng, mốc "bắt đầu chạy" | L | **Mig.** Tài: chưa thu, cần cảm nhận khách trước. Tài 27/09: bản đầu chỉ là **tab Thanh toán có mã QR của Tài + "chụp biên lai gửi Zalo"**, admin bấm "đã nhận" (`ui-ux-nguon-tham-khao.md` mục 5H). Tự động hoá (VietQR + bot) là B6 |
+| P5b | Phần còn lại sau P5b-lite: quá hạn thì ra sao (tạm ngừng tự động? sau bao lâu? — **Tài quyết**), huỷ → hết kỳ → đóng, mốc "bắt đầu chạy" cho suất miễn phí | V | **Mig.** Tự động hoá (VietQR có số tiền + nội dung, bot đối soát) là B6 |
 | P7 | App admin trên tên miền riêng | V | |
 | A21 | `/gov`: tìm quán, số liệu nền tảng, dùng được trên điện thoại | V | Cần dữ liệu thật |
 | A20 | Onboarding "3 bước bắt đầu" + màn trống có hướng dẫn | V | |
@@ -101,7 +101,7 @@ luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạ
 
 ## Đã xong (một dòng mỗi việc; chi tiết trong `decisions.md`, các tệp được trỏ và lịch sử git)
 
-M2b lời cảm ơn shop tự viết + cửa duyệt chữ (030, 27/09) · D4a trang chính + dựng trang trước tài khoản (`/`, `/bat-dau`, `/thu/<mã>`, QR tự vẽ, 27/09) · D4b "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` (029, 27/09) · M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
+P5b-lite tab Thanh toán: QR + chuyển khoản + Zalo, Tài ghi nhận ở `/gov` (031, 28/09) · M2b lời cảm ơn shop tự viết + cửa duyệt chữ (030, 27/09) · D4a trang chính + dựng trang trước tài khoản (`/`, `/bat-dau`, `/thu/<mã>`, QR tự vẽ, 27/09) · D4b "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` (029, 27/09) · M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
 liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google, `/huong-dan-google`) · A27 `DESIGN.md`/`PRODUCT.md` ·
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi template (022) · A33 sáu khoá template · A36 lớp da · K1–K6 sáu template · K7
 bản template · P1 quán/trang (024) · P2 bảng cài đặt · P3 danh sách trang (025) · P4 vòng đời trang (026) · P5a hiện giá · P1d

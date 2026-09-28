@@ -147,7 +147,7 @@ tái hiện, production không có. Cảnh báo "preloaded but not used" chỉ c
 | **M2** | Module hiệu ứng | Tách kính, nghiêng, chuyển cảnh; thêm **popup cảm ơn 4 giây → Google tab mới**, tim bung, con trỏ màu của template | Ý 1, ý 3 của Tài đi vào đúng chỗ |
 | **M3** | Section (mig) | `PageConfig` v3: danh sách section; poster, link thành section | Mở đường cho sự kiện, video |
 | **D4** | Trang chính + dựng trang trước tài khoản | Trang chính (video 3 phút, được lập chỉ mục) → dựng trang không cần tài khoản → **QR thấy trang trên điện thoại mình** → 3 câu hỏi → "Lưu trang của tôi" | Onboarding kiểu uxpeak (mục 1f của nguồn) |
-| **P5b-lite** | Tab Thanh toán | Mã QR của Tài + "chụp biên lai gửi Zalo" + dòng thời gian dùng thử; admin bấm "đã nhận" | Tài chốt 27/09: không cổng thanh toán |
+| **P5b-lite** ✓ 28/09 | Tab Thanh toán | Mã QR của Tài + "chụp biên lai gửi Zalo" + dòng thời gian dùng thử; admin bấm "đã nhận" | Tài chốt 27/09: không cổng thanh toán |
 | **Dash** | Dashboard "thời tiết của quán" | Tóm tắt hôm nay (mặt cười + link tới góp ý), trạng thái trống thành bước đầu, poster video, cài lên màn hình + thông báo đẩy | Cần S1, A4 |
 | **Editor** | Trình chỉnh như Canva + kho template dạng lưới (M5) | Xem trước sống bên cạnh; kho template lưới ảnh lớn (ghi chú trang 40 của Tài) | Cần S1, M3 |
 | **M4** | Trang khách cải tổ | Thẻ trượt lên nền đứng yên, bỏ nảy (A9), section Sự kiện (A16) | Cần M2, M3 |

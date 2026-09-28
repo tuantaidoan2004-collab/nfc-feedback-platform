@@ -45,10 +45,11 @@ export function ownerPage(body:Record<string,unknown>):[Record<string,unknown>,s
  if(page!==undefined&&typeof page!=='string')throw new OwnerError(400,'INVALID_INPUT');
  return [rest,page??null];
 }
-export async function ownerInput(request:Request){
+/** `limit`: 16 KB for every form, raised only where a picture travels in the body (the payment QR, lát P5b-lite). */
+export async function ownerInput(request:Request,limit=16384){
  if(new URL(request.url).search || request.headers.get('content-type')?.split(';')[0]!=='application/json')throw new OwnerError(400,'INVALID_INPUT');
  const reader=request.body?.getReader();if(!reader)throw new OwnerError(400,'INVALID_INPUT');const chunks:Uint8Array[]=[];let size=0;
- try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>16384){await reader.cancel();throw new OwnerError(413,'BODY_TOO_LARGE');}chunks.push(value);}
+ try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>limit){await reader.cancel();throw new OwnerError(413,'BODY_TOO_LARGE');}chunks.push(value);}
   const value=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!value||typeof value!=='object'||Array.isArray(value))throw new OwnerError(400,'INVALID_INPUT');return value as Record<string,unknown>;
  }catch(error){if(error instanceof OwnerError)throw error;throw new OwnerError(400,'INVALID_INPUT');}finally{reader.releaseLock();}
 }

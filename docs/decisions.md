@@ -172,12 +172,21 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**Phiên mới bắt đầu từ đây (27/09 khuya):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → **M2b** (audit
-`docs/audit-ui-ux-20260927.md` mục 4). D4 đã lên production (`main` = `66b8c4c`, Neon 001–029). **M2b nằm trên nhánh, có
-migration 030**: Tài chạy 030 trên Neon production và preview → đẩy nhánh, CI xanh → đẩy đúng commit đó lên `main`. **Vercel (Tài
+**Phiên mới bắt đầu từ đây (28/09):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → **P5b-lite** (audit
+`docs/audit-ui-ux-20260927.md` mục 4). D4 đã lên production (`main` = `66b8c4c`, Neon 001–029). **M2b và P5b-lite nằm trên
+nhánh, có migration 030 và 031**: Tài chạy cả hai trên Neon production và preview → đẩy nhánh, CI xanh → đẩy đúng commit đó lên
+`main` → Tài nhập thông tin nhận tiền ở `/gov` (khung Thanh toán). **Vercel (Tài
 chốt 27/09): Pro tới 29/09, rồi chuyển VPS** (bộ I1, `tu-chay.md`) — từ 29/09 trang chính chỉ được chạy trên VPS hoặc Pro trả tiền,
-không bao giờ trên Hobby. Lát kế theo audit: **P5b-lite** (tab Thanh toán, cần mã QR ngân hàng + Zalo của Tài), hoặc D4c (đăng
-nhập bằng Google, cần OAuth client).
+không bao giờ trên Hobby. Lát kế: **D4c** đăng nhập bằng Google cho chủ quán (Tài tạo OAuth client "QuiteSensational" trên
+Google Cloud 28/09; Tài tự đặt client ID/secret vào biến môi trường), hoặc dashboard "thời tiết của quán" theo audit.
+
+**P5b-lite (28/09, migration 031; Tài chốt 27/09 mục 5H):** không cổng thanh toán. Chủ quán (chỉ chủ, không quản lý) có mục
+**Thanh toán** trong dashboard: phí hằng tháng (bảng giá P5a), trạng thái (chưa có kỳ · dùng thử/đã trả tới ngày · còn/quá N
+ngày), mã QR + ngân hàng + chủ tài khoản + số tài khoản, **nội dung chuyển khoản `QS <MÃ QUÁN>`**, nút "Gửi biên lai qua Zalo",
+lịch sử. Tài ở `/gov`, khung **Thanh toán**: nhập thông tin nhận tiền (lưu trong `platform_settings`, **không bao giờ trong
+GitHub** — Tài tự nhập, agent không nhập số tài khoản), ghi nhận "đã nhận tiền" hoặc "cho dùng thử" tới một ngày
+(`shop_payments`, không sửa không xoá; hàng mới nhất quyết định), danh sách quán tới hạn trong 7 ngày để nhắc qua Zalo.
+**Chưa có gì tự tạm ngừng khi quá hạn** — quá hạn thì ra sao là Tài quyết.
 
 **M2b (27/09, migration 030):** lời cảm ơn trước Google do shop tự viết (`PageConfig.thanks`, tiếng Việt + tiếng Anh, ≤ 120 ký tự;
 chỉ dòng đầu của thẻ — câu "trang sẽ chuyển sang Google" vẫn là của nền tảng), chỉ ở template có thẻ cảm ơn (1–5). Không được

@@ -216,6 +216,29 @@ test('M2b: the shop writes its own thank-you line; it publishes only once approv
  expect(await thanksOnTap()).toBe('Cảm ơn quý khách đã ghé!');
 });
 
+test('P5b-lite: the owner reads what a month costs, how far the shop has paid, and how to pay',async({page,f})=>{
+ await login(page,f.users[0]);
+ await openView(page,'billing');
+ const panel=page.locator('[data-panel="billing"]');
+ await expect(panel.locator('[data-billing-state]')).toContainText('Chưa có kỳ thanh toán nào');
+ await expect(panel.locator('[data-billing-transfer]')).toContainText('khi nền tảng bắt đầu thu phí');
+ // Test values only, entered as the operator would in /gov.
+ const adminId=(await f.db.query("INSERT INTO platform_admins(username,password_salt,password_key)VALUES('billing-admin',repeat('0',32),repeat('0',64))RETURNING id")).rows[0].id;
+ await f.db.query("INSERT INTO platform_settings(key,value,updated_by)VALUES('payment',$1,$2)",[{bank:'Ngân hàng Thử',holder:'NGUYEN VAN THU',account:'0123456789',zalo:'0912345678',
+  qr:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='},adminId]);
+ await f.db.query("INSERT INTO shop_payments(shop_id,kind,amount_vnd,covers_until,recorded_by)VALUES($1,'payment',30000,((clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date+10),$2)",[f.shops[0],adminId]);
+ await page.reload();
+ await expect(panel.locator('[data-billing-state]')).toContainText('Đã thanh toán tới hết ngày');
+ await expect(panel.locator('[data-billing-state]')).toContainText('còn 10 ngày');
+ await expect(panel.locator('[data-billing-memo]')).toHaveText('QS ONE');
+ await expect(panel.locator('[data-billing-account]')).toHaveText('0123456789');
+ await expect(panel.locator('[data-billing-qr]')).toBeVisible();
+ await expect(panel.locator('[data-billing-zalo]')).toHaveAttribute('href','https://zalo.me/0912345678');
+ await expect(panel.locator('[data-billing-history]')).toContainText('Đã nhận 30.000đ');
+ // The bottom bar keeps its three; the tab sits behind "Thêm" on a phone, and its address opens it directly.
+ await expect(page).toHaveURL(/\?view=billing$/);
+});
+
 test('the page editor: save, preview in a new tab, publish, and the customer page changes only after publishing',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // next dev reloads every open page the first time it compiles a route; compile /one and /preview before the editor holds state.
@@ -536,7 +559,7 @@ test('pages: a picture of each, copy one, make one from the library, bring conte
  const rows=page.locator('[data-pages] [data-page]');
  await expect(rows).toHaveCount(1);
  // Prices are shown, and nothing is charged yet (lát P5).
- await expect(page.locator('[data-pages-price]')).toContainText('Chưa thu phí');
+ await expect(page.locator('[data-pages-price]')).toContainText('mục Thanh toán');
  await expect(page.locator('[data-page="one"] [data-page-price]')).toHaveText('Miễn phí (suất miễn phí)');
  await expect(page.locator('[data-new-page] select option[value="big-button"]')).toHaveText('6 · Nút lớn — miễn phí');
  // The picture is the page drawn still: no visit is recorded for it, and only this app may frame it.

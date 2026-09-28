@@ -1,10 +1,9 @@
 import { TEMPLATE_PRICES, isTemplateKey } from './templates';
 
 /**
- * Giá (lát P5, Tài chốt 25–26/09, `docs/goi-va-trang.md` mục 4). **Chưa thu phí**: đây là bảng giá và số dự kiến để chủ
- * quán và nền tảng thấy trước; chưa có kỳ thanh toán, chưa có gì tự tạm ngừng khi chưa trả (Tài, 26/09: cần cảm nhận của
- * khách trước khi thu thật).
- *
+ * Giá (lát P5, Tài chốt 25–26/09, `docs/goi-va-trang.md` mục 4). Đây là bảng giá. Thu bằng chuyển khoản: chủ quán trả theo tab
+ * Thanh toán, Tài ghi nhận ở /gov (lát P5b-lite, migration 031, `lib/owner/billing.ts`); chưa có gì tự tạm ngừng khi quá hạn
+ * (Tài quyết sau).
  * - Mỗi template một giá thuê mỗi tháng cho mỗi trang (`pricePerMonth` trong manifest của gói). Template 6 miễn phí.
  * - Mỗi quán hai suất miễn phí, cho **hai trang có phí đang chạy lâu nhất**; template 6 không chiếm suất. Đóng một trang được
  *   miễn thì trang có phí cũ nhất tiếp theo được miễn (khi có kỳ: từ kỳ sau).
