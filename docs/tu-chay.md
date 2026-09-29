@@ -84,7 +84,7 @@ nguyên. Không chép dữ liệu nào, nên không mất gì. Bộ riêng cho v
    Caddy chờ tới khi tên miền trỏ về máy này mới lấy được chứng chỉ; app đã chạy phía sau nó.
 5. **Đổi DNS ở Cloudflare** (Tài): bản ghi của `quitesensational-review-bio.com` (hôm nay là CNAME về Vercel) → **bản ghi A trỏ
    IP của VPS, "DNS only" (mây xám)**. **Không đụng** bản ghi `media` (R2, mây cam). Vài phút sau Caddy tự lấy HTTPS.
-6. **Kiểm:** `curl -sI https://quitesensational-review-bio.com | grep -i x-vercel` **không** còn dòng nào (đã rời Vercel); đăng
+6. **Kiểm:** `curl -s https://quitesensational-review-bio.com/api/health` ra `{"status":"ok"}` (app và database Neon đều trả lời); `curl -sI https://quitesensational-review-bio.com | grep -i x-vercel` **không** còn dòng nào (đã rời Vercel); đăng
    nhập `/gov` (chạm database); mở trang khách `/urr6ud`; tải thử một ảnh trong dashboard (R2); "Đăng nhập bằng Google"
    (redirect URI không đổi vì tên miền không đổi).
 7. **Quay lại Vercel nếu có chuyện:** đổi bản ghi DNS về CNAME cũ của Vercel — Vercel vẫn giữ bản deploy.

@@ -345,6 +345,11 @@ test('H1: every page carries its protective headers, its scripts carry that resp
   const report = { 'csp-report': { 'effective-directive': 'script-src-elem', 'blocked-uri': 'https://evil.test/x.js?q=1', 'document-uri': 'http://127.0.0.1:3317/one?secret=1' } };
   expect((await request.post('/api/csp-report', { headers: { 'content-type': 'application/csp-report' }, data: JSON.stringify(report) })).status()).toBe(204);
   expect((await request.post('/api/csp-report', { headers: { 'content-type': 'text/plain' }, data: 'x' })).status()).toBe(415);
+  // The health check (roadmap B3): the database answered; nothing else is said, and nothing of it is cached.
+  const health = await request.get('/api/health');
+  expect([health.status(), await health.json()]).toEqual([200, { status: 'ok' }]);
+  expect(health.headers()['cache-control']).toMatch(/no-store/);
+  expect(health.headers()['content-security-policy']).toContain("default-src 'none'");
   // In a browser the pages work -- hydrated, framed, uploading nothing -- and the policy refuses nothing they use.
   const refused = cspWatch(page);
   await ready(page); await openCard(page);

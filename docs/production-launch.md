@@ -22,11 +22,12 @@ Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pr
 | `/bat-dau` | Chủ quán dựng trang không cần tài khoản, quét QR xem trên điện thoại, 3 câu hỏi, "Lưu trang của tôi" (D4a–D4b) | không cần; lưu thì tạo tài khoản | Cùng lần đẩy D4 |
 | `/thu/<mã>` | Bản xem thử của một trang đang dựng: link có chữ ký, sống 7 ngày, không ghi lượt ghé | không cần | Cùng lần đẩy D4 |
 | `/owner/login` | Trang đăng nhập chủ shop | `@handle` hoặc email | Có `?next=` thì về đó; không có (từ trang chính, D4b) thì về dashboard của tài khoản, hoặc `/owner/cho-duyet` nếu trang còn chờ duyệt |
+| `/api/health` | App và database có sống không: `200 ok` / `503 unavailable`, không nói gì thêm; hỏi database tối đa 5 giây một lần | không cần | Lần đẩy kế tiếp lên `main` (B3, 29/09) |
 | `/owner/cho-duyet` | Tài khoản tự tạo mà trang chưa được duyệt | `@handle` vừa tạo | Cùng lần đẩy D4. Duyệt ở `/gov` → khung "Trang chờ duyệt" |
 
 Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đổi `r` thành dấu hỏi, `s` thành dấu sắc, nên mật khẩu đúng vẫn báo sai (bẫy ở `operations-gotchas.md`).
 
-**Muốn biết database production có sống không:** đăng nhập `/gov`. Trang đó đọc database để xác thực; `/gov/login` và `/owner/login` trả 200 **không** chứng minh gì vì chúng không đọc database. Đây là cách kiểm sau mỗi lần xoay credential hoặc chạy migration.
+**Muốn biết database production có sống không:** mở **`/api/health`** — `200 {"status":"ok"}` là app và database đều trả lời, `503 {"status":"unavailable"}` là database không trả lời trong 3 giây (lát B3 phần đầu, 29/09; có trên production sau lần đẩy kế tiếp lên `main`). Đây là cách kiểm sau mỗi lần xoay credential, chạy migration hay chuyển máy, và là địa chỉ để một dịch vụ giám sát gọi. `/gov/login` và `/owner/login` trả 200 **không** chứng minh gì vì chúng không đọc database.
 
 ## Đăng nhập bằng Google (D4c, 28/09)
 
