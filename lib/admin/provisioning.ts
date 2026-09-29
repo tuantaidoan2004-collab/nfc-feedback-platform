@@ -121,7 +121,7 @@ export class ShopProvisioning {
         ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role='owner'`, [user.id, template.shopId]);
       // Closed means closed: a browser still signed in with the old password is signed out too.
       if (!created) await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND revoked_at IS NULL', [user.id]);
-      await db.query('DELETE FROM owner_login_limits WHERE bucket=$1', [loginBucket(TEMPLATE_USERNAME)]);
+      await db.query("DELETE FROM owner_login_limits WHERE bucket=$1 OR bucket LIKE $1||':%'", [loginBucket(TEMPLATE_USERNAME)]);
       const link = await new OwnerSetupLinks(this.pool).write(db, user.id, created ? 'setup' : 'reset');
       await recordAdminAction(db, actorId, { action: 'template.account.link', shopId: template.shopId, onBehalfOf: user.id,
         detail: { username: TEMPLATE_USERNAME, created } });

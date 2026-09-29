@@ -79,7 +79,7 @@ export default function Privacy() {
     <p>Khi bạn lưu, chúng tôi giữ tài khoản của bạn (@handle, email, mật khẩu đã băm — không ai đọc được mật khẩu), trang bạn
       dựng, ba câu trả lời, và số Zalo nếu bạn để lại. Nếu bạn dùng Google, chúng tôi chỉ giữ mã tài khoản Google và email
       Google xác nhận cho bạn — không giữ mật khẩu Google, danh bạ hay quyền nào khác, và không đăng gì thay bạn. Chỉ người vận hành nền tảng thấy chúng, để duyệt trang và báo bạn khi
-      trang được mở. Để đếm số lần lưu, địa chỉ mạng chỉ được giữ dưới dạng băm, và bị xoá ở lượt lưu hay lượt đăng nhập kế tiếp sau một giờ. Trang bị từ chối thì tài
+      trang được mở. Để đếm số lần lưu và số lần đăng nhập (chặn máy đoán mật khẩu), địa chỉ mạng chỉ được giữ dưới dạng băm, và bị xoá ở lượt lưu hay lượt đăng nhập kế tiếp sau một giờ. Trang bị từ chối thì tài
       khoản bị khoá; muốn xoá hẳn, liên hệ chúng tôi.</p>
 
     <h2>Quyền của bạn</h2>

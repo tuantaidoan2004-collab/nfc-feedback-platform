@@ -233,6 +233,10 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   await expect(cards.locator('iframe')).toHaveCount(6);
   await cards.filter({ hasText: '3 · Kính' }).click();
   await expect(page.locator('[data-template-card="glass"]')).toHaveAttribute('aria-checked', 'true');
+  // Inside the builder's own frame the page is drawn without its banner.
+  const inside = page.frameLocator('[data-template-card="glass"] iframe');
+  await expect(inside.locator('main.guest')).toContainText('Cà Phê Ban Mai');
+  await expect(inside.locator('[data-draft-banner]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Dùng template này →' }).click();
 
   // The QR code and the link say the same thing; the link opens the page as a guest would see it.
@@ -251,6 +255,11 @@ test('D4: an owner builds a page with no account, sees it on a phone through the
   await expect(phone.locator('[data-google]')).toBeInViewport();
   await expect(phone.locator('[data-draft-banner]')).toContainText('Bản xem thử');
   await expect(phone.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  // Rà bảo mật 29/09, T1: `?khung=1` hid the banner wherever it was typed, so a draft link could pass for a real shop's
+  // page on this domain. Now only a frame, as the browser itself says (Sec-Fetch-Dest), is drawn without it.
+  await phone.goto(`${url}?khung=1`);
+  await expect(phone.locator('main.guest')).toContainText('Cà Phê Ban Mai');
+  await expect(phone.locator('[data-draft-banner]')).toContainText('Bản xem thử');
   await phone.close();
 
   // Three quick questions: one answered, one skipped; progress never went back to zero.

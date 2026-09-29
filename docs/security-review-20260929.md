@@ -106,6 +106,48 @@ trống một chỗ. Hỗ trợ trong phiên thiết kế tính vào hàng chờ
 **Test:** `repository-tests/impersonation.spec.ts` ca `PENDING_UPLOADS_MAX` (25 yêu cầu cùng lúc → đúng 20 được ký, 5 bị
 từ chối; hỗ trợ cũng bị chặn; quán khác không ảnh hưởng; từ chối một tệp → xin được đúng một link nữa).
 
+### L1 · Trung bình · Một máy lạ khoá được đăng nhập bằng mật khẩu của mọi người, kể cả `/gov` — **đã vá**
+
+**Bằng chứng:** hạn mức đăng nhập đếm **toàn nền tảng trước** (chủ quán 60/phút, admin 20/phút), rồi **theo tài khoản trên
+mọi địa chỉ** (chủ quán 8/15 phút, admin 5/15 phút); không có tầng theo địa chỉ. Vậy: một máy gửi 61 lượt/phút khoá đăng
+nhập mật khẩu của mọi chủ quán; 21 lượt/phút khoá `/gov`; 9 lượt vào @handle của một quán khoá quán đó 15 phút; 6 lượt vào
+tên đăng nhập admin — chủ quán nào từng được hỗ trợ đều thấy tên đó nếu admin chưa đặt handle — khoá Tài 15 phút, đúng lúc có
+sự cố. Người bị khoá chỉ thấy "sai mật khẩu". Test tái hiện đỏ trên `3c34cef`: hạn mức toàn nền tảng đếm đủ 40 lượt (admin) và
+25 lượt (chủ quán) của **một** địa chỉ; link cài đặt đếm 61.
+
+**Vá:** đếm từ cụ thể tới chung, mỗi tầng chỉ đếm lượt mà các tầng trước đã cho qua (`countAttempt`, `lib/owner/auth.ts`):
+
+| | Địa chỉ | Tài khoản, từ địa chỉ đó | Tài khoản, mọi địa chỉ | Toàn nền tảng |
+|---|---|---|---|---|
+| Chủ quán: đăng nhập, đổi mật khẩu | 10/phút | 8/15 phút | 30/15 phút | 60/phút |
+| Admin | 5/phút | 5/15 phút | 20/15 phút | 60/phút (chỉ là ngân sách hàm băm trên khoá riêng của admin) |
+| Link cài đặt | 10/phút | — | — | 60/phút |
+
+Địa chỉ lấy từ đúng một header deployment tin (`server/guest-limits.ts`: Caddy ghi đè trên VPS, Vercel ghi đè trên Vercel),
+chỉ lưu bản băm. Không có header đó thì không có tầng địa chỉ và luật cũ giữ nguyên. Đổi mật khẩu thành công, hay đặt lại tài
+khoản template, xoá mọi bộ đếm của tài khoản đó (`<bucket>` và `<bucket>:%`).
+
+**Còn lại, nói thẳng:** nhiều máy cùng lúc (botnet) vẫn tiêu được hạn mức toàn nền tảng. Đoán mật khẩu **một** tài khoản từ
+nhiều địa chỉ giờ được 30 lượt/15 phút thay vì 8: đó là giá của việc một máy lạ không khoá được chủ tài khoản. Admin còn 2FA,
+chủ quán còn đăng nhập Google (D4c) — hai đường này không đi qua hạn mức mật khẩu.
+
+**Test:** `owner-dashboard.spec.ts` (một địa chỉ đoán tên bịa: dừng ở 10, toàn nền tảng chỉ thấy 10, quán khác vẫn vào; đoán
+mật khẩu một quán: làn của địa chỉ đó đóng sau 8 kể cả khi đúng mật khẩu, chủ quán từ nhà vẫn vào; 30 địa chỉ → khoá tài
+khoản; không header → luật cũ); `admin-auth.spec.ts` (cùng ba ý cho admin); `owner-setup.spec.ts` (một địa chỉ đoán 70 link →
+toàn nền tảng chỉ đếm 10, quán khác vẫn đặt được mật khẩu).
+
+### T1 · Thấp · `?khung=1` ẩn băng "Bản xem thử" ở bất cứ đâu — **đã vá**
+
+**Bằng chứng:** bản nháp `/thu/<mã>` là trang ai cũng dựng được trên tên miền nền tảng, sống 7 ngày (tên quán ≤ 60 ký tự đã
+lọc, một template). Băng "Bản xem thử" là thứ nói với người mở rằng đây chưa phải trang thật của quán nào; `?khung=1` — dành
+cho khung trong `/bat-dau` — tắt băng ở mọi nơi, kể cả khi mở thẳng link.
+
+**Vá:** chỉ khung nhúng mới mất băng, theo `Sec-Fetch-Dest: iframe` — header do trình duyệt tự đặt, trang không giả được — và
+`frame-ancestors 'self'` chỉ cho trang của chính nền tảng nhúng. Trình duyệt quá cũ không gửi header đó thì thấy băng cả trong
+khung: chỉ xấu, không hở.
+
+**Test:** `public-v2.spec.ts` ca D4: khung trong trình dựng không có băng; mở thẳng kèm `?khung=1` vẫn có băng.
+
 ### Mặt trận 3 của C3 (media/R2): bốn điểm Astra nêu 20/09
 
 | Điểm | Giờ |
@@ -128,6 +170,9 @@ từ chối; hỗ trợ cũng bị chặn; quán khác không ảnh hưởng; t�
 | Đăng nhập | chủ quán, admin, link cài đặt | Tên lạ vẫn chạy trọn hàm băm; hạn mức theo tài khoản + toàn nền tảng; admin có 2FA chống dùng lại mã; link cài đặt 256 bit, chỉ lưu băm, dùng một lần; đổi mật khẩu đăng xuất phiên khác |
 | IP khách | `server/guest-limits.ts`, `deploy/hosted/Caddyfile` | Chỉ tin một header, và Caddy ghi đè `X-Real-IP` ở mọi request |
 | Tối ưu ảnh | `next.config.ts` | Không `remotePatterns`: `/_next/image` không làm proxy cho ảnh ngoài |
+| Cookie `Secure` trên VPS | Cờ `secure` đọc từ `new URL(request.url).protocol`; Caddy nói chuyện với app bằng http | Next dựng `request.url` theo `X-Forwarded-Proto` (`next/dist/server/next-server.js`, `initProtocol`), Caddy tự đặt header đó là `https` và ghi đè giá trị khách gửi — cookie vẫn `Secure` |
+| Link của quán | `lib/publishing/config.ts` | Chỉ `https:` (không tên/mật khẩu trong URL) hoặc `tel:` toàn chữ số: không có `javascript:` hay `data:` nào lên trang khách |
+| Đường ghi của khách (mặt trận 2 của C3) | `server/visit-v2-api.ts` | Cùng site, Bearer, render proof có chữ ký, khoá body đúng từng thao tác, 4 KB (16 KB góp ý), bộ đếm A1 trước khi ghi, log từ chối không mang IP/bí mật/nội dung. Còn: spam chậm từ nhiều địa chỉ — vốn có ở mọi góp ý ẩn danh, và góp ý là riêng tư nên không hại quán công khai |
 
-**Yếu có chủ ý, ghi để biết:** hạn mức đăng nhập toàn nền tảng (60 lượt/phút) giữ máy khỏi bị đốt bằng hàm băm, nhưng ai gửi
-quá mức đó chặn được đăng nhập **bằng mật khẩu** của mọi người trong phút ấy; đăng nhập Google (D4c) không đi qua hạn mức này.
+**Yếu còn lại, ghi để biết:** hạn mức đăng nhập toàn nền tảng vẫn tiêu được bằng **nhiều** máy cùng lúc (L1 chỉ chặn một
+máy); đăng nhập Google (D4c) không đi qua hạn mức này.

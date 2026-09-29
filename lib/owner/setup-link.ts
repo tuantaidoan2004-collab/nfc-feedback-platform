@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-import { OwnerError, passwordKey, transaction, username, validPassword } from './auth';
+import { addressBucket, countAttempt, OwnerError, passwordKey, transaction, username, validPassword, type Bucket } from './auth';
 
 /** Its own hash domain, so a setup token can never be replayed as a session token or the other way round. */
 export const setupTokenHash = (token: string) => createHash('sha256').update(`nfc-owner-setup-v1\0${token}`).digest('hex');
@@ -98,7 +98,8 @@ export class OwnerSetupLinks {
    * Spends the link and sets the password. The claim is a conditional UPDATE, so two requests racing on the
    * same link leave exactly one winner; a rejected password is checked first and costs nothing.
    */
-  async consume(token: unknown, password: unknown) {
+  /** `address`: the caller's, from the one header the deployment trusts (server/guest-limits.ts), or null. */
+  async consume(token: unknown, password: unknown, address: string | null = null) {
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new OwnerError(400, 'SETUP_LINK_INVALID');
     if (!validPassword(password)) throw new OwnerError(400, 'INVALID_CREDENTIAL');
     const result = await transaction(this.pool, async db => {
@@ -108,12 +109,9 @@ export class OwnerSetupLinks {
         return { error: 'TOO_MANY_ATTEMPTS' } as const;
       // Invalid tokens are cheap but still bounded. Commit rejected attempts; throwing
       // inside this transaction would roll the limiter back. No raw token/IP is stored.
-      const attempt = (await db.query(`INSERT INTO owner_login_limits(bucket,window_start,attempts)VALUES('setup-global',clock_timestamp(),1)
-        ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-interval '1 minute' THEN 1
-        ELSE LEAST(owner_login_limits.attempts,60)+1 END,
-        window_start=CASE WHEN owner_login_limits.window_start<=clock_timestamp()-interval '1 minute' THEN clock_timestamp()
-        ELSE owner_login_limits.window_start END RETURNING attempts`)).rows[0].attempts;
-      if (attempt > 60) return { error: 'TOO_MANY_ATTEMPTS' } as const;
+      // One address first (rà bảo mật 29/09, L1), so someone guessing links cannot spend every shop's setup budget.
+      const buckets: Bucket[] = [...(address ? [[`setup-address:${addressBucket('nfc-owner-setup-address-v1', address)}`, 10, 60] as const] : []), ['setup-global', 60, 60]];
+      if (!(await countAttempt(db, 'owner_login_limits', buckets))) return { error: 'TOO_MANY_ATTEMPTS' } as const;
       const hash = setupTokenHash(token);
       const candidate = (await db.query(`SELECT user_id FROM owner_setup_tokens WHERE token_hash=$1
         AND used_at IS NULL AND superseded_at IS NULL AND expires_at>clock_timestamp()`, [hash])).rows[0];

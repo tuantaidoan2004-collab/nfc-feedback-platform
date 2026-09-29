@@ -163,6 +163,15 @@ test('invalid-token throttling commits rejected attempts and recovers after its 
  await expect(f.links.consume(token,'valid-length-password')).rejects.toThrow('SETUP_LINK_INVALID');
 });
 
+// Rà bảo mật 29/09, L1: one address trying made-up links is stopped at ten a minute, before the platform's sixty, so a
+// shop setting its password from its own link is not refused because someone else is guessing.
+test('one address guessing links does not use up the setup budget of every other shop',async({f})=>{
+ const {link}=await f.links.provision('shopkeeper','tai@example.com',allow);
+ for(let i=0;i<70;i++)await expect(f.links.consume(randomBytes(32).toString('hex'),'valid-length-password','203.0.113.9')).rejects.toThrow(/SETUP_LINK_INVALID|TOO_MANY_ATTEMPTS/);
+ expect((await f.db.query("SELECT attempts FROM owner_login_limits WHERE bucket='setup-global'")).rows[0].attempts).toBe(10);
+ await expect(f.links.consume(link.token,'chosen-by-the-shop','198.51.100.7')).resolves.toBeTruthy();
+});
+
 test('simultaneous consumption has exactly one winner and one expensive hash',async({f})=>{
  const {link}=await f.links.provision('shopkeeper','tai@example.com',allow);
  const crypto=(await import('node:crypto')).default;

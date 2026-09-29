@@ -1,5 +1,6 @@
 import { AdminAuth, AdminError } from '@/lib/admin/auth';
 import { database } from '@/server/db';
+import { clientAddress } from '@/server/guest-limits';
 import { adminCookie, adminCookiePath, adminSessionToken, adminGate, adminOrigin, adminInput, adminJson, adminFailure } from '@/server/admin';
 export async function POST(request: Request) {
   try {
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
     // `code` is optional in the shape but not in effect: an enrolled administrator without a valid one is refused
     // by `login`, with the same message as a wrong password (lát A2).
     if (!['code,password,username', 'password,username'].includes(Object.keys(data).sort().join())) throw new AdminError(400, 'INVALID_INPUT');
-    const session = await new AdminAuth(database()).login(data.username, data.password, await adminSessionToken(), data.code);
+    const session = await new AdminAuth(database()).login(data.username, data.password, await adminSessionToken(), data.code, clientAddress(request));
     const response = adminJson({ signedIn: true });
     response.cookies.set(adminCookie, session.token,
       { httpOnly: true, sameSite: 'strict', secure: new URL(request.url).protocol === 'https:', path: adminCookiePath, expires: session.expiresAt });

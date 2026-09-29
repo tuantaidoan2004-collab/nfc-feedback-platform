@@ -34,6 +34,33 @@ test('DB-backed login throttling is generic and attempts survive failed authenti
  await expect(f.auth.login(f.users[0].username,f.users[0].password)).rejects.toThrow('LOGIN_FAILED');
  expect((await f.db.query('SELECT max(attempts) n FROM owner_login_limits')).rows[0].n).toBeGreaterThan(8);
 });
+// Rà bảo mật 29/09, L1. The platform's limit was counted first and the account's counted every address, so one machine
+// sending 61 attempts a minute shut every owner out of password sign-in, and nine attempts on someone's @handle shut that
+// owner out for 15 minutes. Most specific first now, each bucket counting only what the ones before it let through.
+test('one address past its limits locks neither the platform nor the owner signing in from somewhere else',async({f})=>{
+ test.setTimeout(120_000);
+ const [a,b]=f.users,attacker='203.0.113.9',home='198.51.100.7',wrong='wrong-password-123';
+ const count=async(bucket:string)=>Number((await f.db.query('SELECT attempts FROM owner_login_limits WHERE bucket=$1',[bucket])).rows[0]?.attempts??0);
+ await f.db.query('DELETE FROM owner_login_limits'); // the fixture has signed its owners in already
+ // One address hammering made-up names is stopped after ten a minute; the platform's budget saw only those ten.
+ for(let i=0;i<25;i++)await expect(f.auth.login(`nobody-${i}`,wrong,undefined,attacker)).rejects.toThrow('LOGIN_FAILED');
+ expect(await count('global')).toBe(10);
+ await expect(f.auth.login(b.username,b.password,undefined,home)).resolves.toMatchObject({userId:b.id});
+ // The same address guessing one owner's password: its own lane closes after eight, even for the right password, while
+ // the owner, from home, still signs in.
+ await f.db.query('DELETE FROM owner_login_limits');
+ for(let i=0;i<9;i++)await expect(f.auth.login(a.username,wrong,undefined,attacker)).rejects.toThrow('LOGIN_FAILED');
+ await expect(f.auth.login(a.username,a.password,undefined,attacker)).rejects.toThrow('LOGIN_FAILED');
+ await expect(f.auth.login(a.username,a.password,undefined,home)).resolves.toMatchObject({userId:a.id});
+ // Many addresses on one account are still bounded: thirty in fifteen minutes, from anywhere, then no one gets in.
+ await f.db.query('DELETE FROM owner_login_limits');
+ for(let i=0;i<30;i++)await expect(f.auth.login(a.username,wrong,undefined,`203.0.113.${i+10}`)).rejects.toThrow('LOGIN_FAILED');
+ await expect(f.auth.login(a.username,a.password,undefined,home)).rejects.toThrow('LOGIN_FAILED');
+ // No trusted address header (server/guest-limits.ts): the account's own strict limit, as before.
+ await f.db.query('DELETE FROM owner_login_limits');
+ for(let i=0;i<8;i++)await expect(f.auth.login(b.username,wrong)).rejects.toThrow('LOGIN_FAILED');
+ await expect(f.auth.login(b.username,b.password)).rejects.toThrow('LOGIN_FAILED');
+});
 test('live cohort metrics/date boundaries, filters and source attribution exclude preview and other tenant',async({f})=>{
  const before=new Date('2026-09-12T16:59:59.999Z'),start=new Date('2026-09-12T17:00:00Z'),last=new Date('2026-09-13T16:59:59.999Z'),after=new Date('2026-09-13T17:00:00Z');
  for(const at of [before,start,last,after])await addExperience(f.db,'one',2,'Private date fixture',at);

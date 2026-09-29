@@ -686,3 +686,9 @@ một lát hay một phát hiện, tìm tên đó trong dòng "Đã xong" của 
 
 **Biến chuỗi trong zsh — lần thứ tư.** `files="a.ts b.ts"; sed -i '' … $files` → zsh đưa cả chuỗi làm **một** tên tệp
 (`No such file or directory`). Mất một lệnh, không hỏng gì. Luật vẫn là: viết thẳng danh sách, hoặc dùng mảng.
+
+**Chạy test lẻ trong lúc 7 bộ đang chạy nền — lỗi của Claude, 29/09.** Đã chạy vài tệp repository từ worktree chính trong lúc
+bộ repository của lượt nền đang chạy, cùng database `nfc_repo_test`. Hai bên cô lập bằng schema, nhưng khoá advisory của đăng
+nhập chủ quán **dùng chung cả database** (vì thế `playwright.repository.config.ts` chỉ chạy 1 worker): hai ca đăng nhập cùng lúc
+thì một ca nhận `LOGIN_FAILED` giả. Lần này không va nhau. Harness tích hợp (`run-local.mjs`) **cũng dùng `nfc_repo_test`** và
+cổng cố định. **Có lượt 7 bộ nào đang chạy thì không chạy test repository hay harness nào khác** — xem `summary.txt` trước.

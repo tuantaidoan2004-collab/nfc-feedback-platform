@@ -102,6 +102,26 @@ test('administrative throttle stops guessing even when the password becomes righ
  expect((await f.db.query('SELECT count(*)::int n FROM admin_auth_sessions')).rows[0].n).toBe(0);
 });
 
+// Rà bảo mật 29/09, L1. The operator's sign-in had one limit for the whole platform (20 a minute) and one per account for
+// every address (5 in 15 minutes): anyone who knew /gov, or the administrator's name, could keep Tài out of it with a
+// handful of requests -- during an incident, exactly when he needs it.
+test('one address past its limits does not keep the administrator out from somewhere else',async({f})=>{
+ test.setTimeout(120_000);
+ const secret=password();await f.auth.bootstrap('boss',secret,async()=>{});
+ const attacker='203.0.113.9',home='198.51.100.7',wrong='definitely-not-the-password';
+ const global=async()=>Number((await f.db.query("SELECT attempts FROM admin_login_limits WHERE bucket='global'")).rows[0]?.attempts??0);
+ for(let i=0;i<40;i++)await expect(f.auth.login(`nobody${i}`,wrong,undefined,undefined,attacker)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ expect(await global()).toBe(5);
+ await f.db.query('DELETE FROM admin_login_limits');
+ for(let i=0;i<6;i++)await expect(f.auth.login('boss',wrong,undefined,undefined,attacker)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('boss',secret,undefined,undefined,attacker)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('boss',secret,undefined,undefined,home)).resolves.toBeTruthy();
+ // Guesses from many addresses are still bounded for the account: twenty in fifteen minutes.
+ await f.db.query('DELETE FROM admin_login_limits');
+ for(let i=0;i<20;i++)await expect(f.auth.login('boss',wrong,undefined,undefined,`203.0.113.${i+10}`)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+ await expect(f.auth.login('boss',secret,undefined,undefined,home)).rejects.toThrow('ADMIN_LOGIN_FAILED');
+});
+
 test('audit is append only and separates work done on behalf of an owner',async({f})=>{
  const id=await f.auth.bootstrap('boss',password(),async()=>{});
  const ownerId=await f.owner.bootstrap('shopkeeper','owner-password-ok',async()=>{});

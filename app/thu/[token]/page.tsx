@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import ShopFeedbackV2 from '@/components/shop-feedback-v2';
 import { openStartDraft, startEnabled } from '@/server/start';
@@ -13,8 +14,9 @@ export const metadata: Metadata = { title: 'Bản xem thử', robots: { index: f
 /**
  * A page built before there is an account (lát D4), drawn with the template it chose: what the owner's guests would
  * see, on the owner's own phone. Nothing is recorded -- the page has no render proof, so it opens no visit -- and the
- * page says it is a preview. `?khung=1` is the builder's own frame (no banner); `?t=` shows the same draft in another
- * template, for the builder's template grid.
+ * page says it is a preview. `?khung=1` asks for the builder's own frame, drawn without the banner -- honoured only when
+ * the browser says this request is for a frame (below); `?t=` shows the same draft in another template, for the
+ * builder's template grid.
  */
 export default async function Page({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ khung?: string; t?: string }> }) {
   if (!startEnabled()) notFound();
@@ -29,7 +31,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   }
   const key = isTemplateKey(query.t) ? query.t : draft.template;
   const config = { ...templateConfig(key), name: draft.name };
-  const framed = query.khung === '1';
+  // Only a frame loses the banner, as the browser itself says: `Sec-Fetch-Dest` is set by the browser and no page can make
+  // it say `iframe` for a page opened on its own, and `frame-ancestors 'self'` lets only this site frame it. Opened on
+  // its own, a draft link is a page on this domain like any other and says it is a preview (rà bảo mật 29/09, T1).
+  const framed = query.khung === '1' && (await headers()).get('sec-fetch-dest') === 'iframe';
   return <>
     {!framed && <p className="draft-banner" data-draft-banner role="note">Bản xem thử · hết hạn {draft.expiresAt.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: 'numeric', month: 'numeric' })}</p>}
     <ShopFeedbackV2 slug="ban-xem-thu" name={config.name} googleUrl={config.googleUrl} heroUrl={null} heroKind={null} pageConfig={config}

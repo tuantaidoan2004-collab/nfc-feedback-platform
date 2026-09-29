@@ -1,9 +1,9 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-// Only the KDF parameters and the transaction helper are shared with owner auth, so both roles keep identical
-// password cost. Everything that decides access — tables, hash domains, throttle buckets, advisory lock — is
-// separate on purpose: a shop owner has no identity in this space and cannot become an administrator.
-import { passwordKey, transaction } from '../owner/auth';
+// Only the KDF parameters, the transaction helper and the throttle counter are shared with owner auth, so both roles
+// keep identical password cost. Everything that decides access — tables, hash domains, throttle buckets, advisory lock —
+// is separate on purpose: a shop owner has no identity in this space and cannot become an administrator.
+import { addressBucket, countAttempt, passwordKey, transaction, type Bucket } from '../owner/auth';
 import { AdminError } from './error';
 import { shortCode } from '../short-code';
 import { base32, enrolmentUri, newSecret, open, seal, stepOf } from './totp';
@@ -13,6 +13,18 @@ export { AdminError } from './error';
 export const adminSessionHash = (token: string) => createHash('sha256').update(`nfc-admin-session-v1\0${token}`).digest('hex');
 export const backupCodeHash = (code: string) => createHash('sha256').update(`nfc-admin-backup-v1\0${code}`).digest('hex');
 const bucketHash = (name: string) => createHash('sha256').update(`nfc-admin-login-v1\0${name}`).digest('hex');
+/**
+ * What an administrator's sign-in attempt counts against, most specific first (rà bảo mật 29/09, L1; the owner side is
+ * ownerLoginBuckets). The platform's 20 a minute came first and the account's 5 in 15 minutes counted every address, so
+ * anyone who knew /gov, or the administrator's name, could keep the operator out with a handful of requests. With an
+ * address, the platform's limit is only a hashing budget on the operator's own lock, so it is set higher.
+ */
+export function adminLoginBuckets(name: string, address: string | null): Bucket[] {
+  const own = bucketHash(name);
+  if (!address) return [[own, 5, 900], ['global', 20, 60]];
+  const place = addressBucket('nfc-admin-login-address-v1', address);
+  return [[`address:${place}`, 5, 60], [`${own}:${place}`, 5, 900], [own, 20, 900], ['global', 60, 60]];
+}
 export const adminUsername = (value: unknown) =>
   typeof value === 'string' && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(value.trim().toLowerCase()) ? value.trim().toLowerCase() : null;
 // Longer than the owner minimum: one administrative credential reaches every shop on the platform.
@@ -58,7 +70,8 @@ export class AdminAuth {
    * pass. Every failure answers the same `ADMIN_LOGIN_FAILED`, so the reply never says which half was wrong --
    * including whether this account has a second factor at all (lát A2).
    */
-  async login(name: unknown, password: unknown, previous?: string, second?: unknown) {
+  /** `address`: the caller's, from the one header the deployment trusts (server/guest-limits.ts), or null. */
+  async login(name: unknown, password: unknown, previous?: string, second?: unknown, address: string | null = null) {
     const normalized = adminUsername(name);
     if (!normalized || typeof password !== 'string' || Buffer.byteLength(password) > 256) throw new AdminError(401, 'ADMIN_LOGIN_FAILED');
     if (second !== undefined && (typeof second !== 'string' || second.length > 64)) throw new AdminError(401, 'ADMIN_LOGIN_FAILED');
@@ -68,13 +81,7 @@ export class AdminAuth {
       if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-admin-login-v1',0)) locked")).rows[0].locked) return null;
       await db.query("DELETE FROM admin_login_limits WHERE window_start<clock_timestamp()-interval '1 hour'");
       // Tighter than owner limits because legitimate administrative login volume is a handful of attempts a day.
-      for (const [bucket, limit, seconds] of [['global', 20, 60], [bucketHash(normalized), 5, 900]] as const) {
-        const attempt = (await db.query(`INSERT INTO admin_login_limits(bucket,window_start,attempts)VALUES($1,clock_timestamp(),1)
-          ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN admin_login_limits.window_start<=clock_timestamp()-$2*interval '1 second' THEN 1 ELSE admin_login_limits.attempts+1 END,
-          window_start=CASE WHEN admin_login_limits.window_start<=clock_timestamp()-$2*interval '1 second' THEN clock_timestamp() ELSE admin_login_limits.window_start END RETURNING attempts`,
-          [bucket, seconds])).rows[0];
-        if (attempt.attempts > limit) return null;
-      }
+      if (!(await countAttempt(db, 'admin_login_limits', adminLoginBuckets(normalized, address)))) return null;
       const admin = (await db.query('SELECT * FROM platform_admins WHERE username=$1 FOR SHARE', [normalized])).rows[0];
       // An unknown username still pays for a KDF, so response time never reveals which names exist.
       const derived = await passwordKey(password, admin?.password_salt ?? '0'.repeat(32));
