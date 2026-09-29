@@ -770,12 +770,35 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  await o.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await o.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
  await o.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
  await openView(o,'profile');
- await o.locator('[data-google-connect] button').click();await o.locator('#choose-account').click();
+ // G1 (rà bảo mật 29/09): linking asks for the account's password, and a wrong one goes nowhere near Google.
+ const connect=o.locator('[data-google-connect]'),typed=connect.getByLabel('Mật khẩu hiện tại (để chắc đây là bạn)');
+ await typed.fill('not-the-owner-password');await connect.getByRole('button').click();
+ await expect(o.locator('[data-google-notice]')).toContainText('Mật khẩu hiện tại chưa đúng');
+ await expect(o.locator('[data-google-link]')).toHaveAttribute('data-google-link','none');
+ await typed.fill('old-owner-password');await connect.getByRole('button').click();await o.locator('#choose-account').click();
  await expect(o.locator('[data-google-notice]')).toContainText('Đã kết nối Google');
  await expect(o.locator('[data-google-link]')).toHaveAttribute('data-google-link','linked');
  expect((await admin.db.query("SELECT google_sub FROM owner_identities_v2 WHERE username=$1",[`co-mat-khau-${run}`])).rows[0].google_sub).toBe(sub(2));
  await googleLogin();
  await expect(o).toHaveURL(new RegExp(`/ZZZ/${owner.slug}$`));await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ // G1: unlinking, from a session signed in with the password, asks for the password too and signs out every other
+ // session -- here the one Google just opened; then Google opens nothing.
+ const byPassword=await browser.newContext(),p=await byPassword.newPage();
+ await p.goto(`/ZZZ/${owner.slug}`);
+ await p.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await p.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
+ await p.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(p.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ await openView(p,'profile');
+ await p.locator('[data-google-unlink-open]').click();
+ const unlink=p.locator('[data-google-unlink]');
+ await unlink.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('wrong-password-here');await unlink.getByRole('button',{name:'Ngắt kết nối Google',exact:true}).click();
+ await expect(unlink.locator('[data-google-unlink-notice]')).toContainText('Mật khẩu hiện tại chưa đúng');
+ await unlink.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('old-owner-password');await unlink.getByRole('button',{name:'Ngắt kết nối Google',exact:true}).click();
+ await expect(p.locator('[data-google-notice]')).toContainText('Đã ngắt kết nối Google');
+ await expect(p.locator('[data-google-link]')).toHaveAttribute('data-google-link','none');
+ expect((await admin.db.query("SELECT google_sub FROM owner_identities_v2 WHERE username=$1",[`co-mat-khau-${run}`])).rows[0].google_sub).toBeNull();
+ await o.reload();await expect(o.getByLabel('@handle hoặc email',{exact:true})).toBeVisible();
+ await googleLogin();await expect(o).toHaveURL(/\/owner\/login\?google=GOOGLE_NOT_LINKED$/);
+ await byPassword.close();
  // An unverified address, and a trip this browser never started, open nothing.
  google.who={sub:sub(3),email:`new.${run}@example.com`,email_verified:false};
  await googleLogin();

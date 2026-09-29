@@ -178,6 +178,13 @@ export async function openSession(db: PoolClient, userId: string, previous?: str
   const row = (await db.query("INSERT INTO owner_auth_sessions_v2(token_hash,user_id,expires_at)VALUES($1,$2,clock_timestamp()+interval '8 hours')RETURNING expires_at", [sessionHash(token), userId])).rows[0];
   return { token, expiresAt: row.expires_at as Date, userId };
 }
+/** Who may be asked for a password at all: a real owner session, and something typed. Cheap, so it runs before any hash. */
+function passwordCaller(credential: OwnerCredential, current: unknown): string {
+  if (typeof credential === 'object') throw new OwnerError(403, 'IMPERSONATION_READ_ONLY');
+  if (!opaque(credential)) throw new OwnerError(401, 'LOGIN_REQUIRED');
+  if (typeof current !== 'string' || !current || Buffer.byteLength(current) > 256) throw new OwnerError(400, 'INVALID_PASSWORD');
+  return credential;
+}
 export class OwnerAuth {
   constructor(private pool: Pool) {}
   /** Internal bootstrap only. No registration/provisioning HTTP route; real administrative authority required later. */
@@ -206,39 +213,47 @@ export class OwnerAuth {
     if (!result) throw new OwnerError(401, 'LOGIN_FAILED'); return result;
   }
   /**
-   * The owner's own password change (Tài, 2026-09-18). Only a real owner session, never a stand-in. The current
-   * password is checked against the same limits as signing in (ownerLoginBuckets), so this screen cannot be used to guess it;
-   * the attempt is counted even when the check fails. Every other session of the account is signed out; this one stays.
+   * Runs `then` only after the signed-in owner has typed the account's current password: changing it, linking Google,
+   * unlinking Google (rà bảo mật 29/09, G1 -- before it, a session left open on someone else's phone was enough to link
+   * their Google account, a way in that outlived the session). Only a real owner session, never a stand-in. One
+   * transaction: the database-wide hashing slot, the same limits as signing in (ownerLoginBuckets, so none of these screens
+   * can be used to guess), the check, then `then` on the same connection. Decided inside and thrown after the commit, so a
+   * wrong guess still counts; `then` failing rolls everything back. An account made with Google has a random key that no
+   * password matches, so it never passes here.
    */
-  async changePassword(credential: OwnerCredential, current: unknown, next: unknown, address: string | null = null) {
-    if (typeof credential === 'object') throw new OwnerError(403, 'IMPERSONATION_READ_ONLY');
-    if (!opaque(credential)) throw new OwnerError(401, 'LOGIN_REQUIRED');
-    if (typeof current !== 'string' || !current || Buffer.byteLength(current) > 256) throw new OwnerError(400, 'INVALID_PASSWORD');
-    if (!validPassword(next)) throw new OwnerError(400, 'WEAK_PASSWORD');
-    if (next === current) throw new OwnerError(400, 'SAME_PASSWORD');
-    const token = credential;
-    // Decided inside the transaction, thrown after it commits, so a wrong guess still counts against the limit.
+  async withPassword<T>(credential: OwnerCredential, current: unknown, address: string | null,
+    then: (db: PoolClient, user: { id: string; username: string; token: string }) => Promise<T>): Promise<T> {
+    const token = passwordCaller(credential, current);
     const outcome = await transaction(this.pool, async db => {
-      // Share the owner login/reset resource budget, including both sequential hashes.
-      if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked) return 'TOO_MANY_ATTEMPTS' as const;
+      // Share the owner login/reset resource budget, including a caller's own second hash (a new password).
+      if (!(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked) return { ok: false as const, code: 'TOO_MANY_ATTEMPTS' as const };
       const user = (await db.query(`SELECT u.id,u.username,u.password_salt,u.password_key FROM owner_auth_sessions_v2 a
         JOIN owner_identities_v2 u ON u.id=a.user_id WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active
         FOR UPDATE OF u`, [sessionHash(token)])).rows[0];
-      if (!user) return 'LOGIN_REQUIRED' as const;
-      if (!(await countAttempt(db, 'owner_login_limits', ownerLoginBuckets(user.username, address)))) return 'TOO_MANY_ATTEMPTS' as const;
-      const matches = timingSafeEqual(await passwordKey(current, user.password_salt), Buffer.from(user.password_key, 'hex'));
-      if (!matches) return 'WRONG_PASSWORD' as const;
+      if (!user) return { ok: false as const, code: 'LOGIN_REQUIRED' as const };
+      if (!(await countAttempt(db, 'owner_login_limits', ownerLoginBuckets(user.username, address)))) return { ok: false as const, code: 'TOO_MANY_ATTEMPTS' as const };
+      if (!timingSafeEqual(await passwordKey(current as string, user.password_salt), Buffer.from(user.password_key, 'hex'))) return { ok: false as const, code: 'WRONG_PASSWORD' as const };
+      return { ok: true as const, value: await then(db, { id: user.id as string, username: user.username as string, token }) };
+    });
+    if (!outcome.ok) throw new OwnerError(outcome.code === 'LOGIN_REQUIRED' ? 401 : outcome.code === 'TOO_MANY_ATTEMPTS' ? 429 : 403, outcome.code);
+    return outcome.value;
+  }
+  /**
+   * The owner's own password change (Tài, 2026-09-18), behind withPassword. Every other session of the account is signed
+   * out; this one stays.
+   */
+  async changePassword(credential: OwnerCredential, current: unknown, next: unknown, address: string | null = null) {
+    passwordCaller(credential, current);
+    if (!validPassword(next)) throw new OwnerError(400, 'WEAK_PASSWORD');
+    if (next === current) throw new OwnerError(400, 'SAME_PASSWORD');
+    return this.withPassword(credential, current, address, async (db, user) => {
       const salt = randomBytes(16).toString('hex'), key = (await passwordKey(next, salt)).toString('hex');
       await db.query('UPDATE owner_identities_v2 SET password_salt=$2,password_key=$3 WHERE id=$1', [user.id, salt, key]);
-      await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL', [user.id, sessionHash(token)]);
+      await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL', [user.id, sessionHash(user.token)]);
       // A successful change clears the account's failed-guess counts, from every address, as a successful sign-in would.
       await db.query("DELETE FROM owner_login_limits WHERE bucket=$1 OR bucket LIKE $1||':%'", [loginBucket(user.username)]);
-      return 'CHANGED' as const;
+      return { changed: true };
     });
-    if (outcome === 'LOGIN_REQUIRED') throw new OwnerError(401, outcome);
-    if (outcome === 'TOO_MANY_ATTEMPTS') throw new OwnerError(429, outcome);
-    if (outcome === 'WRONG_PASSWORD') throw new OwnerError(403, outcome);
-    return { changed: true };
   }
   async logout(token?: string) {
     if (token && /^[a-f0-9]{64}$/.test(token)) await this.pool.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE token_hash=$1 AND revoked_at IS NULL', [sessionHash(token)]);

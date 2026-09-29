@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { Pool } from 'pg';
-import { openSession, OwnerError, sessionHash, transaction, type OwnerCredential } from './auth';
+import type { Pool, PoolClient } from 'pg';
+import { openSession, OwnerError, sessionHash, transaction } from './auth';
 
 /**
  * Đăng nhập bằng Google cho chủ quán (lát D4c, migration 032). The OAuth 2.0 authorization-code flow with PKCE, a
@@ -9,7 +9,7 @@ import { openSession, OwnerError, sessionHash, transaction, type OwnerCredential
  *
  * Three things a Google account can do here, never more:
  *   - `login`  : open the dashboard of the account already linked to it;
- *   - `link`   : link it to the account signed in right now ("Kết nối Google" in Hồ sơ);
+ *   - `link`   : link it to the account signed in right now ("Kết nối Google" in Hồ sơ), with that account's password;
  *   - `signup` : save a page built at /bat-dau, making the account (lib/start/signup.ts).
  * It is never matched to an account by email: an account's email was typed by someone and never proven, so matching on it
  * would let a stranger prepare an account in someone else's name and share it with them.
@@ -103,19 +103,6 @@ export class GoogleAccounts {
     });
   }
 
-  /**
-   * Who is signed in, read when "Kết nối Google" is pressed. It must be read then, on this site, and carried in the signed
-   * trip: the owner's session cookie is SameSite=Strict, so on the way back from Google's page the browser does not send
-   * it (28/09 on production: every link attempt answered "Phiên đăng nhập đã hết").
-   */
-  async signedIn(credential: OwnerCredential) {
-    if (typeof credential !== 'string' || !/^[a-f0-9]{64}$/.test(credential)) throw new OwnerError(401, 'LOGIN_REQUIRED');
-    const user = (await this.pool.query(`SELECT u.id FROM owner_auth_sessions_v2 a JOIN owner_identities_v2 u ON u.id=a.user_id
-      WHERE a.token_hash=$1 AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND u.active`, [sessionHash(credential)])).rows[0];
-    if (!user) throw new OwnerError(401, 'LOGIN_REQUIRED');
-    return user.id as string;
-  }
-
   /** Links this Google account to the account that started the trip. A Google account already linked elsewhere stays there. */
   async link(userId: string, sub: string) {
     return transaction(this.pool, async db => {
@@ -129,4 +116,15 @@ export class GoogleAccounts {
       return { linked: true };
     });
   }
+}
+
+/**
+ * "Ngắt kết nối Google" (rà bảo mật 29/09, G1), inside OwnerAuth.withPassword so only someone who knows the account's
+ * password does it. Every other session of the account is signed out with it, since any of them may have been opened by
+ * that Google account; the one asking stays.
+ */
+export async function unlinkGoogle(db: PoolClient, userId: string, keep: string) {
+  if (!(await db.query('UPDATE owner_identities_v2 SET google_sub=NULL WHERE id=$1 AND google_sub IS NOT NULL', [userId])).rowCount) throw new OwnerError(409, 'GOOGLE_NOT_LINKED');
+  await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL', [userId, sessionHash(keep)]);
+  return { linked: false };
 }

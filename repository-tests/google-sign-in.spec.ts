@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {OwnerAuth} from '../lib/owner/auth';
-import {GoogleAccounts} from '../lib/owner/google';
+import {GoogleAccounts,unlinkGoogle} from '../lib/owner/google';
 import {ShopSignups} from '../lib/start/signup';
 import {readDraftInput} from '../lib/start/draft';
 /** Lát D4c (migration 032): a Google account opens only the account it is linked to, and is linked only on purpose. */
@@ -40,10 +40,12 @@ test('linking needs a live session, happens once, and never takes a Google accou
  await f.db.query("UPDATE owner_identities_v2 SET email='same@gmail.com' WHERE id=$1",[id]);
  // A Google account with the same email is still not this account until it is linked on purpose.
  expect(await failure(f.google.signIn('222'))).toBe('GOOGLE_NOT_LINKED');
- // Who links is read from a live session when the trip starts, then carried in the signed trip.
- expect(await failure(f.google.signedIn(undefined))).toBe('LOGIN_REQUIRED');
+ // Who links is read from a live session, with the account's password (G1), when the trip starts; then carried in the
+ // signed trip.
+ const who=(token:string|undefined)=>f.auth.withPassword(token,'a-long-owner-password',null,async(_db,user)=>user.id);
+ expect(await failure(who(undefined))).toBe('LOGIN_REQUIRED');
  const {token}=await f.auth.login('co-mat-khau','a-long-owner-password');
- expect(await f.google.signedIn(token)).toBe(id);
+ expect(await who(token)).toBe(id);
  expect(await f.google.link(id,'222')).toEqual({linked:true});
  expect(await f.google.link(id,'222')).toEqual({linked:true});
  expect(await failure(f.google.link(id,'333'))).toBe('GOOGLE_OTHER_LINKED');
@@ -52,8 +54,36 @@ test('linking needs a live session, happens once, and never takes a Google accou
  expect(await failure(f.google.link(other,'222'))).toBe('GOOGLE_ALREADY_LINKED');
  // A session that has ended starts no trip; an account closed meanwhile is not linked on the way back.
  await f.db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1',[id]);
- expect(await failure(f.google.signedIn(token))).toBe('LOGIN_REQUIRED');
+ expect(await failure(who(token))).toBe('LOGIN_REQUIRED');
  await f.db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1',[other]);
  expect(await failure(f.google.link(other,'444'))).toBe('LOGIN_REQUIRED');
  expect((await f.db.query('SELECT google_sub FROM owner_identities_v2 WHERE id=$1',[other])).rows[0].google_sub).toBeNull();
+});
+
+// Rà bảo mật 29/09, G1. A session left open on someone else's phone was enough to link a Google account of theirs: a way
+// in that outlived the session and the owner's next password change, and that the owner could not remove. Linking and
+// unlinking now ask for the account's password, under the same limits as signing in; unlinking closes every other session.
+test('linking or unlinking Google needs the account\'s password, and unlinking signs out every other session',async({f})=>{
+ const id=await f.auth.bootstrap('co-mat-khau','a-long-owner-password',async()=>{});
+ const {token}=await f.auth.login('co-mat-khau','a-long-owner-password');
+ const who=(current:string)=>f.auth.withPassword(token,current,null,async(_db,user)=>user.id);
+ expect(await failure(who('not-the-password'))).toBe('WRONG_PASSWORD');
+ expect(await failure(who(''))).toBe('INVALID_PASSWORD');
+ expect(await failure(f.auth.withPassword({impersonation:'a'.repeat(64)},'a-long-owner-password',null,async()=>1))).toBe('IMPERSONATION_READ_ONLY');
+ expect(await who('a-long-owner-password')).toBe(id);
+ await f.google.link(id,'555');
+ // Google opened a second session somewhere; unlinking from this one closes it, and Google opens nothing any more.
+ const elsewhere=await f.google.signIn('555');
+ const unlink=(session:string,current:string)=>f.auth.withPassword(session,current,null,(db,user)=>unlinkGoogle(db,user.id,user.token));
+ expect(await failure(unlink(token,'wrong-password-here'))).toBe('WRONG_PASSWORD');
+ expect(await unlink(token,'a-long-owner-password')).toEqual({linked:false});
+ expect(await failure(f.auth.access(elsewhere.token,'any-shop','shell'))).toBe('LOGIN_REQUIRED');
+ expect(await failure(f.google.signIn('555'))).toBe('GOOGLE_NOT_LINKED');
+ // This session stays signed in; unlinking again says there is nothing linked.
+ expect(await failure(unlink(token,'a-long-owner-password'))).toBe('GOOGLE_NOT_LINKED');
+ // An account made with Google has no password anyone knows, so it cannot unlink the only way in it has.
+ const saved=await f.signups.create({draft,username:'chi-google',zalo:null,google:{sub:'666',email:'g@gmail.com'}},null);
+ const google=await f.google.signIn('666');
+ expect(await failure(unlink(google.token,'any-password-at-all'))).toBe('WRONG_PASSWORD');
+ expect((await f.db.query('SELECT google_sub FROM owner_identities_v2 WHERE id=$1',[saved.userId])).rows[0].google_sub).toBe('666');
 });

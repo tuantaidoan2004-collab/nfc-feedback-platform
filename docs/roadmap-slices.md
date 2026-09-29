@@ -45,7 +45,6 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 | A21 | `/gov`: tìm quán, số liệu nền tảng, dùng được trên điện thoại | V | Cần dữ liệu thật |
 | A20 | Onboarding "3 bước bắt đầu" + màn trống có hướng dẫn | V | |
 | A23 | Dọn tệp R2 mồ côi | V | |
-| — | Ngắt kết nối Google trong Hồ sơ (tài khoản tạo bằng Google phải đặt mật khẩu trước) | N | Sau D4c |
 | — | Báo chủ quán tự động khi trang được duyệt (hôm nay Tài nhắn tay qua Zalo/email ở `/gov`) | N | Chờ kênh email/Zalo (B5, B7) |
 | — | Video 3 phút trên trang chính, màn chào mừng của `/bat-dau` và trạng thái trống dashboard | N | Chờ video (`video-3-phut.md`) |
 | — | Chốt: đền bù khi tạm dừng khẩn cấp · thẻ chuyển giữa các trang · dữ liệu trang đã đóng | — | Tài quyết |
@@ -100,7 +99,7 @@ luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạ
 
 ## Đã xong (một dòng mỗi việc; chi tiết trong `decisions.md`, các tệp được trỏ và lịch sử git)
 
-C3b rà media/R2: duyệt sau khi link tải lên hết hạn, xoá tệp bị từ chối, tối đa 20 tệp chờ mỗi quán (29/09) · H1 CSP có nonce
+G1 nối/ngắt Google đòi mật khẩu, ngắt thì đăng xuất phiên khác (29/09) · L1 hạn mức đăng nhập theo địa chỉ (29/09) · T1 băng bản nháp chỉ mất trong khung (29/09) · C3b rà media/R2: duyệt sau khi link tải lên hết hạn, xoá tệp bị từ chối, tối đa 20 tệp chờ mỗi quán (29/09) · H1 CSP có nonce
 cho mọi trang + header bảo vệ, thay A17 (29/09) · D4c đăng nhập bằng Google cho chủ quán (032, 28/09) · P5b-lite tab Thanh toán: QR + chuyển khoản + Zalo, Tài ghi nhận ở `/gov` (031, 28/09) · M2b lời cảm ơn shop tự viết + cửa duyệt chữ (030, 27/09) · D4a trang chính + dựng trang trước tài khoản (`/`, `/bat-dau`, `/thu/<mã>`, QR tự vẽ, 27/09) · D4b "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` (029, 27/09) · M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
 liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google, `/huong-dan-google`) · A27 `DESIGN.md`/`PRODUCT.md` ·
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi template (022) · A33 sáu khoá template · A36 lớp da · K1–K6 sáu template · K7

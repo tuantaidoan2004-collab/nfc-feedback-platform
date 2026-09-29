@@ -189,7 +189,7 @@ khẩu; vẫn chọn @handle; email là của Google; không có mật khẩu; t
 cho tài khoản đã nối, **kết nối Google** trong Hồ sơ khi đang đăng nhập. **Không bao giờ nối theo email** (email của tài khoản cũ
 chưa ai xác minh). Callback trả một trang nhỏ tự chuyển tiếp chứ không chuyển hướng, vì cookie phiên `SameSite=Strict` không đi
 theo chuỗi chuyển hướng bắt đầu từ Google; vì cùng lý do, ai đang "Kết nối Google" được đọc lúc bấm nút và mang trong cookie
-lượt đi có chữ ký (bản đầu đọc ở callback, hỏng trên production 28/09 — Tài bắt được). Chưa có: ngắt kết nối Google (tài khoản tạo bằng Google không có mật khẩu).
+lượt đi có chữ ký (bản đầu đọc ở callback, hỏng trên production 28/09 — Tài bắt được). **Từ 29/09 (G1):** nối và **ngắt** Google đều đòi mật khẩu hiện tại; ngắt thì đăng xuất mọi phiên khác; tài khoản tạo bằng Google không có mật khẩu nên không ngắt được (Google là đường vào duy nhất của nó).
 
 **P5b-lite (28/09, migration 031; Tài chốt 27/09 mục 5H):** không cổng thanh toán. Chủ quán (chỉ chủ, không quản lý) có mục
 **Thanh toán** trong dashboard: phí hằng tháng (bảng giá P5a), trạng thái (chưa có kỳ · dùng thử/đã trả tới ngày · còn/quá N
@@ -222,7 +222,8 @@ loạt: chung khe băm mật khẩu với đăng nhập, 20 lượt/giờ toàn 
 chờ. Báo chủ quán khi duyệt: Tài nhắn tay (Zalo/email hiện ở `/gov`). Bậc "gửi link bản nháp cho Tài" của D4a đã gỡ.
 
 - **Production `https://quitesensational-review-bio.com`**, deploy từ `main`, hàm chạy `sin1`, Neon **001–028 cả hai
-  branch** + 029–031 (Tài chạy 27–28/09); 032 chờ Tài. `main` = `296d835` (P5b-lite, đã đẩy 28/09). Vercel Pro dùng thử tới **29/09**.
+  branch** + 029–032 (Tài chạy 27–28/09; 032 xác nhận khi thử "Kết nối Google"). `main` = `9225e50` (D4c + sửa, 28/09).
+  Vercel Pro dùng thử tới **29/09**.
 - **Vercel → VPS (Tài chốt 27/09, thay quyết định "xuống Hobby" cùng ngày):** Pro tới 29/09, rồi chuyển sang VPS chạy bộ I1.
   Hobby **cấm dùng thương mại** và trang chính là quảng cáo bán dịch vụ, nên sau 29/09 production không được ở Hobby (audit
   mục 1). Log Hobby chỉ giữ **1 giờ**. MacBook của Tài chỉ làm máy thử, không làm máy chủ.

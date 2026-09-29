@@ -692,3 +692,8 @@ bộ repository của lượt nền đang chạy, cùng database `nfc_repo_test`
 nhập chủ quán **dùng chung cả database** (vì thế `playwright.repository.config.ts` chỉ chạy 1 worker): hai ca đăng nhập cùng lúc
 thì một ca nhận `LOGIN_FAILED` giả. Lần này không va nhau. Harness tích hợp (`run-local.mjs`) **cũng dùng `nfc_repo_test`** và
 cổng cố định. **Có lượt 7 bộ nào đang chạy thì không chạy test repository hay harness nào khác** — xem `summary.txt` trước.
+
+**`lệnh | tail; echo exit=$?` in mã thoát của `tail`, không của lệnh — lỗi của Claude, 29/09.** Kiểm `tsc` bằng
+`tsc --noEmit 2>&1 | tail -5; echo "tsc exit=$?"` in `tsc exit=0` ngay dưới một lỗi TS2345: số 0 là của `tail`. Thấy nhờ lỗi có in
+ra; các lần trước kết luận vẫn đúng vì không in dòng lỗi nào. Lấy mã thoát thật: ghi ra tệp rồi mới xem
+(`tsc --noEmit > log 2>&1; echo $?`), như `/tmp/nfc-d4-logs/run.sh` vẫn làm.

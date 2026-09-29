@@ -148,6 +148,26 @@ khung: chỉ xấu, không hở.
 
 **Test:** `public-v2.spec.ts` ca D4: khung trong trình dựng không có băng; mở thẳng kèm `?khung=1` vẫn có băng.
 
+### G1 · Trung bình · Một phiên để ngỏ đủ để gắn Google của người khác, vĩnh viễn — **đã vá**
+
+**Bằng chứng:** "Kết nối Google" trong Hồ sơ chỉ cần phiên đang đăng nhập. Ai cầm được phiên đó — nhân viên dùng chung máy
+của chủ quán, một máy quên đăng xuất — bấm là nối được **Google của chính họ**, và từ đó vào bằng Google mãi mãi: sống qua
+lúc phiên hết hạn và qua lần chủ quán **đổi mật khẩu** (đổi mật khẩu chỉ đăng xuất các phiên, không gỡ Google). Chủ quán còn
+**không gỡ được**: chưa có nút ngắt kết nối. Trên `48c364f` điều đó đọc thẳng trong mã: `GoogleAccounts.signedIn` chỉ đọc phiên,
+và không route nào đặt `google_sub` về rỗng. (Lỗ thiết kế, không phải một ca tấn công để chạy lại, nên test mới đỏ trên mã cũ
+chỉ vì hàm chưa có — nói thẳng.)
+
+**Vá:** một cửa chung `OwnerAuth.withPassword` — phiên chủ quán thật (không phải phiên hỗ trợ), mật khẩu hiện tại, cùng khe
+băm và **cùng các hạn mức của đăng nhập** (L1), rồi mới làm việc được hỏi trong cùng transaction. Đổi mật khẩu, **nối Google**
+(mật khẩu gõ ngay trên form "Kết nối Google", kiểm trước khi rời sang Google) và **ngắt kết nối Google** (mới) đều qua cửa đó.
+Ngắt thì đăng xuất **mọi phiên khác** của tài khoản — phiên nào cũng có thể do Google đó mở. Tài khoản tạo bằng Google có khoá
+ngẫu nhiên không mật khẩu nào khớp, nên không tự ngắt được đường vào duy nhất của nó.
+
+**Test:** `google-sign-in.spec.ts` (sai mật khẩu, thiếu mật khẩu, phiên hỗ trợ đều bị từ chối; ngắt đăng xuất phiên Google đã
+mở ở nơi khác, giữ phiên đang hỏi; ngắt lần hai báo không còn nối; tài khoản Google không tự ngắt được); `admin-http.spec.ts`
+ca D4c (sai mật khẩu thì không sang Google; đúng thì nối; ngắt từ phiên mật khẩu → phiên Google bị đăng xuất, Google không mở
+được nữa).
+
 ### Mặt trận 3 của C3 (media/R2): bốn điểm Astra nêu 20/09
 
 | Điểm | Giờ |

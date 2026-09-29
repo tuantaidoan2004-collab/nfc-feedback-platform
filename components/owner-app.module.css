@@ -166,6 +166,8 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
 
 /* Password change (Cài đặt). */
 .passwordForm { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+/* Linking and unlinking Google (G1): one password, then the button. */
+.googleForm { display: grid; gap: 10px; max-width: 420px; margin-top: 10px; }
 .passwordForm h3 { grid-column: 1 / -1; margin: 0; font-size: 16px; }
 .passwordForm p { grid-column: 1 / -1; }
 .passwordForm button { justify-self: start; min-height: 44px; padding: 8px 18px; border: 0; border-radius: 999px; background: linear-gradient(180deg, var(--p-accent), var(--p-accent-2)); color: var(--p-accent-ink); font-weight: 650; }

@@ -5,6 +5,7 @@ import type { Profile } from '@/lib/owner/profile';
 import styles from './owner-app.module.css';
 import RoleBadge from './role-badge';
 import GoogleForm from './google-button';
+import { buttonClass } from './platform/ui';
 import { googleMessage } from '@/lib/owner/google-messages';
 
 /**
@@ -79,6 +80,36 @@ function Picture({ label, field, profile, onSaved }: { label: string; field: 'av
   </label>;
 }
 
+const UNLINK_ERRORS: Record<string, string> = {
+  WRONG_PASSWORD: 'Mật khẩu hiện tại chưa đúng.', INVALID_PASSWORD: 'Nhập mật khẩu hiện tại để ngắt kết nối.',
+  TOO_MANY_ATTEMPTS: 'Thử sai quá nhiều lần. Đợi 15 phút rồi thử lại.', GOOGLE_NOT_LINKED: 'Tài khoản này không còn nối với Google.',
+  LOGIN_REQUIRED: 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.',
+};
+/**
+ * "Ngắt kết nối Google" (rà bảo mật 29/09, G1): with the account's password, and every other device signed in to the
+ * account is signed out, since Google may have opened any of them. An account made with Google has no password, so it
+ * cannot remove its only way in.
+ */
+function GoogleUnlink({ onDone }: { onDone: (message: string) => void }) {
+  const [open, setOpen] = useState(false), [password, setPassword] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  if (!open) return <button type="button" className={styles.textButton} data-google-unlink-open onClick={() => setOpen(true)}>Ngắt kết nối Google…</button>;
+  return <form className={styles.googleForm} data-google-unlink onSubmit={async e => {
+    e.preventDefault(); setBusy(true); setNotice('');
+    try {
+      const response = await fetch('/api/owner/v2/profile/google', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setNotice(UNLINK_ERRORS[data.error] ?? 'Chưa ngắt được. Thử lại.'); return; }
+      onDone('Đã ngắt kết nối Google. Các máy khác đang đăng nhập tài khoản này đã bị đăng xuất.');
+    } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  }}>
+    <p className={styles.hint}>Tài khoản tạo bằng Google không có mật khẩu, nên không ngắt được: Google là đường vào duy nhất của nó.</p>
+    <label>Mật khẩu hiện tại<input type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={e => setPassword(e.target.value)} /></label>
+    <div className={styles.actions}><button className={buttonClass('danger')} disabled={busy}>{busy ? 'Đang ngắt…' : 'Ngắt kết nối Google'}</button>
+      <button type="button" className={styles.textButton} onClick={() => setOpen(false)}>Huỷ</button></div>
+    <p role="status" className={styles.hint} data-google-unlink-notice>{notice}</p>
+  </form>;
+}
+
 export default function ProfilePanel({ slug, profile, setProfile, password }: { slug: string; profile: Profile | null; setProfile: (p: Profile) => void; password: ReactNode }) {
   // What came back from "Kết nối Google" (`?google=`), said once and taken off the address so a reload does not repeat it.
   const [googleNotice, setGoogleNotice] = useState<string | null>(null);
@@ -138,13 +169,16 @@ export default function ProfilePanel({ slug, profile, setProfile, password }: { 
       <p className={styles.hint}>Đăng nhập bằng <strong>@{profile.handle}</strong>{profile.email ? <> hoặc email <strong>{profile.email}</strong></> : null}. Quên mật khẩu thì liên hệ quản trị NFC để đặt lại.</p>
       {password}
     </section>
-    {/* Google as a way in (lát D4c): linked only from here, while signed in -- never by matching an email. */}
+    {/* Google as a way in (lát D4c): linked only from here, while signed in and with the password (G1) -- never by matching an email. */}
     {profile.google.available && <section className={styles.panel} aria-label="Google" data-google-link={profile.google.linked ? 'linked' : 'none'}><h2>Google</h2>
       {googleNotice && <p role="status" className={styles.hint} data-google-notice>{googleNotice}</p>}
       {profile.google.linked
-        ? <p className={styles.hint}>Đã kết nối Google: bấm <strong>Đăng nhập bằng Google</strong> ở trang đăng nhập là vào thẳng.</p>
+        ? <><p className={styles.hint}>Đã kết nối Google: bấm <strong>Đăng nhập bằng Google</strong> ở trang đăng nhập là vào thẳng.</p>
+          <GoogleUnlink onDone={message => { setProfile({ ...profile, google: { ...profile.google, linked: false } }); setGoogleNotice(message); }} /></>
         : <><p className={styles.hint}>Kết nối tài khoản Google để lần sau đăng nhập một chạm, không cần mật khẩu.</p>
-          <GoogleForm fields={{ intent: 'link', next: `/ZZZ/${slug}` }} data-google-connect="">Kết nối Google</GoogleForm></>}
+          <GoogleForm fields={{ intent: 'link', next: `/ZZZ/${slug}` }} className={styles.googleForm} data-google-connect=""
+            extra={<label>Mật khẩu hiện tại (để chắc đây là bạn)<input type="password" name="password" autoComplete="current-password" required maxLength={256} /></label>}>
+            Kết nối Google</GoogleForm></>}
     </section>}
     <section className={styles.panel} aria-label="Shop của bạn"><h2>Shop của bạn</h2>
       <ul className={styles.list}>{profile.shops.map(shop => <li key={shop.slug} className={styles.shopLine}><strong>{shop.name}</strong> {badge(shop)}
