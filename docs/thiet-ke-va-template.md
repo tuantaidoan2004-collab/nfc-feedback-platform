@@ -150,13 +150,15 @@ lên thì gọi thẳng API là đi vòng được.
   loại, byte khác — nên duyệt trong 5 phút đó là duyệt một tệp còn đổi được. `/gov` ghi "Link tải lên còn hiệu lực tới
   HH:MM" và khoá hai nút tới 6 phút sau lúc xin link (5 phút + 1 phút cho đồng hồ lệch, `UPLOAD_SETTLE_SECONDS`); server
   cũng từ chối (`MEDIA_STILL_UPLOADING`), kể cả khi gửi tay.
+- **Mỗi quán tối đa 20 tệp chờ duyệt** (rà bảo mật 29/09, M3): mỗi lần xin link là một hàng chờ, kể cả khi không tải gì
+  lên, nên trước đây một quán nhồi được hàng chờ của Tài và kho ảnh. Quá 20 thì `429 UPLOAD_QUEUE_FULL`, trình chỉnh trang
+  nói rõ; có quyết định (duyệt hay từ chối) là trống một chỗ. Đếm dưới khoá của quán, nên xin cùng lúc cũng không vượt.
 
 **Chưa làm, nói thẳng:**
 - **Gỡ ảnh đã lên trang.** Từ chối chỉ áp cho ảnh đang chờ. Một ảnh đã duyệt và đang sống mà sau này thấy sai thì chưa
   có nút gỡ; hiện phải tạm ngưng shop.
 - **Tự phát hành khi được duyệt.** Chủ quán phải tự bấm phát hành lại sau khi ảnh được duyệt; chưa có thông báo cho họ.
 - **Ảnh đại diện/ảnh bìa tài khoản** (migration 014, hiện trong dashboard, không lên trang khách) không qua cửa này.
-- **Hàng chờ có thể bị nhồi**: mỗi lần xin link là một hàng, kể cả khi không tải gì lên. Chưa giới hạn tần suất.
 
 ## 11. Template là bộ xương rỗng; dữ liệu và thiết lập nằm ở tài khoản (Tài chốt 23/09/2026)
 

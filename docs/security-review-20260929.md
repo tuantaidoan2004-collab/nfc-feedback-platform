@@ -76,6 +76,19 @@ lỗ này đi vòng qua nó. Test tái hiện đỏ trên `379e61c`: ảnh vừa
 cho lần bị từ chối); `admin-http.spec.ts` ca "image gate" (đồng hồ giả của trình duyệt vượt giờ → nút mở, server chưa tới
 giờ vẫn từ chối qua panel và qua gửi tay; hết hạn thật → duyệt được).
 
+### M3 · Thấp–trung bình · Không giới hạn số tệp chờ duyệt của một quán — **đã vá**
+
+**Bằng chứng:** mỗi lần xin link tải lên là một hàng `pending` trong hàng chờ của Tài, kể cả khi không tệp nào được gửi, và
+không có trần: test tái hiện trên `f547bd3` xin 25 link cùng lúc, **cả 25 được ký**. Một thành viên có quyền sửa trang (hay
+một tài khoản bị lấy mất) nhồi được hàng chờ tới mức ảnh thật chìm, và kho ảnh tới 50 MB mỗi link.
+
+**Vá:** `PENDING_UPLOADS_MAX = 20` tệp chờ mỗi quán (một trang dùng tối đa năm ảnh). Đếm và ghi trong cùng một transaction,
+dưới khoá advisory của quán, nên xin cùng lúc không lọt qua trần; quá trần thì `429 UPLOAD_QUEUE_FULL`. Có quyết định là
+trống một chỗ. Hỗ trợ trong phiên thiết kế tính vào hàng chờ của chính quán đó.
+
+**Test:** `repository-tests/impersonation.spec.ts` ca `PENDING_UPLOADS_MAX` (25 yêu cầu cùng lúc → đúng 20 được ký, 5 bị
+từ chối; hỗ trợ cũng bị chặn; quán khác không ảnh hưởng; từ chối một tệp → xin được đúng một link nữa).
+
 ## 3. Đã rà, không thấy lỗ
 
 | Chỗ | Đã xem | Kết luận |

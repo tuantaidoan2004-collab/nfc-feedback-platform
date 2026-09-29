@@ -54,6 +54,8 @@ const UPLOAD_ERRORS: Record<string, string> = {
   MEDIA_UNKNOWN: 'Trang đang dùng một ảnh không tải lên qua nền tảng. Hãy tải ảnh lên từ trình chỉnh trang để được duyệt.',
   UNSUPPORTED_MEDIA: 'Chỉ nhận ảnh JPG, PNG, WebP hoặc video MP4.', MEDIA_TOO_LARGE: 'Ảnh tối đa 5 MB; video tối đa 50 MB sau khi nén về 720p.',
   UPLOADS_NOT_CONFIGURED: 'Kho lưu trữ chưa được bật.', SUPPORT_NOT_GRANTED: 'Chủ shop chưa cho phép sửa giao diện.',
+  // 20 = PENDING_UPLOADS_MAX (lib/owner/media.ts), server code this bundle cannot import.
+  UPLOAD_QUEUE_FULL: 'Quán đang có 20 ảnh hoặc video chờ duyệt. Tải thêm được khi có ảnh được duyệt hoặc từ chối.',
 };
 
 /**

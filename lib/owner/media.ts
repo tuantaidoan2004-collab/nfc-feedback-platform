@@ -33,6 +33,12 @@ export const UPLOAD_EXPIRES_SECONDS = 300;
  * lifetime, and a minute more for the store's clock and this app's disagreeing.
  */
 export const UPLOAD_SETTLE_SECONDS = UPLOAD_EXPIRES_SECONDS + 60;
+/**
+ * How many files one shop may have waiting for review at once (rà bảo mật 29/09, M3). Every signed upload waits in the
+ * operator's queue until decided, whether or not a file was ever sent, and a page shows at most five: without a bound one
+ * shop could fill the queue, and the store, with files nobody will look at. A decision frees a place.
+ */
+export const PENDING_UPLOADS_MAX = 20;
 
 export class OwnerMedia {
   constructor(private pool: Pool, private settings: StorageSettings | null = storageSettings(), private now: () => Date = () => new Date()) {}
@@ -44,15 +50,22 @@ export class OwnerMedia {
     if (!rule) throw new OwnerError(415, 'UNSUPPORTED_MEDIA');
     if (!Number.isSafeInteger(size) || Number(size) < 1) throw new OwnerError(400, 'INVALID_UPLOAD');
     if (Number(size) > MAX_UPLOAD || Number(size) > rule.max) throw new OwnerError(413, 'MEDIA_TOO_LARGE');
-    const access = await transaction(this.pool, db => authorize(db, credential, slug, 'design'));
-    if (!this.settings) throw new OwnerError(503, 'UPLOADS_NOT_CONFIGURED');
-    const key = `shops/${access.shopId}/${randomUUID()}.${rule.ext}`;
-    const upload = presignObject(this.settings, 'PUT', key,
-      { date: this.now(), expiresSeconds: UPLOAD_EXPIRES_SECONDS, headers: { 'content-type': type as string, 'content-length': String(size) } });
-    const url = `${this.settings.publicOrigin}/${key}`;
-    // Every upload enters the review queue (migration 023): the page cannot be published with it until approved.
-    await this.pool.query('INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)VALUES($1,$2,$3,$4,$5,$6)',
-      [access.shopId, url, rule.kind, type, size, access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`]);
+    const settings = this.settings;
+    const { access, key, url, upload } = await transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'design');
+      if (!settings) throw new OwnerError(503, 'UPLOADS_NOT_CONFIGURED');
+      // One shop's uploads are counted one at a time, so two asked at once cannot both take the last place.
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended('nfc-media-upload:'||$1,0))", [access.shopId]);
+      const waiting = (await db.query("SELECT count(*)::int n FROM media_assets WHERE shop_id=$1 AND state='pending'", [access.shopId])).rows[0].n as number;
+      if (waiting >= PENDING_UPLOADS_MAX) throw new OwnerError(429, 'UPLOAD_QUEUE_FULL');
+      const key = `shops/${access.shopId}/${randomUUID()}.${rule.ext}`, url = `${settings.publicOrigin}/${key}`;
+      // Every upload enters the review queue (migration 023): the page cannot be published with it until approved.
+      await db.query('INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)VALUES($1,$2,$3,$4,$5,$6)',
+        [access.shopId, url, rule.kind, type, size, access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`]);
+      const upload = presignObject(settings, 'PUT', key,
+        { date: this.now(), expiresSeconds: UPLOAD_EXPIRES_SECONDS, headers: { 'content-type': type as string, 'content-length': String(size) } });
+      return { access, key, url, upload };
+    });
     if (access.actor.kind === 'admin') await recordAdminAction(this.pool, access.actor.adminId, { action: 'impersonation.design.upload',
       shopId: access.shopId, onBehalfOf: access.userId, detail: { session: access.actor.sessionId, key, type, size } });
     await recordActivity(this.pool, access, 'media.upload', rule.kind === 'video' ? 'Video' : 'Ảnh', { type: type as string });

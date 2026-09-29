@@ -451,3 +451,29 @@ test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s fold
  // every refused request leaves nothing.
  expect((await f.db.query("SELECT count(*)::int n FROM media_assets")).rows[0].n).toBe(4);
 });
+
+// Rà bảo mật 29/09, M3. Every signed upload waits in the operator's queue until decided, and nothing bounded how many: one
+// shop could fill the queue, and the store, with files nobody will ever look at. A page shows at most five pictures.
+test('uploads: a shop has at most PENDING_UPLOADS_MAX files waiting for review, even asked all at once; a decision frees a place',async({f})=>{
+ const {OwnerMedia,PENDING_UPLOADS_MAX}=await import('../lib/owner/media');const {storageSettings:r2Settings}=await import('../lib/media/storage');
+ const {MediaReview}=await import('../lib/admin/media-review');
+ const env={R2_ACCOUNT_ID:'a'.repeat(32),R2_ACCESS_KEY_ID:'AKFIXTURE',R2_SECRET_ACCESS_KEY:'secret-fixture',R2_BUCKET:'nfc-media',MEDIA_PUBLIC_ORIGIN:'https://media.example.com'};
+ const media=new OwnerMedia(f.db,r2Settings(env)),ask=(token:string,slug:string)=>media.presign(token,slug,{type:'image/jpeg',size:10});
+ const MAX=20;
+ // Asked all at once, so two requests cannot both take the last place.
+ const answers=await Promise.allSettled(Array.from({length:MAX+5},()=>ask(f.users[0].token,'one')));
+ expect(answers.filter(a=>a.status==='fulfilled')).toHaveLength(MAX);
+ expect(answers.filter(a=>a.status==='rejected').map(a=>String((a as PromiseRejectedResult).reason?.code))).toEqual(Array(5).fill('UPLOAD_QUEUE_FULL'));
+ expect((await f.db.query("SELECT count(*)::int n FROM media_assets WHERE shop_id=$1",[f.shops[0]])).rows[0].n).toBe(MAX);
+ // Support in a design session counts against the same shop's queue; another shop's queue is its own.
+ await position(f,'edit');const d=await open(f,'design');
+ await expect(media.presign(d.credential,'one',{type:'image/jpeg',size:10})).rejects.toThrow('UPLOAD_QUEUE_FULL');
+ await expect(ask(f.users[1].token,'two')).resolves.toMatchObject({review:'pending'});
+ // A decision frees a place (after the upload link has expired, M1).
+ const first=(await f.db.query("SELECT id FROM media_assets WHERE shop_id=$1 ORDER BY created_at LIMIT 1",[f.shops[0]])).rows[0].id;
+ await f.db.query("UPDATE media_assets SET created_at=clock_timestamp()-interval '1 hour' WHERE id=$1",[first]);
+ await new MediaReview(f.db).decide(f.adminId,first,{decision:'reject',reason:'Không dùng tới'});
+ await expect(ask(f.users[0].token,'one')).resolves.toMatchObject({review:'pending'});
+ await expect(ask(f.users[0].token,'one')).rejects.toThrow('UPLOAD_QUEUE_FULL');
+ expect(PENDING_UPLOADS_MAX).toBe(MAX);
+});
