@@ -487,7 +487,7 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
  const queue=(url:string,age='1 hour')=>admin.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,created_at)
   VALUES($1,$2,'image','image/jpeg',204800,'owner:x',clock_timestamp()-$3::interval)RETURNING id`,[shop.shopId,url,age]).then(r=>r.rows[0].id as string);
  const first=await queue('https://media.example/cho/1.jpg'),second=await queue('https://media.example/cho/2.jpg');
- // Rà bảo mật 29/09, M1: one uploaded just now, whose link still works, so its file can still change.
+ // Rà bảo mật 29/09, C3b-1: one uploaded just now, whose link still works, so its file can still change.
  const fresh=await queue('https://media.example/cho/3.jpg','0 seconds');
  await page.clock.install();
  await page.goto('/gov/login');

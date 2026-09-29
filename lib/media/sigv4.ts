@@ -7,7 +7,7 @@ import { createHash, createHmac } from 'node:crypto';
  */
 export type PresignInput = {
   /** `host` may carry a port; `scheme` is https except for a store on this machine (lib/media/storage.ts). */
-  method: 'GET' | 'PUT'; host: string; scheme?: 'https' | 'http'; path: string; region: string; service: string;
+  method: 'GET' | 'PUT' | 'DELETE'; host: string; scheme?: 'https' | 'http'; path: string; region: string; service: string;
   accessKeyId: string; secretAccessKey: string; date: Date; expiresSeconds: number;
   /** Extra headers the client must send exactly, e.g. content-type and content-length; host is always signed. */
   headers?: Record<string, string>;

@@ -69,9 +69,7 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 |---|---|---|---|
 | **PH** | **Cột `purpose` cho số điện thoại** (gọi lại vì khiếu nại · sự kiện) — quyết định 21/09 chưa làm | N | **Mig.** Phải có trước section nào xin số |
 | RT | **Hạn giữ dữ liệu**: xoá tự động theo lời hứa "tối đa 12 tháng" | V | Dời; **hạn chót 9/2027** |
-| A17 | CSP đầy đủ, cả trang khách | V | |
 | A18 | Mã hoá cột số điện thoại | V | Cần khoá môi trường mới |
-| C3b | Rà cách ly mặt trận 3 (media/R2) | V | Mặt trận 1 xong 26/09 |
 | C2 | Pháp lý đầy đủ (bên xử lý dữ liệu, chuyển dữ liệu sang Singapore, duyệt trang pháp lý nháp, khuyến mại cho A16) | — | Luật sư |
 | C4 | Lưu dữ liệu trong nước, nếu C2 kết luận cần | — | |
 
@@ -102,7 +100,8 @@ luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạ
 
 ## Đã xong (một dòng mỗi việc; chi tiết trong `decisions.md`, các tệp được trỏ và lịch sử git)
 
-D4c đăng nhập bằng Google cho chủ quán (032, 28/09) · P5b-lite tab Thanh toán: QR + chuyển khoản + Zalo, Tài ghi nhận ở `/gov` (031, 28/09) · M2b lời cảm ơn shop tự viết + cửa duyệt chữ (030, 27/09) · D4a trang chính + dựng trang trước tài khoản (`/`, `/bat-dau`, `/thu/<mã>`, QR tự vẽ, 27/09) · D4b "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` (029, 27/09) · M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
+C3b rà media/R2: duyệt sau khi link tải lên hết hạn, xoá tệp bị từ chối, tối đa 20 tệp chờ mỗi quán (29/09) · H1 CSP có nonce
+cho mọi trang + header bảo vệ, thay A17 (29/09) · D4c đăng nhập bằng Google cho chủ quán (032, 28/09) · P5b-lite tab Thanh toán: QR + chuyển khoản + Zalo, Tài ghi nhận ở `/gov` (031, 28/09) · M2b lời cảm ơn shop tự viết + cửa duyệt chữ (030, 27/09) · D4a trang chính + dựng trang trước tài khoản (`/`, `/bat-dau`, `/thu/<mã>`, QR tự vẽ, 27/09) · D4b "Lưu trang của tôi" tạo tài khoản, trang chờ duyệt ở `/gov` (029, 27/09) · M1 gói template (`templates/`, 27/09) · M2 module hiệu ứng (`components/effects/`, lời cảm ơn trước Google, con trỏ nhiều màu, 27/09) · M3 section (`PageConfig` v3, bật/tắt khối, không migration, 27/09) · A1 chặn bot · A2 2FA admin · A3 dọn mã cũ (028) · A3b một đường trang khách · A4 CI 7 bộ · A5 trang pháp lý + tự xoá dữ
 liệu · A6 nén ảnh · A7 tuân thủ Google (nút Google chỉ tới Google, `/huong-dan-google`) · A27 `DESIGN.md`/`PRODUCT.md` ·
 A30/M23 cửa duyệt ảnh (023) · A32 tách nội dung khỏi template (022) · A33 sáu khoá template · A36 lớp da · K1–K6 sáu template · K7
 bản template · P1 quán/trang (024) · P2 bảng cài đặt · P3 danh sách trang (025) · P4 vòng đời trang (026) · P5a hiện giá · P1d

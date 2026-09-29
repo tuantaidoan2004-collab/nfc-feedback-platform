@@ -60,7 +60,7 @@ chính + bước dựng có iframe + 404 **không bị chặn gì**, và **ca đ
 ca "production gate" (bản build: không `unsafe-eval`, nonce trên mọi script); `owner-dashboard.spec.ts` ca H1 (mọi mục dashboard
 + ảnh trang trong iframe, không bị chặn gì); ca D4c (form sang Google qua được `form-action`).
 
-### M1 · Trung bình · Ảnh đã duyệt vẫn thay được trong 5 phút sau khi tải lên — **đã vá**
+### C3b-1 · Trung bình · Ảnh đã duyệt vẫn thay được trong 5 phút sau khi tải lên — **đã vá**
 
 **Bằng chứng:** link tải lên (`lib/owner/media.ts`) là một PUT có chữ ký, sống 5 phút, ghim loại và cỡ tệp nhưng **không
 ghim nội dung**, và trong 5 phút đó gửi lại được bao nhiêu lần cũng được. `MediaReview.decide` duyệt ngay khi được hỏi. Vậy:
@@ -76,7 +76,24 @@ lỗ này đi vòng qua nó. Test tái hiện đỏ trên `379e61c`: ảnh vừa
 cho lần bị từ chối); `admin-http.spec.ts` ca "image gate" (đồng hồ giả của trình duyệt vượt giờ → nút mở, server chưa tới
 giờ vẫn từ chối qua panel và qua gửi tay; hết hạn thật → duyệt được).
 
-### M3 · Thấp–trung bình · Không giới hạn số tệp chờ duyệt của một quán — **đã vá**
+### C3b-2 · Thấp · Ảnh bị từ chối vẫn đọc được ở địa chỉ công khai, mãi mãi — **đã vá**
+
+**Bằng chứng:** từ chối chỉ đổi trạng thái hàng trong `media_assets`; tệp vẫn nằm trên kho, đọc công khai ở đúng URL chủ quán
+đã nhận. Từ chối là quyết định cuối (muốn đổi thì tải ảnh mới), nên tệp đó không bao giờ được dùng nữa, nhưng vẫn là nội
+dung bị Tài từ chối, phục vụ dưới tên miền ảnh của nền tảng: ai có quyền sửa trang của một quán đã duyệt có thể dùng kho làm
+chỗ chứa tệp, và ảnh có người trong đó nằm lại không vì lý do gì. Test tái hiện đỏ trên `7720803`: từ chối, không có gì bị xoá.
+
+**Vá:** sau khi quyết định từ chối đã ghi, server xoá tệp bằng một `DELETE` có chữ ký (R2 nhận presigned DELETE). Chỉ xoá khoá
+của **một tệp app này đã ký cho quán** (`shops/<uuid>/<uuid>.<jpg|png|webp|mp4>` dưới địa chỉ công khai hiện tại, `uploadKey`),
+nên không URL nào trong request hay trong trang trỏ được việc xoá đi chỗ khác. Kho báo 404 cũng coi là đã xoá. Kho lỗi thì
+quyết định vẫn đứng, trả `removed: false` và ghi một dòng `MEDIA_REMOVE_FAILED {"media":"<id>","cause":"…"}`. Nếu `cause` là `STORE_403`:
+token R2 phải là **Object Read & Write** (`docs/r2-uploads.md`), quyền đó có xoá.
+
+**Test:** `tests/contracts/media-removal.spec.ts` (khoá nào được xoá, khoá nào không: địa chỉ kho cũ, ảnh hồ sơ, `..`, query,
+đuôi lạ, tên miền giả; một DELETE có chữ ký riêng, khác chữ ký GET; 204/404 là xong, 403/500 là lỗi);
+`repository-tests/media-review.spec.ts` (từ chối → xoá đúng URL; duyệt → không đụng; kho lỗi → quyết định vẫn đứng, log một dòng).
+
+### C3b-3 · Thấp–trung bình · Không giới hạn số tệp chờ duyệt của một quán — **đã vá**
 
 **Bằng chứng:** mỗi lần xin link tải lên là một hàng `pending` trong hàng chờ của Tài, kể cả khi không tệp nào được gửi, và
 không có trần: test tái hiện trên `f547bd3` xin 25 link cùng lúc, **cả 25 được ký**. Một thành viên có quyền sửa trang (hay
@@ -88,6 +105,15 @@ trống một chỗ. Hỗ trợ trong phiên thiết kế tính vào hàng chờ
 
 **Test:** `repository-tests/impersonation.spec.ts` ca `PENDING_UPLOADS_MAX` (25 yêu cầu cùng lúc → đúng 20 được ký, 5 bị
 từ chối; hỗ trợ cũng bị chặn; quán khác không ảnh hưởng; từ chối một tệp → xin được đúng một link nữa).
+
+### Mặt trận 3 của C3 (media/R2): bốn điểm Astra nêu 20/09
+
+| Điểm | Giờ |
+|---|---|
+| Quota tổng | Mỗi quán tối đa 20 tệp chờ (C3b-3), tệp bị từ chối bị xoá (C3b-2); mỗi tệp còn lại là một lần Tài duyệt |
+| Không kiểm byte thật sau khi tải | Loại tệp nằm trong chữ ký, nên kho phục vụ đúng loại đã khai (`image/*`, `video/mp4`): trình duyệt không bao giờ đọc nó thành trang web, và kho ở tên miền khác app. Người duyệt xem chính tệp, và C3b-1 bảo đảm tệp đó là tệp sẽ ở lại |
+| Hạn và phát lại link ký | 5 phút; gửi lại trong 5 phút không còn đi vòng được cửa duyệt (C3b-1) |
+| Thu hồi quyền sau khi đã ký | Link còn sống tối đa 5 phút sau khi người đó mất quyền; tệp gửi lên vẫn vào hàng chờ và vẫn phải được duyệt, còn phát hành đòi quyền **lúc phát hành** |
 
 ## 3. Đã rà, không thấy lỗ
 

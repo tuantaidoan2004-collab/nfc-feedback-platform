@@ -32,7 +32,7 @@ const input={name:'Quán Ảnh',ownerUsername:'quan-anh',ownerEmail:'anh@example
 const queue=(f:F,shopId:string,url:string,kind='image')=>f.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,created_at)
   VALUES($1,$2,$3,$4,1000,'owner:fixture',clock_timestamp()-interval '1 hour')RETURNING id`,[shopId,url,kind,kind==='video'?'video/mp4':'image/jpeg']).then(r=>r.rows[0].id as string);
 
-// Rà bảo mật 29/09, M1. A signed upload link can be sent again -- other bytes, the same size and type -- until it expires
+// Rà bảo mật 29/09, C3b-1. A signed upload link can be sent again -- other bytes, the same size and type -- until it expires
 // (lib/owner/media.ts), so a picture approved in those minutes could be swapped for one nobody saw. Neither decision is
 // taken before the link has expired: what is decided is what stays.
 test('a picture is decided only once its upload link has expired, so what is approved is what stays',async({f})=>{
@@ -55,6 +55,28 @@ test('a picture is decided only once its upload link has expired, so what is app
  expect((await f.db.query('SELECT state FROM media_assets WHERE id=$1',[fresh])).rows).toEqual([{state:'approved'}]);
  // Nothing was recorded for the refused attempts.
  expect((await f.db.query("SELECT action FROM admin_audit WHERE action LIKE 'media.%'")).rows).toEqual([{action:'media.approve'}]);
+});
+
+// Rà bảo mật 29/09, C3b-2. A refusal is final -- a new picture is a new upload -- yet the refused file stayed readable on the
+// public store for good. It is removed once the refusal is recorded; a store that fails leaves the refusal standing.
+test('a refused picture is removed from the store once the refusal is recorded; an approved one stays',async({f})=>{
+ const made=await f.shops.create(f.actorId,input);
+ const calls:string[]=[];let failing=false;
+ const review=new MediaReview(f.db,async url=>{calls.push(url);if(failing)throw Error('store down');return true;});
+ const [kept,refused,unlucky]=['k','r','u'].map(name=>`https://media.example/shops/${made.shopId}/${name}.jpg`);
+ expect(await review.decide(f.actorId,await queue(f,made.shopId,kept),{decision:'approve'})).toMatchObject({state:'approved',removed:false});
+ expect(calls).toEqual([]);
+ expect(await review.decide(f.actorId,await queue(f,made.shopId,refused),{decision:'reject',reason:'Ảnh mờ'})).toMatchObject({state:'rejected',removed:true});
+ expect(calls).toEqual([refused]);
+ // The store fails: the refusal stands, the answer says the file is still there, and the log says which one.
+ failing=true;
+ const lines:string[]=[],original=console.error;console.error=(...args:unknown[])=>{lines.push(args.map(String).join(' '));};
+ const id=await queue(f,made.shopId,unlucky);
+ let answer:unknown;try{answer=await review.decide(f.actorId,id,{decision:'reject',reason:'Ảnh mờ'});}finally{console.error=original;}
+ expect(answer).toMatchObject({state:'rejected',removed:false});
+ expect(lines).toEqual([`MEDIA_REMOVE_FAILED {"media":"${id}","cause":"store down"}`]);
+ expect((await f.db.query('SELECT url,state FROM media_assets WHERE url=ANY($1) ORDER BY url',[[kept,refused,unlucky]])).rows).toEqual([
+  {url:kept,state:'approved'},{url:refused,state:'rejected'},{url:unlucky,state:'rejected'}]);
 });
 
 test('a page with an unreviewed picture cannot be published, and the page already live stays live',async({f})=>{

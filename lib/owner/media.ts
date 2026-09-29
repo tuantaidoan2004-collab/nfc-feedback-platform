@@ -28,13 +28,13 @@ const TYPES = new Map<string, { kind: 'image' | 'video'; ext: string; max: numbe
 const MAX_UPLOAD = 50 * 1024 * 1024;
 export const UPLOAD_EXPIRES_SECONDS = 300;
 /**
- * When a picture can be decided in /gov (rà bảo mật 29/09, M1). A signed PUT can be sent again -- other bytes, the same
+ * When a picture can be decided in /gov (rà bảo mật 29/09, C3b-1). A signed PUT can be sent again -- other bytes, the same
  * size and type -- until it expires, so a picture approved before then could be swapped for one nobody saw. The link's
  * lifetime, and a minute more for the store's clock and this app's disagreeing.
  */
 export const UPLOAD_SETTLE_SECONDS = UPLOAD_EXPIRES_SECONDS + 60;
 /**
- * How many files one shop may have waiting for review at once (rà bảo mật 29/09, M3). Every signed upload waits in the
+ * How many files one shop may have waiting for review at once (rà bảo mật 29/09, C3b-3). Every signed upload waits in the
  * operator's queue until decided, whether or not a file was ever sent, and a page shows at most five: without a bound one
  * shop could fill the queue, and the store, with files nobody will look at. A decision frees a place.
  */

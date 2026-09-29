@@ -678,3 +678,11 @@ increased."* Mọi job đỏ sau 2–4 giây. Repo riêng tư chỉ có số ph�
 nên mỗi lần đẩy tốn gấp đôi, và cả chục lần đẩy mỗi ngày cạn hạn mức trong vài ngày. Không có gì hỏng lên `main` vì 7 bộ
 luôn chạy trên máy trước khi đẩy, nhưng CI đã không bảo vệ gì. Tài chọn **để repo công khai** (Actions không giới hạn phút
 với repo công khai). Bài học: sau mỗi lần đẩy phải nhìn trạng thái CI, không coi "không nghe báo đỏ" là xanh.
+
+**Tên phát hiện trùng tên lát đã có — lỗi của Claude, 29/09.** Ba lỗ ở phần tải ảnh được đặt tên `M1`, `M2`, `M3` và hai commit
+đã mang tiền tố `M1:`, `M3:`, trong khi "lát M1/M2/M3" (gói template, module hiệu ứng, section) có từ 27/09 và được nhắc trong
+hàng chục chú thích. Thấy trước khi đẩy: đổi thành **C3b-1…3** (mục C3b của lộ trình) và sửa lời hai commit. **Trước khi đặt tên
+một lát hay một phát hiện, tìm tên đó trong dòng "Đã xong" của `roadmap-slices.md` và trong `git log --oneline`.**
+
+**Biến chuỗi trong zsh — lần thứ tư.** `files="a.ts b.ts"; sed -i '' … $files` → zsh đưa cả chuỗi làm **một** tên tệp
+(`No such file or directory`). Mất một lệnh, không hỏng gì. Luật vẫn là: viết thẳng danh sách, hoặc dùng mảng.

@@ -39,8 +39,8 @@ xảy ra được: chỉ đánh dấu sau một lần ghi thành công, mà ghi 
 
 - **Mặt trận 2 (đường ghi trang khách)** chỉ rà phần bộ đếm ở trên; phát lại intent, đua tab, revision giả đã có test từ
   lát A1/B nhưng chưa rà lại dưới góc tấn công.
-- **Mặt trận 3 (media/R2)**: chưa rà. Các điểm Astra nêu 20/09 vẫn mở — quota tổng, không kiểm byte thật sau khi tải,
-  hạn và phát lại của link ký, thu hồi quyền sau khi đã ký.
+- **Mặt trận 3 (media/R2)**: rà 29/09 — ba lỗ C3b-1…3 đã vá, và bốn điểm Astra nêu 20/09 được trả lời từng điểm, trong
+  `security-review-20260929.md`.
 - **Phiên hỗ trợ của admin** và **link đặt mật khẩu** chỉ dựa vào test sẵn có (F-007, F-008, impersonation), không viết
   thêm trong lượt này.
 - Mã cũ (`app/api/owner/[shop]`, `app/api/shops/[shop]/experience`) dùng cơ chế đăng nhập đời đầu — gỡ ở lát dọn A3.

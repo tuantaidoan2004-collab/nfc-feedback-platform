@@ -452,7 +452,7 @@ test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s fold
  expect((await f.db.query("SELECT count(*)::int n FROM media_assets")).rows[0].n).toBe(4);
 });
 
-// Rà bảo mật 29/09, M3. Every signed upload waits in the operator's queue until decided, and nothing bounded how many: one
+// Rà bảo mật 29/09, C3b-3. Every signed upload waits in the operator's queue until decided, and nothing bounded how many: one
 // shop could fill the queue, and the store, with files nobody will ever look at. A page shows at most five pictures.
 test('uploads: a shop has at most PENDING_UPLOADS_MAX files waiting for review, even asked all at once; a decision frees a place',async({f})=>{
  const {OwnerMedia,PENDING_UPLOADS_MAX}=await import('../lib/owner/media');const {storageSettings:r2Settings}=await import('../lib/media/storage');
@@ -469,7 +469,7 @@ test('uploads: a shop has at most PENDING_UPLOADS_MAX files waiting for review, 
  await position(f,'edit');const d=await open(f,'design');
  await expect(media.presign(d.credential,'one',{type:'image/jpeg',size:10})).rejects.toThrow('UPLOAD_QUEUE_FULL');
  await expect(ask(f.users[1].token,'two')).resolves.toMatchObject({review:'pending'});
- // A decision frees a place (after the upload link has expired, M1).
+ // A decision frees a place (after the upload link has expired, C3b-1).
  const first=(await f.db.query("SELECT id FROM media_assets WHERE shop_id=$1 ORDER BY created_at LIMIT 1",[f.shops[0]])).rows[0].id;
  await f.db.query("UPDATE media_assets SET created_at=clock_timestamp()-interval '1 hour' WHERE id=$1",[first]);
  await new MediaReview(f.db).decide(f.adminId,first,{decision:'reject',reason:'Không dùng tới'});

@@ -146,11 +146,14 @@ lên thì gọi thẳng API là đi vòng được.
   mọi bản phát hành và hồ sơ tài khoản — không trang nào mất ảnh, không bản nháp nào bị chặn vì ảnh cũ của nó.
 - `reviewed_by` **không** có khoá ngoại tới `platform_admins`, có chủ ý: mọi lần phát hành đọc bảng này, kể cả ở nơi
   chưa có bảng admin; người duyệt thật nằm trong `admin_audit` (có khoá ngoại).
-- **Quyết định chờ link tải lên hết hạn** (rà bảo mật 29/09, M1): link ký sống 5 phút và **gửi lại được** — cùng cỡ, cùng
+- **Quyết định chờ link tải lên hết hạn** (rà bảo mật 29/09, C3b-1): link ký sống 5 phút và **gửi lại được** — cùng cỡ, cùng
   loại, byte khác — nên duyệt trong 5 phút đó là duyệt một tệp còn đổi được. `/gov` ghi "Link tải lên còn hiệu lực tới
   HH:MM" và khoá hai nút tới 6 phút sau lúc xin link (5 phút + 1 phút cho đồng hồ lệch, `UPLOAD_SETTLE_SECONDS`); server
   cũng từ chối (`MEDIA_STILL_UPLOADING`), kể cả khi gửi tay.
-- **Mỗi quán tối đa 20 tệp chờ duyệt** (rà bảo mật 29/09, M3): mỗi lần xin link là một hàng chờ, kể cả khi không tải gì
+- **Tệp bị từ chối bị xoá khỏi kho** (rà bảo mật 29/09, C3b-2): từ chối là cuối cùng, nên sau khi ghi quyết định server xoá
+  tệp (một `DELETE` có chữ ký, chỉ cho khoá `shops/<uuid>/<uuid>.<đuôi>` app đã ký). Kho lỗi thì quyết định vẫn đứng, log ghi
+  `MEDIA_REMOVE_FAILED`.
+- **Mỗi quán tối đa 20 tệp chờ duyệt** (rà bảo mật 29/09, C3b-3): mỗi lần xin link là một hàng chờ, kể cả khi không tải gì
   lên, nên trước đây một quán nhồi được hàng chờ của Tài và kho ảnh. Quá 20 thì `429 UPLOAD_QUEUE_FULL`, trình chỉnh trang
   nói rõ; có quyết định (duyệt hay từ chối) là trống một chỗ. Đếm dưới khoá của quán, nên xin cùng lúc cũng không vượt.
 
