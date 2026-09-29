@@ -20,3 +20,6 @@ test-results/
 
 # The worktree node_modules is a symlink; "node_modules/" with a trailing slash does not match it.
 node_modules
+
+# Production variables for the VPS (deploy/hosted, 29/09): secrets, never committed or baked into an image.
+deploy/hosted/hosted.env

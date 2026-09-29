@@ -1,0 +1,8 @@
+# The site, by name (SITE_ADDRESS in docker-compose.yml). Caddy fetches and renews its certificate itself.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy app:3000 {
+		# The visitor's own address, overwritten on every request: the app trusts this header and no other.
+		header_up X-Real-IP {remote_host}
+	}
+}

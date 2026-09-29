@@ -53,6 +53,49 @@ PUT sai khoá (403), không cho khách liệt kê bucket (403). Job CI `self-hos
 5. **Kiểm:** `APP_ORIGIN=… STORAGE_ENDPOINT=… MEDIA_PUBLIC_ORIGIN=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… R2_BUCKET=nfc-media node scripts/selfhost-smoke.mjs`
    (cần Node 24 trên máy chạy lệnh). Phải in `Self-hosted platform: all checks passed.`
 
+## Chuyển production từ Vercel sang VPS — giữ nguyên Neon và R2 (29/09)
+
+Đường nhanh nhất ra khỏi Vercel: **chỉ app chuyển**, database vẫn ở Neon, ảnh vẫn ở R2, tên miền và link đăng nhập Google giữ
+nguyên. Không chép dữ liệu nào, nên không mất gì. Bộ riêng cho việc này: `deploy/hosted/` (app + Caddy lấy HTTPS miễn phí).
+**Đã chạy thử 29/09** trên Docker của máy Tài (database thử thay cho Neon, Caddy ở HTTP): 5 trang trả 200, đăng nhập sai ra 401
+(app chạm được database), nút Google hiện, dòng `VERCEL=1` lỡ chép vào bị vô hiệu. **Chưa chạy trên VPS thật có HTTPS.**
+
+1. **Mua VPS** (Tài): vùng **Singapore** (gần Neon `ap-southeast-1`), Ubuntu 24.04, **2 GB RAM** trở lên (dựng image cần bộ nhớ;
+   1 GB thì thêm swap ở bước 2). Khoảng 5–6 USD/tháng.
+2. **Trên VPS** (đăng nhập bằng SSH):
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   git clone https://github.com/tuantaidoan2004-collab/nfc-feedback-platform.git /opt/nfc && cd /opt/nfc
+   ```
+   Máy 1 GB: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`.
+3. **Chép cấu hình từ Vercel** — trên máy Mac, trong thư mục dự án (tệp chứa bí mật, không bao giờ vào git):
+   ```bash
+   vercel env pull deploy/hosted/hosted.env --environment=production
+   ```
+   Mở tệp, **xoá mọi dòng bắt đầu bằng `VERCEL_`, `TURBO_` và dòng `NFC_BUILD_TARGET`**, rồi gửi lên VPS và xoá bản trên Mac:
+   ```bash
+   scp deploy/hosted/hosted.env root@<IP-VPS>:/opt/nfc/deploy/hosted/hosted.env && rm deploy/hosted/hosted.env
+   ```
+   Tệp mẫu liệt kê đúng những biến cần có: `deploy/hosted/hosted.env.example`.
+4. **Bật** (trên VPS):
+   ```bash
+   cd /opt/nfc && docker compose -f deploy/hosted/docker-compose.yml up -d --build
+   ```
+   Caddy chờ tới khi tên miền trỏ về máy này mới lấy được chứng chỉ; app đã chạy phía sau nó.
+5. **Đổi DNS ở Cloudflare** (Tài): bản ghi của `quitesensational-review-bio.com` (hôm nay là CNAME về Vercel) → **bản ghi A trỏ
+   IP của VPS, "DNS only" (mây xám)**. **Không đụng** bản ghi `media` (R2, mây cam). Vài phút sau Caddy tự lấy HTTPS.
+6. **Kiểm:** `curl -sI https://quitesensational-review-bio.com | grep -i x-vercel` **không** còn dòng nào (đã rời Vercel); đăng
+   nhập `/gov` (chạm database); mở trang khách `/urr6ud`; tải thử một ảnh trong dashboard (R2); "Đăng nhập bằng Google"
+   (redirect URI không đổi vì tên miền không đổi).
+7. **Quay lại Vercel nếu có chuyện:** đổi bản ghi DNS về CNAME cũ của Vercel — Vercel vẫn giữ bản deploy.
+8. **Cập nhật về sau** (trên VPS): migration mới chạy **trước** (vẫn là Neon), rồi dựng lại:
+   ```bash
+   cd /opt/nfc && git pull && docker compose -f deploy/hosted/docker-compose.yml run --rm app node scripts/migrate.mjs && docker compose -f deploy/hosted/docker-compose.yml up -d --build
+   ```
+9. **Sau khi chạy ổn:** gỡ tên miền khỏi project Vercel (để không còn chạy thương mại trên Hobby). **Đừng gỡ tích hợp Neon**
+   khỏi Vercel khi chưa chắc nó không xoá gì phía Neon — database là của Neon, chỉ biến môi trường do tích hợp đặt. Sao lưu
+   (`sao-luu.md`, GitHub Actions) không phụ thuộc Vercel, chạy tiếp như cũ.
+
 ## Biến môi trường — cái nào nói gì
 
 | Biến | Ý nghĩa |
@@ -62,10 +105,12 @@ PUT sai khoá (403), không cho khách liệt kê bucket (403). Job CI `self-hos
 | `MEDIA_PUBLIC_ORIGIN` | Nơi khách đọc ảnh: một origin, hoặc origin + đường dẫn bucket (`…/nfc-media`) với kho kiểu path |
 | `NFC_CLIENT_IP_HEADER` | Header duy nhất chứa IP khách mà proxy phía trước **tự ghi đè** (`server/guest-limits.ts`). Trên Vercel tự nhận ra. Để trống: không đếm theo địa chỉ, không bao giờ tin header khách tự gửi |
 | `NFC_ENV`, các cờ `NFC_*_ENABLED` | Như production (`server/env.ts`); compose đặt sẵn |
+| `NFC_GOOGLE_CLIENT_ID`, `NFC_GOOGLE_CLIENT_SECRET` | Đăng nhập bằng Google cho chủ quán (lát D4c). Để trống cả hai: nút Google không hiện |
 
 ## Giới hạn, nói thẳng
 
-- **Chưa chạy trên một máy chủ thật có tên miền và HTTPS** — mới chạy trên Docker Desktop, `http://127.0.0.1`.
+- **Chưa chạy trên một máy chủ thật có tên miền và HTTPS** — cả hai bộ mới chạy trên Docker Desktop của máy Tài (bộ đầy đủ 27/09,
+  bộ "chỉ chuyển app" `deploy/hosted/` 29/09).
 - **Tạo admin đầu tiên** (bước 4) cần một terminal thật (script đọc mật khẩu không hiện ra màn hình); chưa chạy thử trong
   container.
 - **Trên `http://127.0.0.1` (chưa có HTTPS)** app, đăng nhập, trang khách chạy; nhưng ảnh/video tải lên **không phát hành

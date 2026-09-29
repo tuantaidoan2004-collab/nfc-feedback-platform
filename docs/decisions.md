@@ -172,14 +172,16 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**Phiên mới bắt đầu từ đây (28/09):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → P5b-lite → **D4c** (audit
-`docs/audit-ui-ux-20260927.md` mục 4). Production: `main` = `296d835` (tới P5b-lite), Neon **001–031**, thông tin nhận tiền Tài đã
-nhập ở `/gov` 28/09. **D4c nằm trên nhánh, có migration 032**: Tài chạy 032 trên Neon production và preview → đặt
-`NFC_GOOGLE_CLIENT_ID`/`NFC_GOOGLE_CLIENT_SECRET` trên Vercel (Production + Preview) và cấu hình Google Cloud (`production-launch.md`
-mục "Đăng nhập bằng Google") → đẩy nhánh, CI xanh → đẩy đúng commit đó lên `main`. **Vercel (Tài
-chốt 27/09): Pro tới 29/09, rồi chuyển VPS** (bộ I1, `tu-chay.md`) — từ 29/09 trang chính chỉ được chạy trên VPS hoặc Pro trả tiền,
-không bao giờ trên Hobby. Lát kế theo audit: dashboard **"thời tiết của quán"** (tóm tắt hôm nay, trạng thái trống thành bước
-đầu), rồi trình chỉnh như Canva + kho template (M5), rồi M4.
+**Phiên mới bắt đầu từ đây (29/09 — ngày cuối Vercel Pro và Claude Pro; Tài dành một tuần lập kế hoạch, thẻ NFC về thì làm
+tiếp):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → P5b-lite → D4c. **Production = `main` = `9225e50`** (Vercel,
+`sin1`), Neon 001–032 (032: Tài xác nhận khi thử "Kết nối Google"), thông tin nhận tiền đã nhập ở `/gov`, hai biến Google đặt ở
+Production (chưa đặt ở Preview). **Rời Vercel:** bộ `deploy/hosted/` (app + Caddy trên VPS, giữ Neon và R2) đã chạy thử trên máy
+Tài; các bước ở `tu-chay.md` mục "Chuyển production từ Vercel sang VPS". Tới lúc đó production ở **Hobby**, mà Hobby cấm dùng
+thương mại — Tài chọn: dựng VPS ngay, trả Pro thêm, hay tạm ở Hobby trong tuần lập kế hoạch (chưa có khách, chưa thu tiền).
+**Trước quán thật đầu tiên**, theo thứ tự: nơi chạy (VPS/Pro) · sao lưu chạy thật (B2) · Google OAuth từ Testing sang **Publish**
+(ở Testing chỉ email trong Test users đăng nhập được) · phần cuộn của trang khách trên iPhone (M4, Tài thử máy thật) · ghi thẻ
+đầu tiên bằng link `.com` · F4 xoay mật khẩu đã lộ · luật sư xem trang pháp lý (C2). **Dời** (Tài 28/09): dashboard "thời tiết
+của quán" — chưa có quán thật thì chưa có gì để báo; AI (D3) còn sau nữa.
 
 **D4c (28/09, migration 032):** đăng nhập bằng Google cho chủ quán, OAuth 2.0 mã một lần + PKCE + state + nonce, không thư viện
 (`lib/owner/google.ts`). Ba việc, không hơn: **lưu trang ở `/bat-dau` bằng Google** ("Tiếp tục với Google", đứng trước phần mật
@@ -280,15 +282,16 @@ theo audit: **D4a, D4b, M2b xong 27/09; P5b-lite, D4c 28/09**; kế là dashboar
 Xong → 7 bộ test xanh có output nguyên văn → đẩy `main`; không cần xem preview trước. **Không nới:** có migration thì
 Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa có output. Lệnh 7 bộ ở `operations-gotchas.md`.
 
-### Việc còn treo của Tài
+### Việc còn treo của Tài (cập nhật 29/09)
 
-Đã xong 27/09: bảo vệ `main` (F5, đẩy thẳng bị luật chặn) · cấp lại link `yourshop` trên preview · gửi góp ý trên Chrome
-iPhone. **Còn:** tạo **Hồ sơ doanh nghiệp Google** cho dịch vụ NFC ngay (đồng hồ 60 ngày cho C1) · chọn **màu chủ đạo và
-nhận diện nền tảng** (F6, trước S1) · mã QR ngân hàng + số Zalo cho tab Thanh toán (cài đặt admin, không vào GitHub) ·
-kịch bản video 3 phút · Search Console sau khi trang chính mở lập chỉ mục · **chạy migration 029** trên Neon production và preview (trước khi đẩy D4
-lên `main`) · **dựng VPS trước 29/09** (hoặc trả Pro thêm) · sao lưu (`sao-luu.md`) · F4 xoay mật khẩu đã lộ · quán thật đầu tiên + ghi thẻ · luật sư (C2). Việc tách
-riêng đang chờ: ca impersonation không đứng một mình
-(`admin-http.spec.ts` ~240). Ca 2FA chập chờn (`admin-auth.spec.ts`) đã sửa 27/09 (`operations-gotchas.md`).
+Đã xong: bảo vệ `main` (F5) · màu và tên nền tảng (F6 phần giao diện, S1) · mã QR + Zalo cho Thanh toán (nhập ở `/gov` 28/09) ·
+migration 001–032 · OAuth client Google + hai biến ở Production.
+**Còn, trước quán thật:** chọn nơi chạy (VPS theo `tu-chay.md`, hoặc Pro) · sao lưu B2 (`sao-luu.md`: người dùng chỉ-đọc, bucket,
+khoá, mật khẩu, 6 secret, diễn tập khôi phục) · Google OAuth: **Publish app** và (nếu muốn nút Google trên preview) đặt hai biến ở
+Preview · thử phần cuộn trang khách trên iPhone sau M4 · ghi thẻ NFC đầu tiên · F4 xoay mật khẩu đã lộ · luật sư (C2).
+**Còn, không gấp:** Hồ sơ doanh nghiệp Google cho dịch vụ (đồng hồ 60 ngày cho C1 — bắt đầu càng sớm càng tốt) · Search Console
+(xác minh tên miền bằng DNS) · kịch bản video 3 phút · logo/dấu trên thẻ (F6 phần in) · quá hạn thanh toán thì ra sao (P5b).
+Việc tách riêng đang chờ: ca impersonation không đứng một mình (`admin-http.spec.ts` ~240).
 
 ### Thứ tự đọc cho phiên mới
 

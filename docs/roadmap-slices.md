@@ -79,6 +79,7 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
 | # | Việc | Ghi chú |
 |---|---|---|
+| **V1** | **Chuyển production sang VPS, giữ Neon + R2**: bộ `deploy/hosted/` (app + Caddy) đã chạy thử 29/09; Tài mua VPS Singapore, chép biến từ Vercel, đổi DNS | Các bước: `tu-chay.md` mục "Chuyển production từ Vercel sang VPS" |
 | B2 | Sao lưu mỗi đêm: **mã xong**, Tài tạo người dùng chỉ-đọc, bucket, khoá, mật khẩu, 6 secret, rồi diễn tập khôi phục | `sao-luu.md` |
 | B1 | Neon gói trả phí (quay ngược thời điểm) | Chưa chọn — không dịch vụ trả phí |
 | B3 | Giám sát lỗi + kiểm tra sống + cảnh báo | Cần chọn dịch vụ (ưu tiên miễn phí, qua adapter) |
@@ -93,8 +94,8 @@ tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
 
 ## 8. Việc của Tài
 
-F1 luật sư dữ liệu và sở hữu trí tuệ · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F5 bật bảo vệ nhánh `main` (repo đã công khai, CI xanh 27/09) · F6
-nhận diện nền tảng (logo, dấu trên thẻ) · F7 `story.md`/Obsidian · thử lại sáu template trên Chrome iPhone sau bản sửa
+F1 luật sư dữ liệu và sở hữu trí tuệ · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F6 phần in: logo, dấu trên thẻ (màu và tên đã
+chốt ở S1) · Google OAuth: Publish app trước khi chủ quán thật dùng nút Google · F7 `story.md`/Obsidian · thử lại sáu template trên Chrome iPhone sau bản sửa
 luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạo quán thật đầu tiên và ghi thẻ.
 
 ---

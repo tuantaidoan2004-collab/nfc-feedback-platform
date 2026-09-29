@@ -1,0 +1,41 @@
+# Production off Vercel, data where it already is (29/09, Tài: Vercel Pro ends): this machine runs only the app and a
+# TLS proxy; the database stays on Neon and pictures stay on R2, so nothing is copied and nothing is lost. The same
+# variables Vercel had (deploy/hosted/hosted.env, never committed). docs/tu-chay.md, "Chuyển production sang VPS".
+#   docker compose -f deploy/hosted/docker-compose.yml up -d --build
+# The all-local variant, with its own PostgreSQL and store, is deploy/docker-compose.yml.
+services:
+  app:
+    build: { context: ../.., dockerfile: Dockerfile }
+    image: nfc-platform
+    pull_policy: build
+    env_file: [hosted.env]
+    environment:
+      NFC_ENV: production
+      # Caddy below overwrites X-Real-IP with the visitor's address; this is the only header the guest limits trust
+      # (server/guest-limits.ts). VERCEL is cleared so no line copied from Vercel can make them trust its header here.
+      NFC_CLIENT_IP_HEADER: x-real-ip
+      VERCEL: ""
+    expose: ["3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/dieu-khoan').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      retries: 30
+    restart: unless-stopped
+
+  # HTTPS with a free certificate Caddy gets and renews by itself, as soon as the domain's DNS points at this machine.
+  caddy:
+    image: caddy:2.10
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-quitesensational-review-bio.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

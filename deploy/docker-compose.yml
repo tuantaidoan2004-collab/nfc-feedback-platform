@@ -74,6 +74,9 @@ services:
       R2_BUCKET: nfc-media
       MEDIA_PUBLIC_ORIGIN: ${MEDIA_PUBLIC_ORIGIN:?set MEDIA_PUBLIC_ORIGIN}
       NFC_SUPPORT_CONTACT: ${NFC_SUPPORT_CONTACT:-}
+      # Google sign-in for owners (lát D4c); empty hides the buttons.
+      NFC_GOOGLE_CLIENT_ID: ${NFC_GOOGLE_CLIENT_ID:-}
+      NFC_GOOGLE_CLIENT_SECRET: ${NFC_GOOGLE_CLIENT_SECRET:-}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/dieu-khoan').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 5s

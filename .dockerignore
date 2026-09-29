@@ -7,3 +7,4 @@ deploy/.env
 test-results
 playwright-report
 *.tsbuildinfo
+deploy/hosted/hosted.env
