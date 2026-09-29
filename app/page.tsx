@@ -7,6 +7,9 @@ import { CONTACT } from '@/components/legal-page';
 import { PLATFORM_NAME } from '@/lib/brand';
 import styles from '@/components/start/landing.module.css';
 
+// Rendered per request: each page carries its own CSP nonce (lát H1, proxy.ts), which a page built ahead cannot have.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: { absolute: `${PLATFORM_NAME} · Trang của quán, mở bằng một lần chạm thẻ` },
   description: 'Thẻ NFC đặt trên bàn mở trang riêng của quán: mọi khách thấy cùng một lời mời đánh giá Google, và có thêm một đường góp ý riêng cho chủ quán. Dựng thử miễn phí, chưa cần tài khoản.',

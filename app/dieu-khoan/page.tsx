@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CONTACT, LegalPage } from '@/components/legal-page';
 
+// Rendered per request: each page carries its own CSP nonce (lát H1, proxy.ts), which a page built ahead cannot have.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Điều khoản' };
 
 /** The rules a customer meets on a shop's page (A5). The Google part restates docs/google-policy.md, it never adds. */

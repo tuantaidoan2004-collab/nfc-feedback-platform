@@ -239,6 +239,18 @@ test('P5b-lite: the owner reads what a month costs, how far the shop has paid, a
  await expect(page).toHaveURL(/\?view=billing$/);
 });
 
+test('H1: the dashboard works under its policy -- every view, the page pictures, the editor -- and nothing is refused',async({page,f})=>{
+ const refused:string[]=[];page.on('console',m=>{if(/Content.Security.Policy|Refused to/i.test(m.text()))refused.push(m.text());});
+ await login(page,f.users[0]);
+ const policy=(await page.request.get('/ZZZ/one')).headers()['content-security-policy']??'';
+ expect(policy).toContain("frame-ancestors 'none'");expect(policy).toContain("'strict-dynamic'");
+ for(const view of ['data','design','billing','settings','profile']){await openView(page,view);await expect(page).toHaveURL(new RegExp(`view=${view}$`));}
+ await openView(page,'design');await expect(page.locator('[data-design-editor]')).toBeVisible();
+ // The page list frames each page's picture (/ZZZ/<shop>/thumb/<page>): framed by this app, so allowed.
+ const thumb=page.locator('iframe').first();if(await thumb.count())await expect(page.frameLocator('iframe').first().locator('main.guest')).toBeVisible();
+ expect(refused).toEqual([]);
+});
+
 test('the page editor: save, preview in a new tab, publish, and the customer page changes only after publishing',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // next dev reloads every open page the first time it compiles a route; compile /one and /preview before the editor holds state.

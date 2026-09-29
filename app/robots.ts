@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next';
 
+// Read when asked, not when built: a Docker image is built without APP_ORIGIN and gets it only at run time (29/09).
+export const dynamic = 'force-dynamic';
+
 /**
  * What a search engine may read (lát D4): the front page, the builder and the public guides. Every private surface
  * also says noindex on its own; this keeps crawlers out of them in the first place. Guest pages are not listed

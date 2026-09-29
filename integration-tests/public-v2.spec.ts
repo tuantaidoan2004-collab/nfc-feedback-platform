@@ -296,6 +296,63 @@ test('D4b: a name typed before the builder\'s script has loaded is kept, and Ti�
   await expect(page.getByRole('button', { name: 'Tiếp tục →' })).toBeEnabled();
 });
 
+/** Lát H1: a policy's directives, by name. */
+const cspDirectives = (policy: string) => Object.fromEntries(policy.split(';').map(part => part.trim()).filter(Boolean)
+  .map(part => { const [name, ...sources] = part.split(/\s+/); return [name, sources]; })) as Record<string, string[]>;
+/** Every message the browser writes when a policy refuses something, from the page and from every frame in it. */
+function cspWatch(page: Page) {
+  const refused: string[] = [];
+  page.on('console', message => { if (/Content.Security.Policy|Refused to/i.test(message.text())) refused.push(message.text()); });
+  return refused;
+}
+
+test('H1: every page carries its protective headers, its scripts carry that response\'s own nonce, and nothing the pages use is refused', async ({ page, request, db }) => {
+  void db; // The fixture publishes the test shops (`/one`).
+  const draft = await request.post('/api/start/drafts', { headers: { origin: 'http://127.0.0.1:3317' }, data: { name: 'Quán Đầu', template: 'glass' } });
+  const thu = new URL((await draft.json()).url).pathname;
+  for (const [path, frame] of [['/', "'none'"], ['/bat-dau', "'none'"], ['/dieu-khoan', "'none'"], ['/quyen-rieng-tu', "'none'"], ['/one', "'none'"],
+    [thu, "'self'"], ['/khong-co-quan-nay', "'none'"], ['/khong/co/trang', "'none'"]] as const) {
+    const first = await request.get(path), second = await request.get(path), headers = first.headers();
+    const policy = headers['content-security-policy'];
+    expect(policy, path).toBeTruthy();
+    const d = cspDirectives(policy), nonce = (d['script-src'].find(source => source.startsWith("'nonce-")) ?? '').slice(7, -1);
+    expect(nonce.length, path).toBeGreaterThanOrEqual(16);
+    expect(d['script-src'], path).toContain("'strict-dynamic'"); expect(d['script-src'], path).not.toContain("'unsafe-inline'");
+    expect(d['frame-ancestors'], path).toEqual([frame]); expect(d['object-src'], path).toEqual(["'none'"]);
+    expect(headers['x-frame-options'], path).toBe(frame === "'self'" ? 'SAMEORIGIN' : 'DENY');
+    expect(headers['x-content-type-options'], path).toBe('nosniff');
+    expect(headers['strict-transport-security'], path).toContain('max-age=');
+    expect(headers['permissions-policy'], path).toContain('camera=()');
+    expect(headers['cross-origin-opener-policy'], path).toBe('same-origin-allow-popups');
+    // Every script in the HTML carries this response's nonce; the next response has another.
+    const scripts = [...(await first.text()).matchAll(/<script\b[^>]*>/g)].map(match => match[0]);
+    expect(scripts.length, path).toBeGreaterThan(0);
+    for (const tag of scripts) expect(tag, path).toContain(`nonce="${nonce}"`);
+    expect(second.headers()['content-security-policy'], path).not.toBe(policy);
+  }
+  // The API answers JSON under a policy that allows nothing at all.
+  expect((await request.get('/api/v2/pages/visits')).headers()['content-security-policy']).toContain("default-src 'none'");
+  // Violations are reported and logged in one line each; anything that is not a report is refused.
+  const report = { 'csp-report': { 'effective-directive': 'script-src-elem', 'blocked-uri': 'https://evil.test/x.js?q=1', 'document-uri': 'http://127.0.0.1:3317/one?secret=1' } };
+  expect((await request.post('/api/csp-report', { headers: { 'content-type': 'application/csp-report' }, data: JSON.stringify(report) })).status()).toBe(204);
+  expect((await request.post('/api/csp-report', { headers: { 'content-type': 'text/plain' }, data: 'x' })).status()).toBe(415);
+  // In a browser the pages work -- hydrated, framed, uploading nothing -- and the policy refuses nothing they use.
+  const refused = cspWatch(page);
+  await ready(page); await openCard(page);
+  await page.goto('/'); await expect(page.locator('[data-landing-start]')).toBeVisible();
+  await page.goto('/bat-dau'); await expect(page.locator('[data-start-ready]')).toBeVisible();
+  await page.getByLabel('Tên quán', { exact: true }).fill('Quán Đầu'); await page.getByRole('button', { name: 'Tiếp tục →' }).click();
+  await expect(page.frameLocator('[data-template-card="glass"] iframe').locator('main.guest')).toBeVisible();
+  await page.goto(thu); await expect(page.locator('main.guest')).toBeVisible();
+  await page.goto('/khong/co/trang'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Không tìm thấy trang này');
+  expect(refused).toEqual([]);
+  // The control: an inline handler, the classic injected script, is refused -- and the watch above does see refusals.
+  await ready(page);
+  await page.evaluate(() => { const bait = document.createElement('div'); bait.setAttribute('onclick', "document.title='pwned'"); document.body.append(bait); bait.click(); });
+  expect(await page.title()).not.toBe('pwned');
+  await expect.poll(() => refused.length).toBeGreaterThan(0);
+});
+
 test('Next HTTP saves private feedback without a rating and never echoes text', async ({ page, request, db }) => {
   // Every guest write carries the published page's proof (lát A3b); take the one this page was rendered with.
   const opening = page.waitForRequest('**/api/v2/pages/visits'); await page.goto('/one');
@@ -355,6 +412,14 @@ test('production gate stays closed even with flag true', async ({ page, request,
   for(const path of ['/api/owner/v2/one','/api/owner/v2/one/export','/owner/login?next=%2FZZZ%2Fone'])expect((await request.get(`http://127.0.0.1:3319${path}`)).status()).toBe(404);
   expect((await request.post('http://127.0.0.1:3319/api/owner/v2/login',{data:{}})).status()).toBe(404);
   for (const path of ['/api/v2/shops/one/visits', '/api/v2/pages/visits', '/preview/exchange', '/api/start/drafts', '/api/start/signup', '/api/owner/v2/google/start']) expect((await request.post(`http://127.0.0.1:3319${path}`, { data: {} })).status()).toBe(404);
+  // Lát H1 on the built app: the same headers, and no 'unsafe-eval' outside development.
+  for (const path of ['/', '/dieu-khoan']) {
+    const answer = await request.get(`http://127.0.0.1:3319${path}`), policy = answer.headers()['content-security-policy'] ?? '';
+    expect(policy, path).toContain("'strict-dynamic'"); expect(policy, path).not.toContain('unsafe-eval'); expect(policy, path).not.toMatch(/script-src[^;]*unsafe-inline/);
+    const nonce = /'nonce-([^']+)'/.exec(policy)?.[1];
+    for (const [tag] of (await answer.text()).matchAll(/<script\b[^>]*>/g)) expect(tag, path).toContain(`nonce="${nonce}"`);
+    expect(answer.headers()['x-frame-options'], path).toBe('DENY');
+  }
   // The builder is a v2 surface too (lát D4): closed until the deployment declares its environment. The front page is not.
   expect((await request.get('http://127.0.0.1:3319/bat-dau')).status()).toBe(404);
   expect((await request.get('http://127.0.0.1:3319/')).status()).toBe(200);

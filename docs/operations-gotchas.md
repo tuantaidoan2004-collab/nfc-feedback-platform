@@ -295,6 +295,18 @@ site và việc người dùng bấm**, không chỉ giả API. Lỗi của Clau
 D4c dùng @handle và mã Google cố định thì lần lặp thứ hai gặp `OWNER_ALREADY_EXISTS`, trông như lỗi chập chờn. Ca nào tạo tài
 khoản thì sinh tên riêng cho mỗi lượt. Lỗi của Claude ở D4c, bắt được khi chạy lặp trước khi commit.
 
+**CSP có nonce (lát H1, 29/09): bốn điều phải nhớ.** (1) Trang **dựng sẵn lúc build** không có nonce, nên script của chính nó bị
+chặn — mọi trang phải render mỗi lượt (`force-dynamic` hoặc `await connection()`, kể cả `app/not-found.tsx`); xem cột ○/ƒ của
+`next build`. (2) Trang khách tô màu bằng thuộc tính `style`, nên `style-src` phải có `'unsafe-inline'` (và khi đó **không** được
+đặt nonce trong `style-src`, vì có nonce thì trình duyệt bỏ qua `'unsafe-inline'`). (3) `form-action` giữ cả **chuyển hướng sau khi
+gửi form**: form đăng nhập Google gửi về trang mình rồi 303 sang Google, nên Google phải có trong `form-action`. (4) Thêm tệp ở
+**gốc** dự án (`proxy.ts`) thì harness phải chép nó (`copyApp`) — không thì CSP không có ở test mà test vẫn xanh.
+Và một bài học cũ gặp lại: test chỉ "không thấy vi phạm" thì chưa chứng minh gì — ca H1 có **ca đối chứng** (cài `onclick` phải
+bị chặn và bộ theo dõi phải thấy).
+
+**`robots.txt`/`sitemap.xml` dựng sẵn lúc build đọc `APP_ORIGIN` của lúc build.** Vercel có biến đó lúc build nên không ai thấy;
+image Docker thì không, sitemap ra rỗng. Mọi route đọc biến môi trường chạy-lúc-chạy phải là `force-dynamic` (lát H1).
+
 **Không có `BarcodeDetector` trên Chrome Linux, nên CI không đọc được mã QR.** Bộ mã hoá QR tự viết (`lib/qr.ts`, D4a) được
 kiểm bằng `BarcodeDetector` của Chrome **trên macOS** (chỉ chạy ở trang `localhost`/https — trang `about:blank` báo
 `BarcodeDetector is not defined`), đủ 40 cỡ ở dung lượng tối đa. CI chỉ giữ được **hash** của các ma trận đã đọc được

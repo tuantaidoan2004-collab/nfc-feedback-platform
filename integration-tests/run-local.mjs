@@ -40,7 +40,7 @@ async function run(args, cwd, env) {
 }
 async function copyApp(name) {
   const dest = join(temp, name);
-  for (const path of ['app', 'components', 'lib', 'templates', 'server', 'public', 'scripts', 'package.json', 'tsconfig.json', 'next.config.ts', 'next-env.d.ts']) {
+  for (const path of ['app', 'components', 'lib', 'templates', 'server', 'public', 'scripts', 'package.json', 'tsconfig.json', 'next.config.ts', 'next-env.d.ts', 'proxy.ts']) {
     await cp(join(root, path), join(dest, path), { recursive: true, filter: source => !basename(source).startsWith('.env') });
   }
   await symlink(await realpath(join(root, 'node_modules')), join(dest, 'node_modules'));
