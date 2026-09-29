@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ShopProvisioning} from '../lib/admin/provisioning';
 import {MediaReview} from '../lib/admin/media-review';
+import {UPLOAD_EXPIRES_SECONDS} from '../lib/owner/media';
 import {AdminAuth} from '../lib/admin/auth';
 import {PublishingAdmin,PublishingResolver} from '../lib/publishing/repository';
 import { templateConfig } from '../lib/publishing/templates';
@@ -27,8 +28,34 @@ const test=base.extend<{f:F}>({f:async({},provide)=>{
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const input={name:'Quán Ảnh',ownerUsername:'quan-anh',ownerEmail:'anh@example.com',googleUrl:'https://maps.google.com/?cid=9'};
-const queue=(f:F,shopId:string,url:string,kind='image')=>f.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)
-  VALUES($1,$2,$3,$4,1000,'owner:fixture')RETURNING id`,[shopId,url,kind,kind==='video'?'video/mp4':'image/jpeg']).then(r=>r.rows[0].id as string);
+/** An upload whose signed link has long expired, so it can be decided (the next test is about one that has not). */
+const queue=(f:F,shopId:string,url:string,kind='image')=>f.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,created_at)
+  VALUES($1,$2,$3,$4,1000,'owner:fixture',clock_timestamp()-interval '1 hour')RETURNING id`,[shopId,url,kind,kind==='video'?'video/mp4':'image/jpeg']).then(r=>r.rows[0].id as string);
+
+// Rà bảo mật 29/09, M1. A signed upload link can be sent again -- other bytes, the same size and type -- until it expires
+// (lib/owner/media.ts), so a picture approved in those minutes could be swapped for one nobody saw. Neither decision is
+// taken before the link has expired: what is decided is what stays.
+test('a picture is decided only once its upload link has expired, so what is approved is what stays',async({f})=>{
+ const made=await f.shops.create(f.actorId,input);
+ const url=`https://media.example/shops/${made.shopId}/fresh.jpg`;
+ const fresh=(await f.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)VALUES($1,$2,'image','image/jpeg',1000,'owner:fixture')RETURNING id`,
+  [made.shopId,url])).rows[0].id as string;
+ await expect(f.review.decide(f.actorId,fresh,{decision:'approve'})).rejects.toThrow('MEDIA_STILL_UPLOADING');
+ await expect(f.review.decide(f.actorId,fresh,{decision:'reject',reason:'Ảnh mờ'})).rejects.toThrow('MEDIA_STILL_UPLOADING');
+ // The queue says from when: the link's lifetime, and a minute more for clocks that differ.
+ const [waiting]=await f.review.pending();
+ expect(waiting.uploading).toBe(true);
+ expect(new Date(waiting.ready_at).getTime()-new Date(waiting.created_at).getTime()).toBe((UPLOAD_EXPIRES_SECONDS+60)*1000);
+ const age=(seconds:number)=>f.db.query("UPDATE media_assets SET created_at=clock_timestamp()-$2*interval '1 second' WHERE id=$1",[fresh,seconds]);
+ await age(UPLOAD_EXPIRES_SECONDS+58);
+ await expect(f.review.decide(f.actorId,fresh,{decision:'approve'})).rejects.toThrow('MEDIA_STILL_UPLOADING');
+ await age(UPLOAD_EXPIRES_SECONDS+60);
+ expect((await f.review.pending())[0].uploading).toBe(false);
+ await f.review.decide(f.actorId,fresh,{decision:'approve'});
+ expect((await f.db.query('SELECT state FROM media_assets WHERE id=$1',[fresh])).rows).toEqual([{state:'approved'}]);
+ // Nothing was recorded for the refused attempts.
+ expect((await f.db.query("SELECT action FROM admin_audit WHERE action LIKE 'media.%'")).rows).toEqual([{action:'media.approve'}]);
+});
 
 test('a page with an unreviewed picture cannot be published, and the page already live stays live',async({f})=>{
  const made=await f.shops.create(f.actorId,input);

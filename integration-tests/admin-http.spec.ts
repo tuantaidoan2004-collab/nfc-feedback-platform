@@ -483,8 +483,13 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
  const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id;
  await admin.db.query('TRUNCATE media_assets');
  const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Chờ Ảnh',ownerUsername:'quan-cho-anh',ownerEmail:'cho@example.com',googleUrl:''});
- const queue=(url:string)=>admin.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by)VALUES($1,$2,'image','image/jpeg',204800,'owner:x')RETURNING id`,[shop.shopId,url]).then(r=>r.rows[0].id as string);
+ // Uploads whose signed link expired long ago, so they can be decided at once.
+ const queue=(url:string,age='1 hour')=>admin.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,created_at)
+  VALUES($1,$2,'image','image/jpeg',204800,'owner:x',clock_timestamp()-$3::interval)RETURNING id`,[shop.shopId,url,age]).then(r=>r.rows[0].id as string);
  const first=await queue('https://media.example/cho/1.jpg'),second=await queue('https://media.example/cho/2.jpg');
+ // Rà bảo mật 29/09, M1: one uploaded just now, whose link still works, so its file can still change.
+ const fresh=await queue('https://media.example/cho/3.jpg','0 seconds');
+ await page.clock.install();
  await page.goto('/gov/login');
  await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
  await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
@@ -492,7 +497,12 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  const panel=page.locator('[data-media-review]');
  await expect(panel.getByRole('heading')).toContainText('Ảnh chờ duyệt');
- await expect(panel.locator('[data-media-item]')).toHaveCount(2);
+ await expect(panel.locator('[data-media-item]')).toHaveCount(3);
+ const waiting=panel.locator(`[data-media-item="${fresh}"]`);
+ await expect(waiting.locator('[data-media-uploading]')).toContainText('duyệt được từ');
+ await expect(waiting.getByRole('button',{name:'Duyệt',exact:true})).toBeDisabled();
+ await expect(waiting.getByRole('button',{name:'Từ chối…',exact:true})).toBeDisabled();
+ await expect(panel.locator(`[data-media-item="${first}"] [data-media-uploading]`)).toHaveCount(0);
  await expect(panel.locator(`[data-media-item="${first}"] img`)).toHaveAttribute('src','https://media.example/cho/1.jpg');
  await expect(panel.locator(`[data-media-item="${first}"]`)).toContainText('Quán Chờ Ảnh');
  await panel.locator(`[data-media-item="${first}"]`).getByRole('button',{name:'Duyệt',exact:true}).click();
@@ -500,10 +510,22 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
  await panel.locator(`[data-media-item="${second}"]`).getByRole('button',{name:'Từ chối…',exact:true}).click();
  await panel.getByLabel('Lý do (shop sẽ đọc)').fill('Logo của một thương hiệu khác');
  await panel.getByRole('button',{name:'Xác nhận từ chối',exact:true}).click();
+ await expect(panel.locator(`[data-media-item="${second}"]`)).toHaveCount(0);
+ // The panel's clock passes the link's lifetime and its buttons open; the server's clock has not, and it still refuses --
+ // by the panel, and by hand.
+ await page.clock.fastForward('06:05');
+ await expect(waiting.locator('[data-media-uploading]')).toHaveCount(0);
+ await waiting.getByRole('button',{name:'Duyệt',exact:true}).click();
+ await expect(panel.getByRole('alert')).toContainText('Link tải lên của tệp này còn hiệu lực');
+ const early=await page.request.post(`/gov/api/media/${fresh}`,{headers:{origin},data:{decision:'approve'}});
+ expect([early.status(),(await early.json()).error]).toEqual([409,'MEDIA_STILL_UPLOADING']);
+ // Once it has really expired, it is decided like any other.
+ await admin.db.query("UPDATE media_assets SET created_at=clock_timestamp()-interval '1 hour' WHERE id=$1",[fresh]);
+ await waiting.getByRole('button',{name:'Duyệt',exact:true}).click();
  await expect(panel.locator('[data-media-empty]')).toBeVisible();
  expect((await admin.db.query('SELECT id,state,reason,reviewed_by FROM media_assets ORDER BY created_at,id')).rows.map(r=>[r.id,r.state,r.reason,r.reviewed_by]).sort())
-  .toEqual([[first,'approved',null,actor],[second,'rejected','Logo của một thương hiệu khác',actor]].sort());
- expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'media.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['media.approve','media.reject']);
+  .toEqual([[first,'approved',null,actor],[second,'rejected','Logo của một thương hiệu khác',actor],[fresh,'approved',null,actor]].sort());
+ expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'media.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['media.approve','media.reject','media.approve']);
  // Cross-origin decisions are refused like every other administrative write.
  expect((await page.request.post(`/gov/api/media/${first}`,{headers:{Origin:'https://evil.example'},data:{decision:'approve'}})).status()).toBe(403);
 });

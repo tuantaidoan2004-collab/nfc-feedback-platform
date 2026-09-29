@@ -59,3 +59,36 @@ có biến đó lúc build) sẽ ra sitemap rỗng; giờ đọc lúc chạy.
 chính + bước dựng có iframe + 404 **không bị chặn gì**, và **ca đối chứng**: mã cài qua `onclick` bị chặn, bộ theo dõi thấy);
 ca "production gate" (bản build: không `unsafe-eval`, nonce trên mọi script); `owner-dashboard.spec.ts` ca H1 (mọi mục dashboard
 + ảnh trang trong iframe, không bị chặn gì); ca D4c (form sang Google qua được `form-action`).
+
+### M1 · Trung bình · Ảnh đã duyệt vẫn thay được trong 5 phút sau khi tải lên — **đã vá**
+
+**Bằng chứng:** link tải lên (`lib/owner/media.ts`) là một PUT có chữ ký, sống 5 phút, ghim loại và cỡ tệp nhưng **không
+ghim nội dung**, và trong 5 phút đó gửi lại được bao nhiêu lần cũng được. `MediaReview.decide` duyệt ngay khi được hỏi. Vậy:
+chủ quán tải ảnh sạch → Tài duyệt trong 5 phút → chủ quán gửi lại đúng link đó với một ảnh khác cùng cỡ (đệm byte là ra)
+→ trang phát hành với ảnh không ai xem. Cửa duyệt (migration 023) là thứ giữ trang khách sạch theo chính sách Google;
+lỗ này đi vòng qua nó. Test tái hiện đỏ trên `379e61c`: ảnh vừa tải lên được duyệt ngay (`state: approved`).
+
+**Vá:** không quyết định nào — duyệt hay từ chối — trước khi link hết hạn: `UPLOAD_SETTLE_SECONDS` = 5 phút + 1 phút cho
+đồng hồ của kho và của app lệch nhau, tính bằng đồng hồ cơ sở dữ liệu. Server trả `409 MEDIA_STILL_UPLOADING`; `/gov` ghi
+"Link tải lên còn hiệu lực tới HH:MM", khoá hai nút, và tự mở khi tới giờ.
+
+**Test:** `repository-tests/media-review.spec.ts` (từ chối cả hai quyết định, ranh giới 358 s / 360 s, không dòng audit nào
+cho lần bị từ chối); `admin-http.spec.ts` ca "image gate" (đồng hồ giả của trình duyệt vượt giờ → nút mở, server chưa tới
+giờ vẫn từ chối qua panel và qua gửi tay; hết hạn thật → duyệt được).
+
+## 3. Đã rà, không thấy lỗ
+
+| Chỗ | Đã xem | Kết luận |
+|---|---|---|
+| Thư viện | `pnpm audit` trên lockfile (72 gói chạy thật, 305 gói dev) | 0 lỗ đã biết. Chỉ `sharp`, `unrs-resolver` được chạy script cài đặt (`allowBuilds`); CI và Dockerfile cài `--frozen-lockfile` |
+| Route ghi | 50 tệp `route.ts`: mọi `POST/PUT/PATCH/DELETE` | Đều qua `fromThisSite`, trừ `/api/csp-report` (trình duyệt tự gửi báo cáo, không mang quyền gì); quyền nằm ở lớp `lib` (`authorize` theo slug + vai), không ở giao diện |
+| SQL | Mọi chỗ ghép chuỗi vào câu lệnh | Chỉ mảnh do code dựng (kiểu khoá, tên cột cố định, số thứ tự tham số); dữ liệu luôn là `$n` |
+| HTML thô | `dangerouslySetInnerHTML`, `innerHTML`, `eval` | Một chỗ: ảnh QR của bản nháp, SVG do `lib/qr.ts` vẽ, nhãn cố định đã thoát ký tự, không chứa chữ người dùng |
+| Xuất CSV | `csvCell` | Chặn công thức (`= + - @`, ký tự điều khiển đầu ô) |
+| Google | `start`, `callback`, `lib/owner/google.ts` | state + PKCE + nonce, lượt đi gắn trình duyệt (cookie ký, Lax, 10 phút, xoá sau khi về), `hop` chỉ tới đường app dựng, không khớp tài khoản theo email |
+| Đăng nhập | chủ quán, admin, link cài đặt | Tên lạ vẫn chạy trọn hàm băm; hạn mức theo tài khoản + toàn nền tảng; admin có 2FA chống dùng lại mã; link cài đặt 256 bit, chỉ lưu băm, dùng một lần; đổi mật khẩu đăng xuất phiên khác |
+| IP khách | `server/guest-limits.ts`, `deploy/hosted/Caddyfile` | Chỉ tin một header, và Caddy ghi đè `X-Real-IP` ở mọi request |
+| Tối ưu ảnh | `next.config.ts` | Không `remotePatterns`: `/_next/image` không làm proxy cho ảnh ngoài |
+
+**Yếu có chủ ý, ghi để biết:** hạn mức đăng nhập toàn nền tảng (60 lượt/phút) giữ máy khỏi bị đốt bằng hàm băm, nhưng ai gửi
+quá mức đó chặn được đăng nhập **bằng mật khẩu** của mọi người trong phút ấy; đăng nhập Google (D4c) không đi qua hạn mức này.

@@ -27,6 +27,12 @@ const TYPES = new Map<string, { kind: 'image' | 'video'; ext: string; max: numbe
 /** Second lock on the same door: whatever a rule says, nothing above this is ever signed. */
 const MAX_UPLOAD = 50 * 1024 * 1024;
 export const UPLOAD_EXPIRES_SECONDS = 300;
+/**
+ * When a picture can be decided in /gov (rà bảo mật 29/09, M1). A signed PUT can be sent again -- other bytes, the same
+ * size and type -- until it expires, so a picture approved before then could be swapped for one nobody saw. The link's
+ * lifetime, and a minute more for the store's clock and this app's disagreeing.
+ */
+export const UPLOAD_SETTLE_SECONDS = UPLOAD_EXPIRES_SECONDS + 60;
 
 export class OwnerMedia {
   constructor(private pool: Pool, private settings: StorageSettings | null = storageSettings(), private now: () => Date = () => new Date()) {}

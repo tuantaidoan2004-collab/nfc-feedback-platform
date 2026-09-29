@@ -146,6 +146,10 @@ lên thì gọi thẳng API là đi vòng được.
   mọi bản phát hành và hồ sơ tài khoản — không trang nào mất ảnh, không bản nháp nào bị chặn vì ảnh cũ của nó.
 - `reviewed_by` **không** có khoá ngoại tới `platform_admins`, có chủ ý: mọi lần phát hành đọc bảng này, kể cả ở nơi
   chưa có bảng admin; người duyệt thật nằm trong `admin_audit` (có khoá ngoại).
+- **Quyết định chờ link tải lên hết hạn** (rà bảo mật 29/09, M1): link ký sống 5 phút và **gửi lại được** — cùng cỡ, cùng
+  loại, byte khác — nên duyệt trong 5 phút đó là duyệt một tệp còn đổi được. `/gov` ghi "Link tải lên còn hiệu lực tới
+  HH:MM" và khoá hai nút tới 6 phút sau lúc xin link (5 phút + 1 phút cho đồng hồ lệch, `UPLOAD_SETTLE_SECONDS`); server
+  cũng từ chối (`MEDIA_STILL_UPLOADING`), kể cả khi gửi tay.
 
 **Chưa làm, nói thẳng:**
 - **Gỡ ảnh đã lên trang.** Từ chối chỉ áp cho ảnh đang chờ. Một ảnh đã duyệt và đang sống mà sau này thấy sai thì chưa
