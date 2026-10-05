@@ -755,3 +755,9 @@ khắc sau khi tiến trình chính thoát. Sửa: `rm(..., { maxRetries: 10, re
 **zsh dừng cả lệnh khi một glob không khớp — lỗi của Claude, 05/10 (hai lần).** `grep -rn … --include=*.ts` không có nháy: zsh
 tự mở `*.ts` ở thư mục hiện tại, không khớp thì báo `no matches found` và **không chạy** lệnh đó cùng mọi lệnh sau nó trên dòng
 (lệnh kiểm cuối của phiên trước chết như vậy). Luôn để nháy: `--include='*.ts'`.
+
+**Ảnh Docker build trong `/app` thì trang chính thành trang đăng nhập — 05/10.** Từ đợt ① có route `app/app/page.tsx` (`/app`).
+Next build trong thư mục dự án tên `/app` (WORKDIR cũ của `Dockerfile`) thì phục vụ luôn route đó ở `/`: khách mở trang chính
+nhận 307 sang `/owner/login?next=%2Fapp`. Bảng route (`app-paths-manifest.json`) vẫn đúng; build ở thư mục khác (máy Tài,
+Vercel, `/srv/nfc`) thì không sao, nên chỉ bước smoke của CI self-host thấy (đỏ từ `3571676`). Sửa: `WORKDIR /srv/nfc`. Kiểm
+lại bằng đúng các bước của job `self-host` với `docker compose -p <tên riêng>` rồi `down -v`.
