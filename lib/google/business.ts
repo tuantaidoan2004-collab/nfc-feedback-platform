@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { authorize, OwnerError, requirePermission, transaction, type OwnerAccess, type OwnerCredential } from '../owner/auth';
 import { recordActivity } from '../owner/activity';
@@ -28,14 +28,18 @@ const REVIEWS = (account: string, location: string, page?: string) =>
   `https://mybusiness.googleapis.com/v4/${account}/${location}/reviews?pageSize=50${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`;
 
 /**
- * The Google Maps review tool: its address, the key it answers to (X-API-Key; scripts/local.mjs reads it from the tool's
- * own config.json), and the one shop it follows. The key goes to the tool and nowhere else, never to a browser.
+ * The Google Maps review tool: the key it answers to and signs with (its `api_key`; scripts/local.mjs reads it from the
+ * tool's own config.json, production keeps it in NFC_MAPS_KEY), the one shop it follows, and -- only where the server can
+ * reach Tài's machine, i.e. locally -- its address, to ask it. Production has no address: the tool sends (receiveMaps).
+ * The key goes to the tool and nowhere else, never to a browser.
  */
-export type MapsSettings = { url: string; key: string; shop: string };
+export type MapsSettings = { url: string | null; key: string; shop: string };
 export function mapsSettings(env: Env = process.env): MapsSettings | null {
   const url = env.NFC_MAPS_URL?.trim().replace(/\/+$/, ''), key = env.NFC_MAPS_KEY?.trim(), shop = env.NFC_MAPS_SHOP?.trim().toLowerCase();
-  return url && /^https?:\/\/[^\s]+$/.test(url) && key && shop ? { url, key, shop } : null;
+  return key && shop ? { url: url && /^https?:\/\/[^\s]+$/.test(url) ? url : null, key, shop } : null;
 }
+/** The tool can be asked from here, for this shop. */
+const askable = (tool: MapsSettings | null, slug: string): tool is MapsSettings & { url: string } => !!tool?.url && tool.shop === slug.toLowerCase();
 /** Real Google needs the platform's OAuth client and an explicit switch, set only once Google has approved API access. */
 export const businessEnabled = (env: Env = process.env) => !!googleSettings(env) && env.NFC_GOOGLE_BUSINESS_ENABLED === 'true';
 
@@ -97,26 +101,65 @@ export function fromMaps(review: MapsReview): GoogleReview {
     starRating: Number.isInteger(review.rating) ? WORDS[review.rating as number] : undefined, comment: words(review.text),
     createTime: day, updateTime: day, ...(reply ? { reviewReply: { comment: reply } } : {}) };
 }
-async function mapsJson<T>(settings: MapsSettings, path: string, fetcher: typeof fetch): Promise<T> {
-  const response = await fetcher(`${settings.url}${path}`, { headers: { 'X-API-Key': settings.key }, cache: 'no-store', signal: AbortSignal.timeout(20000) })
+/** Google's score and count as the tool read them off Google Maps. */
+const scoreOf = (average: unknown, total: unknown) => {
+  const a = Number(average), t = Number(total);
+  return { averageRating: a >= 1 && a <= 5 ? Math.round(a * 100) / 100 : null, totalReviewCount: Number.isInteger(t) && t >= 0 ? t : null };
+};
+async function mapsJson<T>(tool: { url: string; key: string }, path: string, fetcher: typeof fetch): Promise<T> {
+  const response = await fetcher(`${tool.url}${path}`, { headers: { 'X-API-Key': tool.key }, cache: 'no-store', signal: AbortSignal.timeout(20000) })
     .catch(() => { throw new OwnerError(503, 'MAPS_UNREACHABLE'); });
   if (response.status === 401 || response.status === 403) throw new OwnerError(503, 'MAPS_REFUSED');
   if (!response.ok) throw new OwnerError(502, 'MAPS_UNAVAILABLE');
   return response.json().catch(() => { throw new OwnerError(502, 'MAPS_UNAVAILABLE'); }) as Promise<T>;
 }
 /** What the tool knows now: every review it has seen that Google still shows, Google's score and count, when it last looked. */
-export async function fetchMaps(settings: MapsSettings, fetcher: typeof fetch = fetch) {
-  const overview = await mapsJson<{ place_name?: unknown; current?: { scraped_at?: unknown; avg_rating?: unknown; total_reviews?: unknown } | null }>(settings, '/api/overview', fetcher);
+export async function fetchMaps(tool: { url: string; key: string }, fetcher: typeof fetch = fetch) {
+  const overview = await mapsJson<{ place_name?: unknown; current?: { scraped_at?: unknown; avg_rating?: unknown; total_reviews?: unknown } | null }>(tool, '/api/overview', fetcher);
   const reviews: GoogleReview[] = [];
   for (let page = 1; page <= 20; page++) {
-    const body = await mapsJson<{ items?: unknown }>(settings, `/api/reviews?scope=active&sort=newest&page_size=200&page=${page}`, fetcher);
+    const body = await mapsJson<{ items?: unknown }>(tool, `/api/reviews?scope=active&sort=newest&page_size=200&page=${page}`, fetcher);
     const items = Array.isArray(body.items) ? body.items as MapsReview[] : [];
     reviews.push(...items.map(fromMaps));
     if (items.length < 200) break;
   }
-  const average = Number(overview.current?.avg_rating), total = Number(overview.current?.total_reviews);
-  return { reviews, averageRating: average >= 1 && average <= 5 ? Math.round(average * 100) / 100 : null, totalReviewCount: Number.isInteger(total) && total >= 0 ? total : null,
+  return { reviews, ...scoreOf(overview.current?.avg_rating, overview.current?.total_reviews),
     title: words(overview.place_name)?.slice(0, 200) ?? null, scrapedAt: vietnamMoment(overview.current?.scraped_at) };
+}
+
+/**
+ * Production, where nothing can reach Tài's machine: after each look at Google Maps the tool POSTs its whole list
+ * (~/MAps/backend/app/tracker.py, event `run.completed` with `reviews`), signed `X-Signature: sha256=HMAC-SHA256(body,
+ * api_key)`. Signed by the key or refused; an answer older than what the shop already has (a replay, a late retry) is
+ * kept out; once the shop is on Google's APIs the tool is ignored. `test` is the tool's "Gửi thử" button.
+ */
+export const MAPS_BODY_LIMIT = 2_000_000;
+export async function receiveMaps(pool: Pool, body: string, signature: string | null, env: Env = process.env) {
+  const tool = mapsSettings(env);
+  if (!tool) throw new OwnerError(404, 'NOT_FOUND');
+  const given = /^sha256=([a-f0-9]{64})$/.exec(signature ?? '')?.[1], expected = createHmac('sha256', tool.key).update(body).digest();
+  if (!given || !timingSafeEqual(Buffer.from(given, 'hex'), expected)) throw new OwnerError(401, 'BAD_SIGNATURE');
+  let event: { event?: unknown; scraped_at?: unknown; place_name?: unknown; avg_rating?: unknown; total_reviews?: unknown; reviews?: unknown };
+  try { event = JSON.parse(body); } catch { throw new OwnerError(400, 'INVALID_INPUT'); }
+  if (event?.event === 'test') return { received: 'test' };
+  const shop = (await pool.query('SELECT id FROM shops WHERE lower(slug)=$1', [tool.shop])).rows[0]?.id as string | undefined;
+  if (!shop) throw new OwnerError(404, 'MAPS_SHOP_MISSING');
+  if (event?.event === 'run.failed') {
+    await pool.query("UPDATE google_business_connections SET last_error='MAPS_RUN_FAILED' WHERE shop_id=$1 AND mode='maps'", [shop]);
+    return { received: 'run.failed' };
+  }
+  const syncedAt = vietnamMoment(event?.scraped_at);
+  if (event?.event !== 'run.completed' || !Array.isArray(event.reviews) || event.reviews.length > 5000 || !syncedAt) throw new OwnerError(400, 'INVALID_INPUT');
+  const reviews = (event.reviews as MapsReview[]).map(fromMaps), score = scoreOf(event.avg_rating, event.total_reviews);
+  return transaction(pool, async db => {
+    const row = (await db.query('SELECT mode,last_synced_at FROM google_business_connections WHERE shop_id=$1 FOR UPDATE', [shop])).rows[0];
+    if (row?.mode === 'google') return { received: 'run.completed', ignored: 'GOOGLE_CONNECTED' };
+    if (row?.last_synced_at && row.last_synced_at.getTime() >= Date.parse(syncedAt)) return { received: 'run.completed', ignored: 'NOT_NEWER' };
+    await db.query(`INSERT INTO google_business_connections(shop_id,mode,location_title,place_id) SELECT id,'maps',$2,place_id FROM shops WHERE id=$1
+      ON CONFLICT(shop_id) DO UPDATE SET location_title=coalesce(EXCLUDED.location_title,google_business_connections.location_title)`,
+      [shop, words(event.place_name)?.slice(0, 200) ?? null]);
+    return { received: 'run.completed', synced: await store(db, shop, reviews, score.averageRating, score.totalReviewCount, { complete: true, syncedAt }) };
+  });
 }
 
 // ── Real Google calls (used when businessEnabled) ────────────────────────────────────────────────────────────────────
@@ -165,11 +208,16 @@ export async function fetchReviews(token: string, account: string, location: str
 async function store(db: PoolClient, shopId: string, reviews: GoogleReview[], average: number | null, total: number | null,
   { complete = false, syncedAt = null }: { complete?: boolean; syncedAt?: string | null } = {}) {
   const rows = reviews.map(normalizeReview).filter((row): row is ReviewRow => !!row);
-  for (const r of rows) await db.query(`INSERT INTO google_reviews(shop_id,review_id,reviewer_name,reviewer_photo,is_anonymous,stars,comment,created_at,updated_at,reply_comment,reply_updated_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(shop_id,review_id) DO UPDATE SET reviewer_name=EXCLUDED.reviewer_name,reviewer_photo=EXCLUDED.reviewer_photo,
+  // One statement for the whole list: on Neon each round trip costs, and the tool's webhook waits ten seconds at most.
+  // A review listed twice keeps its last copy (one INSERT … ON CONFLICT cannot touch a row twice).
+  const unique = [...new Map(rows.map(r => [r.reviewId, r])).values()];
+  if (unique.length) await db.query(`INSERT INTO google_reviews(shop_id,review_id,reviewer_name,reviewer_photo,is_anonymous,stars,comment,created_at,updated_at,reply_comment,reply_updated_at)
+    SELECT $1,* FROM unnest($2::text[],$3::text[],$4::text[],$5::boolean[],$6::smallint[],$7::text[],$8::timestamptz[],$9::timestamptz[],$10::text[],$11::timestamptz[])
+    ON CONFLICT(shop_id,review_id) DO UPDATE SET reviewer_name=EXCLUDED.reviewer_name,reviewer_photo=EXCLUDED.reviewer_photo,
     is_anonymous=EXCLUDED.is_anonymous,stars=EXCLUDED.stars,comment=EXCLUDED.comment,updated_at=EXCLUDED.updated_at,reply_comment=EXCLUDED.reply_comment,
     reply_updated_at=EXCLUDED.reply_updated_at,synced_at=clock_timestamp()`,
-    [shopId, r.reviewId, r.reviewerName, r.reviewerPhoto, r.isAnonymous, r.stars, r.comment, r.createdAt, r.updatedAt, r.reply, r.replyUpdatedAt]);
+    [shopId, ...(['reviewId', 'reviewerName', 'reviewerPhoto', 'isAnonymous', 'stars', 'comment', 'createdAt', 'updatedAt', 'reply', 'replyUpdatedAt'] as const)
+      .map(key => unique.map(r => r[key]))]);
   // An empty list is never taken as "Google removed everything".
   if (complete && rows.length) await db.query('DELETE FROM google_reviews WHERE shop_id=$1 AND NOT (review_id = ANY($2::text[]))', [shopId, rows.map(r => r.reviewId)]);
   await db.query('UPDATE google_business_connections SET average_rating=$2,total_reviews=$3,last_synced_at=coalesce($4::timestamptz,clock_timestamp()),last_error=NULL WHERE shop_id=$1',
@@ -184,13 +232,13 @@ export class GoogleBusiness {
 
   /**
    * The connection and the latest reviews, for Data and Dashboard. Reading reviews needs the feedback permission; Google's
-   * score and count are the owner's alone (google-policy.md rule 10). `maps`: this shop is the one the tool follows.
+   * score and count are the owner's alone (google-policy.md rule 10). `maps`: this shop is the one the tool follows and the tool can be asked from here.
    */
   async status(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'overview');
       const row = (await db.query('SELECT * FROM google_business_connections WHERE shop_id=$1', [access.shopId])).rows[0];
-      const figures = access.role === 'owner', tool = mapsSettings(this.env);
+      const figures = access.role === 'owner';
       const connection: Connection | null = row ? { mode: row.mode, googleEmail: row.google_email, locationTitle: row.location_title, placeId: row.place_id,
         newReviewUri: row.new_review_uri, averageRating: figures && row.average_rating !== null ? Number(row.average_rating) : null, totalReviews: figures ? row.total_reviews : null,
         connectedAt: row.connected_at.toISOString(), lastSyncedAt: row.last_synced_at?.toISOString() ?? null, lastError: row.last_error } : null;
@@ -199,7 +247,7 @@ export class GoogleBusiness {
         FROM google_reviews WHERE shop_id=$1 ORDER BY created_at DESC LIMIT 50`, [access.shopId])).rows.map(r => ({ reviewId: r.review_id, reviewerName: r.reviewer_name,
         reviewerPhoto: r.reviewer_photo, isAnonymous: r.is_anonymous, stars: r.stars, comment: r.comment, createdAt: r.created_at.toISOString(),
         updatedAt: r.updated_at.toISOString(), reply: r.reply_comment, replyUpdatedAt: r.reply_updated_at?.toISOString() ?? null })) as ReviewRow[] : [];
-      return { connection, reviews, real: businessEnabled(this.env), maps: !!tool && tool.shop === access.slug.toLowerCase(),
+      return { connection, reviews, real: businessEnabled(this.env), maps: askable(mapsSettings(this.env), access.slug),
         canManage: access.actor.kind === 'owner' && access.role === 'owner' };
     });
   }
@@ -207,7 +255,7 @@ export class GoogleBusiness {
   /** The Google Maps review tool: only the shop it follows (NFC_MAPS_SHOP) connects to it, and only that shop's owner. */
   async connectMaps(credential: OwnerCredential, slug: string) {
     const tool = mapsSettings(this.env);
-    if (!tool || tool.shop !== slug.toLowerCase()) throw new OwnerError(404, 'NOT_FOUND');
+    if (!askable(tool, slug)) throw new OwnerError(404, 'NOT_FOUND');
     const owner = async (db: PoolClient) => { const access = await authorize(db, credential, slug, 'write'); ownerOnly(access); return access; };
     await transaction(this.pool, owner);
     // The tool is asked between two transactions: a slow answer must not hold a pooled connection.
@@ -259,7 +307,7 @@ export class GoogleBusiness {
     try {
       if (row.mode === 'maps') {
         const tool = mapsSettings(this.env);
-        if (!tool || tool.shop !== access.slug.toLowerCase()) throw new OwnerError(503, 'MAPS_NOT_SET_UP');
+        if (!askable(tool, access.slug)) throw new OwnerError(503, 'MAPS_NOT_SET_UP');
         pulled = await fetchMaps(tool, this.fetcher);
       } else {
         const settings = googleSettings(this.env); if (!settings) throw new OwnerError(503, 'GOOGLE_UNAVAILABLE');

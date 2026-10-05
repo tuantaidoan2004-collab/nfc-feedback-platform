@@ -58,6 +58,39 @@ unset DATABASE_URL
 chưa bật (`NFC_GOOGLE_BUSINESS_ENABLED` để trống) thì bước Google của quán ghi "Đang chờ Google cấp quyền API". Branch Neon
 **preview** vẫn là lược đồ cũ: bản preview của nhánh chỉ chạy lại sau khi làm bước 2 trên branch đó.
 
+## Đánh giá Google từ tool Google Maps (05/10)
+
+Tool theo dõi đánh giá của Tài (`~/MAps`) chạy trên máy Tài; production không gọi vào máy đó được, nên **tool gửi lên**: sau mỗi
+lượt quét, webhook `run.completed` mang cả danh sách đánh giá còn trên Google, ký `X-Signature: sha256=HMAC-SHA256(body, api_key)`.
+Đích: **`POST https://quitesensational-review-bio.com/api/google-maps`** (`lib/google/business.ts` `receiveMaps`): sai chữ ký 401,
+bản cũ hơn bản quán đang có thì bỏ qua (chống gửi lại), quán đã nối API Google thật thì bỏ qua, `test` là nút "Gửi thử" của tool.
+Không có biến `NFC_MAPS_KEY` thì địa chỉ trả 404.
+
+Biến Vercel (Production): `NFC_MAPS_KEY` = `api_key` trong `~/MAps/config.json` (Sensitive), `NFC_MAPS_SHOP` = slug của quán mà
+tool theo dõi. **Không** đặt `NFC_MAPS_URL` (chỉ máy local mới hỏi được tool). Lược đồ: `mode` của `google_business_connections`
+từ `google|simulated` thành `google|maps`; production dựng từ lược đồ 05/10 (`312c757a73cace9e`) cần lệnh dưới (đã chạy thử trên
+database dựng từ lược đồ cũ: ràng buộc trùng bản dựng mới, `apply-schema.mjs` nhận `607d263bd56bc02c`). Tài chạy:
+
+```bash
+cd ~/Desktop/QuiteSensational
+export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)"
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+DELETE FROM google_reviews WHERE shop_id IN (SELECT shop_id FROM google_business_connections WHERE mode NOT IN ('google','maps'));
+DELETE FROM google_business_connections WHERE mode NOT IN ('google','maps');
+ALTER TABLE google_business_connections DROP CONSTRAINT google_business_connections_mode_check,
+  ADD CONSTRAINT google_business_connections_mode_check CHECK (mode = ANY (ARRAY['google'::text, 'maps'::text]));
+INSERT INTO applied_schema(hash) SELECT '607d263bd56bc02c' WHERE (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1) = '312c757a73cace9e';
+COMMIT;
+SQL
+unset DATABASE_URL
+```
+
+Phía tool: `tracker.py` sửa 05/10 để webhook mang `reviews` và `place_name` (bản cũ: `backend/app/tracker.backup-20261005-1730.py`);
+khởi động lại tool để nạp. Trang **Tích hợp** của tool: Webhook URL = địa chỉ trên → Lưu → "Gửi thử" phải báo OK → "Quét ngay".
+Máy Tài tắt hay phiên Google của tool hết hạn thì production giữ bản cuối, ghi giờ Google Maps đọc lần cuối; lượt quét lỗi
+hiện `MAPS_RUN_FAILED` trên kết nối.
+
 ## Đăng nhập bằng Google (D4c, 28/09)
 
 OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:

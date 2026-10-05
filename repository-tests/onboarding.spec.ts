@@ -1,6 +1,6 @@
 import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
-import {randomUUID} from 'node:crypto';
+import {createHmac,randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {OwnerAuth} from '../lib/owner/auth';
 import {AccountSignup} from '../lib/account/signup';
@@ -8,7 +8,7 @@ import {advance,requestHelp} from '../lib/account/onboarding';
 import {onboardingOf,homeShop,sessionAccount} from '../lib/account/workspace';
 import {placeStatus,savePlaceId} from '../lib/google/places';
 import {parsePlaceId,reviewLink} from '../lib/google/place-id';
-import {GoogleBusiness,openToken,sealToken} from '../lib/google/business';
+import {GoogleBusiness,openToken,receiveMaps,sealToken} from '../lib/google/business';
 import {HelpRequests} from '../lib/admin/help';
 import {readPulse} from '../lib/owner/pulse';
 import {shopOverview} from '../lib/owner/overview';
@@ -142,6 +142,37 @@ test('Google Business from the Google Maps tool: only the shop it follows connec
  await business.disconnect(t,made.slug);
  expect((await business.status(t,made.slug)).connection).toBeNull();
  expect((await f.db.query('SELECT count(*)::int n FROM google_reviews')).rows[0].n).toBe(0);
+});
+
+test('production: the tool sends its whole list signed with its key; older answers, bad signatures and other events change nothing',async({f})=>{
+ const made=await make(f),t=made.session.token,key=`tool-key-${'z'.repeat(24)}`,env={...LOCAL,NFC_MAPS_KEY:key,NFC_MAPS_SHOP:made.slug};
+ const sign=(body:string,k=key)=>`sha256=${createHmac('sha256',k).update(body).digest('hex')}`;
+ const send=(event:object,k=key)=>{const body=JSON.stringify(event);return receiveMaps(f.db,body,sign(body,k),env);};
+ const items=mapsTool(key).state.items,business=new GoogleBusiness(f.db,env);
+ const run=(at:string,reviews=items)=>({event:'run.completed',run_id:9,scraped_at:at,avg_rating:4.6,total_reviews:170,place_name:'Quán Thử Trên Maps',reviews,new_reviews:[],rating_changed:[],removed:[],alerts:[]});
+ // No address in production: nothing to ask and no button, until the tool sends.
+ expect(await business.status(t,made.slug)).toMatchObject({connection:null,maps:false});
+ expect(await send({event:'test',message:'Webhook hoạt động'})).toEqual({received:'test'});
+ expect(await code(send(run('2026-10-05T21:00:40'),'wrong-key'))).toBe('BAD_SIGNATURE');
+ expect(await code(receiveMaps(f.db,JSON.stringify(run('2026-10-05T21:00:40')),null,env))).toBe('BAD_SIGNATURE');
+ expect(await send(run('2026-10-05T21:00:40'))).toEqual({received:'run.completed',synced:3});
+ expect((await business.status(t,made.slug)).connection).toMatchObject({mode:'maps',locationTitle:'Quán Thử Trên Maps',averageRating:4.6,totalReviews:170,lastSyncedAt:'2026-10-05T14:00:40.000Z'});
+ expect((await business.status(t,made.slug)).reviews.map(r=>r.reviewId)).toEqual(['tool-review-1','tool-review-2','tool-review-3']);
+ // The same answer again (a retry, a replay) or an older one: kept out.
+ expect(await send(run('2026-10-05T21:00:40',[items[0]]))).toMatchObject({ignored:'NOT_NEWER'});
+ expect(await send(run('2026-10-04T21:00:40',[items[0]]))).toMatchObject({ignored:'NOT_NEWER'});
+ expect((await business.status(t,made.slug)).reviews.length).toBe(3);
+ // A newer one mirrors the tool.
+ expect(await send(run('2026-10-06T21:00:40',[items[0],items[2]]))).toEqual({received:'run.completed',synced:2});
+ expect((await business.status(t,made.slug)).reviews.map(r=>r.reviewId)).toEqual(['tool-review-1','tool-review-3']);
+ // A failed look at Google shows on the connection; the reviews stay.
+ expect(await send({event:'run.failed',run_id:10,error:'Phiên Google hết hạn',error_kind:'login'})).toEqual({received:'run.failed'});
+ expect(await business.status(t,made.slug)).toMatchObject({connection:{lastError:'MAPS_RUN_FAILED'},reviews:[{reviewId:'tool-review-1'},{reviewId:'tool-review-3'}]});
+ expect(await code(send({event:'run.completed',scraped_at:'hôm qua',reviews:[]}))).toBe('INVALID_INPUT');
+ // Without the key the address does not exist; a shop that is not there is said so.
+ expect(await code(receiveMaps(f.db,'{}',sign('{}'),LOCAL))).toBe('NOT_FOUND');
+ const body='{"event":"run.completed"}';
+ expect(await code(receiveMaps(f.db,body,sign(body),{...env,NFC_MAPS_SHOP:'khong-co'}))).toBe('MAPS_SHOP_MISSING');
 });
 
 test('Google\'s score and count are the owner\'s alone (google-policy.md rule 10); a manager who reads feedback still reads the reviews',async({f})=>{

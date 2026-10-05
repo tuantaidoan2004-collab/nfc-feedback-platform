@@ -16,8 +16,8 @@ node scripts/local.mjs
 ```
 
 Bật PostgreSQL riêng của máy (`~/.nfc-local/pg`, cổng **55460**, tách khỏi cluster test 55439), dựng database từ `db/schema.sql`
-(làm lại từ đầu mỗi khi tệp đó đổi), gieo dữ
-liệu mẫu **một lần** (quán `quan-mau` có trang đã phát hành, chủ quán, admin, ba lượt góp ý), rồi mở app ở
+(làm lại từ đầu mỗi khi tệp đó đổi), tạo admin, chủ quán `chuquan` và **quán duy nhất là quán của tool Google Maps** (bên dưới;
+Tài 05/10 bỏ quán mẫu và dữ liệu bịa), rồi mở app ở
 `http://127.0.0.1:3321` với mọi cờ bật. Đăng nhập in ra khi khởi động; mã 6 số của `/gov`: `node scripts/local.mjs code`.
 `--reset` làm lại database từ đầu; `--no-app` chỉ dựng database. Mật khẩu trong `scripts/local.mjs` chỉ dùng cho máy này.
 
@@ -28,8 +28,9 @@ dùng cùng kho trên cổng 3328.
 
 **Đánh giá Google thật (05/10):** nếu máy có tool theo dõi đánh giá Google Maps của Tài (`~/MAps`, chạy bằng `./start.sh` ở
 `http://127.0.0.1:8000`), `local.mjs` đọc khoá `api_key` trong `~/MAps/config.json` (chỉ đọc) và đưa cho máy chủ app; seed tạo
-quán `quan-google-maps` (tên lấy từ tool, cùng tài khoản chủ quán) và kéo đánh giá về. Tool không chạy thì quán đó được tạo ở lần
-khởi động sau; không có `~/MAps` thì app chạy như cũ, quán khác hiện "Đang chờ Google cấp quyền API". Thư mục khác: `NFC_MAPS_DIR`.
+quán `quan-google-maps` (tên lấy từ tool, chủ là `chuquan`) và kéo đánh giá về. Tool không chạy thì quán đó được tạo ở lần
+khởi động sau; không có `~/MAps` thì chủ quán chưa có quán và `/app` mở onboarding. Thư mục khác: `NFC_MAPS_DIR`. Production:
+`production-launch.md` mục "Đánh giá Google từ tool Google Maps".
 
 Chưa có: tải ảnh lên (cần kho S3 — `docs/tu-chay.md` có SeaweedFS), đăng nhập Google.
 

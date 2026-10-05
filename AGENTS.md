@@ -19,7 +19,7 @@ replaced: use them only for what the script keeps, and rewrite or delete them as
 
 Working loop, Tài 2026-10-05 (replaces the 23/09 shipping rule): **code → run locally → look → Tài reviews → fix → look
 again.** `node scripts/local.mjs` (also the `nfc-local` preview in `.claude/launch.json`) brings up PostgreSQL, every
-migration, sample data and the app at `http://127.0.0.1:3321` in one command; logins are printed on start
+migration, the owner with the Google Maps tool's shop (its real reviews; no sample shop since 05/10) and the app at `http://127.0.0.1:3321` in one command; logins are printed on start
 (`docs/local-development.md`). The agent opens the pages itself, screenshots them and sends Tài the images — Tài should
 never have to set anything up to see a change. **Commit as little as possible:** no commit per step; one commit per batch
 Tài has seen and accepted. The seven suites run once before a push to `main`, not on every iteration, and are never

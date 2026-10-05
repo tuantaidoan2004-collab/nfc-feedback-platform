@@ -1,7 +1,7 @@
 // One command for the local app: `node scripts/local.mjs`.
 // Starts a PostgreSQL that lives in ~/.nfc-local (Postgres.app's binaries, port 55460, separate from the test cluster on
 // 55439), builds the database from db/schema.sql — again from scratch whenever that file changes (Tài 05/10: no
-// migrations while the frame is rebuilt) — seeds sample data, and runs `next dev` on http://127.0.0.1:3321 with every
+// migrations while the frame is rebuilt) — seeds the owner and the Google Maps tool's shop, and runs `next dev` on http://127.0.0.1:3321 with every
 // surface open.
 //   node scripts/local.mjs code     the administrator's current six-digit code
 //   node scripts/local.mjs --reset  the database from scratch even if the schema did not change
@@ -23,7 +23,7 @@ const bin = process.env.PG_BIN ?? '/Applications/Postgres.app/Contents/Versions/
 const data = join(homedir(), '.nfc-local', 'pg'), port = 55460, database = 'nfc_local';
 const url = `postgresql://nfc@127.0.0.1:${port}/${database}`;
 const LOCAL = { admin: 'tai', adminPassword: 'local-admin-password', owner: 'chuquan', ownerPassword: 'local-owner-password',
-  totp: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', slug: 'quan-mau' };
+  totp: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP' };
 const lan = process.argv.includes('--lan');
 const lanAddress = () => Object.values(networkInterfaces()).flat().find(i => i && i.family === 'IPv4' && !i.internal)?.address;
 const host = lan ? (lanAddress() ?? '127.0.0.1') : '127.0.0.1', origin = `http://${host}:3321`;
@@ -37,7 +37,7 @@ function privateGoogle() {
   return Object.fromEntries(pairs.filter(([, name]) => GOOGLE_NAMES.includes(name)).map(([, name, value]) => [name, value.trim()]));
 }
 // The Google Maps review tool on this machine (Tài 05/10: its real reviews replace the sample ones). The app's server asks it
-// at 127.0.0.1:8000 with its key; the seed makes the shop it follows (MAPS_SHOP). Without ~/MAps the app runs as before.
+// at 127.0.0.1:8000 with its key; the seed makes the shop it follows (MAPS_SHOP), the only shop of the local app.
 const MAPS_SHOP = 'quan-google-maps';
 function mapsTool() {
   const file = join(process.env.NFC_MAPS_DIR ?? join(homedir(), 'MAps'), 'config.json');
@@ -115,10 +115,10 @@ sh(process.execPath, ['--experimental-transform-types', '--no-warnings', '--impo
 console.log(`
   Trang chính     ${origin}/
   Bắt đầu         ${origin}/bat-dau
-  Trang khách     ${origin}/${LOCAL.slug}
   Giao diện chính ${origin}/app            ${LOCAL.owner} / ${LOCAL.ownerPassword}
   Quản trị /gov   ${origin}/gov            ${LOCAL.admin} / ${LOCAL.adminPassword} · mã 6 số: node scripts/local.mjs code
-${env.NFC_MAPS_SHOP ? `  Quán Google Maps ${origin}/app/${MAPS_SHOP}/data   (cùng tài khoản chủ quán; đánh giá thật từ tool ở ${env.NFC_MAPS_URL})\n` : ''}`);
+${env.NFC_MAPS_SHOP ? `  Quán (tool)     ${origin}/app/${MAPS_SHOP}/data   đánh giá thật từ tool Google Maps ở ${env.NFC_MAPS_URL}\n`
+  : '  Không có tool Google Maps (~/MAps): chủ quán chưa có quán, /app mở onboarding.\n'}`);
 if (process.argv.includes('--no-app')) process.exit(0);
 const helpers = lan ? [] : [spawn(process.execPath, ['--experimental-transform-types', '--no-warnings', '--import', './scripts/local/hooks.mjs', 'scripts/local/store.ts'], { stdio: 'inherit', env })];
 const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', lan ? '0.0.0.0' : '127.0.0.1', '--port', '3321'], { stdio: 'inherit', env });

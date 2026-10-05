@@ -179,7 +179,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 **Đợt ① đã commit (`3571676`, đã đẩy nhánh):** database một tệp `db/schema.sql` · Orb bản đầu · 6 tab bản khung ở `/app/<slug>/…`
 · onboarding theo ảnh Jitter · đăng ký dùng ngay · **Place ID dán tay** (Tài 05/10: chưa bật Places API; nút mở trang tìm Place ID
 của Google + một ô dán, ở onboarding và `/gov`) · Google Business (bản giả lập **đã thay** 05/10 bằng tool Google Maps trên máy Tài,
-nguồn `maps`, một quán; local xong, production chờ Tài duyệt ảnh — `agents-board.md`) · "Nhờ tạo giúp" ở `/gov` · Dashboard
+nguồn `maps`, một quán; local chỉ còn quán của tool; production nhận webhook có chữ ký — `production-launch.md`) · "Nhờ tạo giúp" ở `/gov` · Dashboard
 kiểu YouTube Studio. Nợ của đợt ① đã trả trong đợt ②: `db/migrations`, `db/rollback`, `scripts/migrate.mjs` đã xoá; Docker,
 compose, CI dùng `scripts/apply-schema.mjs` (dựng database **trống** từ `db/schema.sql`, database có dữ liệu mà lược đồ khác thì
 dừng, không tự sửa); `owner-dashboard.spec.ts` và `admin-http.spec.ts` viết lại cho khung mới.
