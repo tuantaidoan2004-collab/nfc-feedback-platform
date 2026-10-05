@@ -15,10 +15,16 @@ Viết lại 27/09 (lát S0). Bản cũ chỉ tới trang demo và dữ liệu t
 node scripts/local.mjs
 ```
 
-Bật PostgreSQL riêng của máy (`~/.nfc-local/pg`, cổng **55460**, tách khỏi cluster test 55439), chạy mọi migration, gieo dữ
+Bật PostgreSQL riêng của máy (`~/.nfc-local/pg`, cổng **55460**, tách khỏi cluster test 55439), dựng database từ `db/schema.sql`
+(làm lại từ đầu mỗi khi tệp đó đổi), gieo dữ
 liệu mẫu **một lần** (quán `quan-mau` có trang đã phát hành, chủ quán, admin, ba lượt góp ý), rồi mở app ở
 `http://127.0.0.1:3321` với mọi cờ bật. Đăng nhập in ra khi khởi động; mã 6 số của `/gov`: `node scripts/local.mjs code`.
 `--reset` làm lại database từ đầu; `--no-app` chỉ dựng database. Mật khẩu trong `scripts/local.mjs` chỉ dùng cho máy này.
+
+Ảnh quán tải lên đi vào **kho ảnh local** `http://127.0.0.1:3322/nfc-media` (`scripts/local/store.ts`, tệp ở `~/.nfc-local/media`),
+chạy cùng lệnh trên, kiểm chữ ký y như R2. Ảnh chờ duyệt ở `/gov` và chỉ duyệt được **6 phút sau khi tải lên** (link tải lên còn
+hiệu lực tới lúc đó — rà bảo mật C3b-1). Với `--lan` không có kho ảnh: điện thoại không tới được 127.0.0.1. Harness owner/admin
+dùng cùng kho trên cổng 3328.
 
 Chưa có: tải ảnh lên (cần kho S3 — `docs/tu-chay.md` có SeaweedFS), đăng nhập Google.
 

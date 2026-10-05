@@ -5,7 +5,8 @@ Tài 26/09: nền tảng phải chạy được mà không thuê một dịch v�
 **SeaweedFS** (kho tương thích S3, miễn phí, mã nguồn mở Apache 2.0) nằm trong `deploy/docker-compose.yml`.
 
 **Đã chứng minh (27/09, Docker Desktop trên máy Tài):** `docker compose … up -d --build` dựng image app (425 MB), bật
-PostgreSQL và SeaweedFS, chạy 28/28 migration rồi bật app (cả ba healthy); `scripts/selfhost-smoke.mjs` qua đủ bốn phần:
+PostgreSQL và SeaweedFS, dựng database rồi bật app (cả ba healthy; hôm đó còn là 28 migration, từ đợt ① 05/10 là một tệp
+`db/schema.sql`); `scripts/selfhost-smoke.mjs` qua đủ bốn phần:
 trang tĩnh trả 200 · lệnh ghi của khách không có proof bị từ chối · app chạm được database (đăng nhập sai ra 401; database
 hỏng ra 503 — đã thử) · tải lên một tệp bằng đúng bộ ký của app rồi khách đọc lại được. Kho từ chối PUT không chữ ký và
 PUT sai khoá (403), không cho khách liệt kê bucket (403). Job CI `self-host` chạy đúng các bước này trên GitHub.
@@ -29,7 +30,9 @@ PUT sai khoá (403), không cho khách liệt kê bucket (403). Job CI `self-hos
    docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
    ```
    Thứ tự tự lo: database và kho sẵn sàng (kho tự tạo bucket `nfc-media`: khách chỉ đọc được, ghi phải có chữ ký, không ai
-   liệt kê được; không gửi thống kê về đâu) → chạy mọi migration → app. Chạy lại lệnh này sau mỗi lần cập nhật mã: migration mới tự chạy trước app.
+   liệt kê được; không gửi thống kê về đâu) → dựng database từ `db/schema.sql` (`scripts/apply-schema.mjs`) → app. Chạy lại lệnh
+   này sau mỗi lần cập nhật mã: database đã đúng lược đồ thì để nguyên; nếu `db/schema.sql` đã đổi mà database đang có dữ liệu,
+   bước dựng **dừng lại, không đụng gì** — trong lúc dựng lại khung không có migration, làm lại database có dữ liệu là việc Tài quyết.
 3. **HTTPS và proxy phía trước** (bắt buộc cho khách thật: ảnh trên trang khách phải là `https`). Ví dụ Caddy, tự lấy chứng
    chỉ TLS miễn phí:
    ```
@@ -88,10 +91,11 @@ nguyên. Không chép dữ liệu nào, nên không mất gì. Bộ riêng cho v
    nhập `/gov` (chạm database); mở trang khách `/urr6ud`; tải thử một ảnh trong dashboard (R2); "Đăng nhập bằng Google"
    (redirect URI không đổi vì tên miền không đổi).
 7. **Quay lại Vercel nếu có chuyện:** đổi bản ghi DNS về CNAME cũ của Vercel — Vercel vẫn giữ bản deploy.
-8. **Cập nhật về sau** (trên VPS): migration mới chạy **trước** (vẫn là Neon), rồi dựng lại:
-   ```bash
-   cd /opt/nfc && git pull && docker compose -f deploy/hosted/docker-compose.yml run --rm app node scripts/migrate.mjs && docker compose -f deploy/hosted/docker-compose.yml up -d --build
-   ```
+8. **Cập nhật về sau** (trên VPS). Production hiện là khung cũ trên `main`, database Neon đã chạy migration 001–032: cập nhật
+   bản đó vẫn chạy `node scripts/migrate.mjs` **của `main`** trước khi dựng lại. Từ ngày khung mới thay production (Tài quyết,
+   hỏi lại đúng hôm đó): xoá quán thử, dựng database Neon **trống** từ `db/schema.sql` bằng
+   `docker compose -f deploy/hosted/docker-compose.yml run --rm app node scripts/apply-schema.mjs`, rồi `up -d --build`. Sau đó mỗi
+   lần cập nhật chỉ cần `git pull && … up -d --build`; lược đồ đổi thì bước dựng dừng lại và báo, không tự sửa database.
 9. **Sau khi chạy ổn:** gỡ tên miền khỏi project Vercel (để không còn chạy thương mại trên Hobby). **Đừng gỡ tích hợp Neon**
    khỏi Vercel khi chưa chắc nó không xoá gì phía Neon — database là của Neon, chỉ biến môi trường do tích hợp đặt. Sao lưu
    (`sao-luu.md`, GitHub Actions) không phụ thuộc Vercel, chạy tiếp như cũ.

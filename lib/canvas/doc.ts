@@ -1,0 +1,125 @@
+/**
+ * Trang của quán là một tài liệu canvas (đợt ②, kịch bản mục 8–9; Tài 05/10: "dựng lại template từ PNG/PDF", "canvas theo
+ * khổ điện thoại, co theo bề ngang màn hình", "trang chia khúc xếp dọc").
+ *
+ * - Một trang = các **khúc** (section) xếp dọc. Mỗi khúc là một tấm khổ điện thoại rộng `ARTBOARD` đơn vị, cao `h` đơn vị;
+ *   trên máy thật một đơn vị = bề ngang cột trang / 390 (cột rộng tối đa 480px), nên cả khúc co giãn theo bề ngang.
+ * - Phần tử đặt tự do như Canva (x, y, w, h, xoay). Riêng **chồng** (`stack`) tự xếp con theo chiều dọc — nút mạng xã hội
+ *   thêm/bớt không phải kéo tay, và hiệu ứng "hiện lần lượt, đẩy phần dưới xuống" (mẫu Dynamic movement).
+ * - Mọi con số là đơn vị thiết kế; mọi chiều cao đều khai báo, nên vị trí của mọi phần tử tính được trên máy chủ
+ *   (layout.ts) — đó là cách luật Google "nút trong màn hình đầu" được kiểm khi phát hành, không nhờ may mắn.
+ * - Chữ có tiếng Việt và (tuỳ) tiếng Anh; thiếu tiếng Anh thì hiện tiếng Việt (luật 0.3 của kịch bản).
+ *
+ * Không có CSS hay HTML tự do ở đâu cả: màu, phông, biểu tượng, tranh, kiểu nút đều chọn từ danh sách dưới đây
+ * (validate.ts), nên một tài liệu không bao giờ chở được mã hay kiểu lạ lên trang khách.
+ */
+export const ARTBOARD = 390;
+/** The Google button's bottom edge must sit above this line in the first section: the first screen of an iPhone SE in Safari. */
+export const FIRST_SCREEN = 560;
+export const MAX_SECTIONS = 8;
+export const MAX_ELEMENTS = 90;
+export const MAX_SECTION_H = 2400;
+
+export type Words = { vi: string; en?: string };
+export type Color = string;
+export type Gradient = { kind: 'linear'; angle: number; stops: [Color, number][] } | { kind: 'radial'; x: number; y: number; stops: [Color, number][] };
+export type Fill = Color | Gradient;
+export type Shadow = { x: number; y: number; blur: number; color: Color };
+export type Edge = { w: number; color: Fill };
+export type Glass = { blur: number; tint: Color };
+
+/** Typefaces the page may use, each with full Vietnamese (components/canvas/fonts.ts). */
+export const FONTS = ['sans', 'display', 'serif', 'script', 'hand', 'rounded', 'slab', 'brush'] as const;
+export type FontKey = typeof FONTS[number];
+
+/** Built-in icons: brand marks drawn simply, and line glyphs (components/canvas/icons.tsx). */
+export const ICONS = ['instagram', 'tiktok', 'zalo', 'facebook', 'youtube', 'globe', 'link', 'wifi', 'phone', 'mail', 'maps', 'google', 'pin', 'hand',
+  'cursor', 'tooth', 'sparkle', 'heart', 'plus', 'camera', 'calendar', 'shampoo', 'conditioner', 'jar', 'capsule', 'car', 'scissors', 'pole', 'cup',
+  'flag', 'polish', 'bowl', 'smile', 'clinic', 'star', 'music', 'gift', 'menu', 'bed', 'key'] as const;
+export type IconKey = typeof ICONS[number];
+
+/** Built-in illustrations, drawn as vector art (components/canvas/art.tsx): an image source written `art:<key>`. */
+export const ARTS = ['barber', 'car', 'space', 'drinks', 'smile', 'arches', 'dental', 'latte', 'hair', 'prism', 'party', 'racing', 'nails', 'pho', 'photo'] as const;
+export type ArtKey = typeof ARTS[number];
+
+/** Vector shapes (components/canvas/shapes.tsx). */
+export const SHAPES = ['rect', 'circle', 'line', 'burst', 'sparkle', 'plus', 'heart', 'arrow', 'ribbon', 'flare', 'pin-line', 'wave', 'dots', 'checker', 'squiggle', 'glow'] as const;
+export type ShapeKey = typeof SHAPES[number];
+
+export const MOTIONS_IN = ['fade', 'rise', 'drop', 'pop', 'left', 'right', 'zoom', 'blur'] as const;
+export const MOTIONS_LOOP = ['float', 'sway', 'pulse', 'twinkle', 'spin', 'shine', 'bob', 'glow'] as const;
+export type Motion = { in?: typeof MOTIONS_IN[number]; at?: number; loop?: typeof MOTIONS_LOOP[number] };
+
+export const BUTTON_LOOKS = ['pill', 'ring', 'outline', 'soft', 'gradient', 'tail', 'link', 'box', 'tag', 'note', 'glow', 'text'] as const;
+export type ButtonLook = typeof BUTTON_LOOKS[number];
+export const GOOGLE_LOOKS = ['maps', 'g', 'ring', 'glass'] as const;
+export type GoogleLook = typeof GOOGLE_LOOKS[number];
+
+type Box = { id: string; name?: string; x: number; y: number; w: number; h: number; r?: number; o?: number; hide?: boolean; lock?: boolean; motion?: Motion };
+export type TextEl = Box & { t: 'text'; words: Words; font: FontKey; size: number; weight?: number; color: Color;
+  /** Letters coloured in turn (the round button's thank-you line in Google's colours). */
+  colors?: Color[];
+  align?: 'left' | 'center' | 'right'; spacing?: number; line?: number; italic?: boolean; caps?: boolean; shadow?: Shadow;
+  stroke?: { w: number; color: Color }; underline?: boolean;
+  /** Set on an arc: the circle's radius in units, positive bends like a smile turned over (text over a cup), negative like a smile. */
+  arc?: number; link?: string;
+  /** The words inside a filled circle: a shop's initial as its avatar (mẫu Party). */
+  disc?: { fill: Fill; edge?: Edge } };
+export type ImageEl = Box & { t: 'image'; src: string; fit?: 'cover' | 'contain'; focus?: [number, number];
+  mask?: 'none' | 'circle' | 'clover' | 'arch' | 'blob'; radius?: number; edge?: Edge; shadow?: Shadow; gray?: boolean;
+  frame?: 'polaroid' | 'gilded'; caption?: Words; link?: string };
+export type ShapeEl = Box & { t: 'shape'; shape: ShapeKey; fill?: Fill; edge?: Edge; radius?: number; glass?: Glass; shadow?: Shadow; link?: string };
+export type IconEl = Box & { t: 'icon'; icon: IconKey; color?: Color; link?: string };
+export type ButtonEl = Box & { t: 'button'; look: ButtonLook; label: Words; link?: string;
+  /** A wifi button shows the shop's network instead of leaving the page. */
+  wifi?: { name: string; pass?: string };
+  icon?: IconKey; tag?: Words; bg?: Fill; fg?: Color; edge?: Edge; font?: FontKey; size?: number; shadow?: Shadow; weight?: number; spacing?: number };
+/** The Google review button. Its words and its link are the platform's (the shop's Place ID); only its look is the template's. */
+export type GoogleEl = Box & { t: 'google'; look: GoogleLook; bg?: Fill; fg?: Color; shadow?: 'soft' | 'hard' | 'none'; bar?: Color; ring?: Color };
+/**
+ * The paper plane that opens the private-feedback card: the original guest page's, kept as it was (Tài 05/10), floating at the
+ * screen's lower left wherever the guest has scrolled (components/guest/plane.css). Its place in the document only says the
+ * page has one; the page chooses its glyph and two colours, as the page's settings always could.
+ */
+export type FeedbackEl = Box & { t: 'feedback'; icon: 'plane' | 'chat' | 'mail'; color: Color; edge: Color };
+export type LangEl = Box & { t: 'lang'; look: 'select' | 'chip'; color: Color; bg?: Fill; label?: boolean };
+export type LegalEl = Box & { t: 'legal'; color: Color; size?: number };
+export type Leaf = TextEl | ImageEl | ShapeEl | IconEl | ButtonEl | GoogleEl | LangEl | LegalEl;
+/** Omit, applied to each member of a union on its own (the built-in Omit flattens a union into its common keys). */
+type Without<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+/** Side by side inside a row a child has its own width; its place is the row's to decide. */
+export type RowKid = Without<Leaf, 'x' | 'y' | 'w'> & { w: number };
+/** Laid out side by side inside a stack: three service buttons in a row. */
+export type RowEl = { id: string; t: 'row'; h: number; w?: number; gap: number; kids: RowKid[]; hide?: boolean };
+/** Inside a stack a child's x and y are the stack's to decide; its height is still its own (layout stays computable). */
+export type Kid = (Without<Leaf, 'x' | 'y' | 'w'> & { w?: number }) | RowEl;
+/** `top`: the panel starts this many units below the container's top, so a first child (an avatar) can sit half outside it. */
+export type Panel = { fill?: Fill; glass?: Glass; radius?: number; edge?: Edge; shadow?: Shadow; top?: number };
+export type StackEl = Box & { t: 'stack'; kids: Kid[]; gap: number; pad?: number; align?: 'start' | 'center' | 'end' | 'stretch'; panel?: Panel;
+  /** Milliseconds between children appearing one after another; each pushes what follows down (mẫu Dynamic movement). */
+  reveal?: number };
+/** One card behind the front card of a deck (mẫu Interactive card): a tap pulls it out, a second tap follows its link. */
+export type DeckCard = { icon: IconKey; label: Words; link: string; fill: Fill; fg?: Color };
+export const DECK_LOOKS = ['party', 'racing', 'nails', 'pho'] as const;
+export type DeckEl = Box & { t: 'deck'; look: typeof DECK_LOOKS[number]; front: { kids: Kid[]; gap: number; pad?: number; panel?: Panel; tilt?: number }; cards: DeckCard[] };
+export type El = Leaf | FeedbackEl | StackEl | DeckEl;
+
+export type Background = { fill?: Fill; src?: string; fit?: 'cover' | 'contain'; focus?: [number, number]; gray?: boolean; blur?: number; dim?: number };
+export type Section = { id: string; name?: string; h: number; bg?: Background; els: El[] };
+/** A vertical band behind every section (mẫu hair styling: a brown strip as a second background). */
+export type Band = { x: number; w: number; fill: Fill; blur?: number };
+export type PageDoc = {
+  v: 1;
+  /** A background that stays still behind the whole page while it scrolls. */
+  backdrop?: Background;
+  band?: Band;
+  sections: Section[];
+  fx?: {
+    /** Milliseconds before a "scroll to see more" arrow appears, if the guest has not scrolled (mẫu Illustrate). */
+    hint?: number;
+    /** The thank-you card before Google opens (components/effects/thanks.tsx), counting this many seconds (1–4). */
+    thanks?: number;
+  };
+};
+
+export const pick = (words: Words, lang: 'vi' | 'en') => (lang === 'en' && words.en?.trim() ? words.en : words.vi);

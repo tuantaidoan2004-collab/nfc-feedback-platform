@@ -1,9 +1,8 @@
 'use client';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
-import { DEFAULT_THANKS } from '@/lib/publishing/thanks';
 
 /**
- * Effect module (lát M2): lời cảm ơn trước khi sang Google — `effects.thankYouSeconds` in a template's manifest.
+ * Effect module (lát M2): lời cảm ơn trước khi sang Google — `doc.fx.thanks` (seconds) on a canvas page.
  *
  * Tài chốt 27/09 (docs/ui-ux-nguon-tham-khao.md mục 3, ý 1 và ý 3): a tap on the Google button shows the shop's thanks,
  * hearts burst and fade like fireworks, a countdown runs, and after the full count Google opens in a **new tab** while
@@ -13,17 +12,17 @@ import { DEFAULT_THANKS } from '@/lib/publishing/thanks';
  * offer, no stars, no word about what to write; the button itself and its words are untouched.
  *
  * A browser only lets a page open a tab while the tap is still fresh. Chromium keeps it about five seconds, so the
- * count is capped at four (template-manifest.ts). Where the new tab is held back anyway -- iPhone may be stricter --
+ * count is capped at four (lib/canvas/validate.ts `fx.thanks`). Where the new tab is held back anyway -- iPhone may be stricter --
  * `window.open` answers null and the card offers one tap on "Mở Google": a link the guest presses, not a way to skip
  * the count. Only a plain tap is held; a long-press or a modified click keeps the browser's own behaviour.
  */
 export type ThanksCopy = { title: string; body: string; blocked: string; open: string };
+/** The platform's words, the same on every page (a canvas page sets only how long the count runs, `doc.fx.thanks`). */
 export const THANKS_COPY: Record<'vi' | 'en', ThanksCopy> = {
-  // The first line is the shop's own when it has an approved one (lát M2b, PageConfig.thanks); the rest stays the platform's.
-  vi: { title: DEFAULT_THANKS.vi,
+  vi: { title: 'Cảm ơn quý khách đã ghé!',
     body: 'Trang sẽ tự động chuyển sang Google. Quý khách thân mến hãy quay lại trang này để khám phá thêm nhé — Merci beaucoup!',
     blocked: 'Trình duyệt chưa cho mở tab mới.', open: 'Mở Google' },
-  en: { title: DEFAULT_THANKS.en,
+  en: { title: 'Thank you for stopping by!',
     body: 'Google opens in a new tab in a moment. Do come back to this page to see what else is on — merci beaucoup!',
     blocked: 'Your browser held the new tab back.', open: 'Open Google' },
 };

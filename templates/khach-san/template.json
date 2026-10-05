@@ -1,0 +1,301 @@
+{
+  "key": "khach-san",
+  "number": 7,
+  "name": "Khách sạn",
+  "groups": [
+    "Thuỷ tinh",
+    "Không gian thực"
+  ],
+  "about": "Ảnh kiến trúc làm nền, thẻ kính viền trắng, ruy băng xanh, chữ viết tay, nút Google có vạch dọc, hàng link Phòng · Dịch vụ · Đặt phòng.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 740,
+        "bg": {
+          "src": "art:arches"
+        },
+        "els": [
+          {
+            "id": "bong",
+            "t": "shape",
+            "shape": "glow",
+            "x": 70,
+            "y": 400,
+            "w": 250,
+            "h": 46,
+            "fill": "#000000",
+            "o": 0.35,
+            "motion": {
+              "in": "fade",
+              "at": 200
+            }
+          },
+          {
+            "id": "the-kinh",
+            "t": "shape",
+            "shape": "rect",
+            "x": 69,
+            "y": 89,
+            "w": 252,
+            "h": 336,
+            "radius": 6,
+            "glass": {
+              "blur": 18,
+              "tint": "#2c6ea640"
+            },
+            "edge": {
+              "w": 1.6,
+              "color": "#ffffffd0"
+            },
+            "motion": {
+              "in": "fade",
+              "at": 150
+            }
+          },
+          {
+            "id": "ruy-bang",
+            "t": "shape",
+            "shape": "ribbon",
+            "x": 54,
+            "y": 104,
+            "w": 86,
+            "h": 42,
+            "fill": "#1fa0de",
+            "motion": {
+              "in": "left",
+              "at": 350
+            }
+          },
+          {
+            "id": "cham",
+            "t": "shape",
+            "shape": "circle",
+            "x": 76,
+            "y": 118,
+            "w": 14,
+            "h": 14,
+            "fill": "#ffffff",
+            "motion": {
+              "in": "pop",
+              "at": 450
+            }
+          },
+          {
+            "id": "chu-tay",
+            "t": "text",
+            "x": 140,
+            "y": 106,
+            "w": 170,
+            "h": 72,
+            "words": {
+              "vi": "Welcome"
+            },
+            "font": "script",
+            "size": 48,
+            "color": "#1a8fd0",
+            "r": -6,
+            "motion": {
+              "in": "fade",
+              "at": 450
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 79,
+            "y": 172,
+            "w": 232,
+            "h": 76,
+            "words": {
+              "vi": "TÊN KHÁCH\nSẠN",
+              "en": "HOTEL\nNAME"
+            },
+            "font": "display",
+            "size": 28,
+            "color": "#ffffff",
+            "weight": 300,
+            "spacing": 4,
+            "line": 1.12,
+            "shadow": {
+              "x": 0,
+              "y": 2,
+              "blur": 10,
+              "color": "#0b2a4a80"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 550
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "maps",
+            "bar": "#ffffff",
+            "x": 108,
+            "y": 258,
+            "w": 186,
+            "h": 40,
+            "shadow": "soft",
+            "motion": {
+              "in": "pop",
+              "at": 700
+            }
+          },
+          {
+            "id": "loi-chuc",
+            "t": "text",
+            "x": 89,
+            "y": 320,
+            "w": 212,
+            "h": 50,
+            "words": {
+              "vi": "Chúc quý khách một kỳ nghỉ thật trọn vẹn và đáng nhớ.",
+              "en": "Wishing you a wonderful, memorable stay."
+            },
+            "font": "sans",
+            "size": 12.5,
+            "color": "#ffffff",
+            "weight": 600,
+            "line": 1.45,
+            "shadow": {
+              "x": 0,
+              "y": 1,
+              "blur": 6,
+              "color": "#0b2a4a99"
+            },
+            "motion": {
+              "in": "fade",
+              "at": 850
+            }
+          },
+          {
+            "id": "hang-link",
+            "t": "stack",
+            "x": 96,
+            "y": 392,
+            "w": 220,
+            "h": 22,
+            "gap": 0,
+            "kids": [
+              {
+                "id": "link",
+                "t": "row",
+                "h": 22,
+                "gap": 6,
+                "kids": [
+                  {
+                    "id": "phong",
+                    "t": "button",
+                    "look": "text",
+                    "label": {
+                      "vi": "Phòng",
+                      "en": "Rooms"
+                    },
+                    "link": "https://quitesensational-review-bio.com/",
+                    "w": 46,
+                    "h": 20,
+                    "size": 13,
+                    "fg": "#ffffff"
+                  },
+                  {
+                    "id": "gach-1",
+                    "t": "text",
+                    "words": {
+                      "vi": "|"
+                    },
+                    "font": "sans",
+                    "size": 13,
+                    "color": "#ffffff",
+                    "w": 6,
+                    "h": 20
+                  },
+                  {
+                    "id": "dich-vu",
+                    "t": "button",
+                    "look": "text",
+                    "label": {
+                      "vi": "Dịch vụ",
+                      "en": "Services"
+                    },
+                    "link": "https://quitesensational-review-bio.com/",
+                    "w": 56,
+                    "h": 20,
+                    "size": 13,
+                    "fg": "#ffffff"
+                  },
+                  {
+                    "id": "gach-2",
+                    "t": "text",
+                    "words": {
+                      "vi": "|"
+                    },
+                    "font": "sans",
+                    "size": 13,
+                    "color": "#ffffff",
+                    "w": 6,
+                    "h": 20
+                  },
+                  {
+                    "id": "dat-phong",
+                    "t": "button",
+                    "look": "text",
+                    "label": {
+                      "vi": "Đặt phòng",
+                      "en": "Book"
+                    },
+                    "link": "https://quitesensational-review-bio.com/",
+                    "w": 70,
+                    "h": 20,
+                    "size": 13,
+                    "fg": "#ffffff"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "camera",
+            "t": "icon",
+            "icon": "camera",
+            "color": "#1fa0de",
+            "x": 222,
+            "y": 528,
+            "w": 20,
+            "h": 20,
+            "link": "https://www.instagram.com/"
+          },
+          {
+            "id": "handle",
+            "t": "button",
+            "look": "text",
+            "label": {
+              "vi": "@tenkhachsan"
+            },
+            "link": "https://www.instagram.com/",
+            "x": 244,
+            "y": 528,
+            "w": 120,
+            "h": 20,
+            "size": 14,
+            "fg": "#1fa0de"
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 666,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

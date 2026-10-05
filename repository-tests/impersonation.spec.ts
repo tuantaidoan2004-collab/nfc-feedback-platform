@@ -292,18 +292,21 @@ test('the page editor: owners and managers edit and publish; support edits only 
  const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
  const {PublishingResolver}=await import('../lib/publishing/repository');
  const state=await design.read(f.users[0].token,'one');
- // The editor always works in the current version: 3 since sections (lát M3).
- expect(state.draft.config.schemaVersion).toBe(3);expect(state.live).not.toBeNull();
- const config={...state.draft.config,name:'Tên mới',layout:'card' as const,links:[{label:{vi:'Gọi',en:'Call'},url:'tel:0901234567',icon:'phone' as const}]};
+ // A page is a canvas document (đợt ②): its name and its document, whole.
+ expect(state.draft.config.schemaVersion).toBe(4);expect(state.live).not.toBeNull();
+ const words=(config:typeof state.draft.config)=>JSON.stringify(config.doc).includes('Bản mới của quán');
+ const doc=JSON.parse(JSON.stringify(state.draft.config.doc).replace('"vi":"Shop one"','"vi":"Bản mới của quán"'));
+ const config={...state.draft.config,name:'Tên mới',doc};
  await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config:{...config,html:'<b>'}})).rejects.toThrow('INVALID_CONFIG');
  const saved=await design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config});
  await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config})).rejects.toThrow('DRAFT_CONFLICT');
  const preview=await design.preview(f.users[0].token,'one',{action:'preview',expectedRevision:saved.revision});
- // Tên quán thuộc tài khoản (022), nên bằng chứng bản nháp/bản phát hành nào đang hiện là `layout`.
- expect((await new PublishingResolver(f.db).preview(preview.token)).config.layout).toBe('card');
- expect((await new PublishingResolver(f.db).live({slug:'one'})).config.layout).not.toBe('card');
+ // The preview shows the draft; guests keep the page as published until Publish.
+ expect(words((await new PublishingResolver(f.db).preview(preview.token)).config)).toBe(true);
+ expect(words((await new PublishingResolver(f.db).live({slug:'one'})).config)).toBe(false);
  const published=await design.publish(f.users[0].token,'one',{action:'publish',expectedRevision:saved.revision});
- expect((await new PublishingResolver(f.db).live({slug:'one'})).config).toMatchObject({layout:'card'});
+ expect(words((await new PublishingResolver(f.db).live({slug:'one'})).config)).toBe(true);
+ expect((await new PublishingResolver(f.db).live({slug:'one'})).config.name).toBe('Tên mới');
  // A manager edits too; another shop's owner does not.
  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
  const again=await design.read(f.users[1].token,'one');expect(again.draft.revision).toBe(published.revision);

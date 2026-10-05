@@ -2,31 +2,42 @@ import type { Pool, PoolClient } from 'pg';
 import { authorize, transaction, OwnerError, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
 import { PublishingAdmin } from '../publishing/repository';
-import { PublishingError, currentConfig, validateConfig, type PageConfig } from '../publishing/config';
-import { settingsOf, type TemplateRelease } from '../publishing/versions';
-import { lockedChange, type SettingField } from '../publishing/settings';
+import { PublishingError, validateConfig, type PageConfig } from '../publishing/config';
 import { storageSettings } from '../media/storage';
+import { mediaOf } from '../canvas/layout';
 import { recordActivity } from './activity';
 import { pageOf } from './pages';
-import type { PageRef, TemplateReleases } from '../publishing/repository';
-import { isTemplateKey, TEMPLATE_RELEASES } from '../publishing/templates';
-import { queueThanks, thanksReview } from '../publishing/thanks';
+import type { PageRef } from '../publishing/repository';
 
 /**
- * The Design & Link editor behind the dashboard (lát D, 2026-09-18). Owners and managers edit their own page; an
- * administrator edits only through a 'design' impersonation, which the owner's switch allows at positions 2 and 3.
- * Every administrator save and publish is recorded as done on the owner's behalf.
+ * Behind the canvas editor (đợt ②, kịch bản mục 9): read a page's draft and live document, save the draft, preview it,
+ * publish it. Owners and managers edit their own pages; an administrator edits only through a 'design' impersonation,
+ * which the owner's switch allows at positions 2 and 3. Every administrator save and publish is recorded as done on the
+ * owner's behalf.
  */
+export type DesignState = { page: { slug: string; label: string | null; state: string }; draft: { revision: number; config: PageConfig };
+  live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
+  /** Where each picture the draft shows stands in the image review (media-gate.ts); a picture missing here was never uploaded. */
+  media: Record<string, MediaState>;
+  /** The template the page started from (a page is a copy of it: editing the page never changes the template). */
+  template: { key: string };
+  /** The shop's Google review link, which every Google button on its pages uses; null until the shop has its Place ID. */
+  googleUrl: string | null;
+  firstPublish: FirstPublish };
 /**
- * Which template the page wears and on which version (versions.ts): the draft's, the live page's, and every version
- * the platform ships for it, so the editor can offer a newer one. The shop never changes template here, only version.
+ * Where a shop that signed itself up stands with its first publish (kịch bản mục 4): `needed` until it asks, `pending` while
+ * Tài looks, `rejected` with his reason until it asks again. Null once it may publish on its own -- every shop /gov made.
  */
-export type TemplateState = { key: string; draft: number; live: number | null; versions: readonly TemplateRelease[]; settings: readonly SettingField[] };
-export type DesignState = { page: { slug: string }; draft: { revision: number; config: PageConfig }; live: { releaseId: string; config: PageConfig } | null; uploads: boolean;
-  template: TemplateState;
-  /** Where the draft's own thank-you line stands (lát M2b); null when it uses the platform's. */
-  thanks: { state: 'unsent' | 'pending' | 'approved' | 'rejected'; reason: string | null } | null };
-/** The versions shipped per template. Injected so a test can ship a second version the code does not have yet. */
+export type MediaState = 'pending' | 'approved' | 'rejected';
+export type FirstPublish = { state: 'needed' | 'pending' | 'rejected'; reason: string | null; page: string | null } | null;
+export async function firstPublishOf(db: Pool | PoolClient, shopId: string): Promise<FirstPublish> {
+  const shop = (await db.query('SELECT self_signup,publish_approved_at FROM shops WHERE id=$1', [shopId])).rows[0];
+  if (!shop?.self_signup || shop.publish_approved_at) return null;
+  const last = (await db.query(`SELECT r.state,r.reason,p.slug FROM publish_reviews r JOIN pages p ON p.id=r.page_id
+    WHERE r.shop_id=$1 ORDER BY r.requested_at DESC,r.id LIMIT 1`, [shopId])).rows[0];
+  return { state: last?.state === 'pending' || last?.state === 'rejected' ? last.state : 'needed', reason: last?.state === 'rejected' ? last.reason : null,
+    page: last?.slug ?? null };
+}
 
 const revisionOf = (value: unknown) => {
   if (!Number.isSafeInteger(value) || Number(value) < 1) throw new OwnerError(400, 'INVALID_DESIGN');
@@ -40,25 +51,20 @@ const translate = (error: unknown): never => {
   if (error instanceof PublishingError) {
     if (error.code === 'INVALID_CONFIG') throw new OwnerError(400, 'INVALID_CONFIG');
     if (error.code === 'DRAFT_CONFLICT' || error.code === 'PREVIEW_SOURCE_CONFLICT') throw new OwnerError(409, 'DRAFT_CONFLICT');
-    // A version the platform does not ship for this page's template (versions.ts).
-    if (error.code === 'INVALID_TEMPLATE') throw new OwnerError(400, 'INVALID_TEMPLATE_VERSION');
     if (error.code === 'PAGE_NOT_FOUND') throw new OwnerError(404, 'PAGE_NOT_FOUND');
     if (error.code === 'PAGE_CLOSED') throw new OwnerError(409, 'PAGE_CLOSED');
-    if (error.code === 'INVALID_SETTING') throw new OwnerError(400, 'INVALID_SETTING');
     if (error.code === 'SHOP_SUSPENDED') throw new OwnerError(403, 'SHOP_SUSPENDED');
-    // Separate answers, because the shop fixes each one differently (lát F-013, A7).
-    if (error.code === 'POLICY_LINK_LABEL' || error.code === 'POLICY_GOOGLE_EXCHANGE' || error.code === 'POLICY_GOOGLE_URL') throw new OwnerError(400, error.code);
+    // Separate answers, because the shop fixes each one differently (lát F-013, A7; layout.ts googleProblems): words that
+    // trade with a review, a link that writes one, and where the Google button stands.
+    if (error.code.startsWith('POLICY_')) throw new OwnerError(400, error.code);
     // Cửa duyệt ảnh (migration 023): three answers, because each asks the shop for something different.
     if (error.code === 'MEDIA_PENDING' || error.code === 'MEDIA_REJECTED' || error.code === 'MEDIA_UNKNOWN') throw new OwnerError(409, error.code);
-    // Cửa duyệt chữ (migration 030): the same three answers for the thank-you line, and its own rule.
-    if (error.code === 'THANKS_PENDING' || error.code === 'THANKS_REJECTED' || error.code === 'THANKS_UNKNOWN') throw new OwnerError(409, error.code);
-    if (error.code === 'POLICY_THANKS_RATING') throw new OwnerError(400, error.code);
   }
   throw error;
 };
 
 export class OwnerDesign {
-  constructor(private pool: Pool, private releases: TemplateReleases = TEMPLATE_RELEASES) {}
+  constructor(private pool: Pool) {}
 
   private async access(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, db => authorize(db, credential, slug, 'design'));
@@ -68,7 +74,7 @@ export class OwnerDesign {
     return new PublishingAdmin(db, async request => {
       if (request.shopId !== access.shopId) throw new OwnerError(403, 'ACCESS_DENIED');
       return { actorId: actor };
-    }, this.releases);
+    });
   }
   private async audit(db: PoolClient, access: OwnerAccess, action: string, detail: Record<string, unknown>) {
     if (access.actor.kind !== 'admin') return;
@@ -96,35 +102,28 @@ export class OwnerDesign {
   /** Every method takes the page by its link; absent means the shop's first page (lib/owner/pages.ts). */
   async read(credential: OwnerCredential, slug: string, pageSlug?: string | null): Promise<DesignState> {
     const access = await this.access(credential, slug), page = await pageOf(this.pool, access.shopId, pageSlug);
-    const draft = (await this.pool.query(`SELECT d.revision,d.config,tv.template_key,tv.version FROM page_drafts d
-      JOIN template_versions tv ON tv.id=d.template_version_id WHERE d.shop_id=$1 AND d.page_id=$2`, [page.shopId, page.pageId])).rows[0];
+    const draft = (await this.pool.query(`SELECT d.revision,d.config,tv.template_key,p.label,s.google_url FROM page_drafts d
+      JOIN template_versions tv ON tv.id=d.template_version_id JOIN pages p ON p.id=d.page_id JOIN shops s ON s.id=d.shop_id
+      WHERE d.shop_id=$1 AND d.page_id=$2`, [page.shopId, page.pageId])).rows[0];
     if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
-    const live = (await this.pool.query(`SELECT r.id,r.config_snapshot,tv.version FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
-      JOIN template_versions tv ON tv.id=r.template_version_id WHERE p.shop_id=$1 AND p.id=$2`, [page.shopId, page.pageId])).rows[0];
-    const config = currentConfig(validateConfig(draft.config));
-    return { page: { slug: page.slug }, draft: { revision: Number(draft.revision), config }, thanks: await thanksReview(this.pool, page.shopId, config),
+    const live = (await this.pool.query(`SELECT r.id,r.config_snapshot FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
+      WHERE p.shop_id=$1 AND p.id=$2`, [page.shopId, page.pageId])).rows[0];
+    const config = validateConfig(draft.config), shown = mediaOf(config.doc);
+    const media = shown.length ? (await this.pool.query('SELECT url,state FROM media_assets WHERE shop_id=$1 AND url = ANY($2)', [page.shopId, shown])).rows : [];
+    return { page: { slug: page.slug, label: draft.label, state: page.state }, draft: { revision: Number(draft.revision), config },
       live: live ? { releaseId: live.id, config: validateConfig(live.config_snapshot) } : null,
       // Whether the upload buttons can work here: all R2 settings present.
       uploads: storageSettings() !== null,
-      template: { key: draft.template_key, draft: Number(draft.version), live: live ? Number(live.version) : null,
-        versions: isTemplateKey(draft.template_key) ? this.releases[draft.template_key] ?? [] : [],
-        // What the editor draws for this page: its draft's template version's table (settings.ts).
-        settings: settingsOf(this.releases, draft.template_key, Number(draft.version)) } };
+      media: Object.fromEntries(media.map(row => [row.url, row.state])),
+      template: { key: draft.template_key },
+      googleUrl: draft.google_url && draft.google_url !== 'https://maps.google.com/' ? draft.google_url : null,
+      firstPublish: await firstPublishOf(this.pool, page.shopId) };
   }
 
   async save(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const data = input(body, ['expectedRevision', 'config']), expected = revisionOf(data.expectedRevision);
     return this.write(credential, slug, pageSlug, async (db, access, page) => {
-      // The owner's door: a look the template does not offer cannot be changed here (settings.ts, lát P2).
-      const draft = (await db.query(`SELECT d.config,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
-        WHERE d.shop_id=$1 AND d.page_id=$2`, [page.shopId, page.pageId])).rows[0];
-      if (!draft) throw new OwnerError(404, 'DRAFT_MISSING');
-      let after; try { after = currentConfig(validateConfig(data.config)); } catch (error) { translate(error); }
-      if (lockedChange(settingsOf(this.releases, draft.template_key, Number(draft.version)), currentConfig(validateConfig(draft.config)), after!))
-        throw new OwnerError(400, 'SETTING_LOCKED');
       const revision = await this.admin(access, db).saveDraft(page, expected, data.config).catch(translate);
-      // New words for the thank-you line wait for an administrator from here (migration 030); the live page keeps its own.
-      await queueThanks(db, page.shopId, after!, access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`);
       await this.audit(db, access, 'impersonation.design.save', { revision });
       await recordActivity(db, access, 'design.save', `Bản nháp ${revision}`);
       return { revision };
@@ -134,45 +133,23 @@ export class OwnerDesign {
   async publish(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
     const expected = revisionOf(input(body, ['action', 'expectedRevision']).expectedRevision);
     return this.write(credential, slug, pageSlug, async (db, access, page) => {
-      const published = await this.admin(access, db).publish(page, expected).catch(translate);
+      let published;
+      try { published = await this.admin(access, db).publish(page, expected); }
+      catch (error) {
+        if (!(error instanceof PublishingError && error.code === 'PUBLISH_REVIEW_REQUIRED')) return translate(error);
+        // The shop's first publish waits for Tài (kịch bản mục 4). One request per shop stands; asking again names the page
+        // asked last, and Tài approves the draft he sees then (lib/admin/publish-reviews.ts).
+        const requester = access.actor.kind === 'admin' ? `admin:${access.actor.adminId}` : `owner:${access.userId}`;
+        await db.query(`INSERT INTO publish_reviews(shop_id,page_id,requested_by) VALUES($1,$2,$3)
+          ON CONFLICT (shop_id) WHERE state='pending' DO UPDATE SET page_id=EXCLUDED.page_id,requested_by=EXCLUDED.requested_by,requested_at=clock_timestamp()`,
+          [page.shopId, page.pageId, requester]);
+        await this.audit(db, access, 'impersonation.design.review', { revision: expected });
+        await recordActivity(db, access, 'design.review', `Bản nháp ${expected}`);
+        return { review: 'pending' as const, revision: expected };
+      }
       await this.audit(db, access, 'impersonation.design.publish', { releaseId: published.releaseId });
       await recordActivity(db, access, 'design.publish', `Bản nháp ${published.draftRevision}`);
       return { releaseId: published.releaseId, revision: published.draftRevision };
-    });
-  }
-
-  /**
-   * Moves the draft to another version of its template (versions.ts). Nothing reaches the guest page until Publish,
-   * so a shop can try the new version in Preview and move back if it does not like it.
-   */
-  async version(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
-    const data = input(body, ['action', 'expectedRevision', 'version']), expected = revisionOf(data.expectedRevision);
-    if (!Number.isSafeInteger(data.version) || Number(data.version) < 1) throw new OwnerError(400, 'INVALID_DESIGN');
-    const version = Number(data.version);
-    return this.write(credential, slug, pageSlug, async (db, access, page) => {
-      const result = await this.admin(access, db).setDraftTemplate(page, expected, version).catch(translate);
-      // Choosing the version already in use changed nothing, so it leaves no line in the books.
-      if (result.revision === expected) return result;
-      await this.audit(db, access, 'impersonation.design.version', { version, revision: result.revision });
-      await recordActivity(db, access, 'design.version', `Bản nháp dùng template bản ${version}`);
-      return result;
-    });
-  }
-
-  /**
-   * Puts the page on another template (Tài, 25/09), keeping its link, cards and content. Only the shop's owner, signed
-   * in as themself: the template decides the page's price (docs/goi-va-trang.md mục 4).
-   */
-  async template(credential: OwnerCredential, slug: string, body: unknown, pageSlug?: string | null) {
-    const data = input(body, ['action', 'expectedRevision', 'template']), expected = revisionOf(data.expectedRevision);
-    if (!isTemplateKey(data.template)) throw new OwnerError(400, 'INVALID_DESIGN');
-    const key = data.template;
-    return this.write(credential, slug, pageSlug, async (db, access, page) => {
-      if (access.actor.kind !== 'owner' || access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
-      const result = await this.admin(access, db).changeTemplate(page, expected, key).catch(translate);
-      if (result.revision === expected) return result;
-      await recordActivity(db, access, 'design.template', `Bản nháp dùng template ${key}`);
-      return result;
     });
   }
 

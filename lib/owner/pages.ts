@@ -1,12 +1,9 @@
 import type { PoolClient, Pool } from 'pg';
 import { OwnerError, authorize, requirePermission, transaction, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordActivity } from './activity';
-import { PublishingAdmin, PublishingError, templateVersionRow, type PageRef, type PauseReason, type TemplateReleases } from '../publishing/repository';
-
-import { settingsOf } from '../publishing/versions';
-import { convertSettings } from '../publishing/settings';
+import { PublishingAdmin, PublishingError, templateVersionRow, type PageRef, type PauseReason } from '../publishing/repository';
+import { canvasTemplate, pageFromTemplate } from '../canvas/templates';
 import { withShortCode } from '../short-code';
-import { isTemplateKey, templateConfig, TEMPLATE_RELEASES } from '../publishing/templates';
 
 /**
  * Which page of the shop a dashboard request is about (migration 024, `docs/goi-va-trang.md`). Named by its link;
@@ -43,7 +40,7 @@ const ownerOnly = (access: OwnerAccess) => {
  * live when the owner publishes it from the editor, like any other change.
  */
 export class OwnerPages {
-  constructor(private pool: Pool, private releases: TemplateReleases = TEMPLATE_RELEASES) {}
+  constructor(private pool: Pool) {}
 
   async list(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
@@ -59,9 +56,8 @@ export class OwnerPages {
   }
 
   /**
-   * `{ copy: <page link>, label }` copies that page's draft — template version, look and content — to a new link.
-   * `{ template: <key>, label }` starts from the template's bare skeleton at its newest version; the editor then offers
-   * "Nhập dữ liệu từ trang khác" to bring the shop's content in.
+   * `{ copy: <page link>, label }` copies that page's draft to a new link. `{ template: <key>, label }` starts from a
+   * copy of the template's document (lib/canvas/templates.ts) with the shop's name already in its "Tên quán".
    */
   async create(credential: OwnerCredential, slug: string, body: unknown) {
     const data = body && typeof body === 'object' && 'copy' in body ? shape(body, ['copy', 'label']) : shape(body, ['template', 'label']);
@@ -74,17 +70,15 @@ export class OwnerPages {
         const draft = (await db.query('SELECT template_version_id,config FROM page_drafts WHERE page_id=$1', [source.pageId])).rows[0];
         templateId = draft.template_version_id; config = draft.config;
       } else {
-        const key = data.template, shipped = isTemplateKey(key) ? this.releases[key] : undefined;
-        if (!isTemplateKey(key) || !shipped?.length) throw new OwnerError(400, 'INVALID_PAGE');
-        const version = shipped[shipped.length - 1].version;
-        templateId = await templateVersionRow(db, key, version);
-        const settings = convertSettings(settingsOf(this.releases, key, version), undefined);
-        config = { ...templateConfig(key), ...(settings ? { settings } : {}) };
+        const template = canvasTemplate(data.template);
+        if (!template) throw new OwnerError(400, 'INVALID_PAGE');
+        templateId = await templateVersionRow(db, template.key);
+        config = pageFromTemplate(template.key, access.name);
       }
       const admin = new PublishingAdmin(db, async request => {
         if (request.shopId !== access.shopId) throw new OwnerError(403, 'ACCESS_DENIED');
         return { actorId: `owner:${access.userId}` };
-      }, this.releases);
+      });
       // A code no page has ever had: links are permanent and never issued twice (migration 024).
       const page = await withShortCode(async code => {
         await db.query('SAVEPOINT new_page');

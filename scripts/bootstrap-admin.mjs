@@ -17,7 +17,7 @@ const derive = (password, salt) => new Promise((resolve, reject) =>
 const args = process.argv.slice(2);
 const reset = args.includes('--reset');
 const name = (args.find(a => !a.startsWith('--')) ?? '').trim().toLowerCase();
-// How the administrator appears to shops (migration 014): --handle=Quitesensational --title="Admin Tài". Optional; an
+// How the administrator appears to shops: --handle=Quitesensational --title="Admin Tài". Optional; an
 // account created after 014 ran has neither unless given here (lát F6, opening production).
 const option = key => { const found = args.find(a => a.startsWith(`--${key}=`)); return found === undefined ? null : found.slice(key.length + 3).trim(); };
 const handle = option('handle'), title = option('title');
@@ -87,7 +87,7 @@ const password = await readPassword();
 
 const salt = randomBytes(16).toString('hex');
 const key = (await derive(password, salt)).toString('hex');
-// Same rule as lib/db-url.ts and scripts/migrate.mjs: name the certificate checking pg already applies, so it stops
+// Same rule as lib/db-url.ts and scripts/apply-schema.mjs: name the certificate checking pg already applies, so it stops
 // printing a security warning on every run (seen when Tài created the production administrator, 2026-09-19).
 function explicitSslMode(value) {
   let url; try { url = new URL(value); } catch { return value; }

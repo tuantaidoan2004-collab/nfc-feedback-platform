@@ -21,8 +21,8 @@ export type PolicyInputs = {
   development: boolean;
 };
 
-/** Pages framed by this app's own pages: the dashboard's page pictures and the builder's draft links. */
-export const FRAMED_BY_SELF = [/^\/ZZZ\/[^/]+\/thumb\/[^/]+\/?$/, /^\/thu\/[^/]+\/?$/];
+/** Pages framed by this app's own pages: the dashboard's page pictures, the template pictures of the Library and gallery, and the drafts /gov reviews. */
+export const FRAMED_BY_SELF = [/^\/ZZZ\/[^/]+\/thumb\/[^/]+\/?$/, /^\/templates\/[a-z0-9-]+\/?$/, /^\/gov\/xem\/[0-9a-f-]{36}\/?$/];
 export const framedBySelf = (pathname: string) => FRAMED_BY_SELF.some(pattern => pattern.test(pathname));
 
 const originOf = (value: string | null | undefined) => { try { return value ? new URL(value).origin : null; } catch { return null; } };

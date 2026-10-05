@@ -1,55 +1,43 @@
-# Gói template
+# Template
 
-Mỗi template của trang khách là **một thư mục ở đây** (lát M1, 27/09/2026). Không chỗ nào khác trong mã liệt kê template: danh
-sách template, tên, giá, các bản, khung trắng, hiệu ứng và tệp CSS đều đọc từ các thư mục này. Làm template không cần đụng
-TypeScript.
+Mỗi template của trang khách là **một thư mục ở đây, một tệp `template.json`** (đợt ②, 05/10/2026: template canvas, dựng
+lại từ ảnh Tài gửi). Không chỗ nào khác trong mã liệt kê template. Làm template không cần đụng TypeScript.
 
-Trước khi làm, đọc `PRODUCT.md`, `DESIGN.md` (bốn sàn, token) và `docs/thiet-ke-va-template.md`. Luật Google
-(`docs/google-policy.md`) thắng mọi thứ: template **không bao giờ** đụng nút Google, lời mời Google hay nút máy bay góp ý.
+Trước khi làm, đọc `rieng/kich-ban.md` mục 8–9 (chỉ có trên máy Tài) và `docs/google-policy.md`. Luật Google thắng mọi thứ.
 
-## Một gói gồm gì
-
-```
-templates/<khoá>/
-  manifest.json   template này là gì
-  v1.css          diện mạo bản 1 (đóng băng khi đã phát hành)
-  v2.css          bản 2, nếu có …
-```
-
-`manifest.json`:
+## `template.json`
 
 | Trường | Ý nghĩa |
 |---|---|
-| `key` | Trùng tên thư mục. Chữ thường, số, gạch nối. **Không bao giờ đổi**: bản phát hành của shop ghim theo nó. Không mang tên thương hiệu. |
-| `number` | Số thứ tự; chủ quán thấy "`number` · `name`". |
-| `name` | Tên ngắn, tiếng Việt. |
-| `pricePerMonth` | Giá mỗi trang mỗi tháng, đồng. `0` = miễn phí, không chiếm suất miễn phí (`docs/goi-va-trang.md` mục 4). |
-| `page` | Khung trắng mà trang mới bắt đầu: chỉ `layout`, `background`, `watermark`, và `links: []`. Không bao giờ là nội dung của ai (tên, link, logo, ảnh). |
-| `effects` | Hiệu ứng nền tảng template dùng, `{}` nếu không: `leaveTransitionMs` (1–300, lớp sương trước khi sang Google, Google mở cùng tab), `glass: true` (kính khúc xạ), `googleButton: "orb"` (nút hạt ngọc), `thankYouSeconds` (1–4: lời cảm ơn, tim bung, đếm rồi Google mở tab mới; không dùng chung với `leaveTransitionMs`). Mỗi hiệu ứng là một module trong `components/effects/`; hiệu ứng mới cần coder. |
-| `versions` | Các bản, cũ nhất trước: `version` (1, 2, 3… liền nhau), `date` (YYYY-MM-DD), `notes` (một câu cho chủ quán: bản này khác bản trước ở chỗ nào họ nhìn thấy), `settings` (ô chủ quán được chỉnh, xem `lib/publishing/settings.ts`). |
+| `key` | Trùng tên thư mục. Chữ thường, số, gạch nối. **Không bao giờ đổi**: trang tạo từ template ghi lại nó. Không mang tên thương hiệu. |
+| `number` | Số thứ tự trong Library. |
+| `name` | Tên ngắn chủ quán thấy. |
+| `groups` | Nhóm trong Library (kịch bản mục 8): "Only Poster", "Only Background", "Interactive cards", "Simple", "Không gian thực", "Tối giản", "Trong suốt", "Thuỷ tinh"… hoặc nhóm mới. |
+| `about` | Một câu: template này chạy thế nào. |
+| `doc` | Tài liệu trang — đúng kiểu `PageDoc` trong `lib/canvas/doc.ts`: các **khúc** xếp dọc, mỗi khúc khổ điện thoại rộng 390 đơn vị; phần tử đặt tự do (x, y, w, h, xoay), riêng `stack` tự xếp con theo chiều dọc. |
 
-Bảng ô của bản 1 hôm nay mở đúng những ô mà thiết kế thật sự dùng (P2, 25/09): template 1 vẽ thẻ trôi trên nền của shop
-nên nhận mọi kiểu nền và watermark; template 3 tự vẽ cảnh kính từ hai màu nền nên chỉ nhận nền một màu hoặc chuyển màu;
-template 2, 4, 5 tự vẽ nền nên chỉ mở nút góp ý; template 6 không mở ô nào. Không template nào mở "bố cục".
+Trang mới tạo từ template là **bản sao** của `doc`: sửa trang không đổi template, sửa template không đổi trang đã có.
 
-## Tệp CSS của một bản
+Hai id có nghĩa riêng: chữ có id `ten-quan` nhận tên quán, chữ có id `chu-dau` nhận chữ cái đầu của tên quán (ảnh đại diện
+kiểu chữ) ngay lúc trang được tạo.
 
-Mọi selector bắt đầu bằng `.guest[data-template="<khoá>"]:where([data-template-version="<bản>"])`. Chỉ dùng token trong
-`DESIGN.md` mục 4 và ô mà chính bản đó khai (`--s-<ô>` luôn có giá trị dự phòng, `data-s-<ô>`). Tên `@keyframes` không
-trùng template khác.
+## Luật mà mọi template phải qua
 
-**Đã phát hành thì đóng băng.** Đổi diện mạo = thêm bản mới (một mục trong `versions` + tệp `v<n>.css` mới); shop đang
-chạy không đổi cho tới khi chủ quán tự chọn bản mới. Chỉ sửa lỗi, bảo mật hay luật Google mới được sửa tệp đã phát hành,
-và khi đó ghi lại mã băm trong `tests/contracts/skin.spec.ts` cùng commit, nói rõ lý do.
+- **Nút Google** (`"t": "google"`): nhiều nhất một; nằm trọn trong khúc đầu, **trên vạch 560 đơn vị** (màn hình đầu của
+  iPhone SE); không ô góp ý nào đứng trên nó. Chữ và link của nút là của nền tảng (link đánh giá của quán từ Place ID):
+  template chỉ chọn kiểu (`look`), màu, bóng. Nút luôn nổi trên cùng, không gì che được.
+- **Không chữ nào đổi quà lấy đánh giá**, không nhắc sao, không gợi nội dung đánh giá (bẫy chữ trong `lib/publishing/policy.ts`
+  đọc mọi chữ, cả tiếng Anh).
+- **Ảnh**: `art:<khoá>` (tranh vector vẽ sẵn, `components/canvas/art.tsx`), `/tpl/<tệp>` (tệp đi kèm app), hoặc ảnh quán
+  tải lên (phải qua duyệt mới phát hành được). Không ảnh kho có bản quyền, không logo thật.
+- Màu, phông, biểu tượng, hình, kiểu nút, hiệu ứng chỉ chọn từ danh sách trong `lib/canvas/doc.ts`; không CSS, không HTML.
 
-## Sau mỗi lần thêm hay sửa gói
+## Sau mỗi lần thêm hay sửa
 
 ```bash
 node scripts/templates.mjs
-node node_modules/@playwright/test/cli.js test --config=playwright.contracts.config.ts
+node node_modules/@playwright/test/cli.js test --config=playwright.contracts.config.ts tests/contracts/templates.spec.ts
 ```
 
-Lệnh đầu sinh lại `lib/publishing/templates.generated.ts` và `components/guest-styles.ts` (đừng sửa tay hai tệp đó).
-Bộ contracts kiểm manifest (`tests/contracts/templates.spec.ts`, lỗi viết bằng lời để sửa được), bốn sàn và độ tương
-phản (`skin.spec.ts`), ô chỉnh (`settings.spec.ts`) và luật Google (`google-policy.spec.ts`). Template mới chưa mở cho chủ
-quán tự động theo kiểu "thử → mở" — đó là lát M5.
+Lệnh đầu sinh lại `lib/canvas/templates.generated.ts` (đừng sửa tay). Lệnh sau kiểm từng tài liệu và luật Google. Xem thử
+trên máy: `node scripts/local.mjs` rồi mở `http://127.0.0.1:3321/templates/<khoá>`.

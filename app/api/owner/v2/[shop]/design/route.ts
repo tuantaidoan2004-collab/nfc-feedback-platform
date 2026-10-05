@@ -7,15 +7,15 @@ type Context = { params: Promise<{ shop: string }> };
 // Which page of the shop (migration 024): `?page=<link>` to read, `page` in the body to write; absent, the first page.
 const pageParam = (request: Request) => new URL(request.url).searchParams.get('page');
 
-// The Design & Link editor: read the draft and the live page, save the draft, move it to another template version,
-// preview it, publish it.
+// The canvas editor's server side: read the draft and the live page, save the draft, preview it, publish it.
 export async function GET(_request: Request, context: Context) {
   try { ownerGate(); return ownerJson(await new OwnerDesign(database()).read(await ownerCredential(), (await context.params).shop, pageParam(_request))); }
   catch (error) { return ownerFailure(error); }
 }
+// A page's whole document travels in a save: up to 256 KB (lib/canvas/validate.ts bounds what it may hold).
 export async function PUT(request: Request, context: Context) {
   try { ownerGate(); ownerOrigin(request);
-    const [body, page] = ownerPage(await ownerInput(request));
+    const [body, page] = ownerPage(await ownerInput(request, 262144));
     return ownerJson(await new OwnerDesign(database()).save(await ownerCredential(), (await context.params).shop, body, page)); }
   catch (error) { return ownerFailure(error); }
 }
@@ -25,8 +25,6 @@ export async function POST(request: Request, context: Context) {
     const [body, page] = ownerPage(await ownerInput(request)), design = new OwnerDesign(database()), slug = (await context.params).shop;
     const action = body && typeof body === 'object' ? (body as Record<string, unknown>).action : undefined;
     if (action === 'publish') return ownerJson(await design.publish(await ownerCredential(), slug, body, page));
-    if (action === 'version') return ownerJson(await design.version(await ownerCredential(), slug, body, page));
-    if (action === 'template') return ownerJson(await design.template(await ownerCredential(), slug, body, page));
     if (action !== 'preview') throw new OwnerError(400, 'INVALID_DESIGN');
     // The preview token is a capability: it goes into an HttpOnly cookie for /preview and never into the response body.
     const preview = await design.preview(await ownerCredential(), slug, body, page);

@@ -8,19 +8,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { TabProps } from './index';
-import type { TemplateCard } from '@/lib/publishing/templates';
+import type { TemplateCard } from '@/lib/canvas/templates';
+import { pageLabel } from '@/lib/owner/page-names';
+import PageThumb from '@/components/canvas/thumb';
 import styles from './tabs.module.css';
 import Icon, { type IconName } from '../icons';
 
 type Section = 'home' | 'tai-len' | 'template' | 'brand' | 'su-kien' | 'more';
 const SECTIONS: [Section, string, IconName][] = [['home', 'Home', 'home'], ['tai-len', 'Tải lên', 'upload'], ['template', 'Template', 'template'],
   ['brand', 'Brand', 'brand'], ['su-kien', 'Sự kiện', 'event'], ['more', 'More', 'more']];
-// Nhóm template theo cách hoạt động (kịch bản mục 8); gán thật khi các template mới được dựng từ ảnh của Tài.
-const GROUPS = ['Tất cả', 'Only Poster', 'Only Background', 'Interactive cards', 'Simple', 'Không gian thực', 'Tối giản', 'Trong suốt', 'Thuỷ tinh'];
+// Nhóm template theo cách hoạt động (kịch bản mục 8), theo thứ tự Tài liệt kê; nhóm chưa có mẫu nào thì không hiện.
+const ALL = 'Tất cả';
 type Page = { slug: string; label: string | null; state: string; template: { key: string } };
-const STATES: Record<string, string> = { draft: 'Bản nháp', published: 'Đã phát hành', paused: 'Tạm dừng' };
+const STATES: Record<string, string> = { draft: 'Bản nháp', active: 'Đã phát hành', paused: 'Tạm dừng', closed: 'Đã đóng' };
 
-export default function LibraryTab({ slug, onboarding, query, templates, origin }: TabProps) {
+export default function LibraryTab({ slug, onboarding, query, templates, groups, origin }: TabProps) {
   const router = useRouter();
   const [section, setSection] = useState<Section>(onboarding ? 'template' : ((query.muc as Section) ?? 'home'));
   const [pages, setPages] = useState<Page[] | null>(null), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
@@ -35,11 +37,11 @@ export default function LibraryTab({ slug, onboarding, query, templates, origin 
   const useTemplate = async (card: TemplateCard) => {
     setBusy(true); setNotice('Đang tạo trang…');
     const response = await fetch(`/api/owner/v2/${slug}/pages`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template: card.key, label: pages?.length ? `Trang ${pages.length + 1}` : 'Trang chính' }) }).catch(() => null);
-    setBusy(false);
-    if (!response?.ok) { setNotice('Chưa tạo được trang. Thử lại.'); return; }
-    if (onboarding) { await step('done'); router.push('/bat-dau/tien-trinh'); return; }
-    setNotice('Đã tạo trang mới. Trình sửa trang kiểu canvas đang được dựng (đợt ②).'); setSection('home'); void load();
+      body: JSON.stringify({ template: card.key, label: pageLabel(pages?.length ?? 0) }) }).catch(() => null);
+    if (!response?.ok) { setBusy(false); setNotice('Chưa tạo được trang. Thử lại.'); return; }
+    // Straight into the editor (kịch bản mục 9); during onboarding the editor's own "Xong" closes the Template step.
+    const made = await response.json();
+    router.push(`/app/${slug}/sua/${made.slug}`);
   };
   return <div>
     {onboarding && <section className={styles.banner} data-onboarding-template>
@@ -62,7 +64,7 @@ export default function LibraryTab({ slug, onboarding, query, templates, origin 
       <div className={styles.grid}>
         {notice && <p className="qs-small" role="status">{notice}</p>}
         {section === 'home' && <Home pages={pages} slug={slug} origin={origin} onCreate={() => go('template')} />}
-        {section === 'template' && <Templates templates={templates} busy={busy} onUse={useTemplate} />}
+        {section === 'template' && <Templates templates={templates} groups={groups} busy={busy} onUse={useTemplate} />}
         {section === 'tai-len' && <Placeholder title="Tải lên" text="Font chữ, ảnh nền, logo của quán — tải lên một lần, dùng lại trong mọi trang. Đang dựng ở đợt ⑤." />}
         {section === 'brand' && <Placeholder title="Brand" text="Các thư mục lưu màu, font, ảnh mặc định của quán; kéo từ Tải lên vào, áp cho template và vài chỗ của dashboard. Đang dựng ở đợt ⑤." />}
         {section === 'su-kien' && <Events />}
@@ -77,37 +79,37 @@ function Home({ pages, slug, origin, onCreate }: { pages: Page[] | null; slug: s
     <div className={styles.row}><h2>Dự án của bạn</h2><button type="button" className="qs-btn small" onClick={onCreate}><Icon name="plus" size={16} /> Tạo trang</button></div>
     {pages === null ? <p className="qs-muted">Đang tải…</p> : <div className={styles.tiles}>
       <button type="button" className={styles.tile} onClick={onCreate}><div className={styles.newTile}><Icon name="plus" size={28} /><span className="qs-small">Tạo mới</span></div></button>
-      {pages.map(page => <a key={page.slug} className={styles.tile} href={`${origin}/${page.slug}`} target="_blank" rel="noreferrer">
-        <div className={styles.thumb}><Thumb shop={slug} page={page.slug} /><span className={`qs-pill ${styles.tag}`}>{STATES[page.state] ?? page.state}</span></div>
-        <strong>{page.label || page.slug}</strong><span className={styles.meta}>/{page.slug}</span></a>)}
+      {pages.map(page => <article key={page.slug} className={styles.tile}>
+        <Link className={styles.thumb} href={`/app/${slug}/sua/${page.slug}`} aria-label={`Sửa ${page.label || page.slug}`}>
+          <PageThumb src={`/ZZZ/${slug}/thumb/${page.slug}`} title={`Ảnh trang ${page.slug}`} />
+          <span className={`qs-pill ${styles.tag}`}>{STATES[page.state] ?? page.state}</span><span className={styles.use}>Sửa trang</span></Link>
+        <strong>{page.label || page.slug}</strong>
+        <span className={styles.meta}>/{page.slug}{page.state !== 'draft' && <> · <a href={`${origin}/${page.slug}`} target="_blank" rel="noreferrer">Mở trang ↗</a></>}</span></article>)}
     </div>}
   </section>;
 }
 
-/** The page drawn small: the real guest page in a frame, scaled to the tile. */
-function Thumb({ shop, page }: { shop: string; page: string }) {
-  const [scale, setScale] = useState(0.45);
-  return <div ref={el => { if (el) { const w = el.getBoundingClientRect().width; if (w && Math.abs(w / 390 - scale) > 0.01) setScale(w / 390); } }}
-    style={{ position: 'absolute', inset: 0 }}>
-    <iframe src={`/ZZZ/${shop}/thumb/${page}`} sandbox="allow-same-origin" loading="lazy" tabIndex={-1} title={`Ảnh trang ${page}`} style={{ transform: `scale(${scale})` }} />
-  </div>;
-}
+/** Folded for search: "ca phe" finds "Cà phê". */
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-function Templates({ templates, busy, onUse }: { templates: TemplateCard[]; busy: boolean; onUse: (card: TemplateCard) => void }) {
-  const [search, setSearch] = useState(''), [group, setGroup] = useState('Tất cả');
-  const shown = useMemo(() => templates.filter(card => card.name.toLowerCase().includes(search.trim().toLowerCase())
-    && (group === 'Tất cả' || (group === 'Thuỷ tinh' && card.glass) || (group === 'Trong suốt' && card.glass) || group === 'Simple')), [templates, search, group]);
+function Templates({ templates, groups, busy, onUse }: { templates: TemplateCard[]; groups: string[]; busy: boolean; onUse: (card: TemplateCard) => void }) {
+  const [search, setSearch] = useState(''), [group, setGroup] = useState(ALL);
+  const chips = useMemo(() => [ALL, ...groups.filter(name => templates.some(card => card.groups.includes(name)))], [templates, groups]);
+  const shown = useMemo(() => templates.filter(card => fold(`${card.name} ${card.about} ${card.groups.join(' ')}`).includes(fold(search.trim()))
+    && (group === ALL || card.groups.includes(group))), [templates, search, group]);
   return <section className={styles.grid}>
     <div className={styles.search}><Icon name="search" size={18} /><input className={`qs-input ${styles.searchInput}`} placeholder="Tìm template" value={search} onChange={event => setSearch(event.target.value)} aria-label="Tìm template" /></div>
-    <div className={styles.chips} role="group" aria-label="Nhóm template">{GROUPS.map(name => <button key={name} type="button" aria-pressed={group === name} onClick={() => setGroup(name)}>{name}</button>)}</div>
-    <p className="qs-small qs-muted">Bộ template đang được làm lại theo mẫu mới. Các mẫu dưới đây dùng tạm để trang của quán chạy được ngay.</p>
-    <div className={styles.tiles}>{shown.map(card => <button key={card.key} type="button" className={styles.tile} disabled={busy} onClick={() => onUse(card)} data-template={card.key}>
-      <div className={styles.thumb} style={{ background: `linear-gradient(${card.angle}deg, ${card.colors.join(', ')})` }}>
+    <div className={styles.chips} role="group" aria-label="Nhóm template">{chips.map(name => <button key={name} type="button" aria-pressed={group === name} onClick={() => setGroup(name)}>{name}</button>)}</div>
+    <div className={styles.tiles}>{shown.map(card => <article key={card.key} className={styles.tile} data-template={card.key}>
+      <button type="button" className={styles.thumb} disabled={busy} onClick={() => onUse(card)} aria-label={`Dùng mẫu ${card.name}`}>
+        <PageThumb src={`/templates/${card.key}?anh=1`} title={`Mẫu ${card.name}`} />
         <span className={`qs-pill free ${styles.tag}`}>Free</span>
-        <span style={{ width: '62%', height: 36, borderRadius: 999, background: 'rgba(255,255,255,.88)', boxShadow: '0 6px 18px rgba(0,0,0,.12)' }} aria-hidden="true" />
-      </div>
-      <strong>{card.number} · {card.name}</strong><span className={styles.meta}>Bấm để dùng mẫu này</span></button>)}
-      {shown.length === 0 && <p className="qs-muted">Chưa có template nào trong nhóm này.</p>}
+        <span className={styles.use}>Dùng mẫu này</span>
+      </button>
+      <strong>{card.name}</strong>
+      <span className={styles.meta}>{card.groups.join(' · ')} · <a href={`/templates/${card.key}`} target="_blank" rel="noreferrer">Xem thử</a></span>
+    </article>)}
+      {shown.length === 0 && <p className="qs-muted">Chưa có template nào khớp.</p>}
     </div>
   </section>;
 }

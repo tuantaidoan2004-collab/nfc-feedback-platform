@@ -1,0 +1,216 @@
+{
+  "key": "nut-don",
+  "number": 3,
+  "name": "Nút đơn",
+  "groups": [
+    "Simple",
+    "Thuỷ tinh"
+  ],
+  "about": "Nền vũ trụ lấp lánh, một nút Google tròn lớn chữ chạy vòng quanh, lời cảm ơn nhiều màu.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 740,
+        "bg": {
+          "src": "art:space"
+        },
+        "els": [
+          {
+            "id": "bang-ten",
+            "t": "shape",
+            "shape": "rect",
+            "x": 110,
+            "y": 30,
+            "w": 170,
+            "h": 94,
+            "radius": 22,
+            "fill": {
+              "kind": "linear",
+              "angle": 180,
+              "stops": [
+                [
+                  "#5a2c16",
+                  0
+                ],
+                [
+                  "#3a1a0b",
+                  100
+                ]
+              ]
+            },
+            "shadow": {
+              "x": 0,
+              "y": 8,
+              "blur": 22,
+              "color": "#00000099"
+            },
+            "motion": {
+              "in": "drop",
+              "at": 100
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 112,
+            "y": 32,
+            "w": 166,
+            "h": 62,
+            "words": {
+              "vi": "Tên Quán"
+            },
+            "font": "script",
+            "size": 42,
+            "color": "#f6dcc4",
+            "motion": {
+              "in": "fade",
+              "at": 300
+            }
+          },
+          {
+            "id": "nganh",
+            "t": "text",
+            "x": 112,
+            "y": 94,
+            "w": 166,
+            "h": 18,
+            "words": {
+              "vi": "PHOTO BOOTH"
+            },
+            "font": "display",
+            "size": 10,
+            "color": "#f6dcc4",
+            "spacing": 26,
+            "motion": {
+              "in": "fade",
+              "at": 350
+            }
+          },
+          {
+            "id": "lap-lanh",
+            "t": "shape",
+            "shape": "sparkle",
+            "x": 250,
+            "y": 36,
+            "w": 14,
+            "h": 14,
+            "fill": "#f6dcc4",
+            "motion": {
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "the-kinh",
+            "t": "shape",
+            "shape": "rect",
+            "x": 43,
+            "y": 139,
+            "w": 304,
+            "h": 337,
+            "radius": 40,
+            "glass": {
+              "blur": 6,
+              "tint": "#ffffff12"
+            },
+            "edge": {
+              "w": 1,
+              "color": "#ffffff40"
+            },
+            "shadow": {
+              "x": 0,
+              "y": 20,
+              "blur": 50,
+              "color": "#00000088"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 200
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "ring",
+            "ring": "#ffffff",
+            "x": 87,
+            "y": 166,
+            "w": 216,
+            "h": 216,
+            "motion": {
+              "in": "pop",
+              "at": 450
+            }
+          },
+          {
+            "id": "cam-on",
+            "t": "text",
+            "x": 50,
+            "y": 396,
+            "w": 290,
+            "h": 66,
+            "words": {
+              "vi": "CẢM ƠN QUÝ\nKHÁCH ĐÃ GHÉ !",
+              "en": "THANK YOU\nFOR STOPPING BY !"
+            },
+            "font": "rounded",
+            "size": 21,
+            "color": "#ffffff",
+            "weight": 700,
+            "spacing": 22,
+            "line": 1.45,
+            "colors": [
+              "#fbbc05",
+              "#ea4335",
+              "#34a853",
+              "#4285f4"
+            ],
+            "motion": {
+              "in": "rise",
+              "at": 700
+            }
+          },
+          {
+            "id": "sao-1",
+            "t": "shape",
+            "shape": "sparkle",
+            "x": 30,
+            "y": 560,
+            "w": 12,
+            "h": 12,
+            "fill": "#cfe0ff",
+            "motion": {
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "sao-2",
+            "t": "shape",
+            "shape": "sparkle",
+            "x": 344,
+            "y": 300,
+            "w": 10,
+            "h": 10,
+            "fill": "#ffffff",
+            "motion": {
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 666,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

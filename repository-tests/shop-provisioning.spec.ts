@@ -37,10 +37,8 @@ test('one call builds a live page, a card that is not live yet, and an owner who
  expect((await f.db.query("SELECT role,active FROM owner_memberships_v2 WHERE user_id=$1 AND shop_id=$2",[made.ownerUserId,made.shopId])).rows).toEqual([{role:'owner',active:true}]);
  await expect(f.auth.login('quan-caphe','any-password-at-all')).rejects.toThrow('LOGIN_FAILED');
 
- const template=(await f.db.query('SELECT id,slug FROM shops WHERE is_template')).rows[0];
  const audit=(await f.db.query('SELECT action,shop_id,detail FROM admin_audit ORDER BY id')).rows;
- expect(audit).toEqual([{action:'template.create',shop_id:template.id,detail:{slug:template.slug}},
-  {action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe',templateKey:'standard'}}]);
+ expect(audit).toEqual([{action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe',templateKey:'basic-1'}}]);
 });
 
 test('the link the operator hands over is what opens the account',async({f})=>{
@@ -77,6 +75,7 @@ test('refuses input that would produce an unusable shop',async({f})=>{
 });
 
 test('shops share one renderer and never share a slug, a card code or an owner',async({f})=>{
+ await f.shops.ensureTemplate(f.actorId);
  const one=await f.shops.create(f.actorId,input);
  const two=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-tra',ownerEmail:'tra@example.com'});
  expect(one.slug).not.toBe(two.slug);
@@ -131,60 +130,36 @@ test('a reissued link is audited against the owner\'s own shop, or not issued at
  expect(await count(trail)).toBe(2);
 });
 
-test('a new shop starts from the template as it stands now, with its own name and Google link, and keeps it',async({f})=>{
- const {PublishingAdmin}=await import('../lib/publishing/repository');
- const {templateConfig}=await import('../lib/publishing/templates');
- const first=await f.shops.create(f.actorId,input);
+test('a new shop starts from its chosen template with its own name, and its Google link is the shop\'s',async({f})=>{
+ const {DEFAULT_TEMPLATE,pageFromTemplate}=await import('../lib/canvas/templates');const {PublishingResolver}=await import('../lib/publishing/repository');
+ const resolver=new PublishingResolver(f.db);
  const release=async(shopId:string)=>(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[shopId])).rows[0].c;
- expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:REVIEW});
-
- // The operator changes the template: later shops follow, earlier ones do not.
- const template=await f.shops.ensureTemplate(f.actorId),admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
- const changed={...templateConfig(),text:{question:{vi:'Hôm nay thế nào?',en:'How was today?'}},
-  links:[{label:{vi:'Đặt lịch',en:'Book'},url:'https://example.com/book',icon:'booking' as const}]};
- const revision=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
- await admin.publish(pageOf(template),await admin.saveDraft(pageOf(template),revision,changed));
- const second=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-tra',ownerEmail:'tra@example.com',placeId:undefined});
- expect(await release(second.shopId)).toEqual({...changed,name:'Cà Phê Bàn Số 3',googleUrl:'https://maps.google.com/'});
- expect(await release(first.shopId)).toEqual({...templateConfig(),name:'Cà Phê Bàn Số 3',googleUrl:REVIEW});
- // Configuration only: the template's visits, cards and owners never travel.
- expect((await f.db.query('SELECT count(*)::int n FROM tags WHERE shop_id=$1',[template.shopId])).rows[0].n).toBe(0);
+ const first=await f.shops.create(f.actorId,input);
+ expect(await release(first.shopId)).toEqual(pageFromTemplate(DEFAULT_TEMPLATE,'Cà Phê Bàn Số 3'));
+ expect((await resolver.live({slug:first.slug})).googleUrl).toBe(REVIEW);
+ // Another template, and no Place ID yet: the generic link until the shop pastes its own.
+ const second=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-tra',ownerEmail:'tra@example.com',placeId:undefined,templateKey:'party'});
+ expect(await release(second.shopId)).toEqual(pageFromTemplate('party','Cà Phê Bàn Số 3'));
+ expect((await resolver.live({slug:second.slug})).googleUrl).toBe('https://maps.google.com/');
+ // The sample shop is not where new shops come from: making shops never creates it.
+ expect((await f.db.query('SELECT count(*)::int n FROM shops WHERE is_template')).rows[0].n).toBe(0);
 });
 
-test('resetting the template publishes the current defaults as a new release; shops made earlier keep theirs',async({f})=>{
- const {templateConfig}=await import('../lib/publishing/templates');const {PublishingAdmin}=await import('../lib/publishing/repository');
+test('resetting the sample shop publishes a fresh copy of the default template as a new release; history stays',async({f})=>{
+ const {DEFAULT_TEMPLATE,pageFromTemplate}=await import('../lib/canvas/templates');const {PublishingAdmin}=await import('../lib/publishing/repository');
  const template=await f.shops.ensureTemplate(f.actorId),admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
- // Stand in for a template published before the new defaults existed.
+ // Someone edited the sample page.
  const draft=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[template.shopId])).rows[0].revision);
- const {feedbackButton:_unused,sections:_none,...old}=templateConfig();void _unused;void _none;
- const saved=await admin.saveDraft(pageOf(template),draft,{...old,schemaVersion:1,links:[]});await admin.publish(pageOf(template),saved);
- const before=await f.shops.create(f.actorId,{name:'Quán Trước',ownerUsername:'quan-truoc',ownerEmail:'truoc@example.com',placeId:''});
+ await admin.publish(pageOf(template),await admin.saveDraft(pageOf(template),draft,{...pageFromTemplate('party','YOUR SHOP'),name:'Đã sửa'}));
  const oldRelease=(await f.db.query('SELECT active_release_id id FROM pages WHERE shop_id=$1',[template.shopId])).rows[0].id;
  const reset=await f.shops.resetTemplate(f.actorId);
  expect(reset).toMatchObject({shopId:template.shopId,slug:template.slug});
  const live=(await f.db.query('SELECT r.id,r.config_snapshot FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[template.shopId])).rows[0];
  expect(live.id).toBe(reset.releaseId);expect(live.id).not.toBe(oldRelease);
- expect(live.config_snapshot).toEqual(templateConfig());
+ expect(live.config_snapshot).toEqual(pageFromTemplate(DEFAULT_TEMPLATE,'YOUR SHOP'));
  expect((await f.db.query('SELECT count(*)::int n FROM page_releases WHERE id=$1',[oldRelease])).rows[0].n).toBe(1);
  expect((await f.db.query("SELECT shop_id,detail->>'releaseId' release FROM admin_audit WHERE action='template.reset'")).rows).toEqual([{shop_id:template.shopId,release:reset.releaseId}]);
- const kept=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[before.shopId])).rows[0].c;
- expect(kept.schemaVersion).toBe(1);expect(kept.links).toEqual([]);
- const after=await f.shops.create(f.actorId,{name:'Quán Sau',ownerUsername:'quan-sau',ownerEmail:'sau@example.com',placeId:''});
- const fresh=(await f.db.query('SELECT r.config_snapshot c FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id WHERE s.id=$1',[after.shopId])).rows[0].c;
- expect(fresh).toEqual({...templateConfig(),name:'Quán Sau'});
 });
-test('only the exact built-in media paths are accepted, and only as their own kind',async()=>{
- const {validateConfig,STEM_BACKGROUND}=await import('../lib/publishing/config');const {templateConfig}=await import('../lib/publishing/templates');
- const withBackground=(media:unknown)=>({...templateConfig(),background:{kind:'media',media,loop:true}});
- expect(validateConfig(withBackground({kind:'video',url:STEM_BACKGROUND.video})).background).toMatchObject({kind:'media'});
- expect(validateConfig(withBackground({kind:'image',url:STEM_BACKGROUND.still})).background).toMatchObject({kind:'media'});
- for(const media of [{kind:'image',url:STEM_BACKGROUND.video},{kind:'video',url:STEM_BACKGROUND.still},{kind:'video',url:'/media/other.mp4'},
-   {kind:'video',url:'/media/stem-background.mp4?x=1'},{kind:'video',url:'constructor'},{kind:'video',url:'http://example.com/a.mp4'}])
-  expect(()=>validateConfig(withBackground(media))).toThrow('INVALID_CONFIG');
- // A logo is an image and never a built-in video.
- expect(()=>validateConfig({...templateConfig(),logo:{kind:'image',url:STEM_BACKGROUND.video}})).toThrow('INVALID_CONFIG');
-});
-
 test('the template account comes with a single-use link, never a fixed password, in every environment (lát F6)',async({f})=>{
  const provisioning=new ShopProvisioning(f.db),adminId=(await f.db.query('SELECT id FROM platform_admins LIMIT 1')).rows[0].id;
  const first=await provisioning.templateAccountLink(adminId);
@@ -199,7 +174,7 @@ test('the template account comes with a single-use link, never a fixed password,
  await expect(links.consume(first.setupToken,'another-strong-password')).rejects.toThrow('SETUP_LINK_INVALID');
  const session=await auth.login('@yourshop','a-strong-template-password');
  await expect(auth.access(session.token,first.slug,'design')).resolves.toMatchObject({role:'owner'});
- // A shop cloned from the template gets the template's page, not its account.
+ // A new shop gets nothing of the sample shop's account.
  const made=await f.shops.create(f.actorId,input);
  await expect(auth.access(session.token,made.slug,'overview')).rejects.toThrow('ACCESS_DENIED');
  // Asking once more closes the account: the chosen password stops working and the open session is signed out.
@@ -209,36 +184,25 @@ test('the template account comes with a single-use link, never a fixed password,
  expect((await f.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='template.account.link'")).rows[0].n).toBe(3);
 });
 
-test('A33: each of the six templates is a bare skeleton with its own template row, and carries no account content',async({f})=>{
- const {validateConfig}=await import('../lib/publishing/config');const {TEMPLATE_KEYS,templateConfig}=await import('../lib/publishing/templates');
- const {assertPublishable}=await import('../lib/publishing/policy');
+test('every template can start a shop: a copy of it carrying the shop\'s name, one template row per template used',async({f})=>{
+ const {CANVAS_TEMPLATES,DEFAULT_TEMPLATE,pageFromTemplate}=await import('../lib/canvas/templates');
  const {PublishingResolver}=await import('../lib/publishing/repository');
- expect(TEMPLATE_KEYS).toEqual(['standard','minimal','glass','deco','spotlight','big-button']);
- for(const key of TEMPLATE_KEYS){
-  const skeleton=templateConfig(key);
-  expect(()=>assertPublishable(validateConfig(skeleton))).not.toThrow();
-  // Placeholder content only: the slots an account fills hold nobody's name, link, logo or picture.
-  expect({name:skeleton.name,googleUrl:skeleton.googleUrl,logo:skeleton.logo,poster:skeleton.poster}).toEqual({name:'YOUR SHOP',googleUrl:'https://maps.google.com/',logo:null,poster:null});
-  if(key!=='standard')expect(skeleton.links).toEqual([]);
- }
  const resolver=new PublishingResolver(f.db);
- for(const [i,key] of TEMPLATE_KEYS.entries()){
+ for(const [i,{key}] of CANVAS_TEMPLATES.entries()){
   const made=await f.shops.create(f.actorId,{...input,ownerUsername:`khuon-${i}`,ownerEmail:`khuon${i}@example.com`,templateKey:key});
   const page=await resolver.live({slug:made.slug});
   expect(page.template).toBe(key);
-  // The account's own content lands in the skeleton; the look is the template's.
-  expect({name:page.config.name,googleUrl:page.config.googleUrl}).toEqual({name:input.name,googleUrl:REVIEW});
-  if(key!=='standard')expect({layout:page.config.layout,background:page.config.background}).toEqual({layout:templateConfig(key).layout,background:templateConfig(key).background});
+  expect(page.config).toEqual(pageFromTemplate(key,input.name));
+  expect(page.googleUrl).toBe(REVIEW);
  }
- // One row per template, shared by every shop on it, and no shop or sign-in attached to a skeleton.
- expect((await f.db.query('SELECT template_key FROM template_versions ORDER BY template_key')).rows.map(r=>r.template_key)).toEqual([...TEMPLATE_KEYS].sort());
- expect((await f.db.query('SELECT count(*)::int n FROM shops WHERE is_template')).rows[0].n).toBe(1);
- // Omitting the key means template 1, so a caller from before A33 still gets the original page.
- const old=await f.shops.create(f.actorId,{...input,ownerUsername:'cu-truoc',ownerEmail:'cu@example.com'});
- expect((await resolver.live({slug:old.slug})).template).toBe('standard');
+ // One row per template, shared by every shop on it.
+ expect((await f.db.query('SELECT template_key FROM template_versions ORDER BY template_key')).rows.map(r=>r.template_key)).toEqual(CANVAS_TEMPLATES.map(t=>t.key).sort());
+ // Omitting the key means the default template.
+ const plain=await f.shops.create(f.actorId,{...input,ownerUsername:'cu-truoc',ownerEmail:'cu@example.com'});
+ expect((await resolver.live({slug:plain.slug})).template).toBe(DEFAULT_TEMPLATE);
 });
 
 test('A33: two shops asking for a brand-new template at the same moment share one template row',async({f})=>{
- await Promise.all(['a','b','c'].map(x=>f.shops.create(f.actorId,{...input,ownerUsername:`dua-${x}`,ownerEmail:`${x}@example.com`,templateKey:'spotlight'})));
- expect((await f.db.query("SELECT count(*)::int n FROM template_versions WHERE template_key='spotlight'")).rows[0].n).toBe(1);
+ await Promise.all(['a','b','c'].map(x=>f.shops.create(f.actorId,{...input,ownerUsername:`dua-${x}`,ownerEmail:`${x}@example.com`,templateKey:'party'})));
+ expect((await f.db.query("SELECT count(*)::int n FROM template_versions WHERE template_key='party'")).rows[0].n).toBe(1);
 });

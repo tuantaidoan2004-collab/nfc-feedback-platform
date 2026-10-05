@@ -3,10 +3,18 @@ import { test as base, expect } from '@playwright/test';
 import { randomUUID, createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import { PublishingAdmin, PublishingResolver, previewHash, type PageRef } from '../lib/publishing/repository';
-import { defaultConfig } from '../lib/publishing/config';
+import type { PageConfig } from '../lib/publishing/config';
+import { DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
+import { walk } from '../lib/canvas/validate';
 import { publishingVisitPolicy } from '../lib/publishing/visit-policy';
 import { VisitRatingRepository } from '../lib/repositories/visit-ratings';
 import type { RenderContext } from '../lib/publishing/proof';
+/** A page from the default template carrying `name` (đợt ②: a page is a canvas document). */
+const defaultConfig=(name='YOUR SHOP')=>pageFromTemplate(DEFAULT_TEMPLATE,name);
+/** The same page with one element changed in place. */
+function changed(config:PageConfig,find:(el:ReturnType<typeof walk> extends Generator<infer T> ? T : never)=>boolean,change:(el:Record<string,unknown>)=>void){
+ const copy=structuredClone(config);const el=[...walk(copy.doc)].find(find);if(!el)throw Error('no such element');change(el as unknown as Record<string,unknown>);return copy;
+}
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 // `page` / `otherPage` are the pages of `shop` / `other`, set by the case that creates them (migration 024).
@@ -36,11 +44,9 @@ test('authority boundary, draft CAS, concurrent publish and immutable versions/r
  await expect(f.admin.saveDraft(f.page,2,{...defaultConfig(),html:'x'})).rejects.toThrow('INVALID_CONFIG');
 });
 test('rollback pointer CAS and cross-shop FK preserve releases',async({fixture:f})=>{
- // Từ migration 022 tên quán thuộc về tài khoản, không thuộc bản phát hành — nên nó KHÔNG đổi theo
- // rollback nữa, và không còn dùng được làm bằng chứng "release nào đang sống". `layout` thì vẫn thuộc
- // bản phát hành, nên nó là bằng chứng đúng cho phép kiểm này.
- const first=await seed(f);await f.admin.saveDraft(f.page,2,{...defaultConfig('R2'),layout:'card' as const});const second=await f.admin.publish(f.page,3);
- await f.admin.rollback(f.page,first.releaseId,second.releaseId);expect((await f.resolver.live({slug:'one'})).config.layout).toBe('full-bleed');
+ // A release is the whole page (đợt ②: name and document), so rolling back brings the earlier one back whole.
+ const first=await seed(f);await f.admin.saveDraft(f.page,2,defaultConfig('R2'));const second=await f.admin.publish(f.page,3);
+ await f.admin.rollback(f.page,first.releaseId,second.releaseId);expect((await f.resolver.live({slug:'one'})).config.name).toBe('R1');
  await expect(f.admin.rollback(f.page,second.releaseId,second.releaseId)).rejects.toThrow('RELEASE_CONFLICT');
  (f.otherPage=await f.admin.createPage(f.other,first.template,defaultConfig('Other'),'two'));const other=await f.admin.publish(f.otherPage,1);
  await expect(f.admin.rollback(f.page,other.releaseId,first.releaseId)).rejects.toThrow();
@@ -105,63 +111,42 @@ test('session source and first-rating origin may be different releases',async({f
  * of where they sit. A page already live keeps rendering; a page being written cannot carry an offer.
  */
 test('the Google rules stop a page being written, and never stop one already published',async({fixture:f})=>{
- const {SERVICE_LABELS}=await import('../lib/publishing/policy');
  const template=await f.admin.createTemplate('policy',1);
- const offer={icon:'link' as const,url:'https://maps.google.com/?cid=42',
-   label:{vi:'Đánh giá Google 5 sao để nhận quà',en:'Leave a 5-star Google review to get a gift'}};
+ const offer=(config:PageConfig)=>changed(config,el=>el.t==='button',el=>{el.label={vi:'Đánh giá Google 5 sao để nhận quà',en:'Leave a 5-star Google review to get a gift'};});
  // A new page cannot be created with it, and an existing draft cannot be saved with it.
- await expect(f.admin.createPage(f.shop,template,{...defaultConfig(),links:[offer]},'one')).rejects.toThrow('POLICY_LINK_LABEL');
- (f.page=await f.admin.createPage(f.shop,template,defaultConfig(),'one'));
- await expect(f.admin.saveDraft(f.page,1,{...defaultConfig(),links:[offer]})).rejects.toThrow('POLICY_LINK_LABEL');
+ await expect(f.admin.createPage(f.shop,template,offer(defaultConfig()),'one')).rejects.toThrow('POLICY_GOOGLE_EXCHANGE');
+ (f.page=await f.admin.createPage(f.shop,template,defaultConfig('Quán Thử'),'one'));
+ await expect(f.admin.saveDraft(f.page,1,offer(defaultConfig()))).rejects.toThrow('POLICY_GOOGLE_EXCHANGE');
  await expect(f.admin.saveDraft(f.page,1,{...defaultConfig(),name:'Quán 5 sao tặng quà'})).rejects.toThrow('POLICY_GOOGLE_EXCHANGE');
  // Nothing was written by a refused save: the draft is still at revision 1 with what it had.
  expect((await f.db.query('SELECT revision::int FROM page_drafts')).rows[0].revision).toBe(1);
- // A label from the list saves and publishes normally.
- await f.admin.saveDraft(f.page,1,{...defaultConfig(),links:[{...offer,label:SERVICE_LABELS[0]}]});
+ // Neutral words save and publish normally.
+ await f.admin.saveDraft(f.page,1,defaultConfig('Quán Thử'));
  await expect(f.admin.publish(f.page,2)).resolves.toMatchObject({draftRevision:3});
 
  // A draft written before the rule existed cannot be published under it -- checked again on the way out.
- await f.db.query(`UPDATE page_drafts SET config=jsonb_set(config,'{links}',$1::jsonb),revision=9`,[JSON.stringify([offer])]);
- await expect(f.admin.publish(f.page,9)).rejects.toThrow('POLICY_LINK_LABEL');
+ await f.db.query(`UPDATE page_drafts SET config=replace(config::text,'"vi": "Quán Thử"','"vi": "Đánh giá 5 sao nhận quà"')::jsonb,revision=9`);
+ await expect(f.admin.publish(f.page,9)).rejects.toThrow('POLICY_GOOGLE_EXCHANGE');
  // And the page that is already live still renders: the rule never runs on a stored snapshot.
  const live=await new PublishingResolver(f.db).live({slug:'one'});
- expect(live.config.links[0].label).toEqual(SERVICE_LABELS[0]);
-});
-
-/**
- * E9 (Tài 26/09): a page background is never a video. Wherever a page is written it becomes the video's own first frame
- * (or the default gradient without one); a draft from before still saves and publishes, and nothing is refused.
- */
-test('a video background becomes its first frame wherever a page is written',async({fixture:f})=>{
- const template=await f.admin.createTemplate('no-video-bg',1);
- const video={kind:'video' as const,url:'https://media.example/bg.mp4',still:'https://media.example/bg.jpg'};
- for(const url of [video.url,video.still])
-  await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",[f.shop,url,url.endsWith('.mp4')?'video':'image']);
- const draft=async()=>(await f.db.query('SELECT config FROM page_drafts WHERE page_id=$1',[f.page.pageId])).rows[0].config.background;
- f.page=await f.admin.createPage(f.shop,template,{...defaultConfig(),background:{kind:'media',media:video,loop:true}},'one');
- expect(await draft()).toEqual({kind:'media',media:{kind:'image',url:video.still},loop:true});
- // No first frame to fall back on: the default gradient.
- await f.admin.saveDraft(f.page,1,{...defaultConfig(),background:{kind:'media',media:{kind:'video',url:video.url},loop:true}});
- expect(await draft()).toEqual(defaultConfig().background);
- // A draft written before the rule still publishes; the release carries the still, not the video.
- await f.db.query("UPDATE page_drafts SET config=jsonb_set(config,'{background}',$1::jsonb),revision=9 WHERE page_id=$2",[JSON.stringify({kind:'media',media:video,loop:true}),f.page.pageId]);
- await f.admin.publish(f.page,9);
- expect((await new PublishingResolver(f.db).live({slug:'one'})).config.background).toEqual({kind:'media',media:{kind:'image',url:video.still},loop:true});
+ expect(JSON.stringify(live.config.doc)).toContain('"vi":"Quán Thử"');
 });
 
 /**
  * A7 (26/09): the Google button leads to Google. Pointed at a shop's own page it could ask for stars first and pass
  * only the happy guests on -- review gating through the platform's own button (google-policy.md rules 1-3).
  */
-test('the Google button cannot be pointed away from Google or carry a rating, and a live page keeps rendering',async({fixture:f})=>{
+test('the Google button always takes the shop\'s own link: a page can carry none, nor point a button at a review form',async({fixture:f})=>{
  const template=await f.admin.createTemplate('policy-url',1);
- await expect(f.admin.createPage(f.shop,template,{...defaultConfig(),googleUrl:'https://sites.google.com/view/quan-mot'},'one')).rejects.toThrow('POLICY_GOOGLE_URL');
- f.page=await f.admin.createPage(f.shop,template,{...defaultConfig(),googleUrl:'https://g.page/r/CQuanMot/review'},'one');
- for(const googleUrl of ['https://quan-mot.example/danh-gia','https://www.google.com/url?q=https://quan-mot.example','https://g.page/r/CQuanMot/review?rating=5'])
-  await expect(f.admin.saveDraft(f.page,1,{...defaultConfig(),googleUrl}),googleUrl).rejects.toThrow('POLICY_GOOGLE_URL');
- expect((await f.db.query('SELECT revision::int FROM page_drafts')).rows[0].revision).toBe(1);
- await f.admin.publish(f.page,1);
- // Content stored outside the snapshot that no longer passes is never shown; the page falls back to what it published.
- await f.db.query("UPDATE page_profile SET google_url='https://quan-mot.example/danh-gia'");
- expect((await new PublishingResolver(f.db).live({slug:'one'})).config.googleUrl).toBe('https://g.page/r/CQuanMot/review');
+ // The button's link is not a field of the page at all.
+ const pointed=changed(defaultConfig(),el=>el.t==='google',el=>{el.link='https://quan-mot.example/danh-gia';});
+ await expect(f.admin.createPage(f.shop,template,pointed,'one')).rejects.toThrow('INVALID_CONFIG');
+ // Another button cannot open a review form, nor carry stars.
+ for(const link of ['https://search.google.com/local/writereview?placeid=ChIJ123','https://g.page/r/CQuanMot/review','https://example.com/?stars=5'])
+  await expect(f.admin.createPage(f.shop,template,changed(defaultConfig(),el=>el.t==='button',el=>{el.link=link;}),'one'),link).rejects.toThrow('POLICY_GOOGLE_LINK');
+ f.page=await f.admin.createPage(f.shop,template,defaultConfig(),'one');await f.admin.publish(f.page,1);
+ // The guest page reads the shop's link (its Place ID), so a link fixed once reaches every page of the shop at once.
+ expect((await f.resolver.live({slug:'one'})).googleUrl).toBeNull();
+ await f.db.query('UPDATE shops SET google_url=$2 WHERE id=$1',[f.shop,'https://g.page/r/CQuanMot/review']);
+ expect((await f.resolver.live({slug:'one'})).googleUrl).toBe('https://g.page/r/CQuanMot/review');
 });

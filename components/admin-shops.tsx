@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import styles from './admin.module.css';
 import { buttonClass } from './platform/ui';
-import { TEMPLATE_KEYS, TEMPLATE_NAMES } from '@/lib/publishing/templates';
+
 import { PLACE_ID_FINDER } from '@/lib/google/place-id';
 
 export type ShopRow = {
@@ -17,7 +17,6 @@ export type ShopRow = {
 /** What each publishing state means to the operator (migration 003); the raw word stays on data-publishing-state. */
 const STATES: Record<string, string> = { draft: 'nháp', active: 'đang chạy', suspended: 'bị treo' };
 const LEVELS: Record<ShopRow['support_level'], string> = { off: 'Tắt', view: 'Khấc 1 · Xem', edit: 'Khấc 2 · Sửa', full: 'Khấc 3 · Toàn quyền' };
-/** The six templates, named as in docs/thiet-ke-va-template.md mục 12. */
 const allows = (row: ShopRow, scope: 'overview' | 'feedback' | 'design') =>
   scope === 'overview' ? row.support_level !== 'edit' : scope === 'feedback' ? ['view', 'full'].includes(row.support_level) : ['edit', 'full'].includes(row.support_level);
 
@@ -29,7 +28,8 @@ const failed = (status: number) =>
   : status === 401 ? 'Phiên đã hết hạn. Hãy đăng nhập lại.'
   : 'Dịch vụ đang gián đoạn. Vui lòng thử lại.';
 
-export default function AdminShops({ initial, origin }: { initial: ShopRow[]; origin: string | null }) {
+/** `templates`: the canvas templates a new shop may start from (lib/canvas/templates.ts), the first being the default. */
+export default function AdminShops({ initial, origin, templates }: { initial: ShopRow[]; origin: string | null; templates: { key: string; name: string }[] }) {
   const [shops, setShops] = useState(initial);
   const [handover, setHandover] = useState<Handover | null>(null);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -134,7 +134,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
 
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
-      <p className={styles.muted}>Một lần bấm tạo trang khách (theo template đã chọn; template 1 sao chép từ shop template), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
+      <p className={styles.muted}>Một lần bấm tạo trang khách từ template đã chọn (mang sẵn tên shop), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
       <form className={styles.form} onSubmit={async event => {
         event.preventDefault(); setBusy(true); setError(''); setHandover(null);
         const form = new FormData(event.currentTarget), element = event.currentTarget;
@@ -155,8 +155,8 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
         <label>Email chủ shop<input name="ownerEmail" type="email" required maxLength={254} placeholder="chu@example.com"/></label>
         <div className={styles.fieldWithHelp}><label>Place ID (bỏ trống nếu chưa có)<input name="placeId" maxLength={2048} placeholder="ChIJ…" autoComplete="off" spellCheck={false}/></label>
           <a href={PLACE_ID_FINDER} target="_blank" rel="noreferrer">Mở trang tìm Place ID của Google ↗</a></div>
-        <label>Template<select name="templateKey" defaultValue="standard" data-template-choice>
-          {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}</select></label>
+        <label>Template<select name="templateKey" defaultValue={templates[0]?.key} data-template-choice>
+          {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}</select></label>
         <button className={buttonClass('primary')} disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo shop'}</button>
       </form>
       {error && <p role="alert" className={styles.muted}>{error}</p>}

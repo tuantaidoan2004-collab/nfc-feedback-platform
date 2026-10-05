@@ -1,0 +1,288 @@
+{
+  "key": "hien-dai",
+  "number": 2,
+  "name": "Hiện đại",
+  "groups": [
+    "Only Poster",
+    "Tối giản"
+  ],
+  "about": "Nền đen, ánh cam ở góc, tên chữ thưa, sản phẩm lướt vào; nhãn đỏ \"Click here\" dẫn tới trang hậu mãi.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 600,
+        "bg": {
+          "fill": "#050506"
+        },
+        "els": [
+          {
+            "id": "anh-cam",
+            "t": "shape",
+            "shape": "glow",
+            "x": -150,
+            "y": -120,
+            "w": 380,
+            "h": 250,
+            "fill": "#ff6a1a",
+            "o": 0.9,
+            "motion": {
+              "in": "fade"
+            }
+          },
+          {
+            "id": "logo",
+            "t": "icon",
+            "icon": "car",
+            "color": "#ffffff",
+            "x": 160,
+            "y": 40,
+            "w": 70,
+            "h": 30,
+            "motion": {
+              "in": "fade",
+              "at": 150
+            }
+          },
+          {
+            "id": "dong-nho",
+            "t": "text",
+            "x": 50,
+            "y": 96,
+            "w": 290,
+            "h": 18,
+            "words": {
+              "vi": "NEW LAUNCHING"
+            },
+            "font": "display",
+            "size": 10.5,
+            "color": "#d9d9d9",
+            "spacing": 40,
+            "motion": {
+              "in": "fade",
+              "at": 250
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 10,
+            "y": 122,
+            "w": 370,
+            "h": 42,
+            "words": {
+              "vi": "TÊN QUÁN"
+            },
+            "font": "display",
+            "size": 27,
+            "color": "#ffffff",
+            "weight": 300,
+            "spacing": 44,
+            "motion": {
+              "in": "blur",
+              "at": 350
+            }
+          },
+          {
+            "id": "san-pham",
+            "t": "image",
+            "src": "art:car",
+            "fit": "contain",
+            "x": 24,
+            "y": 150,
+            "w": 350,
+            "h": 220,
+            "motion": {
+              "in": "left",
+              "at": 450
+            }
+          },
+          {
+            "id": "den-hau",
+            "t": "shape",
+            "shape": "glow",
+            "x": 322,
+            "y": 226,
+            "w": 34,
+            "h": 20,
+            "fill": "#ff2a1a",
+            "motion": {
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "maps",
+            "x": 78,
+            "y": 239,
+            "w": 236,
+            "h": 46,
+            "shadow": "soft",
+            "motion": {
+              "in": "pop",
+              "at": 700
+            }
+          },
+          {
+            "id": "cam-on",
+            "t": "text",
+            "x": 74,
+            "y": 289,
+            "w": 244,
+            "h": 30,
+            "words": {
+              "vi": "Chúng tôi sẽ rất cảm kích nếu nhận được đánh giá Google của bạn.",
+              "en": "We would really appreciate your Google review."
+            },
+            "font": "sans",
+            "size": 11,
+            "color": "#e8e8e8",
+            "line": 1.35,
+            "motion": {
+              "in": "fade",
+              "at": 800
+            }
+          },
+          {
+            "id": "hau-mai",
+            "t": "button",
+            "look": "tag",
+            "tag": {
+              "vi": "Click here"
+            },
+            "label": {
+              "vi": "TENQUAN.VN – HẬU MÃI",
+              "en": "TENQUAN.VN – AFTER-SALES"
+            },
+            "icon": "cursor",
+            "link": "https://quitesensational-review-bio.com/",
+            "x": 50,
+            "y": 328,
+            "w": 290,
+            "h": 32,
+            "size": 13.5,
+            "weight": 800,
+            "motion": {
+              "in": "left",
+              "at": 900
+            }
+          },
+          {
+            "id": "tiktok",
+            "t": "button",
+            "look": "ring",
+            "icon": "tiktok",
+            "label": {
+              "vi": "TikTok"
+            },
+            "link": "https://www.tiktok.com/",
+            "x": 112,
+            "y": 374,
+            "w": 170,
+            "h": 30,
+            "size": 15,
+            "edge": {
+              "w": 2.6,
+              "color": {
+                "kind": "linear",
+                "angle": 90,
+                "stops": [
+                  [
+                    "#25f4ee",
+                    0
+                  ],
+                  [
+                    "#fe2c55",
+                    100
+                  ]
+                ]
+              }
+            },
+            "motion": {
+              "in": "rise",
+              "at": 1000
+            }
+          },
+          {
+            "id": "zalo",
+            "t": "button",
+            "look": "glow",
+            "icon": "zalo",
+            "label": {
+              "vi": "Zalo OA"
+            },
+            "link": "https://zalo.me/",
+            "x": 134,
+            "y": 416,
+            "w": 124,
+            "h": 34,
+            "size": 15,
+            "motion": {
+              "in": "rise",
+              "at": 1080
+            }
+          },
+          {
+            "id": "dich-vu",
+            "t": "text",
+            "x": 30,
+            "y": 466,
+            "w": 330,
+            "h": 18,
+            "words": {
+              "vi": "CÁC DỊCH VỤ CỦA CHÚNG TÔI",
+              "en": "OUR SERVICES"
+            },
+            "font": "display",
+            "size": 11,
+            "color": "#f2f2f2",
+            "spacing": 30,
+            "motion": {
+              "in": "fade",
+              "at": 1150
+            }
+          },
+          {
+            "id": "bang-gia",
+            "t": "button",
+            "look": "box",
+            "label": {
+              "vi": "PRICE"
+            },
+            "link": "https://quitesensational-review-bio.com/",
+            "x": 146,
+            "y": 492,
+            "w": 98,
+            "h": 24,
+            "size": 10.5,
+            "spacing": 40,
+            "weight": 400,
+            "fg": "#ffffff",
+            "edge": {
+              "w": 1,
+              "color": "#ffffff"
+            },
+            "motion": {
+              "in": "fade",
+              "at": 1200
+            }
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 526,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

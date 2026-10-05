@@ -2,14 +2,14 @@ import { randomBytes,randomUUID,createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import { OwnerAuth } from '../lib/owner/auth';
 import { PublishingAdmin,PublishingResolver,type PageRef } from '../lib/publishing/repository';
-import { defaultConfig } from '../lib/publishing/config';
+import { DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
 import { publishingVisitPolicy } from '../lib/publishing/visit-policy';
 import { VisitRatingRepository } from '../lib/repositories/visit-ratings';
 export async function ownerFixture(db:Pool){
  const admin=new PublishingAdmin(db,async()=>({actorId:'local-fixture'}));
  const template=await admin.createTemplate(`fixture-${randomUUID()}`,1);
  const shops:string[]=[],pages:PageRef[]=[];
- for(const slug of ['one','two']){const shop=(await db.query('INSERT INTO shops(slug,name)VALUES($1,$2)RETURNING id',[slug,`Shop ${slug}`])).rows[0].id;shops.push(shop);const page=await admin.createPage(shop,template,defaultConfig(`Shop ${slug}`),slug);pages.push(page);await admin.publish(page,1);}
+ for(const slug of ['one','two']){const shop=(await db.query('INSERT INTO shops(slug,name)VALUES($1,$2)RETURNING id',[slug,`Shop ${slug}`])).rows[0].id;shops.push(shop);const page=await admin.createPage(shop,template,pageFromTemplate(DEFAULT_TEMPLATE,`Shop ${slug}`),slug);pages.push(page);await admin.publish(page,1);}
  const auth=new OwnerAuth(db),users=[];
  for(let i=0;i<2;i++){const username=`owner-${randomUUID().slice(0,8)}`,password=randomBytes(20).toString('hex');const id=await auth.bootstrap(username,password,async()=>{});
  await db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')",[id,shops[i]]);const session=await auth.login(username,password);users.push({id,username,password,token:session.token});}

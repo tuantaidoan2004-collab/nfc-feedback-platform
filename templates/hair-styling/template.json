@@ -1,0 +1,450 @@
+{
+  "key": "hair-styling",
+  "number": 10,
+  "name": "Hair styling",
+  "groups": [
+    "Only Background",
+    "Trong suốt"
+  ],
+  "about": "Ảnh đứng yên phía sau, một dải nâu trong mờ chạy dọc làm nền phụ; nút Google vàng đồng, nút mạng xã hội có đuôi, khúc mẹo chăm tóc.",
+  "doc": {
+    "v": 1,
+    "backdrop": {
+      "src": "art:hair"
+    },
+    "band": {
+      "x": 79,
+      "w": 232,
+      "fill": "#6e4e3a9e",
+      "blur": 2
+    },
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 540,
+        "els": [
+          {
+            "id": "nganh",
+            "t": "text",
+            "x": 79,
+            "y": 40,
+            "w": 232,
+            "h": 36,
+            "words": {
+              "vi": "HAIR SALON"
+            },
+            "font": "display",
+            "size": 25,
+            "color": "#ffffff",
+            "spacing": 6,
+            "motion": {
+              "in": "fade",
+              "at": 100
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 79,
+            "y": 70,
+            "w": 232,
+            "h": 60,
+            "words": {
+              "vi": "Tên Salon"
+            },
+            "font": "script",
+            "size": 40,
+            "color": "#ffffff",
+            "r": -4,
+            "motion": {
+              "in": "fade",
+              "at": 250
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "g",
+            "x": 88,
+            "y": 238,
+            "w": 214,
+            "h": 46,
+            "bg": {
+              "kind": "linear",
+              "angle": 180,
+              "stops": [
+                [
+                  "#f1dda6",
+                  0
+                ],
+                [
+                  "#c9a24f",
+                  55
+                ],
+                [
+                  "#9b7432",
+                  100
+                ]
+              ]
+            },
+            "fg": "#ffffff",
+            "motion": {
+              "in": "pop",
+              "at": 450
+            }
+          },
+          {
+            "id": "cam-on",
+            "t": "text",
+            "x": 88,
+            "y": 288,
+            "w": 214,
+            "h": 28,
+            "words": {
+              "vi": "Chúng tôi sẽ rất cảm kích nếu nhận được đánh giá Google của bạn.",
+              "en": "We would really appreciate your Google review."
+            },
+            "font": "sans",
+            "size": 10.5,
+            "color": "#ffffff",
+            "line": 1.35,
+            "motion": {
+              "in": "fade",
+              "at": 550
+            }
+          },
+          {
+            "id": "mxh",
+            "t": "stack",
+            "x": 100,
+            "y": 322,
+            "w": 200,
+            "h": 160,
+            "gap": 10,
+            "align": "start",
+            "kids": [
+              {
+                "id": "instagram",
+                "t": "button",
+                "look": "tail",
+                "icon": "instagram",
+                "label": {
+                  "vi": "instagram"
+                },
+                "link": "https://www.instagram.com/",
+                "h": 28,
+                "w": 136,
+                "size": 15
+              },
+              {
+                "id": "tiktok",
+                "t": "button",
+                "look": "tail",
+                "icon": "tiktok",
+                "label": {
+                  "vi": "TikTok"
+                },
+                "link": "https://www.tiktok.com/",
+                "h": 28,
+                "w": 136,
+                "size": 15
+              },
+              {
+                "id": "facebook",
+                "t": "button",
+                "look": "tail",
+                "icon": "facebook",
+                "label": {
+                  "vi": "FaceBook"
+                },
+                "link": "https://www.facebook.com/",
+                "h": 28,
+                "w": 136,
+                "size": 15
+              },
+              {
+                "id": "dat-lich",
+                "t": "button",
+                "look": "link",
+                "icon": "globe",
+                "label": {
+                  "vi": "Book lịch lần tới",
+                  "en": "Book your next visit"
+                },
+                "link": "https://quitesensational-review-bio.com/",
+                "h": 28,
+                "w": 190,
+                "size": 15,
+                "weight": 500,
+                "fg": "#1a1a1a"
+              }
+            ],
+            "motion": {
+              "in": "rise",
+              "at": 650
+            }
+          },
+          {
+            "id": "gach",
+            "t": "shape",
+            "shape": "line",
+            "x": 86,
+            "y": 488,
+            "w": 218,
+            "h": 1.6,
+            "fill": "#ffffff"
+          },
+          {
+            "id": "handle",
+            "t": "text",
+            "x": 79,
+            "y": 498,
+            "w": 232,
+            "h": 20,
+            "words": {
+              "vi": "@tensalon"
+            },
+            "font": "sans",
+            "size": 14,
+            "color": "#ffffff"
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 466,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "name": "Mẹo chăm tóc",
+        "h": 560,
+        "els": [
+          {
+            "id": "tips",
+            "t": "text",
+            "x": 79,
+            "y": 24,
+            "w": 232,
+            "h": 32,
+            "words": {
+              "vi": "TIPS"
+            },
+            "font": "display",
+            "size": 26,
+            "color": "#ffffff",
+            "spacing": 4,
+            "motion": {
+              "in": "fade"
+            }
+          },
+          {
+            "id": "tips-2",
+            "t": "text",
+            "x": 79,
+            "y": 56,
+            "w": 232,
+            "h": 30,
+            "words": {
+              "vi": "BEAUTY SALON"
+            },
+            "font": "display",
+            "size": 21,
+            "color": "#ffffff",
+            "spacing": 3,
+            "motion": {
+              "in": "fade",
+              "at": 100
+            }
+          },
+          {
+            "id": "tips-3",
+            "t": "text",
+            "x": 79,
+            "y": 82,
+            "w": 232,
+            "h": 46,
+            "words": {
+              "vi": "Hairdressing"
+            },
+            "font": "script",
+            "size": 32,
+            "color": "#ffffff",
+            "r": -4,
+            "motion": {
+              "in": "fade",
+              "at": 200
+            }
+          },
+          {
+            "id": "meo-icon-0",
+            "t": "icon",
+            "icon": "shampoo",
+            "color": "#ffffff",
+            "x": 177,
+            "y": 146,
+            "w": 36,
+            "h": 38,
+            "motion": {
+              "in": "pop",
+              "at": 300
+            }
+          },
+          {
+            "id": "meo-0",
+            "t": "text",
+            "x": 89,
+            "y": 188,
+            "w": 212,
+            "h": 34,
+            "words": {
+              "vi": "Chọn dầu gội hợp với\ntóc của bạn",
+              "en": "Choose the right shampoo\nfor your hair."
+            },
+            "font": "sans",
+            "size": 12.5,
+            "color": "#ffffff",
+            "line": 1.3,
+            "motion": {
+              "in": "fade",
+              "at": 350
+            }
+          },
+          {
+            "id": "meo-icon-1",
+            "t": "icon",
+            "icon": "conditioner",
+            "color": "#ffffff",
+            "x": 177,
+            "y": 232,
+            "w": 36,
+            "h": 38,
+            "motion": {
+              "in": "pop",
+              "at": 420
+            }
+          },
+          {
+            "id": "meo-1",
+            "t": "text",
+            "x": 89,
+            "y": 274,
+            "w": 212,
+            "h": 18,
+            "words": {
+              "vi": "Dầu xả phù hợp",
+              "en": "Perfect hair conditioner"
+            },
+            "font": "sans",
+            "size": 12.5,
+            "color": "#ffffff",
+            "line": 1.3,
+            "motion": {
+              "in": "fade",
+              "at": 470
+            }
+          },
+          {
+            "id": "meo-icon-2",
+            "t": "icon",
+            "icon": "jar",
+            "color": "#ffffff",
+            "x": 177,
+            "y": 318,
+            "w": 36,
+            "h": 38,
+            "motion": {
+              "in": "pop",
+              "at": 540
+            }
+          },
+          {
+            "id": "meo-2",
+            "t": "text",
+            "x": 89,
+            "y": 360,
+            "w": 212,
+            "h": 18,
+            "words": {
+              "vi": "Ủ tóc",
+              "en": "Hair mask"
+            },
+            "font": "sans",
+            "size": 12.5,
+            "color": "#ffffff",
+            "line": 1.3,
+            "motion": {
+              "in": "fade",
+              "at": 590
+            }
+          },
+          {
+            "id": "meo-icon-3",
+            "t": "icon",
+            "icon": "capsule",
+            "color": "#ffffff",
+            "x": 177,
+            "y": 404,
+            "w": 36,
+            "h": 38,
+            "motion": {
+              "in": "pop",
+              "at": 660
+            }
+          },
+          {
+            "id": "meo-3",
+            "t": "text",
+            "x": 89,
+            "y": 446,
+            "w": 212,
+            "h": 18,
+            "words": {
+              "vi": "Vitamin cho tóc",
+              "en": "Hair vitamin"
+            },
+            "font": "sans",
+            "size": 12.5,
+            "color": "#ffffff",
+            "line": 1.3,
+            "motion": {
+              "in": "fade",
+              "at": 710
+            }
+          },
+          {
+            "id": "handle-2",
+            "t": "text",
+            "x": 79,
+            "y": 500,
+            "w": 232,
+            "h": 20,
+            "words": {
+              "vi": "@tensalon"
+            },
+            "font": "sans",
+            "size": 14,
+            "color": "#ffffff"
+          },
+          {
+            "id": "gach-2",
+            "t": "shape",
+            "shape": "line",
+            "x": 86,
+            "y": 534,
+            "w": 218,
+            "h": 1.6,
+            "fill": "#ffffff"
+          }
+        ]
+      }
+    ]
+  }
+}

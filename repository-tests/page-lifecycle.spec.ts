@@ -15,7 +15,7 @@ import {PublishingAdmin,PublishingResolver,type PageRef} from '../lib/publishing
 import {publishingVisitPolicy} from '../lib/publishing/visit-policy';
 import {VisitRatingRepository} from '../lib/repositories/visit-ratings';
 import type {RenderContext} from '../lib/publishing/proof';
-import { templateConfig } from '../lib/publishing/templates';
+import { pageFromTemplate } from '../lib/canvas/templates';
 
 /**
  * Lát P4 (migration 026, docs/goi-va-trang.md mục 5): draft → live ⇄ paused → closed. Paused keeps everything and says
@@ -34,7 +34,7 @@ const test=base.extend<{f:F}>({f:async({},provide)=>{
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 async function shopOn(f:F,n=1){
- const made=await f.shops.create(f.actorId,{name:`Quán ${n}`,ownerUsername:`quan-${n}`,ownerEmail:`q${n}@example.com`,placeId:'ChIJN1t_tDeuEmsRUsoyG83frY4',templateKey:'minimal'});
+ const made=await f.shops.create(f.actorId,{name:`Quán ${n}`,ownerUsername:`quan-${n}`,ownerEmail:`q${n}@example.com`,placeId:'ChIJN1t_tDeuEmsRUsoyG83frY4',templateKey:'nut-don'});
  await new OwnerSetupLinks(f.db).consume(made.setupToken,`password-of-quan-${n}`);
  const token=(await new OwnerAuth(f.db).login(`quan-${n}`,`password-of-quan-${n}`)).token,cards=new OwnerCards(f.db);
  await cards.update(token,made.slug,{id:(await cards.list(token,made.slug)).cards[0].id,state:'active'});
@@ -64,7 +64,7 @@ test("the owner's emergency stop: at once, for the link and every card, nothing 
  expect((await incidents.open()).length).toBe(1);
  expect((await f.db.query("SELECT action FROM shop_activity WHERE action LIKE 'page.%' ORDER BY id")).rows.map(r=>r.action)).toEqual(['page.pause','page.resume']);
  // A draft page has nothing live to stop, and only the owner may stop a page.
- const draft=await new OwnerPages(f.db).create(shop.token,shop.slug,{template:'minimal',label:''});
+ const draft=await new OwnerPages(f.db).create(shop.token,shop.slug,{template:'party',label:''});
  await expect(life.pause(shop.token,shop.slug,{action:'pause',page:draft.slug,reason:'x'})).rejects.toMatchObject({code:'PAGE_NOT_LIVE'});
  const auth=new OwnerAuth(f.db),id=await auth.bootstrap('quan-ly','password-of-quan-ly',async()=>{});
  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[id,shop.shopId]);
@@ -124,9 +124,9 @@ test('a closed page is gone for good: its link and cards answer "không tồn t�
  await expect(f.db.query("UPDATE pages SET label='x' WHERE id=$1",[shop.pageId])).rejects.toThrow('PAGE_CLOSED');
  // Its data stays (how long is still open, docs/goi-va-trang.md mục 9), and its link is never issued again.
  expect((await f.db.query('SELECT count(*)::int n FROM page_releases WHERE page_id=$1',[shop.pageId])).rows[0].n).toBe(1);
- const template=(await f.db.query("SELECT id FROM template_versions WHERE template_key='minimal'")).rows[0].id;
- await expect(admin.createPage(shop.shopId,template,templateConfig('minimal'),shop.slug)).rejects.toThrow('duplicate key');
+ const template=(await f.db.query("SELECT id FROM template_versions WHERE template_key='nut-don'")).rows[0].id;
+ await expect(admin.createPage(shop.shopId,template,pageFromTemplate('nut-don','Quán'),shop.slug)).rejects.toThrow('duplicate key');
  // With no link named, the dashboard opens the first page that is still open.
- const next=await new OwnerPages(f.db).create(shop.token,shop.slug,{template:'minimal',label:'Mới'});
+ const next=await new OwnerPages(f.db).create(shop.token,shop.slug,{template:'party',label:'Mới'});
  expect((await design.read(shop.token,shop.slug)).page.slug).toBe(next.slug);
 });

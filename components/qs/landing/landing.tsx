@@ -8,7 +8,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import styles from './landing.module.css';
-import type { TemplateCard } from '@/lib/publishing/templates';
+import type { TemplateCard } from '@/lib/canvas/templates';
+import PageThumb from '@/components/canvas/thumb';
 
 type Panel = 'product' | 'customer' | 'template' | 'pricing';
 const PANELS: [Panel, string][] = [['product', 'Product'], ['customer', 'Customer'], ['template', 'Template'], ['pricing', 'Pricing']];
@@ -56,7 +57,8 @@ export default function Landing({ templates }: { templates: TemplateCard[] }) {
         <Link href="/bat-dau" className={styles.start}>Bắt đầu</Link></div>}
       {open === 'template' && <div style={{ display: 'grid', gap: 16 }}>
         <div className={styles.megaGrid}>{templates.slice(0, 6).map(card =>
-          <Link key={card.key} href="/templates" className={styles.templateTile} style={{ background: `linear-gradient(${card.angle}deg, ${card.colors.join(', ')})` }}>{card.name}</Link>)}</div>
+          <Link key={card.key} href={`/templates/${card.key}`} className={styles.templateTile}>
+            <PageThumb src={`/templates/${card.key}?anh=1`} title={`Mẫu ${card.name}`} /><span>{card.name}</span></Link>)}</div>
         <Link href="/templates" className={styles.start} style={{ justifySelf: 'center', background: '#0b0b0c', boxShadow: 'none' }}>Khám phá</Link></div>}
       {open === 'pricing' && <div className={styles.megaGrid}>
         <Link href="/pricing" className={styles.tile}><div><strong>Đầy đủ</strong><br /><small>100.000đ/tháng · tối đa 4 thẻ public</small></div><span>Xem bảng giá →</span></Link>

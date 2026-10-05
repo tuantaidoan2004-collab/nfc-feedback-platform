@@ -1,0 +1,174 @@
+{
+  "key": "nen-ca-phe",
+  "number": 9,
+  "name": "Nền cà phê đơn giản",
+  "groups": [
+    "Only Background"
+  ],
+  "about": "Ảnh ly cà phê toàn khung, chữ uốn cong trên miệng ly, hai ngôi sao xanh, nút Google kính có bàn tay chạm, nút wifi viết tay.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 740,
+        "bg": {
+          "src": "art:latte"
+        },
+        "els": [
+          {
+            "id": "chu-cong",
+            "t": "text",
+            "x": 50,
+            "y": 26,
+            "w": 290,
+            "h": 140,
+            "words": {
+              "vi": "Life begins after coffee"
+            },
+            "font": "sans",
+            "size": 25,
+            "color": "#ffffff",
+            "weight": 300,
+            "arc": 150,
+            "shadow": {
+              "x": 0,
+              "y": 1,
+              "blur": 6,
+              "color": "#00000059"
+            },
+            "motion": {
+              "in": "fade",
+              "at": 100
+            }
+          },
+          {
+            "id": "handle",
+            "t": "text",
+            "x": 120,
+            "y": 60,
+            "w": 150,
+            "h": 16,
+            "words": {
+              "vi": "@tenquan"
+            },
+            "font": "sans",
+            "size": 10.5,
+            "color": "#ffffff",
+            "motion": {
+              "in": "fade",
+              "at": 300
+            }
+          },
+          {
+            "id": "sao-1",
+            "t": "shape",
+            "shape": "burst",
+            "x": 306,
+            "y": -8,
+            "w": 88,
+            "h": 88,
+            "fill": "#3bb08f",
+            "motion": {
+              "in": "pop",
+              "at": 200,
+              "loop": "spin"
+            }
+          },
+          {
+            "id": "sao-2",
+            "t": "shape",
+            "shape": "burst",
+            "x": -10,
+            "y": 146,
+            "w": 82,
+            "h": 82,
+            "fill": "#3bb08f",
+            "motion": {
+              "in": "pop",
+              "at": 300,
+              "loop": "spin"
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "glass",
+            "x": 49,
+            "y": 356,
+            "w": 276,
+            "h": 46,
+            "motion": {
+              "in": "rise",
+              "at": 500
+            }
+          },
+          {
+            "id": "loi-moi",
+            "t": "text",
+            "x": 30,
+            "y": 420,
+            "w": 330,
+            "h": 46,
+            "words": {
+              "vi": "Hãy để lại chút kỷ niệm nơi đây nhé,\nbạn yêu dấu ơi!",
+              "en": "Leave a little memory of this place,\ndear friend!"
+            },
+            "font": "sans",
+            "size": 15,
+            "color": "#ffffff",
+            "weight": 700,
+            "line": 1.35,
+            "shadow": {
+              "x": 0,
+              "y": 1,
+              "blur": 6,
+              "color": "#00000073"
+            },
+            "motion": {
+              "in": "fade",
+              "at": 700
+            }
+          },
+          {
+            "id": "wifi",
+            "t": "button",
+            "look": "note",
+            "icon": "wifi",
+            "label": {
+              "vi": "Ấn đây để kết nối wifi",
+              "en": "Tap for the wifi"
+            },
+            "wifi": {
+              "name": "Ten-Quan-Wifi",
+              "pass": "matkhauwifi"
+            },
+            "x": 214,
+            "y": 486,
+            "w": 136,
+            "h": 54,
+            "r": -7,
+            "size": 14,
+            "motion": {
+              "in": "pop",
+              "at": 900,
+              "loop": "bob"
+            }
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 666,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

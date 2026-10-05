@@ -1,0 +1,340 @@
+{
+  "key": "party",
+  "number": 5,
+  "name": "Interactive card · Party",
+  "groups": [
+    "Interactive cards"
+  ],
+  "about": "Thẻ chính tối kiểu party, các thẻ màu ló sau lưng (1–4 thẻ, mỗi thẻ một mạng xã hội); bấm thẻ thì rút ra, bấm lần nữa mới mở.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 690,
+        "bg": {
+          "fill": "#1d1529"
+        },
+        "els": [
+          {
+            "id": "cong-1",
+            "t": "shape",
+            "shape": "plus",
+            "x": 84,
+            "y": 76,
+            "w": 14,
+            "h": 14,
+            "fill": "#ff4fa3",
+            "motion": {
+              "in": "pop",
+              "at": 500,
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "cong-2",
+            "t": "shape",
+            "shape": "plus",
+            "x": 206,
+            "y": 58,
+            "w": 12,
+            "h": 12,
+            "fill": "#b59cff",
+            "motion": {
+              "in": "pop",
+              "at": 600,
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "cong-3",
+            "t": "shape",
+            "shape": "plus",
+            "x": 72,
+            "y": 336,
+            "w": 12,
+            "h": 12,
+            "fill": "#b59cff",
+            "motion": {
+              "in": "pop",
+              "at": 700,
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "cong-4",
+            "t": "shape",
+            "shape": "plus",
+            "x": 84,
+            "y": 456,
+            "w": 14,
+            "h": 14,
+            "fill": "#ff4fa3",
+            "motion": {
+              "in": "pop",
+              "at": 800,
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "cong-5",
+            "t": "shape",
+            "shape": "plus",
+            "x": 326,
+            "y": 548,
+            "w": 13,
+            "h": 13,
+            "fill": "#b59cff",
+            "motion": {
+              "in": "pop",
+              "at": 900,
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "mui-ten",
+            "t": "shape",
+            "shape": "arrow",
+            "x": 236,
+            "y": 540,
+            "w": 76,
+            "h": 44,
+            "fill": "#b59cff",
+            "motion": {
+              "in": "fade",
+              "at": 1000
+            }
+          },
+          {
+            "id": "tim",
+            "t": "shape",
+            "shape": "heart",
+            "x": 280,
+            "y": 560,
+            "w": 50,
+            "h": 46,
+            "fill": "#b59cff",
+            "motion": {
+              "in": "pop",
+              "at": 1100,
+              "loop": "pulse"
+            }
+          },
+          {
+            "id": "ngon-ngu",
+            "t": "lang",
+            "look": "select",
+            "color": "#ffffff",
+            "x": 43,
+            "y": 16,
+            "w": 307,
+            "h": 32,
+            "label": true
+          },
+          {
+            "id": "the-bai",
+            "t": "deck",
+            "look": "party",
+            "x": 84,
+            "y": 72,
+            "w": 264,
+            "h": 330,
+            "motion": {
+              "in": "pop",
+              "at": 150
+            },
+            "front": {
+              "tilt": 2,
+              "pad": 0,
+              "gap": 8,
+              "panel": {
+                "fill": {
+                  "kind": "linear",
+                  "angle": 180,
+                  "stops": [
+                    [
+                      "#2e2548",
+                      0
+                    ],
+                    [
+                      "#221b37",
+                      100
+                    ]
+                  ]
+                },
+                "radius": 24,
+                "edge": {
+                  "w": 1,
+                  "color": "#ffffff26"
+                },
+                "shadow": {
+                  "x": 0,
+                  "y": 18,
+                  "blur": 40,
+                  "color": "#00000088"
+                },
+                "top": 28
+              },
+              "kids": [
+                {
+                  "id": "chu-dau",
+                  "t": "text",
+                  "w": 56,
+                  "h": 56,
+                  "words": {
+                    "vi": "P"
+                  },
+                  "font": "sans",
+                  "size": 24,
+                  "color": "#1d1529",
+                  "weight": 900,
+                  "disc": {
+                    "fill": "#ffffff",
+                    "edge": {
+                      "w": 5,
+                      "color": "#1d1529"
+                    }
+                  }
+                },
+                {
+                  "id": "ten-quan",
+                  "t": "text",
+                  "h": 38,
+                  "words": {
+                    "vi": "Party"
+                  },
+                  "font": "rounded",
+                  "size": 28,
+                  "color": "#ffffff",
+                  "weight": 900
+                },
+                {
+                  "id": "loi-moi",
+                  "t": "text",
+                  "w": 220,
+                  "h": 32,
+                  "words": {
+                    "vi": "Thật tuyệt nếu nhận được đánh giá của bạn trên:",
+                    "en": "We would love to hear your review on:"
+                  },
+                  "font": "sans",
+                  "size": 11.5,
+                  "color": "#c3bbd6",
+                  "line": 1.35
+                },
+                {
+                  "id": "google",
+                  "t": "google",
+                  "look": "g",
+                  "h": 50,
+                  "w": 226,
+                  "bg": "#ffffff",
+                  "fg": "#111111"
+                },
+                {
+                  "id": "cam-on",
+                  "t": "text",
+                  "w": 226,
+                  "h": 30,
+                  "words": {
+                    "vi": "Chúng tôi sẽ rất cảm kích nếu nhận được đánh giá Google của bạn.",
+                    "en": "We would really appreciate your Google review."
+                  },
+                  "font": "sans",
+                  "size": 10.5,
+                  "color": "#c3bbd6",
+                  "line": 1.35
+                },
+                {
+                  "id": "phap-ly",
+                  "t": "legal",
+                  "h": 46,
+                  "w": 230,
+                  "color": "#c3bbd6",
+                  "size": 10.5
+                }
+              ]
+            },
+            "cards": [
+              {
+                "icon": "instagram",
+                "label": {
+                  "vi": "Instagram"
+                },
+                "link": "https://www.instagram.com/",
+                "fill": {
+                  "kind": "linear",
+                  "angle": 160,
+                  "stops": [
+                    [
+                      "#ff6fb7",
+                      0
+                    ],
+                    [
+                      "#ff3d96",
+                      100
+                    ]
+                  ]
+                }
+              },
+              {
+                "icon": "tiktok",
+                "label": {
+                  "vi": "TikTok"
+                },
+                "link": "https://www.tiktok.com/",
+                "fill": {
+                  "kind": "linear",
+                  "angle": 160,
+                  "stops": [
+                    [
+                      "#8f74ff",
+                      0
+                    ],
+                    [
+                      "#6a4cf0",
+                      100
+                    ]
+                  ]
+                }
+              },
+              {
+                "icon": "zalo",
+                "label": {
+                  "vi": "Zalo"
+                },
+                "link": "https://zalo.me/",
+                "fill": {
+                  "kind": "linear",
+                  "angle": 160,
+                  "stops": [
+                    [
+                      "#3fd6c6",
+                      0
+                    ],
+                    [
+                      "#1fb3a6",
+                      100
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 616,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

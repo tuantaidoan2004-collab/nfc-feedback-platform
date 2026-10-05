@@ -11,7 +11,7 @@ import Icon from '../icons';
 
 type Page = { slug: string; label: string | null; state: string; createdAt: string };
 type Card = { id: string; code: string; label: string; state: string; page: string };
-const PAGE_STATES: Record<string, string> = { draft: 'Chưa phát hành', published: 'Đã phát hành', paused: 'Tạm dừng', closed: 'Đã đóng' };
+const PAGE_STATES: Record<string, string> = { draft: 'Chưa phát hành', active: 'Đã phát hành', paused: 'Tạm dừng', closed: 'Đã đóng' };
 const CARD_STATES: Record<string, string> = { prepared: 'Chưa kích hoạt', tested: 'Đã thử', active: 'Đang hoạt động', disabled: 'Đã tắt' };
 
 export default function MyCardTab({ slug, origin }: TabProps) {
@@ -38,6 +38,7 @@ export default function MyCardTab({ slug, origin }: TabProps) {
           <div><h2>{page.label || 'Trang chưa đặt tên'}</h2><span className={styles.dot} data-state={page.state}>{PAGE_STATES[page.state] ?? page.state}</span></div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="qs-btn ghost small" onClick={() => void copy(url)}><Icon name="link" size={16} /> Sao chép link</button>
+            <Link className="qs-btn ghost small" href={`/app/${slug}/sua/${page.slug}`}><Icon name="pencil" size={16} /> Sửa trang</Link>
             <a className="qs-btn small" href={url} target="_blank" rel="noreferrer">Mở trang</a>
           </div>
         </div>

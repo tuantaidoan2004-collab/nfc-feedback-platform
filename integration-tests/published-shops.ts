@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
 import { PublishingAdmin } from '../lib/publishing/repository';
-import { defaultConfig } from '../lib/publishing/config';
+import { DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
 
 /**
  * The public suites' two shops, each with a page published at the shop's own link (lát A3b). The guest page has one
@@ -15,7 +15,8 @@ export async function publishedShops(db: Pool) {
   const existing = (await db.query<{ id: string }>("SELECT id FROM template_versions WHERE template_key='neutral' AND version=1")).rows[0]?.id;
   const template = existing ?? await admin.createTemplate('neutral', 1);
   for (const shop of bare) {
-    const page = await admin.createPage(shop.id, template, { ...defaultConfig(shop.name), googleUrl: shop.google_url ?? 'https://maps.google.com/' }, shop.slug);
+    // A canvas page from the default template; the Google button takes the shop's own link (shops.google_url).
+    const page = await admin.createPage(shop.id, template, pageFromTemplate(DEFAULT_TEMPLATE, shop.name), shop.slug);
     await admin.publish(page, 1);
   }
 }

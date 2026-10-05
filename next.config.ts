@@ -21,9 +21,10 @@ const config: NextConfig = { ...(standalone ? { output: 'standalone' as const } 
       // The page list's pictures (lát P3) are this app's own pages framed by this app's own dashboard, and nothing else may
       // frame them (proxy.ts gives them frame-ancestors 'self').
       { source: '/ZZZ/:shop/thumb/:page', headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }] },
-      // A draft link (lát D4) carries its draft in the path: never cached, never sent on as a referrer when the Google button
-      // is tapped, and framed only by this app's own builder.
-      { source: '/thu/:token', headers: [...PRIVATE, { key: 'X-Frame-Options', value: 'SAMEORIGIN' }] },
+      // A template drawn as a guest page (đợt ②) is framed, small, by the Library and the public gallery, and by nothing else.
+      { source: '/templates/:key', headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }] },
+      // A draft waiting for a shop's first publish (kịch bản mục 4), drawn small in /gov's list.
+      { source: '/gov/xem/:page', headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }] },
     ];
   } };
 export default config;

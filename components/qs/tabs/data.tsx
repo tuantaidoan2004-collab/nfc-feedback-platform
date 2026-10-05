@@ -25,7 +25,7 @@ export function Stars({ value }: { value: number | null }) {
   return <span className={styles.stars} aria-label={`${value} trên 5 sao`}>{'★★★★★'.split('').map((star, i) => <span key={i} className={i < value ? '' : styles.off}>{star}</span>)}</span>;
 }
 
-export default function DataTab({ slug }: TabProps) {
+export default function DataTab({ slug, role }: TabProps) {
   const [range, setRange] = useState<keyof typeof RANGES>(30), [filter, setFilter] = useState<'all' | 'private' | 'google'>('all');
   const [rows, setRows] = useState<Experience[] | null>(null), [error, setError] = useState(''), [open, setOpen] = useState<string | null>(null), [since, setSince] = useState(0);
   const google = useGoogleBusiness(slug);
@@ -87,7 +87,10 @@ export default function DataTab({ slug }: TabProps) {
           </div>
         </button>
         <span className={styles.status} data-status={item.status}>{item.kind === 'google' ? (item.reply ? 'Đã trả lời' : 'Chưa trả lời') : STATUS[item.status] ?? 'Chỉ chấm sao'}</span>
-        {open === item.key && (item.kind === 'private' && item.raw?.message ? <CaseEditor slug={slug} row={item.raw} onSaved={load} />
+        {/* A support session reads, never handles: the server refuses its writes, so it is offered none (lát D2). */}
+        {open === item.key && (item.kind === 'private' && item.raw?.message ? (role === 'support'
+          ? <p className={`qs-small qs-muted ${styles.detail}`} data-read-only>Quản trị chỉ đọc góp ý, không đổi trạng thái hay ghi chú.</p>
+          : <CaseEditor slug={slug} row={item.raw} onSaved={load} />)
           : item.kind === 'google' ? <GoogleReply reply={item.reply} simulated={connection?.mode === 'simulated'} /> : null)}
       </li>)}</ul>}
   </div>;

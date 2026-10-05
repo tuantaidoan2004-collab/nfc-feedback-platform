@@ -43,7 +43,7 @@ async function shopTwo(f:F){
  const managerToken=(await f.auth.login('quan-ly-b','password-of-quan-ly-b')).token;
  // A reply that names shop one's owner (not a member here) and shop two's owner, who gets a notification.
  const reply=await comments.create(managerToken,'two',{sessionId:guest.session.sessionId,body:`Gọi lại khách @${f.users[0].username} @${f.users[1].username}`});
- const page=await new OwnerPages(f.db).create(owner,'two',{template:'minimal',label:'Trang B2'});
+ const page=await new OwnerPages(f.db).create(owner,'two',{template:'party',label:'Trang B2'});
  const notification=(await f.db.query('SELECT id FROM owner_notifications WHERE user_id=$1',[f.users[1].id])).rows[0].id as string;
  const release=(await f.db.query('SELECT id FROM page_releases WHERE shop_id=$1 LIMIT 1',[f.shops[1]])).rows[0].id as string;
  return {session:guest.session.sessionId,card,reply:reply.id,manager:invited.userId,staff:staff.id,managerRole:manager.id,page:page.slug,notification,release,mentioned:reply.notified};
@@ -75,7 +75,6 @@ test("naming shop two's link: every door of the dashboard refuses shop one's own
   ['cards.list',()=>cards.list(a,'two')],['cards.create',()=>cards.create(a,'two',{label:'x'})],['cards.update',()=>cards.update(a,'two',{id:b.card.id,label:'x'})],
   ['design.read',()=>design.read(a,'two')],['design.save',()=>design.save(a,'two',{expectedRevision:2,config:{}})],
   ['design.publish',()=>design.publish(a,'two',{action:'publish',expectedRevision:2})],['design.preview',()=>design.preview(a,'two',{action:'preview',expectedRevision:2})],
-  ['design.version',()=>design.version(a,'two',{action:'version',expectedRevision:2,version:1})],['design.template',()=>design.template(a,'two',{action:'template',expectedRevision:2,template:'glass'})],
   ['pages.list',()=>pages.list(a,'two')],['pages.create',()=>pages.create(a,'two',{copy:'two',label:''})],['pages.rename',()=>pages.rename(a,'two',{page:'two',label:'x'})],
   ['pages.pause',()=>life.pause(a,'two',{action:'pause',page:'two',reason:'x'})],['pages.resume',()=>life.resume(a,'two',{action:'resume',page:'two'})],
   ['comments.list',()=>comments.list(a,'two',b.session)],['comments.create',()=>comments.create(a,'two',{sessionId:b.session,body:'x'})],

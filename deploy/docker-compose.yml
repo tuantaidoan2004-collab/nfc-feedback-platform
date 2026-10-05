@@ -35,21 +35,22 @@ services:
     healthcheck: { test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/status"], interval: 5s, retries: 30 }
     restart: unless-stopped
 
-  migrate:
+  # The database from db/schema.sql (scripts/apply-schema.mjs): built once on an empty database, never changed under data.
+  schema:
     build: { context: .., dockerfile: Dockerfile }
     image: nfc-platform
     pull_policy: build
-    command: ["node", "scripts/migrate.mjs"]
+    command: ["node", "scripts/apply-schema.mjs"]
     environment: { DATABASE_URL: "postgresql://nfc:${DB_PASSWORD}@db:5432/nfc" }
     depends_on: { db: { condition: service_healthy } }
 
   app:
-    # The same image the migrate step builds; never pulled from a registry.
+    # The same image the schema step builds; never pulled from a registry.
     build: { context: .., dockerfile: Dockerfile }
     image: nfc-platform
     pull_policy: build
     depends_on:
-      migrate: { condition: service_completed_successfully }
+      schema: { condition: service_completed_successfully }
       store: { condition: service_healthy }
     ports: ["127.0.0.1:3000:3000"]
     environment:

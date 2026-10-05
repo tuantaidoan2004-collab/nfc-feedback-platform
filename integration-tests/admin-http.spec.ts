@@ -12,9 +12,6 @@ const uri=process.env.NFC_TEST_DATABASE_URL,schema=process.env.NFC_TEST_SCHEMA;
 if(uri!=='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test'||!/^nfc_ui_test_[a-f0-9]{32}$/.test(schema??''))throw Error('Isolated harness required');
 const secret='a-sufficiently-long-admin-secret';
 const origin='http://127.0.0.1:3317';
-// Lát S1: at a phone's width (this suite's default) Hoạt động, Cài đặt and Hồ sơ sit behind "Thêm", as a person
-// reaches them; this opens it first when needed.
-async function openView(page:Page,view:string){const button=page.locator(`[data-view="${view}"]`);if(!(await button.isVisible()))await page.locator('[data-more-button]').click();await button.click();}
 const test=base.extend<{admin:{db:Pool;username:string;app:Buffer}}>({admin:async({},provide)=>{
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`});
  try{await db.query('TRUNCATE platform_admins,admin_login_limits CASCADE');
@@ -97,12 +94,7 @@ test('production gate keeps administration closed even with the flag true',async
 });
 
 test('generate a shop, hand over the link, and the shop signs in on its own',async({page,admin})=>{
- await page.goto('/gov/login');
- await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
- await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
- await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
- await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await expect(page.getByRole('heading',{name:`Xin chào, ${admin.username}`})).toBeVisible();
+ await signIn(page,admin.username,admin.app);
 
  // The template comes first: one button, then a row marked as the template with its page live and no owner.
  await page.getByRole('button',{name:'Tạo shop template',exact:true}).click();
@@ -123,11 +115,12 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Place ID (bỏ trống nếu chưa có)',{exact:true}).fill('ChIJN1t_tDeuEmsRUsoyG83frY4');
- // Six templates to choose from (A33); template 1 is preselected so a hurried operator still gets the original page.
+ // The ten canvas templates (đợt ②); the plainest is preselected, so a hurried operator still gets a clean page.
  const choice=page.locator('select[data-template-choice]');
- await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Chồng thẻ','5 · Ánh sáng tụ','6 · Nút lớn']);
- await expect(choice).toHaveValue('standard');
- await choice.selectOption('glass');
+ await expect(choice.locator('option')).toHaveText(['Basic 1','Không gian thật','Hiện đại','Nút đơn','Interactive card · Party','Illustrate · Nha khoa','Khách sạn',
+  'Dynamic movement','Nền cà phê đơn giản','Hair styling']);
+ await expect(choice).toHaveValue('basic-1');
+ await choice.selectOption('party');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
 
  await expect(page.getByRole('heading',{name:'Gửi liên kết này cho chủ shop'})).toBeVisible();
@@ -138,19 +131,19 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await expect(page.locator('[data-handover-guide] a')).toHaveAttribute('href','/huong-dan-google');
  const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
- // What the shop would pay (lát P5): one running page on a free place.
- await expect(page.locator('tr',{has:page.getByRole('cell',{name:slug})}).locator('[data-shop-monthly]')).toHaveText('1 trang · 0đ/tháng');
- // Lát S1 (audit A5): on a phone each shop is a card whose cells name their column, and nothing scrolls sideways.
  const shopRow=page.locator('tr',{has:page.getByRole('cell',{name:slug})});
+ await expect(shopRow.locator('[data-label="Trang"]')).toHaveText('1 trang');
  await expect(shopRow.locator('[data-publishing-state]')).toHaveText('đang chạy');
+ // Lát S1 (audit A5): on a phone each shop is a card whose cells name their column, and nothing scrolls sideways.
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await shopRow.locator('[data-label="Chủ shop"]').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"Chủ shop"');
  await page.setViewportSize({width:1280,height:800});
- // The chosen skeleton is the release's template, and it reaches the guest page as a skin hook only.
+ // The page is a copy of the chosen template, with the shop's name where the template had "Tên quán"; a shop made here
+ // publishes at once (only a shop that signed itself up waits for its first publish).
  expect((await admin.db.query(`SELECT tv.template_key FROM shops s JOIN pages p ON p.shop_id=s.id JOIN page_releases r ON r.id=p.active_release_id
-   JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.slug=$1`,[slug])).rows).toEqual([{template_key:'glass'}]);
- expect(await (await page.request.get(`/${slug}`)).text()).toContain('data-template="glass"');
+   JOIN template_versions tv ON tv.id=r.template_version_id WHERE s.slug=$1`,[slug])).rows).toEqual([{template_key:'party'}]);
+ expect(await (await page.request.get(`/${slug}`)).text()).toContain('Cà Phê Ban Mai');
 
  // The shop opens the link itself and chooses a password the operator never sees.
  await page.goto(setupUrl);
@@ -159,22 +152,16 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Nhập lại',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
  // Straight on to this shop's own sign-in, the way the shop experiences it: no address to find by hand.
- await expect(page).toHaveURL(`${origin}/owner/login?next=${encodeURIComponent(`/ZZZ/${slug}`)}`);
+ await expect(page).toHaveURL(`${origin}/owner/login?next=${encodeURIComponent(`/app/${slug}`)}`);
  await page.getByLabel('@handle hoặc email',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
- await expect(page).toHaveURL(`${origin}/ZZZ/${slug}`);
- // The customer page is right there, to open on other phones: Trang bio drops down into every link (lát F1).
- const bio=page.locator(`[data-customer-link="${origin}/${slug}"]`);await expect(bio).toBeVisible();
- await bio.getByRole('button',{name:/Trang bio/}).click();
- await expect(bio.locator(`tr[data-landing="${slug}"]`).getByRole('link',{name:'Truy cập'})).toHaveAttribute('href',`${origin}/${slug}`);
-
- // The editor draws what template 3's version offers (lát P2): the two-colour scene and the plane, nothing else.
- await page.locator('[data-view="design"]').click();
- await expect(page.locator('[data-setting="background"] select option')).toHaveText(['Chuyển màu','Một màu']);
- await expect(page.locator('[data-setting="feedbackButton"]')).toBeVisible();
- await expect(page.locator('[data-setting="layout"], [data-setting="watermark"]')).toHaveCount(0);
+ await expect(page).toHaveURL(`${origin}/app/${slug}`);await expect(page.locator('[data-orb]')).toBeVisible();
+ // Its page is in My Card: the link to open on other phones, and the editor.
+ await page.goto(`/app/${slug}/my-card`);
+ const card=page.locator(`[data-my-card="${slug}"]`);await expect(card).toContainText('Đã phát hành');
+ await expect(card.getByRole('link',{name:'Mở trang'})).toHaveAttribute('href',`${origin}/${slug}`);
+ await card.getByRole('link',{name:'Sửa trang'}).click();await expect(page.getByLabel('Tên trang')).toHaveValue('Cà Phê Ban Mai');
 
  // Spent once: the same link is dead now that the password is set.
  await page.goto(setupUrl);
@@ -192,10 +179,11 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  // Still signed in as the shop owner above, whose account has no access to the template: start from signed out.
  await page.context().clearCookies({name:'nfc_owner_v2'});
  const signInTemplate=async(password:string)=>{
-  await page.goto(`/ZZZ/${templateSlug}`);
+  await page.goto(`/app/${templateSlug}`);
   await page.getByLabel('@handle hoặc email',{exact:true}).fill('yourshop');await page.getByLabel('Mật khẩu',{exact:true}).fill(password);
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  };
+ const inTemplate=async()=>{await expect(page).toHaveURL(`${origin}/app/${templateSlug}`);await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();};
  await signInTemplate('1');
  await expect(page.getByText('Không thể đăng nhập',{exact:false})).toBeVisible();
  await page.goto(templateSetup);
@@ -203,7 +191,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Nhập lại',{exact:true}).fill('template-password-one');
  await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
  await signInTemplate('template-password-one');
- await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ await inTemplate();
 
  // Password forgotten and the username locked out by failed attempts: one press closes the account and hands a new link.
  await page.context().clearCookies({name:'nfc_owner_v2'});
@@ -222,7 +210,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Nhập lại',{exact:true}).fill('template-password-two');
  await page.getByRole('button',{name:'Đặt mật khẩu',exact:true}).click();
  await signInTemplate('template-password-two');
- await expect(page.getByText('YOUR SHOP',{exact:true}).first()).toBeVisible();await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ await inTemplate();
 });
 
 test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{
@@ -254,16 +242,25 @@ async function signIn(page:Page,username:string,app:Buffer){
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page.getByRole('heading',{name:`Xin chào, ${username}`})).toBeVisible();
 }
-async function standIn(page:Page,shop:string,scope:'overview'|'feedback',reason:string){
+/** An owner signing in to their giao diện chính, in a browser of their own. */
+async function ownerSignIn(page:Page,username:string,password:string,slug:string){
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto(`/app/${slug}`);
+ await page.getByLabel('@handle hoặc email',{exact:true}).fill(username);await page.getByLabel('Mật khẩu',{exact:true}).fill(password);
+ await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await expect(page).toHaveURL(`${origin}/app/${slug}`);await expect(page.locator('[data-orb]')).toBeVisible();
+}
+async function standIn(page:Page,shop:string,scope:'overview'|'feedback'|'design',reason:string){
  await page.goto('/gov');
  await page.getByRole('row').filter({hasText:shop}).getByRole('button',{name:'Mạo danh',exact:true}).click();
  await page.getByRole('combobox',{name:'Phạm vi',exact:true}).selectOption(scope);
  await page.getByLabel('Lý do (chủ shop sẽ đọc)',{exact:true}).fill(reason);
  await page.getByRole('button',{name:'Mở dashboard',exact:true}).click();
+ // The strip says it is a support session, on every screen of it (components/qs/support-banner.tsx).
  await expect(page.locator(`[data-impersonation="${scope}"]`)).toBeVisible();
- // The banner is server-rendered; wait for the client's own data so clicks land after hydration.
- await expect(page.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ await expect(page.locator('[data-orb]')).toBeVisible();
 }
+const level=(page:Page,name:string)=>page.getByRole('radio',{name:new RegExp(`^${name}`)});
 
 test('impersonation: cookie stays on one shop, support never exports, feedback only while the owner allows it',async({page,context,browser,admin},info)=>{
  const shopName='Quán Hỗ Trợ',ownerPassword='chosen-by-the-shop';
@@ -284,22 +281,29 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  await admin.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
  await signIn(page,admin.username,admin.app);
  await standIn(page,shopName,'overview',overviewReason);
- await expect(page).toHaveURL(`${origin}/ZZZ/${made.slug}`);
+ await expect(page).toHaveURL(`${origin}/app/${made.slug}`);
  await expect(page.locator('[data-impersonation] [data-admin-badge="Quitesensational"]')).toContainText('@QuitesensationalAdmin Tài');
+ await expect(page.locator('[data-impersonation]')).toContainText(overviewReason);
  await page.locator('[data-impersonation]').screenshot({path:info.outputPath('admin-badge.png')});
- await expect(page.locator('[data-view="profile"]')).toHaveCount(0);
- await expect(page.locator('[data-kpi="private"] [data-kpi-value]')).toHaveText('1');
- await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
- await expect(page.locator('[data-metric="feedback"]')).toHaveText('1');
- await expect(page.locator('[data-message-for]')).toContainText('Nội dung góp ý đang ẩn với bạn.');
+ // On a phone the strip wraps to several lines; the frame leaves at least that much room under the last line of every tab
+ // (it once left 130px under a strip of 190, and the end of each tab stayed behind it).
+ await page.setViewportSize({width:390,height:844});
+ await expect.poll(()=>page.evaluate(()=>{const strip=document.querySelector('[data-impersonation]')!.getBoundingClientRect();
+  return parseFloat(getComputedStyle(document.querySelector('[data-support]')!).paddingBottom)>=innerHeight-strip.top;})).toBe(true);
+ await page.setViewportSize({width:1280,height:800});
+ // Overview: the guest left two stars; what they wrote stays hidden, and nothing offers to handle it.
+ await page.goto(`/app/${made.slug}/data`);await expect(page.locator('[data-impersonation="overview"]')).toBeVisible();
+ await expect(page.locator('[data-item="private"]')).toHaveCount(1);
  await expect(page.getByText('Góp ý kín của khách')).toHaveCount(0);
- for(const name of ['Lưu xử lý','Đăng xuất',/^Ghi chú/])await expect(page.getByRole('button',{name})).toHaveCount(0);
- await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
- await openView(page,'settings');
- for(const name of ['Tắt','Khấc 1 · Xem','Khấc 2 · Sửa','Khấc 3 · Toàn quyền'])await expect(page.getByRole('radio',{name:new RegExp(`^${name}`)})).toBeDisabled();
+ // No profile, no sign-out of the owner's account, no switches to move.
+ await page.goto(`/app/${made.slug}/cai-dat?view=profile`);
+ await expect(page.getByText('Quản trị đang xem thay mặt quán: không xem được hồ sơ cá nhân.')).toBeVisible();
+ await expect(page.locator('[data-sign-out]')).toHaveCount(0);
+ await page.goto(`/app/${made.slug}/quan-ly`);
+ for(const name of ['Tắt','Khấc 1 · Xem','Khấc 2 · Sửa','Khấc 3 · Toàn quyền'])await expect(level(page,name)).toBeDisabled();
 
  const cookies=(await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1');
- expect(cookies.map(c=>c.path).sort()).toEqual([`/ZZZ/${made.slug}`,`/api/owner/v2/${made.slug}`].sort());
+ expect(cookies.map(c=>c.path).sort()).toEqual([`/app/${made.slug}`,`/api/owner/v2/${made.slug}`].sort());
  expect(cookies.every(c=>c.httpOnly&&c.sameSite==='Strict')).toBe(true);
  const sent:string[]=[];
  page.on('request',r=>{if(r.isNavigationRequest())sent.push(r.headers()['cookie']??'');});
@@ -326,48 +330,40 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  expect(early.status()).toBe(403);
  expect(await early.json()).toEqual({error:'SUPPORT_NOT_GRANTED'});
 
- // The owner, in a browser of their own, switches reading on.
+ // The owner, in a browser of their own, switches reading on in Quản lý.
  const owner=await browser.newContext({baseURL:origin});
  try{
   const ownerPage=await owner.newPage();
-  await ownerPage.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
-  await ownerPage.goto(`/ZZZ/${made.slug}`);
-  await ownerPage.getByLabel('@handle hoặc email',{exact:true}).fill('quan-hotro');
-  await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
-  await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await openView(ownerPage,'settings');
-  const level=(name:string)=>ownerPage.getByRole('radio',{name:new RegExp(`^${name}`)});
-  await expect(level('Tắt')).toBeChecked();
-  await level('Khấc 1 · Xem').check();
+  await ownerSignIn(ownerPage,'quan-hotro',ownerPassword,made.slug);
+  await ownerPage.goto(`/app/${made.slug}/quan-ly`);
+  await expect(level(ownerPage,'Tắt')).toBeChecked();
+  await level(ownerPage,'Khấc 1 · Xem').check();
   await expect(ownerPage.locator('[data-support="view"]')).toBeVisible();
 
   await page.goto('/gov');
   await expect(page.getByRole('row').filter({hasText:shopName}).locator('[data-support-level="view"]')).toBeVisible();
   await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
-  await page.locator('[data-view="data"]').click();await page.getByRole('button',{name:'7 ngày',exact:true}).click();
+  await page.goto(`/app/${made.slug}/data`);
   await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
-  await expect(page.locator('[data-row] [data-info-button]').first()).toBeVisible();
+  // Reading is all position 1 gives: the item opens on a note, not a form.
+  await page.locator('[data-item="private"]').getByRole('button').first().click();
+  await expect(page.locator('[data-read-only]')).toBeVisible();await expect(page.getByRole('button',{name:'Lưu',exact:true})).toHaveCount(0);
   // The call-back number never reaches support, whatever the switch position (F-003).
   expect((await context.request.get(`${api}?from=2026-01-01&to=2030-01-01`)).ok()).toBe(true);
   expect(((await (await context.request.get(`${api}?from=2026-01-01&to=2030-01-01`)).json()).records as {phone:string|null}[]).every(r=>r.phone===null)).toBe(true);
-  await expect(page.getByRole('button',{name:/^Ghi chú/})).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Lưu xử lý'})).toHaveCount(0);
-  // Position 1 lets support read, not reply: replying needs position 3.
-  await expect(page.locator('[data-reply]')).toHaveCount(0);
-  await expect(page.getByRole('link',{name:'CSV',exact:true})).toHaveCount(0);
   await refusedExports();
   expect((await context.request.patch(api,{headers:{Origin:origin},data:patch})).status()).toBe(403);
   expect((await admin.db.query('SELECT count(*)::int n FROM owner_feedback_cases')).rows[0].n).toBe(0);
   expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.export'")).rows[0].n).toBe(0);
 
   // Switched off: support's next request is refused at once.
-  await level('Tắt').check();
+  await level(ownerPage,'Tắt').check();
   await expect(ownerPage.locator('[data-support="off"]')).toBeVisible();
   const after=await context.request.get(api);
   expect(after.status()).toBe(403);
   expect(await after.json()).toEqual({error:'SUPPORT_NOT_GRANTED'});
 
-  await page.getByRole('button',{name:'Kết thúc phiên',exact:true}).click();
+  await page.locator('[data-impersonation]').getByRole('button',{name:'Kết thúc phiên',exact:true}).click();
   await expect(page).toHaveURL(`${origin}/gov`);
   expect((await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1')).toEqual([]);
   expect((await context.request.get(api)).status()).toBe(401);
@@ -375,18 +371,16 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
 
   // The owner sees both visits with the reason exactly as typed, and their own two switches.
   await ownerPage.reload();
-  await openView(ownerPage,'settings');
   await expect(ownerPage.locator('[data-admin-visits] [data-admin-visit]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-admin-visit] [data-admin-badge="Quitesensational"]')).toHaveCount(2);
   await expect(ownerPage.locator('[data-reason]').filter({hasText:overviewReason})).toHaveText(overviewReason);
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Tắt bởi quan-hotro');
   await expect(ownerPage.locator('[data-support-history]')).toContainText('Khấc 1 · Xem bởi quan-hotro');
   await expect(ownerPage.locator('[data-impersonation]')).toHaveCount(0);
-  await ownerPage.locator('[data-view="data"]').click();await ownerPage.getByRole('button',{name:'7 ngày',exact:true}).click();
-  // The owner, unlike support at position 1, can reply under the feedback (lát F4).
-  await ownerPage.locator('[data-reply]').first().click();
-  await expect(ownerPage.getByLabel('Phản hồi nội bộ',{exact:true})).toBeVisible();
-  await expect(ownerPage.getByRole('link',{name:'CSV',exact:true})).toBeVisible();
+  await ownerPage.screenshot({path:info.outputPath('owner-visits.png'),fullPage:true});
+  // The owner, unlike support, handles the feedback.
+  await ownerPage.goto(`/app/${made.slug}/data`);await ownerPage.locator('[data-item="private"]').getByRole('button').first().click();
+  await expect(ownerPage.getByRole('button',{name:'Lưu',exact:true})).toBeVisible();
  }finally{await owner.close();}
 });
 
@@ -399,12 +393,9 @@ test('position 2: support edits and publishes the page in a design session, sees
  const owner=await browser.newContext({baseURL:origin});
  try{
   const ownerPage=await owner.newPage();
-  await ownerPage.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
-  await ownerPage.goto(`/ZZZ/${made.slug}`);
-  await ownerPage.getByLabel('@handle hoặc email',{exact:true}).fill('quan-suaho');await ownerPage.getByLabel('Mật khẩu',{exact:true}).fill(ownerPassword);
-  await ownerPage.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await openView(ownerPage,'settings');
-  await ownerPage.getByRole('radio',{name:/^Khấc 2 · Sửa/}).check();
+  await ownerSignIn(ownerPage,'quan-suaho',ownerPassword,made.slug);
+  await ownerPage.goto(`/app/${made.slug}/quan-ly`);
+  await level(ownerPage,'Khấc 2 · Sửa').check();
   await expect(ownerPage.locator('[data-support="edit"]')).toBeVisible();
 
   await signIn(page,admin.username,admin.app);
@@ -416,20 +407,21 @@ test('position 2: support edits and publishes the page in a design session, sees
   await page.getByLabel('Lý do (chủ shop sẽ đọc)',{exact:true}).fill('Shop nhờ đổi tên hiển thị và thêm nút gọi');
   await page.getByRole('button',{name:'Mở dashboard',exact:true}).click();
   await expect(page.locator('[data-impersonation="design"]')).toBeVisible();
-  // Only the editor: no totals, no rows, no other menu entries.
-  await expect(page.locator('[data-design-editor] input').first()).toBeVisible();
-  await expect(page.locator('[data-view]')).toHaveCount(1);
-  await expect(page.locator('[data-kpi]')).toHaveCount(0);
-  await expect(page.getByText('Không cho quản trị thấy')).toHaveCount(0);
+  // No figures and no rows: the session reaches the page and nothing else.
   expect((await page.request.get(`/api/owner/v2/${made.slug}/summary`)).status()).toBe(403);
-  await page.getByLabel('Tên hiển thị',{exact:true}).fill('Quán Đã Sửa Hộ');
-  page.once('dialog',dialog=>dialog.accept());
+  await expect(page.getByText('Không cho quản trị thấy')).toHaveCount(0);
+  // The editor, with the strip still above it.
+  await page.setViewportSize({width:1280,height:900});
+  await page.goto(`/app/${made.slug}/sua/${made.slug}`);await expect(page.locator('[data-impersonation="design"]')).toBeVisible();
+  await page.locator('[title][data-id="ten-quan"]').click();
+  await page.getByRole('group',{name:'Chữ',exact:true}).locator('textarea').fill('Quán Đã Sửa Hộ');
+  await expect(page.getByRole('status').first()).toContainText('Đã lưu',{timeout:10_000});
   await page.getByRole('button',{name:'Phát hành',exact:true}).click();
-  await expect(page.locator('[data-design-notice]')).toContainText('Đã phát hành');
+  await expect(page.getByRole('status').filter({hasText:'Đã phát hành'})).toBeVisible();
   expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.design.publish'")).rows[0].n).toBe(1);
-  await ownerPage.goto(`/${made.slug}`);await expect(ownerPage.getByRole('heading',{name:'Quán Đã Sửa Hộ',exact:true})).toBeVisible();
+  await ownerPage.goto(`/${made.slug}`);await expect(ownerPage.locator('[data-id="ten-quan"]')).toHaveText('Quán Đã Sửa Hộ');
   // The owner sees the visit and its reason.
-  await ownerPage.goto(`/ZZZ/${made.slug}`);await openView(ownerPage,'settings');
+  await ownerPage.goto(`/app/${made.slug}/quan-ly`);
   await expect(ownerPage.locator('[data-admin-visit]')).toContainText('Sửa giao diện');
   await expect(ownerPage.locator('[data-reason]')).toHaveText('Shop nhờ đổi tên hiển thị và thêm nút gọi');
  }finally{await owner.close();}
@@ -556,148 +548,59 @@ test('page incidents: an emergency stop waits in /gov, is lifted, handled and re
  expect((await page.request.post(`/gov/api/pages/${shop.pageId}`,{headers:{Origin:'https://evil.example'},data:{action:'close'}})).status()).toBe(403);
 });
 
-test('D4b: an owner saves the page they built, it waits for approval, and signing in opens the shop /gov made',async({page,browser,admin})=>{
- const handle=`may-${Date.now().toString(36)}`;
- const owner=await browser.newContext(),o=await owner.newPage();
- await o.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- // The owner builds and saves: no account before this, no shop after it.
- await o.goto('/bat-dau');
- await expect(o.locator('[data-start-ready]')).toBeVisible();
- await o.getByLabel('Tên quán',{exact:true}).fill('Tiệm Bánh Mây');
- await o.getByRole('button',{name:'Tiếp tục →'}).click();
- await o.locator('[data-template-card="minimal"]').click();
- await o.getByRole('button',{name:'Dùng template này →'}).click();
- await o.getByRole('button',{name:'Tiếp tục →'}).click();
- await o.getByRole('button',{name:'Bắt đầu →'}).click();
- await o.getByRole('radio',{name:'Quán ăn'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
- await o.getByRole('button',{name:'Sáng'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
- await o.getByRole('button',{name:'Bỏ qua cho bây giờ'}).click();
- await o.getByLabel('@handle',{exact:true}).fill(handle);
- await o.getByLabel('Email',{exact:true}).fill(`${handle}@example.com`);
- await o.getByLabel('Mật khẩu (ít nhất 12 ký tự)',{exact:true}).fill('owner-chose-this-one');
- await o.getByLabel(/Số Zalo/).fill('0961 036 265');
- await o.getByRole('button',{name:'Lưu trang của tôi'}).click();
- await expect(o.locator('[data-start-done]')).toContainText(`@${handle}`);
- const saved=(await admin.db.query(`SELECT s.id,s.shop_name,s.template_key,s.kind,s.hours,s.goals,s.zalo,s.decision,s.shop_id FROM shop_signups s
-  JOIN owner_identities_v2 i ON i.id=s.owner_user_id WHERE i.username=$1`,[handle])).rows;
- expect(saved).toEqual([expect.objectContaining({shop_name:'Tiệm Bánh Mây',template_key:'minimal',kind:'food',hours:['morning'],goals:[],zalo:'0961036265',decision:null,shop_id:null})]);
- expect((await admin.db.query("SELECT count(*)::int n FROM shops WHERE name='Tiệm Bánh Mây'")).rows[0].n).toBe(0);
- // The same handle cannot be saved twice.
- const draft=await o.request.post('/api/start/drafts',{headers:{origin},data:{name:'Quán Khác',template:'standard'}});
- const again=await o.request.post('/api/start/signup',{headers:{origin},data:{token:(await draft.json()).token,username:handle,email:'other@example.com',password:'another-long-password'}});
- expect(again.status()).toBe(409);
-
- // Signing in from the front page before approval says the page is waiting, instead of a dashboard that cannot open.
- const signIn=async()=>{await o.goto('/owner/login');
-  await o.getByLabel('@handle hoặc email',{exact:true}).fill(handle);
-  await o.getByLabel('Mật khẩu',{exact:true}).fill('owner-chose-this-one');
-  await o.getByRole('button',{name:'Đăng nhập',exact:true}).click();};
- await signIn();
- await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
- await expect(o.getByRole('heading',{level:1})).toHaveText('Tiệm Bánh Mây đang chờ duyệt');
-
- // The operator sees it, looks at it, approves it.
- await page.goto('/gov/login');
- await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
- await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
- await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
- await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- const item=page.locator(`[data-signup="${saved[0].id}"]`);
- await expect(item).toContainText('Tiệm Bánh Mây');await expect(item).toContainText('Zalo 0961036265');await expect(item).toContainText('Quán ăn');
- const preview=await item.getByRole('link',{name:'xem trang'}).getAttribute('href');
- expect(await (await page.request.get(preview!)).text()).toContain('Tiệm Bánh Mây');
- await item.getByRole('button',{name:'Duyệt'}).click();
- await expect(page.locator('[data-signups-note]')).toContainText('Đã duyệt Tiệm Bánh Mây');
+// Kịch bản mục 4: an account that signed itself up uses everything at once, but its shop's first publish waits here: Tài sees
+// the page as the guest would, approves that very draft, or sends it back with a reason the owner reads in the editor.
+test('first publish: a signed-up shop\'s page waits in /gov with its picture, is approved or sent back, each decision on the record',async({page,browser,admin})=>{
+ const {AccountSignup}=await import('../lib/account/signup');
+ const {OwnerPages}=await import('../lib/owner/pages');
+ const {OwnerDesign}=await import('../lib/owner/design');
+ const ask=async(handle:string)=>{
+  const made=await new AccountSignup(admin.db).create({username:handle,email:`${handle}@example.test`,password:'a-long-test-password'},null);
+  const page=await new OwnerPages(admin.db).create(made.session.token,made.slug,{template:'basic-1',label:'Trang chính'});
+  expect(await new OwnerDesign(admin.db).publish(made.session.token,made.slug,{action:'publish',expectedRevision:1},page.slug)).toEqual({review:'pending',revision:1});
+  const pageId=(await admin.db.query('SELECT id FROM pages WHERE slug=$1',[page.slug])).rows[0].id as string;
+  return {...made,page:page.slug,pageId};
+ };
+ const first=await ask('quan-cho-duyet'),second=await ask('quan-bi-tra-lai');
+ // Nothing of it without a signed-in operator.
+ expect((await page.request.get(`/gov/xem/${first.pageId}`)).status()).toBe(404);
+ expect((await page.request.post(`/gov/api/publish-reviews/${randomUUID()}`,{headers:{origin},data:{decision:'reject',reason:'Chưa được'}})).status()).toBe(401);
+ expect(await (await page.request.get(`/${first.page}`)).text()).not.toContain('data-google');
+ await signIn(page,admin.username,admin.app);
+ const panel=page.locator('[data-publish-reviews]');
+ const item=panel.locator(`[data-publish-review="${first.page}"]`);
+ await expect(item).toContainText('Quán của @quan-cho-duyet');
+ await expect(item).toContainText('@quan-cho-duyet');await expect(item).toContainText('quan-cho-duyet@example.test');
+ // The draft as the guest would get it: drawn small here, full size behind the link.
+ await expect(item.frameLocator('iframe').locator('main.cv')).toBeVisible();
+ await expect(item.getByRole('link',{name:'Mở bản nháp ↗'})).toHaveAttribute('href',`/gov/xem/${first.pageId}`);
+ const draft=await page.request.get(`/gov/xem/${first.pageId}`);expect(draft.status()).toBe(200);
+ expect(await draft.text()).toContain('Quán của @quan-cho-duyet');
+ await item.getByRole('button',{name:'Duyệt và phát hành'}).click();
  await expect(item).toHaveCount(0);
- const made=(await admin.db.query(`SELECT s.decision,s.shop_id,sh.slug,sh.publishing_state,m.role,t.state tag FROM shop_signups s JOIN shops sh ON sh.id=s.shop_id
-  JOIN owner_memberships_v2 m ON m.shop_id=sh.id AND m.user_id=s.owner_user_id JOIN tags t ON t.shop_id=sh.id WHERE s.id=$1`,[saved[0].id])).rows;
- expect(made).toEqual([expect.objectContaining({decision:'approved',publishing_state:'active',role:'owner',tag:'prepared'})]);
- expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='signup.approve' AND shop_id=$1",[made[0].shop_id])).rows[0].n).toBe(1);
- // Approving twice makes no second shop.
- const twice=await page.request.post(`/gov/api/signups/${saved[0].id}`,{headers:{origin},data:{decision:'approve'}});
- expect(twice.status()).toBe(409);
-
- // Now the same sign-in opens the shop's dashboard, and the guest page is live with the saved name and template.
- await signIn();
- await expect(o).toHaveURL(new RegExp(`/ZZZ/${made[0].slug}$`));
- const guest=await o.goto(`/${made[0].slug}`);expect(guest!.status()).toBe(200);
- await expect(o.locator('main.guest')).toHaveAttribute('data-template','minimal');
- await expect(o.locator('main.guest')).toContainText('Tiệm Bánh Mây');
-
- // A refused page closes the account its save made.
- const other=`tu-choi-${Date.now().toString(36)}`;
- const second=await o.request.post('/api/start/drafts',{headers:{origin},data:{name:'Quán Bị Từ Chối',template:'standard'}});
- expect((await o.request.post('/api/start/signup',{headers:{origin},data:{token:(await second.json()).token,username:other,email:`${other}@example.com`,password:'refused-but-long-enough'}})).status()).toBe(200);
- await page.reload();
- const refused=page.locator('[data-signup]',{hasText:'Quán Bị Từ Chối'});
- page.once('dialog',dialog=>dialog.accept());
- await refused.getByRole('button',{name:'Từ chối'}).click();
- await expect(page.locator('[data-signups-note]')).toContainText('Đã từ chối Quán Bị Từ Chối');
- expect((await admin.db.query('SELECT active FROM owner_identities_v2 WHERE username=$1',[other])).rows).toEqual([{active:false}]);
- expect((await o.request.post('/api/owner/v2/login',{headers:{origin},data:{username:other,password:'refused-but-long-enough',next:null}})).status()).toBe(401);
- await owner.close();
-});
-
-test('M2b: a shop\'s own thank-you line waits in /gov, is approved or refused with a reason, and each decision is on the record',async({page,admin})=>{
- const shop=(await admin.db.query("INSERT INTO shops(slug,name)VALUES('loi-cam-on','Quán Lời Cảm Ơn')RETURNING id")).rows[0].id;
- const ask=async(vi:string)=>(await admin.db.query("INSERT INTO text_reviews(shop_id,kind,text_vi,text_en,submitted_by)VALUES($1,'thanks',$2,'Thanks!','owner:test')RETURNING id",[shop,vi])).rows[0].id;
- const good=await ask('Cảm ơn bạn đã ghé quán, hẹn gặp lại!'),bad=await ask('Nhớ quay lại quán nhé, lần sau có quà!');
- await page.goto('/gov/login');
- await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
- await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
- await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
- await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- const panel=page.locator('[data-text-review]');
- await expect(panel.locator(`[data-text-item="${good}"]`)).toContainText('Cảm ơn bạn đã ghé quán, hẹn gặp lại!');
- await panel.locator(`[data-text-item="${good}"]`).getByRole('button',{name:'Duyệt'}).click();
- await expect(panel.locator(`[data-text-item="${good}"]`)).toHaveCount(0);
- await panel.locator(`[data-text-item="${bad}"]`).getByRole('button',{name:'Từ chối…'}).click();
- await panel.getByLabel('Lý do (shop sẽ đọc)').fill('Không hứa quà trên trang, kể cả không nhắc đánh giá');
- await panel.getByRole('button',{name:'Xác nhận từ chối'}).click();
- await expect(panel.locator('[data-texts-empty]')).toBeVisible();
- expect((await admin.db.query('SELECT id,state,reason FROM text_reviews ORDER BY created_at')).rows).toEqual([
-  {id:good,state:'approved',reason:null},{id:bad,state:'rejected',reason:'Không hứa quà trên trang, kể cả không nhắc đánh giá'}]);
- expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'text.%' AND shop_id=$1 ORDER BY id",[shop])).rows).toEqual([{action:'text.approve'},{action:'text.reject'}]);
- // Decided once: a second decision is refused.
- expect((await page.request.post(`/gov/api/texts/${good}`,{headers:{origin},data:{decision:'reject',reason:'lại'}})).status()).toBe(409);
-});
-
-test('P5b-lite: the operator enters where money goes and records a payment; nothing of it lives in the code',async({page,admin})=>{
- const shop=(await admin.db.query("INSERT INTO shops(slug,name)VALUES('thu-tien','Quán Thu Tiền')RETURNING id")).rows[0].id;
- await page.goto('/gov/login');
- await page.getByLabel('Tài khoản',{exact:true}).fill('boss');
- await page.getByLabel('Mật khẩu',{exact:true}).fill(secret);
- await page.getByLabel('Mã xác thực',{exact:true}).fill(code(admin.app,stepAt(new Date())));
- await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- const panel=page.locator('[data-billing]');
- // Test values only: a made-up bank, a made-up account, a one-pixel picture.
- const form=panel.locator('[data-payment-settings]');
- await form.getByLabel('Ngân hàng',{exact:true}).fill('Ngân hàng Thử');await form.getByLabel('Chủ tài khoản').fill('NGUYEN VAN THU');
- await form.getByLabel('Số tài khoản').fill('0123 456 789');await form.getByLabel('Zalo nhận biên lai').fill('0912345678');
- await form.locator('[data-qr-file]').setInputFiles({name:'qr.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64')});
- await expect(form.locator('[data-qr-preview]')).toBeVisible();
- await form.getByRole('button',{name:'Lưu thông tin'}).click();
- await expect(panel.locator('[data-billing-note]')).toContainText('Đã lưu thông tin nhận thanh toán');
- const saved=(await admin.db.query("SELECT value FROM platform_settings WHERE key='payment'")).rows[0].value;
- expect(saved).toMatchObject({bank:'Ngân hàng Thử',holder:'NGUYEN VAN THU',account:'0123456789',zalo:'0912345678'});
- expect(saved.qr).toMatch(/^data:image\/jpeg;base64,/);
- // A payment for the shop, then the list says how far it has paid.
- const record=panel.locator('[data-record-payment]');
- await record.getByLabel('Quán').selectOption(shop);
- await record.getByLabel('Số tiền đã nhận (đồng)').fill('30000');
- await record.getByLabel('Đã trả tới hết ngày').fill('2026-12-31');
- await record.getByRole('button',{name:'Ghi nhận'}).click();
- await expect(panel.locator('[data-billing-note]')).toContainText('Quán Thu Tiền đã trả tới 31/12/2026');
- expect((await admin.db.query('SELECT kind,amount_vnd,covers_until::text FROM shop_payments WHERE shop_id=$1',[shop])).rows).toEqual([{kind:'payment',amount_vnd:30000,covers_until:'2026-12-31'}]);
- expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='billing.record' AND shop_id=$1",[shop])).rows[0].n).toBe(1);
- // A trial is recorded at zero, whatever the amount box said.
- await record.getByLabel('Loại').selectOption('trial');
- await expect(record.getByLabel('Số tiền đã nhận (đồng)')).toHaveCount(0);
- await record.getByLabel('Quán').selectOption(shop);await record.getByLabel('Dùng thử tới hết ngày').fill('2027-01-15');
- await record.getByRole('button',{name:'Ghi nhận'}).click();
- await expect(panel.locator('[data-billing-note]')).toContainText('dùng thử tới 15/01/2027');
- // The picture travels in the body; a body larger than this route's own limit is refused.
- expect((await page.request.put('/gov/api/payment-settings',{headers:{origin},data:{...saved,qr:`data:image/png;base64,${'A'.repeat(800_000)}`}})).status()).toBe(413);
+ expect(await (await page.request.get(`/${first.page}`)).text()).toContain('data-google');
+ // Sent back, with a reason the owner will read.
+ const other=panel.locator(`[data-publish-review="${second.page}"]`);
+ await other.getByRole('button',{name:'Chưa duyệt…'}).click();
+ await other.getByLabel('Lý do (chủ quán sẽ đọc)').fill('Trang dùng tên của một thương hiệu khác');
+ await other.getByRole('button',{name:'Gửi lại cho chủ quán'}).click();
+ await expect(panel.locator('[data-publish-reviews-empty]')).toBeVisible();
+ expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'shop.first_publish.%' ORDER BY id")).rows.map(r=>r.action))
+  .toEqual(['shop.first_publish.approve','shop.first_publish.reject']);
+ // A draft that no longer waits is not on show; a decision from another site is refused like every administrative write.
+ expect((await page.request.get(`/gov/xem/${first.pageId}`)).status()).toBe(404);
+ const decided=(await admin.db.query('SELECT id FROM publish_reviews ORDER BY requested_at LIMIT 1')).rows[0].id;
+ expect((await page.request.post(`/gov/api/publish-reviews/${decided}`,{headers:{Origin:'https://evil.example'},data:{decision:'reject',reason:'x'}})).status()).toBe(403);
+ // The owner reads why in the editor, and can ask again.
+ await admin.db.query('UPDATE shops SET onboarded_at=clock_timestamp() WHERE slug=$1',[second.slug]);
+ const owner=await browser.newContext({baseURL:origin});
+ try{
+  const o=await owner.newPage();await ownerSignIn(o,'quan-bi-tra-lai','a-long-test-password',second.slug);
+  await o.setViewportSize({width:1280,height:900});await o.goto(`/app/${second.slug}/sua/${second.page}`);
+  await expect(o.getByRole('note')).toContainText('Chưa được duyệt: Trang dùng tên của một thương hiệu khác');
+  await o.getByRole('button',{name:'Gửi duyệt',exact:true}).click();
+  await expect(o.getByRole('note')).toContainText('Đang chờ duyệt');
+ }finally{await owner.close();}
 });
 
 /**
@@ -737,27 +640,27 @@ test.beforeAll(async()=>{
 });
 test.afterAll(()=>new Promise<void>(resolve=>fakeGoogle.close(()=>resolve())));
 
-test('D4c: an owner saves with Google, signs in with Google, and an older account links Google from Hồ sơ; nothing links by email',async({browser,admin})=>{
+test('D4c: an owner signs up with Google, signs in with Google, and an older account links Google from Cài đặt → Hồ sơ; nothing links by email',async({browser,admin})=>{
  // Fresh names per run: the harness keeps one database for the whole file, so a repeated run must not meet its own rows.
  const run=`${Date.now()}`.slice(-9),sub=(n:number)=>`${n}${run}`;
- const context=await browser.newContext(),o=await context.newPage();
+ const context=await browser.newContext({baseURL:origin}),o=await context.newPage();
  // The app, and the stand-in for Google at localhost:3329 -- a different site, as Google is.
  await o.route('**/*',r=>{const url=new URL(r.request().url());return url.hostname==='127.0.0.1'||url.host==='localhost:3329'?r.continue():r.abort();});
  const googleLogin=async()=>{await context.clearCookies();await o.goto('/owner/login');await o.locator('[data-google-login] button').click();await o.locator('#choose-account').click();};
- // Saving a page with Google: no email, no password; the account is Google's, and the page waits for approval.
+ // Signing up with Google (kịch bản mục 4, bước 1): no email typed, no password; the account and its shop exist at once, and
+ // the onboarding goes on.
  google.who={sub:sub(1),email:`chu.moi.${run}@gmail.com`,email_verified:true};
- await o.goto('/bat-dau');await expect(o.locator('[data-start-ready]')).toBeVisible();
- await o.getByLabel('Tên quán',{exact:true}).fill('Quán Đăng Nhập Google');await o.getByRole('button',{name:'Tiếp tục →'}).click();
- await o.getByRole('button',{name:'Dùng template này →'}).click();await o.getByRole('button',{name:'Tiếp tục →'}).click();
- await o.getByRole('button',{name:'Bỏ qua cho bây giờ'}).click();
- await o.getByLabel('@handle',{exact:true}).fill(`google-${run}`);
- await o.locator('[data-start-google]').click();await o.locator('#choose-account').click();
- await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
- await expect(o.getByRole('heading',{level:1})).toHaveText('Quán Đăng Nhập Google đang chờ duyệt');
+ await o.goto('/bat-dau');
+ await o.getByLabel('Tên của bạn').fill('Chủ Mới');await o.getByRole('button',{name:'Tiếp tục',exact:true}).click();
+ await o.getByRole('button',{name:/Cà phê/}).click();
+ await o.getByLabel('Tên đăng nhập').fill(`google-${run}`);
+ await o.getByRole('button',{name:'Tiếp tục với Google'}).click();await o.locator('#choose-account').click();
+ await expect(o).toHaveURL(/\/bat-dau\/tien-trinh$/);
  expect((await admin.db.query("SELECT email,google_sub FROM owner_identities_v2 WHERE username=$1",[`google-${run}`])).rows).toEqual([{email:`chu.moi.${run}@gmail.com`,google_sub:sub(1)}]);
- expect((await admin.db.query("SELECT count(*)::int n FROM shop_signups s JOIN owner_identities_v2 i ON i.id=s.owner_user_id WHERE i.username=$1",[`google-${run}`])).rows[0].n).toBe(1);
- // Signed out, the same Google account signs back in.
- await googleLogin();await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
+ expect((await admin.db.query(`SELECT s.self_signup,s.business_kind FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id JOIN owner_identities_v2 i ON i.id=m.user_id
+  WHERE i.username=$1`,[`google-${run}`])).rows).toEqual([{self_signup:true,business_kind:'cafe'}]);
+ // Signed out, the same Google account signs back in, to the onboarding it has not finished.
+ await googleLogin();await expect(o).toHaveURL(/\/bat-dau\/tien-trinh$/);
  // A Google account no account is linked to opens nothing and says what to do -- even when its email matches an account.
  const actor=(await admin.db.query('SELECT id FROM platform_admins LIMIT 1')).rows[0].id;
  const owner=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Có Mật Khẩu',ownerUsername:`co-mat-khau-${run}`,ownerEmail:`cu.${run}@gmail.com`,placeId:''});
@@ -766,11 +669,12 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  await googleLogin();
  await expect(o).toHaveURL(/\/owner\/login\?google=GOOGLE_NOT_LINKED$/);
  await expect(o.locator('[data-google-notice]')).toContainText('chưa nối với tài khoản nào');
- // Linked on purpose, from Hồ sơ, while signed in with the password: then Google opens that dashboard.
- await o.goto(`/ZZZ/${owner.slug}`);
- await o.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await o.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
- await o.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
- await openView(o,'profile');
+ // Linked on purpose, from Cài đặt → Hồ sơ, while signed in with the password: then Google opens that shop.
+ const passwordSignIn=async(page:Page)=>{await page.goto(`/app/${owner.slug}`);
+  await page.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await page.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
+  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(page).toHaveURL(`${origin}/app/${owner.slug}`);
+  await page.goto(`/app/${owner.slug}/cai-dat?view=profile`);};
+ await passwordSignIn(o);
  // G1 (rà bảo mật 29/09): linking asks for the account's password, and a wrong one goes nowhere near Google.
  const connect=o.locator('[data-google-connect]'),typed=connect.getByLabel('Mật khẩu hiện tại (để chắc đây là bạn)');
  await typed.fill('not-the-owner-password');await connect.getByRole('button').click();
@@ -781,14 +685,12 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  await expect(o.locator('[data-google-link]')).toHaveAttribute('data-google-link','linked');
  expect((await admin.db.query("SELECT google_sub FROM owner_identities_v2 WHERE username=$1",[`co-mat-khau-${run}`])).rows[0].google_sub).toBe(sub(2));
  await googleLogin();
- await expect(o).toHaveURL(new RegExp(`/ZZZ/${owner.slug}$`));await expect(o.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
+ await expect(o).toHaveURL(new RegExp(`/app/${owner.slug}$`));await expect(o.locator('[data-orb]')).toBeVisible();
  // G1: unlinking, from a session signed in with the password, asks for the password too and signs out every other
  // session -- here the one Google just opened; then Google opens nothing.
- const byPassword=await browser.newContext(),p=await byPassword.newPage();
- await p.goto(`/ZZZ/${owner.slug}`);
- await p.getByLabel('@handle hoặc email',{exact:true}).fill(`co-mat-khau-${run}`);await p.getByLabel('Mật khẩu',{exact:true}).fill('old-owner-password');
- await p.getByRole('button',{name:'Đăng nhập',exact:true}).click();await expect(p.locator('[data-kpi="visits"] [data-kpi-value]')).toBeVisible();
- await openView(p,'profile');
+ const byPassword=await browser.newContext({baseURL:origin}),p=await byPassword.newPage();
+ await p.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await passwordSignIn(p);
  await p.locator('[data-google-unlink-open]').click();
  const unlink=p.locator('[data-google-unlink]');
  await unlink.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('wrong-password-here');await unlink.getByRole('button',{name:'Ngắt kết nối Google',exact:true}).click();

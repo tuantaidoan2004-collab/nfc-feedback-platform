@@ -54,8 +54,8 @@ test('real page: one initial open, stars and text saved together by Send, reload
   await ready(page);
   expect(opens).toHaveLength(1); expect(opens[0].navigationKind).toBe('load');
   expect(await count(db, 'rating_experiences')).toBe(0);
-  await expect(page.locator('main .stars, main .guest-stars')).toHaveCount(0);
-  const google = await page.locator('.google-invitation').innerText();
+  await expect(page.locator('main .guest-stars')).toHaveCount(0);
+  const google = await page.locator('[data-google]').innerHTML();
   await openCard(page);
   await expect(sendButton(page)).toBeEnabled();
   // Tapping a star saves nothing; Send does.
@@ -74,7 +74,7 @@ test('real page: one initial open, stars and text saved together by Send, reload
   release();
   await thanked(page);
   const saved = (await experience(db))[0]; expect(saved).toMatchObject({ rating: 2, revision: 2, feedback_message: privateText });
-  expect(await page.locator('.google-invitation').innerText()).toBe(google);
+  expect(await page.locator('[data-google]').innerHTML()).toBe(google);
   await page.reload(); await loaded(page);
   expect(opens).toHaveLength(2); expect(opens[1].navigationKind).toBe('reload');
   expect(opens[1].loadKey).not.toBe(opens[0].loadKey);
@@ -93,6 +93,7 @@ test('real page: one initial open, stars and text saved together by Send, reload
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByRole('button', { name: '4 stars', exact: true }).click();
   await expect(page.locator('.guest-face')).toHaveText(['😊', '😊', '😊', '😊']);
+  // Reduced motion: the faces simply appear (the original card's rule, components/guest/plane.css).
   await expect(page.locator('.guest-face').first()).toHaveCSS('animation-name', 'none');
   await page.keyboard.press('Escape');
   for (const width of [320, 768, 1024, 1440]) {
@@ -200,8 +201,8 @@ test('the retired demo and cookie-era routes are gone; the front page says what 
   const api: string[] = [];
   page.on('request', r => { if (r.url().includes('/api/')) api.push(r.url()); });
   expect((await page.goto('/'))!.status()).toBe(200); await expect(page).toHaveURL(/\/$/);
-  // Lát D4: the platform's front page, indexed, with the way in for an owner.
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Khách chạm thẻ trên bàn.');
+  // The platform's front page (kịch bản mục 2), indexed, with the one blue way in for an owner.
+  await expect(page.getByRole('heading', { name: /Chào mừng Đối tác/ })).toBeVisible();
   await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
   await expect(page.locator('[data-landing-start]')).toHaveAttribute('href', '/bat-dau');
   // A link drawn as the primary button keeps the button's white text in both themes, not the link colour (D4a).
@@ -211,99 +212,11 @@ test('the retired demo and cookie-era routes are gone; the front page says what 
   await page.reload(); expect(await ink()).toBe('rgb(255, 255, 255)');
   await page.context().clearCookies();
   await expect(page.getByRole('link', { name: 'Quyền riêng tư' })).toBeVisible();
-  await expect(page.getByText('Bạn vừa chạm thẻ ở quán mà tới đây?')).toBeVisible();
   expect(api).toEqual([]);
   const robots = await (await request.get('/robots.txt')).text();
-  expect(robots).toContain('Allow: /'); expect(robots).toContain('Disallow: /thu/'); expect(robots).toContain('Disallow: /gov');
+  expect(robots).toContain('Allow: /'); expect(robots).toContain('Disallow: /app'); expect(robots).toContain('Disallow: /gov');
   expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>http://127.0.0.1:3317/</loc>');
   for (const table of ['visit_sessions', 'rating_experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
-});
-
-test('D4: an owner builds a page with no account, sees it on a phone through the QR code, and keeps it', async ({ page, context, request, db }) => {
-  const api: string[] = [];
-  page.on('request', r => { if (r.url().includes('/api/v2/')) api.push(r.url()); });
-  await page.goto('/'); await page.locator('[data-landing-start]').click();
-  await expect(page).toHaveURL(/\/bat-dau$/);
-  await expect(page.locator('[data-start-ready]')).toBeVisible();
-  await page.getByLabel('Tên quán', { exact: true }).fill('Cà Phê Ban Mai');
-  await page.getByRole('button', { name: 'Tiếp tục →' }).click();
-  // Six templates, each the owner's own page drawn live; template 1 is chosen until they pick.
-  const cards = page.locator('[data-template-card]');
-  await expect(cards).toHaveCount(6);
-  await expect(cards.first()).toHaveAttribute('aria-checked', 'true');
-  await expect(cards.locator('iframe')).toHaveCount(6);
-  await cards.filter({ hasText: '3 · Kính' }).click();
-  await expect(page.locator('[data-template-card="glass"]')).toHaveAttribute('aria-checked', 'true');
-  // Inside the builder's own frame the page is drawn without its banner.
-  const inside = page.frameLocator('[data-template-card="glass"] iframe');
-  await expect(inside.locator('main.guest')).toContainText('Cà Phê Ban Mai');
-  await expect(inside.locator('[data-draft-banner]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Dùng template này →' }).click();
-
-  // The QR code and the link say the same thing; the link opens the page as a guest would see it.
-  await expect(page.locator('[data-start-qr] svg')).toBeVisible();
-  const url = await page.locator('[data-start-open]').getAttribute('href');
-  expect(url).toMatch(/^http:\/\/127\.0\.0\.1:3317\/thu\/v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
-  const phone = await context.newPage();
-  const shown = await phone.goto(url!);
-  expect(shown!.status()).toBe(200);
-  expect(shown!.headers()['referrer-policy']).toBe('no-referrer');
-  // Never reused from a cache. `next dev` writes its own "no-cache, must-revalidate" over the page's header; a build sends no-store.
-  expect(shown!.headers()['cache-control']).toMatch(/no-store|no-cache/);
-  expect(shown!.headers()['x-frame-options']).toBe('SAMEORIGIN');
-  await expect(phone.locator('main.guest')).toHaveAttribute('data-template', 'glass');
-  await expect(phone.locator('main.guest')).toContainText('Cà Phê Ban Mai');
-  await expect(phone.locator('[data-google]')).toBeInViewport();
-  await expect(phone.locator('[data-draft-banner]')).toContainText('Bản xem thử');
-  await expect(phone.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
-  // Rà bảo mật 29/09, T1: `?khung=1` hid the banner wherever it was typed, so a draft link could pass for a real shop's
-  // page on this domain. Now only a frame, as the browser itself says (Sec-Fetch-Dest), is drawn without it.
-  await phone.goto(`${url}?khung=1`);
-  await expect(phone.locator('main.guest')).toContainText('Cà Phê Ban Mai');
-  await expect(phone.locator('[data-draft-banner]')).toContainText('Bản xem thử');
-  await phone.close();
-
-  // Three quick questions: one answered, one skipped; progress never went back to zero.
-  await page.getByRole('button', { name: 'Tiếp tục →' }).click();
-  await expect(page.locator('[data-start-intro] ol li')).toHaveCount(3);
-  await page.getByRole('button', { name: 'Bắt đầu →' }).click();
-  const next = page.getByRole('button', { name: 'Tiếp tục →' });
-  await expect(next).toBeDisabled();
-  await page.getByRole('radio', { name: 'Quán cà phê' }).click(); await next.click();
-  await page.getByRole('button', { name: 'Trưa' }).click(); await page.getByRole('button', { name: 'Tối' }).click();
-  await expect(page.getByText('2 đã chọn')).toBeVisible(); await next.click();
-  await page.getByRole('button', { name: 'Bỏ qua cho bây giờ' }).click();
-  // Saving asks for the account (lát D4b); the whole save, approval and sign-in is in admin-http.spec.ts, where the
-  // owner surfaces are on. The summary is what will wait for approval.
-  await expect(page.locator('[data-start-save]')).toContainText('Quán cà phê');
-  await expect(page.locator('[data-start-save]')).toContainText('Trưa, Tối');
-  for (const label of ['@handle', 'Email', 'Mật khẩu (ít nhất 12 ký tự)']) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lưu trang của tôi' })).toBeVisible();
-
-  // Nothing about the owner or a visit was written anywhere, and no guest API was called.
-  expect(api).toEqual([]);
-  for (const table of ['visit_sessions', 'rating_experiences', 'page_visits'] as const) expect(await count(db, table)).toBe(0);
-
-  // The same rules as a page's own name; a link from elsewhere is refused; a forged link opens nothing.
-  const post = (data: unknown, origin = 'http://127.0.0.1:3317') => request.post('/api/start/drafts', { headers: { origin }, data });
-  expect((await post({ name: 'Đánh giá 5 sao nhận quà', template: 'standard' })).status()).toBe(400);
-  expect((await post({ name: 'Quán <b>', template: 'standard' })).status()).toBe(400);
-  expect((await post({ name: 'Quán', template: 'nope' })).status()).toBe(400);
-  expect((await post({ name: 'Quán', template: 'standard' }, 'https://example.com')).status()).toBe(403);
-  const forged = url!.replace(/\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/, (_, body: string, mac: string) => `.${body}.${mac.startsWith('A') ? 'B' : 'A'}${mac.slice(1)}`);
-  await page.goto(forged);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Không mở được bản xem thử');
-});
-
-test('D4b: a name typed before the builder\'s script has loaded is kept, and Tiếp tục opens', async ({ page }) => {
-  // CI 27/09: on a slow runner the name went into the server-drawn box before hydration; the box showed it, the state
-  // did not, and "Tiếp tục" stayed locked. Holding the scripts back reproduces that on any machine.
-  await page.route('**/_next/static/chunks/**', async route => { await new Promise(resolve => setTimeout(resolve, 1500)); await route.continue(); });
-  await page.goto('/bat-dau', { waitUntil: 'commit' });
-  await page.getByLabel('Tên quán', { exact: true }).fill('Quán Gõ Sớm');
-  await expect(page.locator('[data-start-ready]')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByLabel('Tên quán', { exact: true })).toHaveValue('Quán Gõ Sớm');
-  await expect(page.getByRole('button', { name: 'Tiếp tục →' })).toBeEnabled();
 });
 
 /** Lát H1: a policy's directives, by name. */
@@ -318,10 +231,9 @@ function cspWatch(page: Page) {
 
 test('H1: every page carries its protective headers, its scripts carry that response\'s own nonce, and nothing the pages use is refused', async ({ page, request, db }) => {
   void db; // The fixture publishes the test shops (`/one`).
-  const draft = await request.post('/api/start/drafts', { headers: { origin: 'http://127.0.0.1:3317' }, data: { name: 'Quán Đầu', template: 'glass' } });
-  const thu = new URL((await draft.json()).url).pathname;
+  // A template drawn as a guest page is framed by the app's own gallery and Library, and by nothing else.
   for (const [path, frame] of [['/', "'none'"], ['/bat-dau', "'none'"], ['/dieu-khoan', "'none'"], ['/quyen-rieng-tu', "'none'"], ['/one', "'none'"],
-    [thu, "'self'"], ['/khong-co-quan-nay', "'none'"], ['/khong/co/trang', "'none'"]] as const) {
+    ['/templates', "'none'"], ['/templates/basic-1', "'self'"], ['/khong-co-quan-nay', "'none'"], ['/khong/co/trang', "'none'"]] as const) {
     const first = await request.get(path), second = await request.get(path), headers = first.headers();
     const policy = headers['content-security-policy'];
     expect(policy, path).toBeTruthy();
@@ -357,11 +269,9 @@ test('H1: every page carries its protective headers, its scripts carry that resp
   // In a browser the pages work -- hydrated, framed, uploading nothing -- and the policy refuses nothing they use.
   const refused = cspWatch(page);
   await ready(page); await openCard(page);
-  await page.goto('/'); await expect(page.locator('[data-landing-start]')).toBeVisible();
-  await page.goto('/bat-dau'); await expect(page.locator('[data-start-ready]')).toBeVisible();
-  await page.getByLabel('Tên quán', { exact: true }).fill('Quán Đầu'); await page.getByRole('button', { name: 'Tiếp tục →' }).click();
-  await expect(page.frameLocator('[data-template-card="glass"] iframe').locator('main.guest')).toBeVisible();
-  await page.goto(thu); await expect(page.locator('main.guest')).toBeVisible();
+  await page.goto('/'); await expect(page.getByRole('heading', { name: /Chào mừng Đối tác/ })).toBeVisible();
+  await page.goto('/templates'); await expect(page.frameLocator('[data-template="basic-1"] iframe').locator('main.cv')).toBeVisible();
+  await page.goto('/templates/basic-1'); await expect(page.locator('main.cv [data-google]')).toBeVisible();
   await page.goto('/khong/co/trang'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Không tìm thấy trang này');
   expect(refused).toEqual([]);
   // The control: an inline handler, the classic injected script, is refused -- and the watch above does see refusals.
@@ -445,6 +355,8 @@ test('production gate stays closed even with flag true', async ({ page, request,
 
 test('A5: the customer erases what they wrote from one quiet line at the foot, and Google never moves', async ({ page, db }) => {
   await ready(page);
+  // Measured once the page has come in (a template's entrance motion), so "never moves" means after that.
+  await page.waitForFunction(() => document.getAnimations().every(a => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity));
   const google = page.locator('[data-google]');
   const before = await google.boundingBox();
   // Legal links are there, small, and nothing covers the page: no banner, no dialog.

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { publicPage } from '@/server/publishing-runtime';
 import { PublishingError } from '@/lib/publishing/config';
-import ShopFeedbackV2 from './shop-feedback-v2';
+import CanvasPage from './canvas/render';
 
 type Target = {slug:string}|{code:string}|{previewToken:string};
 // One read per request: the tab title and the page itself both need the published page (lát S0). `cache` keys on its
@@ -32,7 +32,6 @@ export default async function PublishedPage({target}:{target:Target}) {
       <h1>Trang tạm ngừng</h1><p>Quán đang tạm ngừng trang này. Vui lòng quay lại sau. / This page is paused for now. Please come back later.</p></main>;
     return <main className="dashboard-wrap"><h1>Trang chưa sẵn sàng</h1><p>Vui lòng thử lại sau. / Please try again later.</p></main>;
   }
-  const c = page.config;
-  return <ShopFeedbackV2 slug={page.slug} name={c.name} googleUrl={c.googleUrl} heroUrl={c.poster?.url ?? null} heroKind={c.poster?.kind ?? null}
-    pageConfig={c} template={page.template} templateVersion={page.templateVersion} render={{proof:page.proof,preview:page.context.scope==='test'}}/>;
+  // The page is the shop's canvas document (đợt ②); the Google button always takes the shop's own review link.
+  return <CanvasPage doc={page.config.doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}/>;
 }

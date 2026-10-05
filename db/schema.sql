@@ -84,21 +84,6 @@ BEGIN
 END $$;
 
 --
--- Name: page_profile_seed(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION page_profile_seed() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  INSERT INTO page_profile (shop_id, page_id, name, google_url, question_vi, question_en)
-  SELECT NEW.shop_id, NEW.id, s.name, s.google_url, 'Trải nghiệm hôm nay của bạn thế nào?', 'How was your experience today?'
-  FROM shops s WHERE s.id = NEW.shop_id
-  ON CONFLICT (page_id) DO NOTHING;
-  RETURN NEW;
-END $$;
-
---
 -- Name: publishing_immutable(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -332,7 +317,7 @@ CREATE TABLE media_assets (
     CONSTRAINT media_assets_size_bytes_check CHECK (((size_bytes IS NULL) OR (size_bytes > 0))),
     CONSTRAINT media_assets_state_check CHECK ((state = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text]))),
     CONSTRAINT media_assets_uploaded_by_check CHECK (((length(uploaded_by) >= 1) AND (length(uploaded_by) <= 80))),
-    CONSTRAINT media_assets_url_check CHECK ((((length(url) >= 9) AND (length(url) <= 2048)) AND (url ~ '^https://'::text) AND (url !~ '[[:space:]<>]'::text)))
+    CONSTRAINT media_assets_url_check CHECK ((((length(url) >= 9) AND (length(url) <= 2048)) AND (url ~ '^(https://|http://(127\.0\.0\.1|localhost)(:[0-9]+)?/)'::text) AND (url !~ '[[:space:]<>]'::text)))
 );
 
 --
@@ -422,9 +407,9 @@ CREATE TABLE owner_identities_v2 (
     avatar_url text,
     cover_url text,
     google_sub text,
-    CONSTRAINT owner_identities_v2_avatar_url_check CHECK (((avatar_url IS NULL) OR ((avatar_url ~ '^https://[^[:space:]]+$'::text) AND (char_length(avatar_url) <= 512)))),
+    CONSTRAINT owner_identities_v2_avatar_url_check CHECK (((avatar_url IS NULL) OR ((avatar_url ~ '^(https://|http://(127\.0\.0\.1|localhost)(:[0-9]+)?/)[^[:space:]]+$'::text) AND (char_length(avatar_url) <= 512)))),
     CONSTRAINT owner_identities_v2_bio_check CHECK (((bio IS NULL) OR (((char_length(bio) >= 1) AND (char_length(bio) <= 160)) AND (bio = btrim(bio)) AND (bio !~ '[[:cntrl:]<>]'::text)))),
-    CONSTRAINT owner_identities_v2_cover_url_check CHECK (((cover_url IS NULL) OR ((cover_url ~ '^https://[^[:space:]]+$'::text) AND (char_length(cover_url) <= 512)))),
+    CONSTRAINT owner_identities_v2_cover_url_check CHECK (((cover_url IS NULL) OR ((cover_url ~ '^(https://|http://(127\.0\.0\.1|localhost)(:[0-9]+)?/)[^[:space:]]+$'::text) AND (char_length(cover_url) <= 512)))),
     CONSTRAINT owner_identities_v2_display_name_check CHECK (((display_name IS NULL) OR (((char_length(display_name) >= 1) AND (char_length(display_name) <= 60)) AND (display_name = btrim(display_name)) AND (display_name !~ '[[:cntrl:]<>]'::text)))),
     CONSTRAINT owner_identities_v2_email_check CHECK (((email IS NULL) OR ((email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'::text) AND (char_length(email) <= 254) AND (email = lower(email))))),
     CONSTRAINT owner_identities_v2_google_sub_check CHECK (((google_sub IS NULL) OR ((google_sub ~ '^[0-9]+$'::text) AND ((length(google_sub) >= 1) AND (length(google_sub) <= 255))))),
@@ -569,30 +554,6 @@ CREATE TABLE page_incidents (
     CONSTRAINT page_incidents_reason_check CHECK ((((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 1000)) AND (reason !~ '[<>]'::text))),
     CONSTRAINT page_incidents_resolution_check CHECK (((resolution IS NULL) OR (((length(btrim(resolution)) >= 1) AND (length(btrim(resolution)) <= 1000)) AND (resolution !~ '[<>]'::text)))),
     CONSTRAINT page_incidents_state_check CHECK ((state = ANY (ARRAY['open'::text, 'resolved'::text])))
-);
-
---
--- Name: page_profile; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE page_profile (
-    shop_id uuid CONSTRAINT shop_profile_shop_id_not_null NOT NULL,
-    name text CONSTRAINT shop_profile_name_not_null NOT NULL,
-    google_url text,
-    question_vi text CONSTRAINT shop_profile_question_vi_not_null NOT NULL,
-    question_en text CONSTRAINT shop_profile_question_en_not_null NOT NULL,
-    links jsonb DEFAULT '[]'::jsonb CONSTRAINT shop_profile_links_not_null NOT NULL,
-    logo jsonb,
-    poster jsonb,
-    updated_at timestamp with time zone DEFAULT clock_timestamp() CONSTRAINT shop_profile_updated_at_not_null NOT NULL,
-    page_id uuid CONSTRAINT shop_profile_page_id_not_null NOT NULL,
-    CONSTRAINT shop_profile_google_url_check CHECK (((google_url IS NULL) OR ((length(google_url) <= 2048) AND (google_url ~ '^https://'::text) AND (google_url !~ '[[:space:]<>]'::text)))),
-    CONSTRAINT shop_profile_links_check CHECK (((jsonb_typeof(links) = 'array'::text) AND (jsonb_array_length(links) <= 6))),
-    CONSTRAINT shop_profile_logo_check CHECK (((logo IS NULL) OR (jsonb_typeof(logo) = 'object'::text))),
-    CONSTRAINT shop_profile_name_check CHECK ((((length(name) >= 1) AND (length(name) <= 100)) AND (name !~ '[[:cntrl:]<>]'::text))),
-    CONSTRAINT shop_profile_poster_check CHECK (((poster IS NULL) OR (jsonb_typeof(poster) = 'object'::text))),
-    CONSTRAINT shop_profile_question_en_check CHECK (((length(question_en) >= 1) AND (length(question_en) <= 180))),
-    CONSTRAINT shop_profile_question_vi_check CHECK (((length(question_vi) >= 1) AND (length(question_vi) <= 180)))
 );
 
 --
@@ -984,33 +945,6 @@ CREATE TABLE template_versions (
 );
 
 --
--- Name: text_reviews; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE text_reviews (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    shop_id uuid NOT NULL,
-    kind text NOT NULL,
-    text_vi text NOT NULL,
-    text_en text NOT NULL,
-    submitted_by text NOT NULL,
-    state text DEFAULT 'pending'::text NOT NULL,
-    reason text,
-    reviewed_by uuid,
-    reviewed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
-    CONSTRAINT text_reviews_check CHECK (((state = 'pending'::text) = (reviewed_at IS NULL))),
-    CONSTRAINT text_reviews_check1 CHECK (((state <> 'rejected'::text) OR (reason IS NOT NULL))),
-    CONSTRAINT text_reviews_check2 CHECK (((state = 'rejected'::text) OR (reason IS NULL))),
-    CONSTRAINT text_reviews_kind_check CHECK ((kind = 'thanks'::text)),
-    CONSTRAINT text_reviews_reason_check CHECK (((reason IS NULL) OR (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 300)) AND (reason !~ '[[:cntrl:]<>]'::text)))),
-    CONSTRAINT text_reviews_state_check CHECK ((state = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text]))),
-    CONSTRAINT text_reviews_submitted_by_check CHECK (((length(submitted_by) >= 1) AND (length(submitted_by) <= 80))),
-    CONSTRAINT text_reviews_text_en_check CHECK ((((char_length(text_en) >= 1) AND (char_length(text_en) <= 120)) AND (text_en !~ '[[:cntrl:]<>]'::text))),
-    CONSTRAINT text_reviews_text_vi_check CHECK ((((char_length(text_vi) >= 1) AND (char_length(text_vi) <= 120)) AND (text_vi !~ '[[:cntrl:]<>]'::text)))
-);
-
---
 -- Name: visit_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1254,13 +1188,6 @@ ALTER TABLE ONLY page_incidents
     ADD CONSTRAINT page_incidents_pkey PRIMARY KEY (id);
 
 --
--- Name: page_profile page_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY page_profile
-    ADD CONSTRAINT page_profile_pkey PRIMARY KEY (page_id);
-
---
 -- Name: page_releases page_releases_page_id_draft_revision_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1499,20 +1426,6 @@ ALTER TABLE ONLY template_versions
     ADD CONSTRAINT template_versions_template_key_version_key UNIQUE (template_key, version);
 
 --
--- Name: text_reviews text_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY text_reviews
-    ADD CONSTRAINT text_reviews_pkey PRIMARY KEY (id);
-
---
--- Name: text_reviews text_reviews_shop_id_kind_text_vi_text_en_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY text_reviews
-    ADD CONSTRAINT text_reviews_shop_id_kind_text_vi_text_en_key UNIQUE (shop_id, kind, text_vi, text_en);
-
---
 -- Name: visit_sessions visit_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1738,12 +1651,6 @@ CREATE UNIQUE INDEX shops_slug_folded ON shops USING btree (lower(slug));
 CREATE INDEX tags_page ON tags USING btree (page_id);
 
 --
--- Name: text_reviews_pending; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX text_reviews_pending ON text_reviews USING btree (created_at) WHERE (state = 'pending'::text);
-
---
 -- Name: visit_sessions_browser_latest; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1802,12 +1709,6 @@ CREATE TRIGGER page_events_no_update BEFORE UPDATE ON page_events FOR EACH ROW E
 --
 
 CREATE TRIGGER pages_identity BEFORE DELETE OR UPDATE ON pages FOR EACH ROW EXECUTE FUNCTION page_identity();
-
---
--- Name: pages pages_seed_profile; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER pages_seed_profile AFTER INSERT ON pages FOR EACH ROW EXECUTE FUNCTION page_profile_seed();
 
 --
 -- Name: preview_sessions preview_immutable; Type: TRIGGER; Schema: public; Owner: -
@@ -2256,20 +2157,6 @@ ALTER TABLE ONLY shop_activity
     ADD CONSTRAINT shop_activity_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES shops(id);
 
 --
--- Name: page_profile shop_profile_shop_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY page_profile
-    ADD CONSTRAINT shop_profile_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES shops(id);
-
---
--- Name: page_profile shop_profile_shop_id_page_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY page_profile
-    ADD CONSTRAINT shop_profile_shop_id_page_id_fkey FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id);
-
---
 -- Name: shop_roles shop_roles_shop_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2303,13 +2190,6 @@ ALTER TABLE ONLY tags
 
 ALTER TABLE ONLY tags
     ADD CONSTRAINT tags_shop_id_page_id_fkey FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id);
-
---
--- Name: text_reviews text_reviews_shop_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY text_reviews
-    ADD CONSTRAINT text_reviews_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES shops(id);
 
 --
 -- Name: visit_sessions visit_sessions_shop_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2378,3 +2258,24 @@ CREATE TABLE help_requests (
     handled_by uuid REFERENCES platform_admins(id)
 );
 CREATE UNIQUE INDEX help_requests_one_open ON help_requests (shop_id, kind) WHERE handled_at IS NULL;
+
+--
+-- Đợt ② (05/10/2026): lần phát hành đầu của một quán tự đăng ký chờ Tài duyệt ở /gov (kịch bản mục 4: một trang lừa đảo
+-- trên tên miền là Chrome gắn "Nguy hiểm" cả tên miền). Một yêu cầu đang chờ mỗi quán; duyệt thì quán phát hành tự do từ đó.
+--
+
+CREATE TABLE publish_reviews (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    page_id uuid NOT NULL,
+    requested_by text NOT NULL CHECK (requested_by ~ '^(owner|admin):[0-9a-f-]{36}$'::text),
+    requested_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    state text DEFAULT 'pending'::text NOT NULL CHECK (state = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
+    decided_by uuid REFERENCES platform_admins(id),
+    decided_at timestamp with time zone,
+    reason text CHECK (reason IS NULL OR (char_length(btrim(reason)) BETWEEN 1 AND 500 AND reason !~ '[<>]'::text)),
+    FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id) ON DELETE CASCADE,
+    CHECK ((state = 'pending'::text) = (decided_at IS NULL AND decided_by IS NULL)),
+    CHECK ((state = 'rejected'::text) = (reason IS NOT NULL))
+);
+CREATE UNIQUE INDEX publish_reviews_one_pending ON publish_reviews (shop_id) WHERE state = 'pending'::text;

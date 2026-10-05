@@ -1,0 +1,263 @@
+{
+  "key": "chuyen-dong",
+  "number": 8,
+  "name": "Dynamic movement",
+  "groups": [
+    "Simple",
+    "Chuyển động"
+  ],
+  "about": "Nền teal, các nút hiện lần lượt (Google → Instagram → TikTok → Xem thêm), mỗi nút mới đẩy ảnh phía dưới xuống.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 780,
+        "bg": {
+          "fill": {
+            "kind": "linear",
+            "angle": 180,
+            "stops": [
+              [
+                "#13807c",
+                0
+              ],
+              [
+                "#0c4c4a",
+                55
+              ],
+              [
+                "#062a2a",
+                100
+              ]
+            ]
+          }
+        },
+        "els": [
+          {
+            "id": "vach-trai",
+            "t": "shape",
+            "shape": "pin-line",
+            "x": 46,
+            "y": -10,
+            "w": 10,
+            "h": 286,
+            "fill": "#ffffff",
+            "motion": {
+              "in": "drop",
+              "at": 100
+            }
+          },
+          {
+            "id": "vach-phai",
+            "t": "shape",
+            "shape": "pin-line",
+            "x": 314,
+            "y": 246,
+            "w": 10,
+            "h": 300,
+            "r": 180,
+            "fill": "#ffffff",
+            "motion": {
+              "in": "rise",
+              "at": 150
+            }
+          },
+          {
+            "id": "rang",
+            "t": "icon",
+            "icon": "tooth",
+            "color": "#ffffff",
+            "x": 170,
+            "y": 36,
+            "w": 50,
+            "h": 56,
+            "motion": {
+              "in": "pop",
+              "at": 150
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 50,
+            "y": 100,
+            "w": 290,
+            "h": 66,
+            "words": {
+              "vi": "TÊN PHÒNG\nNHA KHOA",
+              "en": "DENTAL\nCLINIC"
+            },
+            "font": "display",
+            "size": 25,
+            "color": "#ffffff",
+            "weight": 800,
+            "spacing": 4,
+            "line": 1.12,
+            "motion": {
+              "in": "rise",
+              "at": 250
+            }
+          },
+          {
+            "id": "gio",
+            "t": "text",
+            "x": 100,
+            "y": 168,
+            "w": 190,
+            "h": 16,
+            "words": {
+              "vi": "Mở cửa 8:00 – 20:00",
+              "en": "Open 8:00 – 20:00"
+            },
+            "font": "display",
+            "size": 10,
+            "color": "#e3f2f0",
+            "spacing": 10,
+            "motion": {
+              "in": "fade",
+              "at": 350
+            }
+          },
+          {
+            "id": "loe-sang",
+            "t": "shape",
+            "shape": "flare",
+            "x": 192,
+            "y": 148,
+            "w": 56,
+            "h": 56,
+            "motion": {
+              "in": "pop",
+              "at": 400,
+              "loop": "twinkle"
+            }
+          },
+          {
+            "id": "cot",
+            "t": "stack",
+            "x": 70,
+            "y": 222,
+            "w": 250,
+            "h": 540,
+            "gap": 16,
+            "align": "center",
+            "reveal": 700,
+            "kids": [
+              {
+                "id": "google",
+                "t": "google",
+                "look": "maps",
+                "h": 46,
+                "w": 236,
+                "shadow": "hard"
+              },
+              {
+                "id": "instagram",
+                "t": "button",
+                "look": "gradient",
+                "icon": "instagram",
+                "label": {
+                  "vi": "instagram"
+                },
+                "link": "https://www.instagram.com/",
+                "h": 42,
+                "w": 236,
+                "size": 16,
+                "bg": {
+                  "kind": "linear",
+                  "angle": 90,
+                  "stops": [
+                    [
+                      "#f9ce34",
+                      0
+                    ],
+                    [
+                      "#ee2a7b",
+                      50
+                    ],
+                    [
+                      "#c13584",
+                      75
+                    ],
+                    [
+                      "#6228d7",
+                      100
+                    ]
+                  ]
+                },
+                "fg": "#ffffff"
+              },
+              {
+                "id": "tiktok",
+                "t": "button",
+                "look": "ring",
+                "icon": "tiktok",
+                "label": {
+                  "vi": "TikTok"
+                },
+                "link": "https://www.tiktok.com/",
+                "h": 38,
+                "w": 236,
+                "size": 16,
+                "edge": {
+                  "w": 3,
+                  "color": {
+                    "kind": "linear",
+                    "angle": 90,
+                    "stops": [
+                      [
+                        "#25f4ee",
+                        0
+                      ],
+                      [
+                        "#fe2c55",
+                        100
+                      ]
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "xem-them",
+                "t": "button",
+                "look": "pill",
+                "label": {
+                  "vi": "XEM THÊM",
+                  "en": "SEE MORE"
+                },
+                "link": "https://quitesensational-review-bio.com/",
+                "h": 58,
+                "w": 230,
+                "size": 22,
+                "weight": 800,
+                "bg": "#24597a",
+                "fg": "#ffffff"
+              },
+              {
+                "id": "dung-cu",
+                "t": "image",
+                "src": "art:dental",
+                "fit": "contain",
+                "h": 260,
+                "w": 220
+              }
+            ]
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 706,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

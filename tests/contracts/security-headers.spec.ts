@@ -19,8 +19,8 @@ test('scripts run only with this response\'s nonce; nothing inline, nothing eval
 test('framed only where this app frames its own pages; forms post here and to Google\'s sign-in only', () => {
   expect(directives(contentSecurityPolicy('/k4u27', inputs))['frame-ancestors']).toEqual(["'none'"]);
   expect(directives(contentSecurityPolicy('/ZZZ/k4u27', inputs))['frame-ancestors']).toEqual(["'none'"]);
-  for (const path of ['/ZZZ/k4u27/thumb/k4u27', '/thu/v1.a.b']) { expect(framedBySelf(path)).toBe(true); expect(directives(contentSecurityPolicy(path, inputs))['frame-ancestors']).toEqual(["'self'"]); }
-  expect(framedBySelf('/thu/v1.a.b/extra')).toBe(false); expect(framedBySelf('/ZZZ/x/thumb')).toBe(false);
+  for (const path of ['/ZZZ/k4u27/thumb/k4u27', '/templates/basic-1']) { expect(framedBySelf(path)).toBe(true); expect(directives(contentSecurityPolicy(path, inputs))['frame-ancestors']).toEqual(["'self'"]); }
+  expect(framedBySelf('/templates/basic-1/extra')).toBe(false); expect(framedBySelf('/templates')).toBe(false); expect(framedBySelf('/ZZZ/x/thumb')).toBe(false);
   const d = directives(contentSecurityPolicy('/owner/login', inputs));
   expect(d['form-action']).toEqual(["'self'", 'https://accounts.google.com']);
   expect(directives(contentSecurityPolicy('/', { ...inputs, googleAuthOrigin: null }))['form-action']).toEqual(["'self'"]);

@@ -1,15 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export { PublishingError } from './config';
-import { PublishingError, TEMPLATE_V1, sectionsOf, validateConfig, withoutVideoBackground, type PageConfig } from './config';
+import { PublishingError, TEMPLATE_ROW, validateConfig } from './config';
 import { assertPublishable } from './policy';
-import { PROFILE_COLUMNS, profileFrom, withProfile } from './profile';
 import { assertMediaApproved } from './media-gate';
-import { assertThanksApproved } from './thanks';
 import type { RenderContext } from './proof';
-import { settingsOf, type TemplateRelease } from './versions';
-import { checkSettings, convertSettings } from './settings';
-import { isTemplateKey, templateConfig, type TemplateKey, TEMPLATE_RELEASES } from './templates';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
 /**
@@ -36,35 +31,18 @@ async function tx<T>(pool: PublishingDb, run: (db: PoolClient) => Promise<T>): P
   const db = await pool.connect(); try { await db.query('BEGIN'); const result = await run(db); await db.query('COMMIT'); return result; }
   catch (e) { await db.query('ROLLBACK'); throw e; } finally { db.release(); }
 }
-/** INTERNAL boundary. Caller must supply real authorization later. No administrative HTTP routes in this slice. */
-export type TemplateReleases = Record<string, readonly TemplateRelease[] | undefined>;
 /**
- * The row of one template version, created on first use. Versions are platform data (versions.ts), so any caller that
- * has already checked the version is shipped may ask for its row; a racing twin lands on the unique (key, version).
+ * The row naming the template a page started from, created on first use; a racing twin lands on the unique (key, version).
+ * A canvas page is a copy of its template's document (lib/canvas/templates.ts), so the row only records where it came from.
  */
-export async function templateVersionRow(db: PublishingDb, key: string, version: number) {
-  await db.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3)
-    ON CONFLICT(template_key,version) DO NOTHING`, [key, version, JSON.stringify(TEMPLATE_V1.capabilities)]);
+export async function templateVersionRow(db: PublishingDb, key: string, version = 1) {
+  await db.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,$3,$4,$5)
+    ON CONFLICT(template_key,version) DO NOTHING`, [key, version, TEMPLATE_ROW.schemaVersion, TEMPLATE_ROW.rendererVersion, JSON.stringify(TEMPLATE_ROW.capabilities)]);
   return (await db.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=$2', [key, version])).rows[0].id as string;
 }
-/** A page's content (migration 022): what stays when the page changes template. Everything else is the template's look. */
-export function contentOf(config: PageConfig) {
-  return { name: config.name, googleUrl: config.googleUrl, text: config.text, links: config.links, logo: config.logo, poster: config.poster,
-    // The owner's arrangement of blocks (lát M3) is theirs too: a new template keeps the blocks where they put them.
-    sections: [...sectionsOf(config)],
-    // And its own thank-you line (lát M2b): approved words stay approved on the new template.
-    ...(config.thanks ? { thanks: config.thanks } : {}) };
-}
+/** INTERNAL boundary: callers authorize (lib/owner/design.ts, lib/admin/provisioning.ts). */
 export class PublishingAdmin {
-  /** `releases`: the template versions the platform ships (versions.ts); injected only by tests that need a second one. */
-  constructor(private pool: PublishingDb, private authorize: AuthorizePublishing, private releases: TemplateReleases = TEMPLATE_RELEASES) {}
-  /** A page's own settings must be fields of its template version and fit them (settings.ts, lát P2). */
-  private async checkSettings(db: PublishingDb, templateVersionId: string, config: { settings?: Record<string, string | number | boolean> }) {
-    if (!config.settings) return;
-    const tv = (await db.query('SELECT template_key,version FROM template_versions WHERE id=$1', [templateVersionId])).rows[0];
-    if (!tv) error('INVALID_TEMPLATE');
-    checkSettings(settingsOf(this.releases, tv.template_key, Number(tv.version)), config.settings);
-  }
+  constructor(private pool: PublishingDb, private authorize: AuthorizePublishing) {}
   private async actor(action: string, shopId?: string) {
     const principal = await this.authorize({ action, shopId });
     if (!principal?.actorId?.trim()) error('PUBLISH_FORBIDDEN'); return principal.actorId;
@@ -78,20 +56,20 @@ export class PublishingAdmin {
   }
   async createTemplate(templateKey: string, version: number) {
     await this.actor('template:create'); if (!/^[a-z][a-z0-9-]{0,63}$/.test(templateKey) || !Number.isSafeInteger(version) || version < 1) error('INVALID_TEMPLATE');
-    return (await this.pool.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,1,'1',$3) RETURNING id`,
-      [templateKey, version, JSON.stringify(TEMPLATE_V1.capabilities)])).rows[0].id as string;
+    return (await this.pool.query(`INSERT INTO template_versions(template_key,version,schema_version,renderer_version,capabilities) VALUES($1,$2,$3,$4,$5) RETURNING id`,
+      [templateKey, version, TEMPLATE_ROW.schemaVersion, TEMPLATE_ROW.rendererVersion, JSON.stringify(TEMPLATE_ROW.capabilities)])).rows[0].id as string;
   }
   /**
-   * A new page of the shop, at `slug`, with its first draft (revision 1). Its content row is seeded by the database
-   * (migration 024). The link is permanent from here on: pages are never deleted and their slug never changes.
+   * A new page of the shop, at `slug`, with its first draft (revision 1). The link is permanent from here on: pages are
+   * never deleted and their slug never changes.
    */
-  async createPage(shopId: string, templateId: string, input: unknown, slug: string): Promise<PageRef> {
+  /** `label`: what the shop calls the page (lib/owner/page-names.ts); empty when the caller names it afterwards. */
+  async createPage(shopId: string, templateId: string, input: unknown, slug: string, label = ''): Promise<PageRef> {
     await this.actor('page:create', shopId); if (!UUID.test(shopId)) error('SHOP_NOT_FOUND');
-    const config = withoutVideoBackground(validateConfig(input)); assertPublishable(config);
+    const config = validateConfig(input); assertPublishable(config);
     return tx(this.pool, async db => {
-      await this.checkSettings(db, templateId, config);
-      const pageId = (await db.query(`INSERT INTO pages(id,shop_id,slug,entry_key) SELECT g,$1,$2,'direct:page:'||g FROM (SELECT gen_random_uuid() g) n
-        RETURNING id`, [shopId, slug])).rows[0].id as string;
+      const pageId = (await db.query(`INSERT INTO pages(id,shop_id,slug,entry_key,label) SELECT g,$1,$2,'direct:page:'||g,$3 FROM (SELECT gen_random_uuid() g) n
+        RETURNING id`, [shopId, slug, label])).rows[0].id as string;
       await db.query('INSERT INTO page_drafts(shop_id,page_id,template_version_id,config) VALUES($1,$2,$3,$4)', [shopId, pageId, templateId, config]);
       return { shopId, pageId };
     });
@@ -99,62 +77,13 @@ export class PublishingAdmin {
   async saveDraft(page: PageRef, expected: number, input: unknown) {
     // The product's Google rules are checked where a shop writes, never where a page is read: a rule added today
     // must not take a page published yesterday off the air (lát F-013).
-    await this.onPage('draft:save', page); revision(expected); const config = withoutVideoBackground(validateConfig(input)); assertPublishable(config);
+    await this.onPage('draft:save', page); revision(expected); const config = validateConfig(input); assertPublishable(config);
     return tx(this.pool, async db => {
       await this.openPage(db, page);
-      const draft = (await db.query('SELECT revision,template_version_id FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [page.shopId, page.pageId])).rows[0];
+      const draft = (await db.query('SELECT revision FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [page.shopId, page.pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
-      await this.checkSettings(db, draft.template_version_id, config);
       await db.query('UPDATE page_drafts SET config=$3,revision=revision+1 WHERE shop_id=$1 AND page_id=$2', [page.shopId, page.pageId, config]);
       return expected + 1;
-    });
-  }
-  /**
-   * Moves the draft onto another version of the SAME template (versions.ts). The live page does not change: the shop
-   * previews the draft and publishes it like any other edit. Only a version the platform ships for the draft's template
-   * is taken. The version's row is created on first use, like the first version's row at provisioning; a racing twin
-   * lands on the unique (template_key, version). The page's own settings move with it (settings.ts `convertSettings`).
-   */
-  async setDraftTemplate(page: PageRef, expected: number, version: number) {
-    await this.onPage('draft:template', page); revision(expected);
-    if (!Number.isSafeInteger(version) || version < 1) error('INVALID_TEMPLATE');
-    return tx(this.pool, async db => {
-      await this.openPage(db, page);
-      const draft = (await db.query(`SELECT d.revision,d.config,tv.template_key,tv.version FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
-        WHERE d.shop_id=$1 AND d.page_id=$2 FOR UPDATE OF d`, [page.shopId, page.pageId])).rows[0];
-      if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
-      if (!(this.releases[draft.template_key] ?? []).some(release => release.version === version)) error('INVALID_TEMPLATE');
-      if (Number(draft.version) === version) return { revision: expected };
-      await templateVersionRow(db, draft.template_key, version);
-      const { settings: previous, ...rest } = validateConfig(draft.config);
-      const settings = convertSettings(settingsOf(this.releases, draft.template_key, version), previous);
-      const config = validateConfig(rest.schemaVersion >= 2 && settings ? { ...rest, settings } : rest);
-      const updated = await db.query(`UPDATE page_drafts SET template_version_id=(SELECT id FROM template_versions WHERE template_key=$3 AND version=$4),
-        config=$5,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`, [page.shopId, page.pageId, draft.template_key, version, config]);
-      return { revision: Number(updated.rows[0].revision) };
-    });
-  }
-  /**
-   * Puts the draft on ANOTHER template (Tài, 25/09: đổi template giữ link, thẻ và dữ liệu). The page keeps its content;
-   * its look becomes the new template's skeleton at its newest version, with that version's own fields at their
-   * defaults. Nothing reaches guests until the draft is published.
-   */
-  async changeTemplate(page: PageRef, expected: number, key: string) {
-    await this.onPage('draft:template', page); revision(expected);
-    if (!isTemplateKey(key) || !this.releases[key]?.length) return error('INVALID_TEMPLATE');
-    const target: TemplateKey = key, version = this.releases[target]!.at(-1)!.version;
-    return tx(this.pool, async db => {
-      await this.openPage(db, page);
-      const draft = (await db.query(`SELECT d.revision,d.config,tv.template_key FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id
-        WHERE d.shop_id=$1 AND d.page_id=$2 FOR UPDATE OF d`, [page.shopId, page.pageId])).rows[0];
-      if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
-      if (draft.template_key === target) return { revision: expected };
-      const settings = convertSettings(settingsOf(this.releases, target, version), undefined);
-      const config = validateConfig({ ...templateConfig(target), ...contentOf(validateConfig(draft.config)), ...(settings ? { settings } : {}) });
-      assertPublishable(config);
-      const updated = await db.query(`UPDATE page_drafts SET template_version_id=$3,config=$4,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`,
-        [page.shopId, page.pageId, await templateVersionRow(db, target, version), config]);
-      return { revision: Number(updated.rows[0].revision) };
     });
   }
   /**
@@ -192,31 +121,20 @@ export class PublishingAdmin {
     const { shopId, pageId } = page;
     return tx(this.pool, async db => {
       // Lock order everywhere: shop, then page, then what hangs off the page.
-      const shop = (await db.query('SELECT publishing_state FROM shops WHERE id=$1 FOR UPDATE', [shopId])).rows[0];
+      const shop = (await db.query('SELECT publishing_state,self_signup,publish_approved_at FROM shops WHERE id=$1 FOR UPDATE', [shopId])).rows[0];
       if (!shop) error('SHOP_NOT_FOUND'); if (shop.publishing_state === 'suspended') error('SHOP_SUSPENDED');
       await this.openPage(db, page, 'UPDATE');
       const draft = (await db.query('SELECT * FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [shopId, pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
       // Checked again on the way out: a draft written before this rule existed cannot be published under it.
-      const config = withoutVideoBackground(validateConfig(draft.config)); assertPublishable(config); await this.checkSettings(db, draft.template_version_id, config);
-      // Every picture and video on the page must have passed review (migration 023). The page already live stays live.
+      const config = validateConfig(draft.config); assertPublishable(config);
+      // Every uploaded picture on the page must have passed review (migration 023). The page already live stays live.
       await assertMediaApproved(db, shopId, config);
-      // And the shop's own thank-you line, if it has one (migration 030, lát M2b).
-      await assertThanksApproved(db, shopId, config);
+      // A shop that signed itself up puts its first page on the platform's domain only once Tài has seen it (kịch bản mục 4).
+      // Asked last, so what waits for him is a page that would otherwise publish (lib/admin/publish-reviews.ts approves).
+      if (shop.self_signup && !shop.publish_approved_at) error('PUBLISH_REVIEW_REQUIRED');
       const release = (await db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,
         [shopId, pageId, draft.template_version_id, config, expected, actor])).rows[0].id;
-      // Nửa còn lại của migration 022: phát hành cũng ghi phần nội dung xuống hồ sơ — từ 024 là hồ sơ của TRANG.
-      // Thiếu bước này thì trình chỉnh trang đứt mạch — chủ quán sửa tên, bấm phát hành, và trang khách vẫn
-      // hiện tên cũ, vì trình chỉnh ghi vào bản chụp còn trang khách đọc từ hồ sơ. Ghi ở đây, trong cùng
-      // transaction với bản phát hành, nên hai bên không bao giờ lệch nhau.
-      await db.query(`INSERT INTO page_profile(shop_id,page_id,name,google_url,question_vi,question_en,links,logo,poster)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
-        ON CONFLICT(page_id) DO UPDATE SET name=EXCLUDED.name,google_url=EXCLUDED.google_url,
-          question_vi=EXCLUDED.question_vi,question_en=EXCLUDED.question_en,links=EXCLUDED.links,
-          logo=EXCLUDED.logo,poster=EXCLUDED.poster,updated_at=clock_timestamp()`,
-        [shopId, pageId, config.name, config.googleUrl, config.text.question.vi, config.text.question.en,
-         JSON.stringify(config.links), config.logo ? JSON.stringify(config.logo) : null,
-         config.poster ? JSON.stringify(config.poster) : null]);
       // A draft goes live; a paused page takes the new release and stays paused until it is resumed (migration 026).
       await db.query("UPDATE pages SET active_release_id=$3,state=CASE WHEN state='draft' THEN 'active' ELSE state END WHERE shop_id=$1 AND id=$2", [shopId, pageId, release]);
       // The shop is open once any of its pages is: owners sign in to an active shop (lib/owner/auth.ts).
@@ -280,39 +198,34 @@ export class PublishingAdmin {
 export class PublishingResolver {
   constructor(private pool: Pool) {}
   async live(target: { slug: string } | { code: string }) {
-    // The page and its content in one query (migrations 022, 024): content is the page's, look is the snapshot's.
-    // LEFT JOIN because a content row may be missing; the snapshot then stands on its own.
+    // The page as published, and the shop's Google link: the Google button always leads to the shop's own review page (its
+    // Place ID), never to a link written into the page, so a link fixed today reaches every page at once.
     const row = 'slug' in target
-      ? (await this.pool.query(`SELECT s.id,s.publishing_state,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
-          tv.template_key,tv.version template_version,NULL::uuid tag_id,${PROFILE_COLUMNS} FROM pages p JOIN shops s ON s.id=p.shop_id
+      ? (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+          tv.template_key,tv.version template_version,NULL::uuid tag_id FROM pages p JOIN shops s ON s.id=p.shop_id
         JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
-        LEFT JOIN page_profile pr ON pr.page_id=p.id WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
-      : (await this.pool.query(`SELECT s.id,s.publishing_state,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
-          tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state,${PROFILE_COLUMNS} FROM tags t
+        WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
+      : (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+          tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state FROM tags t
         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
-        JOIN template_versions tv ON tv.id=r.template_version_id LEFT JOIN page_profile pr ON pr.page_id=p.id WHERE t.public_code=$1`, [target.code])).rows[0];
+        JOIN template_versions tv ON tv.id=r.template_version_id WHERE t.public_code=$1`, [target.code])).rows[0];
     if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
     // A closed page does not exist any more; a paused one says so, rather than looking broken (migration 026).
     if (row.page_state === 'closed') error('PAGE_CLOSED');
     if (row.page_state === 'paused') error('PAGE_PAUSED');
     if (row.page_state !== 'active') error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : row.entry_key };
-    // The template key and its version travel with the page so the skin dresses each skeleton exactly as it was
-    // published (versions.ts); neither changes the DOM.
     return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
-      config: withProfile(validateConfig(row.config_snapshot), profileFrom(row)), context };
+      config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context };
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
+    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,s.google_url,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
       JOIN shops s ON s.id=v.shop_id JOIN pages p ON p.id=v.page_id JOIN template_versions tv ON tv.id=v.template_version_id
       LEFT JOIN tags t ON t.shop_id=v.shop_id AND t.id=v.tag_id WHERE v.token_hash=$1 AND v.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled' || row.page_state === 'closed') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
-    // Xem trước KHÔNG ghép hồ sơ, có chủ ý: nó tồn tại để chủ quán thấy **đúng bản nháp sắp phát
-    // hành**. Ghép hồ sơ vào đây thì sửa tên xong xem trước vẫn ra tên cũ, và cái nút xem trước mất nghĩa.
-    // Hồ sơ chỉ ghép ở `live()`; và `publish()` ghi nội dung xuống hồ sơ, nên hai đường gặp nhau lúc phát hành.
     return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
-      config: validateConfig(row.config_snapshot), context, expiresAt: row.expires_at as Date };
+      config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context, expiresAt: row.expires_at as Date };
   }
 }

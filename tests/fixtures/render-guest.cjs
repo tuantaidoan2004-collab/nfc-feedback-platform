@@ -14,10 +14,15 @@ for (const ext of ['.ts', '.tsx']) require.extensions[ext] = (module, filename) 
   module._compile(output, filename);
 };
 require.extensions['.css'] = () => {};
+// next/font only works inside Next's compiler; here every font is a class name that sets nothing.
+const Module = require('node:module'), load = Module._load;
+Module._load = function (request, ...rest) {
+  if (request === 'next/font/google') return new Proxy({}, { get: () => () => ({ variable: 'fixture-font', className: 'fixture-font' }) });
+  return load.call(this, request, ...rest);
+};
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
-const Guest = require(path.join(root, 'components/shop-feedback-v2.tsx')).default;
-const config = JSON.parse(fs.readFileSync(0, 'utf8'));
-process.stdout.write(renderToStaticMarkup(React.createElement(Guest, {
-  slug: 'fixture', template: process.env.NFC_FIXTURE_TEMPLATE, name: config.name, googleUrl: config.googleUrl, pageConfig: config, heroUrl: null, heroKind: null,
-})));
+// The guest page as the server sends it (components/canvas/render.tsx): { config, googleUrl } on stdin.
+const CanvasPage = require(path.join(root, 'components/canvas/render.tsx')).default;
+const { config, googleUrl } = JSON.parse(fs.readFileSync(0, 'utf8'));
+process.stdout.write(renderToStaticMarkup(React.createElement(CanvasPage, { doc: config.doc, mode: 'live', slug: 'fixture', googleUrl })));

@@ -43,6 +43,12 @@ const env = { ...process.env, NFC_ENV: 'local', SERVER_DATA_ENABLED: 'true', DAT
   DATABASE_URL_DIRECT: '', DATABASE_URL_UNPOOLED: '', MEDIA_PUBLIC_ORIGIN: '', STORAGE_ENDPOINT: '',
   R2_ACCOUNT_ID: '', R2_ACCESS_KEY_ID: '', R2_SECRET_ACCESS_KEY: '', R2_BUCKET: '',
   NFC_GOOGLE_CLIENT_ID: '', NFC_GOOGLE_CLIENT_SECRET: '', ...privateGoogle() };
+// Pictures shops upload go to a small store on this machine (scripts/local/store.ts), as they go to R2 in production. Not with
+// --lan: a phone cannot reach 127.0.0.1, and the app accepts a plain-http store only on this machine.
+const store = { port: 3322, dir: join(homedir(), '.nfc-local', 'media') };
+if (!lan) Object.assign(env, { STORAGE_ENDPOINT: `http://127.0.0.1:${store.port}`, STORAGE_REGION: 'auto', R2_BUCKET: 'nfc-media',
+  R2_ACCESS_KEY_ID: 'nfc-local', R2_SECRET_ACCESS_KEY: key('store'), MEDIA_PUBLIC_ORIGIN: `http://127.0.0.1:${store.port}/nfc-media`,
+  NFC_LOCAL_MEDIA_DIR: store.dir });
 
 const sh = (command, args, options = {}) => {
   const result = spawnSync(command, args, { stdio: 'inherit', env, ...options });
@@ -104,6 +110,7 @@ console.log(`
   Quản trị /gov   ${origin}/gov            ${LOCAL.admin} / ${LOCAL.adminPassword} · mã 6 số: node scripts/local.mjs code
 `);
 if (process.argv.includes('--no-app')) process.exit(0);
+const helpers = lan ? [] : [spawn(process.execPath, ['--experimental-transform-types', '--no-warnings', '--import', './scripts/local/hooks.mjs', 'scripts/local/store.ts'], { stdio: 'inherit', env })];
 const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', lan ? '0.0.0.0' : '127.0.0.1', '--port', '3321'], { stdio: 'inherit', env });
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.kill(signal));
-app.on('exit', code => process.exit(code ?? 0));
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { for (const child of [app, ...helpers]) child.kill(signal); });
+app.on('exit', code => { for (const child of helpers) child.kill('SIGTERM'); process.exit(code ?? 0); });

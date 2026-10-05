@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
-import { PublishingError, validateConfig } from '../publishing/config';
+import { PublishingError } from '../publishing/config';
 import { googleUrlProblem } from '../publishing/policy';
 import { parsePlaceId, reviewLink } from '../google/place-id';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
@@ -9,7 +9,8 @@ import { loginBucket, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 import { shortCode, withShortCode } from '../short-code';
-import { isTemplateKey, templateConfig, type TemplateKey, latestVersion } from '../publishing/templates';
+import { DEFAULT_TEMPLATE, canvasTemplate, pageFromTemplate } from '../canvas/templates';
+import { pageLabel } from '../owner/page-names';
 
 // Opaque and short (lib/short-code.ts). A slug is a name only in the sense that it appears in a URL: a shop can be
 // given a real one later without breaking anything, because cards carry the tag code and history keys off the id.
@@ -26,8 +27,8 @@ export type ProvisionedShop = {
 
 export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; placeId?: unknown; templateKey?: unknown };
 
-/** Absent means template 1, so callers from before the six templates keep working. */
-const chosenTemplate = (value: unknown): TemplateKey | null => value === undefined ? 'standard' : isTemplateKey(value) ? value : null;
+/** A canvas template's key (lib/canvas/templates.ts); absent means the plainest one. */
+const chosenTemplate = (value: unknown): string | null => value === undefined ? DEFAULT_TEMPLATE : canvasTemplate(value)?.key ?? null;
 
 const printable = (value: string) => ![...value].some(character => (character.codePointAt(0) ?? 0) < 32 || '<>'.includes(character));
 const shopName = (value: unknown) =>
@@ -48,7 +49,8 @@ export class ShopProvisioning {
   constructor(private pool: Pool) {}
 
   /**
-   * The template shop every new shop is cloned from, created on first need. Safe to call concurrently and to call
+   * The platform's sample shop ("YOUR SHOP", signed into as `yourshop`), created on first need with a page from the
+   * default template; new shops start from the template chosen for them, not from this shop. Safe to call concurrently and to call
    * again after a half-finished run. No lock is held while waiting: a lock on one pooled connection while the
    * publish needs another starves a small pool (production has three) and every caller waits on every other.
    * Instead each step tolerates a racing twin (the unique index, the draft key, the draft revision) and a caller
@@ -74,7 +76,7 @@ export class ShopProvisioning {
       try {
         // The template shop has one page, at the shop's own link (migration 024).
         const page = row.page_id ? { shopId: row.id, pageId: row.page_id }
-          : await admin.createPage(row.id, await this.template(admin, 'standard'), templateConfig('standard'), row.slug);
+          : await admin.createPage(row.id, await this.template(admin, DEFAULT_TEMPLATE), pageFromTemplate(DEFAULT_TEMPLATE, 'YOUR SHOP'), row.slug, pageLabel(0));
         const draft = (await this.pool.query('SELECT revision FROM page_drafts WHERE page_id=$1', [page.pageId])).rows[0];
         await admin.publish(page, Number(draft.revision));
         continue;
@@ -87,17 +89,13 @@ export class ShopProvisioning {
     throw new AdminError(503, 'TEMPLATE_UNAVAILABLE');
   }
 
-  /**
-   * Publishes today's built-in defaults (templateConfig) on the template as a new release, so the operator can
-   * adopt new defaults without an editor (Tài, 2026-09-18). Older releases stay in history, and shops made earlier
-   * keep the page they were cloned with; only shops created afterwards start from the new one.
-   */
+  /** Puts the sample shop's page back to a fresh copy of the default template and publishes it. Older releases stay in history. */
   async resetTemplate(actorId: string) {
     const template = await this.ensureTemplate(actorId);
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
     const page = { shopId: template.shopId, pageId: template.pageId };
     const draft = Number((await this.pool.query('SELECT revision FROM page_drafts WHERE page_id=$1', [page.pageId])).rows[0].revision);
-    const saved = await admin.saveDraft(page, draft, templateConfig('standard'));
+    const saved = await admin.saveDraft(page, draft, pageFromTemplate(DEFAULT_TEMPLATE, 'YOUR SHOP'));
     const { releaseId } = await admin.publish(page, saved);
     await recordAdminAction(this.pool, actorId, { action: 'template.reset', shopId: template.shopId, detail: { releaseId } });
     return { ...template, releaseId };
@@ -138,17 +136,8 @@ export class ShopProvisioning {
       { id: string; slug: string; page_id: string | null; active_release_id: string | null } | undefined;
   }
 
-  /** The configuration a new shop starts from: the template's live release, with the new shop's own name and link. */
-  private async fromTemplate(actorId: string, name: string, googleUrl: string) {
-    const template = await this.ensureTemplate(actorId);
-    const release = (await this.pool.query(`SELECT r.config_snapshot FROM pages p JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
-      WHERE p.id=$1`, [template.pageId])).rows[0];
-    if (!release) throw new AdminError(503, 'TEMPLATE_UNAVAILABLE');
-    return validateConfig({ ...release.config_snapshot, name, googleUrl });
-  }
-
   /**
-   * Creates a shop, its first release (cloned from the template shop), a tag, and an owner who has not chosen a
+   * Creates a shop, its first release (a copy of the chosen template with the shop's name), a tag, and an owner who has not chosen a
    * password yet, then returns the single-use link to hand over.
    *
    * The steps cannot share one transaction because PublishingAdmin opens its own per call, so the order is
@@ -173,17 +162,18 @@ export class ShopProvisioning {
   }
 
   /**
-   * A shop, its first page (cloned from the template shop for template 1, the template's bare page otherwise), a card
-   * and its owner, published last.
+   * A shop, its first page (a copy of the chosen template's document with the shop's name), a card and its owner,
+   * published last.
    *
    * The steps cannot share one transaction because PublishingAdmin opens its own per call, so the order is what keeps
    * a failure harmless. Publishing comes last: until that line the shop has no active release, the resolver refuses
    * it, and a failure anywhere above leaves a dark row rather than a live page nobody owns. `owner` attaches the owner
    * to the new shop before it goes live.
    */
-  private async build(actorId: string, name: string, place: { placeId: string | null; url: string }, key: TemplateKey, owner: (shopId: string) => Promise<void>) {
-    // Read before the shop row exists, so a missing or broken template stops the run with nothing written for this shop.
-    const config = key === 'standard' ? await this.fromTemplate(actorId, name, place.url) : validateConfig({ ...templateConfig(key), name, googleUrl: place.url });
+  private async build(actorId: string, name: string, place: { placeId: string | null; url: string }, key: string, owner: (shopId: string) => Promise<void>) {
+    // Made before the shop row exists, so a broken template stops the run with nothing written for this shop. The Google
+    // link is the shop's (shops.google_url), never the page's.
+    const config = pageFromTemplate(key, name);
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
     // The shop's first page shares the shop's code, so its link is the one the shop is known by. A code already taken
     // by any page counts as taken: links are never reissued (migration 024).
@@ -192,7 +182,7 @@ export class ShopProvisioning {
       return { slug, shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url,place_id)VALUES($1,$2,$3,$4)RETURNING id', [slug, name, place.url, place.placeId])).rows[0].id as string };
     });
     const template = await this.template(admin, key);
-    const page = await admin.createPage(shopId, template, config, slug);
+    const page = await admin.createPage(shopId, template, config, slug, pageLabel(0));
     // Prepared, not active: the card still has to be written and tested before anyone can scan it.
     const tagCode = await withShortCode(async code => { await admin.createTag(page, code); return code; });
     await owner(shopId);
@@ -201,12 +191,11 @@ export class ShopProvisioning {
   }
 
   /**
-   * One shared row per template rather than one per shop: every shop renders through the same versioned renderer.
-   * Created on first use; a racing twin lands on the unique (template_key, version) and the loser reads its row.
+   * One shared row per template rather than one per shop, recording where a page started. Created on first use; a
+   * racing twin lands on the unique (template_key, version) and the loser reads its row.
    */
-  private async template(admin: PublishingAdmin, key: TemplateKey) {
-    // A new shop starts on the newest version of its template; shops already running stay on theirs (versions.ts).
-    const version = latestVersion(key);
+  private async template(admin: PublishingAdmin, key: string) {
+    const version = 1;
     const find = async () => (await this.pool.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=$2', [key, version])).rows[0]?.id as string | undefined;
     const found = await find(); if (found) return found;
     try { return await admin.createTemplate(key, version); }

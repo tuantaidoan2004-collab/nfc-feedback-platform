@@ -1,31 +1,48 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomUUID, randomBytes } from 'node:crypto';
-import { PublishingAdmin, type PageRef } from '../lib/publishing/repository';
-import { defaultConfig, STEM_BACKGROUND, type PageConfig } from '../lib/publishing/config';
-import { templateConfig, type TemplateKey } from '../lib/publishing/templates';
+import { PublishingAdmin, templateVersionRow, type PageRef } from '../lib/publishing/repository';
+import type { PageConfig } from '../lib/publishing/config';
+import type { PageDoc } from '../lib/canvas/doc';
+import { walk } from '../lib/canvas/validate';
+import { CANVAS_TEMPLATES, DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
+import { FACES } from '../lib/faces';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
 type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; page: PageRef; release: string };
+/** The shop's review link: the Google button always takes it (shops.google_url), never anything a page says. */
+const GOOGLE = 'https://maps.google.com/?cid=42', SHOP_GOOGLE = 'https://maps.google.com/?cid=66';
+/** A page from a template, carrying `name`; `change` edits its document the way the editor would (đợt ②, lib/canvas/doc.ts). */
+function canvas(name: string, change?: (doc: PageDoc) => void, key = DEFAULT_TEMPLATE): PageConfig {
+  const config = pageFromTemplate(key, name); change?.(config.doc); return config;
+}
+/** One element of the document by its id, wherever it sits (a stack's child, a button in a row). */
+function set(doc: PageDoc, id: string, patch: Record<string, unknown>) {
+  const el = [...walk(doc)].find(e => e.id === id); if (!el) throw Error(`No element ${id}`); Object.assign(el, patch);
+}
 const test = base.extend<{ fixture: Fixture }>({ fixture: async ({}, provideFixture) => {
   const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
   try {
     await db.query('TRUNCATE shops, template_versions CASCADE');
     const shop = randomUUID();
-    await db.query("INSERT INTO shops(id,slug,name)VALUES($1,'one','Legacy fixture')", [shop]);
+    await db.query("INSERT INTO shops(id,slug,name,google_url)VALUES($1,'one','Legacy fixture',$2)", [shop, GOOGLE]);
     const admin = new PublishingAdmin(db, async () => ({ actorId: 'local-fixture-only' }));
     const template = await admin.createTemplate('neutral', 1);
-    const page = await admin.createPage(shop, template, defaultConfig('Release One'), 'one');
+    const page = await admin.createPage(shop, template, canvas('Release One'), 'one');
     const published = await admin.publish(page, 1);
     await provideFixture({ db, admin, shop, page, release: published.releaseId });
   } finally { await db.end(); }
 } });
 const star = (page: Page, n: number) => page.getByRole('button', { name: `${n} sao`, exact: true });
-// Guest page v2: stars live in the private card and are saved only by Send.
+// Stars live in the private card and are saved only by Send.
 const loaded = (page: Page) => expect(page.locator('main[data-ready]')).toBeVisible();
 async function openCard(page: Page) {
+  if (await page.locator('#private-card').count()) return;
+  // The plane steps aside while it would lie over the Google button (live.tsx); a guest scrolls on to reach it.
+  if (await page.locator('#private-feedback[data-away]').count()) await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(page.locator('#private-feedback:not([data-away])')).toHaveCount(1);
   // The button floats on purpose; force skips Playwright's wait for it to stand still.
-  if (!await page.locator('#private-card').count()) await page.locator('#private-feedback').click({ force: true });
+  await page.locator('#private-feedback').click({ force: true });
   await expect(page.locator('#private-card')).toBeVisible();
 }
 const sendButton = (page: Page) => page.getByRole('button', { name: 'Gửi góp ý', exact: true });
@@ -34,6 +51,11 @@ async function thanked(page: Page) {
   await page.locator('[data-thanks] button').click(); await expect(page.locator('#private-card')).toHaveCount(0);
 }
 async function rated(page: Page, n: number) { await openCard(page); await star(page, n).click(); await sendButton(page).click(); await thanked(page); }
+/** The page's name as the page shows it: the template's "Tên quán" spot, filled with the name (lib/canvas/templates.ts). */
+const shownName = (page: Page) => page.locator('[data-id="ten-quan"]');
+/** Entrance animations done (loops run for ever and are left alone): every box is where the design puts it. */
+const settled = (page: Page) => page.evaluate(() => Promise.all(document.getAnimations()
+  .filter(a => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => null))));
 const origin = 'http://127.0.0.1:3317';
 const openBody = () => ({ loadKey: randomUUID(), navigationKind: 'load' });
 test.beforeEach(async ({ page }) => {
@@ -46,17 +68,16 @@ test('render R1 → publish R2 → open remains R1; reload shares session and re
   await page.route('**/api/v2/pages/visits', async route => { if (hold) { hold = false; await latch; } await route.continue(); });
   const pending = page.waitForRequest('**/api/v2/pages/visits');
   await page.goto('/one'); await pending;
-  // Từ migration 022 tên quán thuộc tài khoản, không thuộc bản phát hành, nên nó không còn đổi theo
-  // release. Bằng chứng "bản nào đang hiện" chuyển sang `data-layout` — thứ vẫn do bản phát hành quyết.
-  await expect(page.locator('main.guest')).toHaveAttribute('data-layout', 'full-bleed');
-  await f.admin.saveDraft(f.page, 2, { ...defaultConfig('Release Two'), layout: 'card' as const });
+  // The page carries its own name since đợt ② (it is part of the canvas document), so the name shows which release is on screen.
+  await expect(shownName(page)).toHaveText('Release One');
+  await f.admin.saveDraft(f.page, 2, canvas('Release Two'));
   const second = await f.admin.publish(f.page, 3);
   release(); await loaded(page);
   await rated(page, 5);
-  const google = await page.locator('.google-invitation').innerText();
+  const google = await page.locator('[data-google]').evaluate(element => element.outerHTML);
   await page.reload(); await loaded(page);
-  await expect(page.locator('main.guest')).toHaveAttribute('data-layout', 'card');
-  expect(await page.locator('.google-invitation').innerText()).toBe(google);
+  await expect(shownName(page)).toHaveText('Release Two');
+  expect(await page.locator('[data-google]').evaluate(element => element.outerHTML)).toBe(google);
   const response = page.waitForResponse('**/feedback');
   await openCard(page); await star(page, 2).click();
   await page.locator('#message').fill('Private publishing fixture');
@@ -120,52 +141,67 @@ test('publishing gate off: no page, no write path, nothing recorded', async ({ p
   expect((await f.db.query('SELECT count(*)::int n FROM page_visits')).rows[0].n).toBe(0);
 });
 
-// Lát B2–B3: guest page v2. The fixture publishes draft revision 1, so the next save expects revision 2.
-const b2 = (patch: Partial<PageConfig> = {}): PageConfig => ({ ...defaultConfig('Quán Thử'), googleUrl: 'https://maps.google.com/?cid=42',
-  background: { kind: 'media', media: { kind: 'image', url: STEM_BACKGROUND.still }, loop: true }, ...patch });
-const v1 = (name: string) => { const { feedbackButton: _unused, sections: _none, ...rest } = defaultConfig(name); void _unused; void _none; return { ...rest, schemaVersion: 1, links: [] }; };
+// The fixture publishes draft revision 1, so the next save expects revision 2.
 async function release(f: Fixture, config: unknown, expected: number) {
   const saved = await f.admin.saveDraft(f.page, expected, config); await f.admin.publish(f.page, saved); return saved + 1;
 }
-const scale = (page: Page, selector: string) => page.locator(selector).first().evaluate(element => {
-  const matrix = getComputedStyle(element).transform; return matrix === 'none' ? 1 : Number(matrix.slice(7).split(',')[0]);
-});
-test('v2: the page asks for nothing before Google, and the Google button is the same whatever was sent', async ({ page, fixture: f }) => {
-  let revision = 2;
-  for (const layout of ['full-bleed', 'card'] as const) {
-    revision = await release(f, b2({ layout }), revision);
-    await page.goto('/one'); await loaded(page);
-    await expect(page.locator('main')).toHaveAttribute('data-layout', layout);
-    await expect(page.getByRole('button', { name: /sao$/ })).toHaveCount(0);
+/** A shop with a page made from template `key`, as the Library makes one: the page records the template it came from. */
+async function templateShop(f: Fixture, key: string, slug: string, change?: (doc: PageDoc) => void) {
+  const shop = randomUUID();
+  await f.db.query('INSERT INTO shops(id,slug,name,google_url)VALUES($1,$2,$3,$4)', [shop, slug, `Quán ${slug}`, SHOP_GOOGLE]);
+  const page = await f.admin.createPage(shop, await templateVersionRow(f.db, key), canvas(`Quán ${slug}`, change, key), slug);
+  await f.admin.publish(page, 1);
+  return page;
+}
+
+// Luật 0.1 of the script, on every template the Library offers: the Google button is in the first screen of the smallest
+// phone, nothing lies over it, it takes the shop's own link, the page asks for nothing before it, and it stays the same
+// whatever the guest sends. The private card works under each of them (Tài 24/09: on one template of old the card opened
+// and nothing in it could be tapped).
+test('every template: Google in the first screen and on top, with the shop\'s link, the same whatever the guest sends', async ({ page, fixture: f }) => {
+  // iPhone SE in Safari: the first screen that FIRST_SCREEN stands for (lib/canvas/doc.ts).
+  await page.setViewportSize({ width: 375, height: 548 });
+  for (const { key } of CANVAS_TEMPLATES) {
+    const slug = `pf-${key}`;
+    await templateShop(f, key, slug);
+    await page.goto(`/${slug}`); await loaded(page); await settled(page);
+    await expect(page.getByRole('button', { name: /sao$/ }), key).toHaveCount(0);
     const google = page.locator('[data-google]');
-    await expect(google).toBeInViewport();
-    await expect(google).toHaveAttribute('href', 'https://maps.google.com/?cid=42');
+    await expect(google, key).toHaveCount(1);
+    await expect(google, key).toHaveAttribute('href', SHOP_GOOGLE);
+    await expect(google, key).toHaveAttribute('target', '_blank');
+    const box = (await google.boundingBox())!;
+    expect(box.y, key).toBeGreaterThanOrEqual(0); expect(box.y + box.height, key).toBeLessThanOrEqual(548);
+    // On top: a tap on the middle of the button reaches the button, whatever floats or decorates around it.
+    expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-google]'), [box.x + box.width / 2, box.y + box.height / 2]), key).toBe(true);
     const before = await google.evaluate(element => element.outerHTML);
-    for (const score of [1, 5]) {
-      await rated(page, score);
-      expect(await google.evaluate(element => element.outerHTML)).toBe(before);
-    }
+    await openCard(page); await star(page, 4).click();
+    await page.locator('#message').fill(`Góp ý thử ở template ${key}`);
+    await sendButton(page).click(); await thanked(page);
+    expect(await google.evaluate(element => element.outerHTML), key).toBe(before);
+    await expect(page.locator('.cv-connection'), key).toHaveCount(0);
   }
+  expect((await f.db.query('SELECT count(*)::int n FROM rating_experiences')).rows[0].n).toBe(CANVAS_TEMPLATES.length);
 });
-test('v2: the plane opens a spotlight card; faces follow the chosen score; thanks stays until closed', async ({ page, fixture: f }) => {
-  await release(f, b2(), 2);
+test('the plane opens the private card over a dimmed page; faces follow the score; a draft survives closing; thanks stays until closed', async ({ page, fixture: f }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await page.goto('/one'); await loaded(page);
   const plane = page.locator('#private-feedback');
   await expect(plane).toBeInViewport({ ratio: 1 });
+  // The original plane, on every page (Tài 05/10): blue, edged in white, no disc behind it.
   await expect(plane.locator('path')).toHaveAttribute('fill', '#229ED9');
+  await expect(plane.locator('path')).toHaveAttribute('stroke', '#FFFFFF');
   await expect(plane).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await plane.click({ force: true });
   const card = page.getByRole('dialog');
   await expect(card).toContainText('Gửi góp ý riêng cho quản lý');
   await expect(card).toContainText('Bạn cảm thấy thế nào?');
   await expect(page.locator('.guest-modal')).toHaveCSS('backdrop-filter', /blur/);
-  await expect(page.locator('.guest-sheet')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.cv-page')).toHaveAttribute('aria-hidden', 'true');
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('hidden');
-  const faces = ['😡', '😤', '😕', '😊', '🤩'];
   for (const score of [1, 2, 3, 4, 5, 2]) {
     await star(page, score).click();
-    await expect(page.locator('.guest-face')).toHaveText(Array(score).fill(faces[score - 1]));
+    await expect(page.locator('.guest-face')).toHaveText(Array(score).fill(FACES[score - 1]));
     await expect(page.locator('.guest-star')).toHaveCount(5 - score);
   }
   // A tap on the dimmed page closes the card and keeps the unsent choice and text.
@@ -191,8 +227,7 @@ test('v2: the plane opens a spotlight card; faces follow the chosen score; thank
   await expect(page.locator('canvas[data-confetti]')).toHaveCount(0);
   await expect(page.locator('.guest-card')).toHaveCSS('animation-name', 'none');
 });
-test('v2: the card takes an optional call-back number that needs a few words with it', async ({ page, fixture: f }) => {
-  await release(f, b2(), 2);
+test('the card takes an optional call-back number that needs a few words with it', async ({ page, fixture: f }) => {
   await page.goto('/one'); await loaded(page); await openCard(page);
   const phone = page.getByLabel('Số điện thoại, nếu muốn quản lý gọi lại');
   await expect(phone).toHaveAttribute('placeholder', 'Chỉ người của quán được cấp quyền mới thấy số này');
@@ -210,8 +245,8 @@ test('v2: the card takes an optional call-back number that needs a few words wit
     .toEqual([{ rating: 1, feedback_message: 'Gọi giúp tôi', feedback_phone: '0961036265' }]);
   await openCard(page); await expect(page.getByLabel('Số điện thoại, nếu muốn quản lý gọi lại')).toHaveValue('');
 });
-test('v2: the hint appears only two seconds after the visitor reaches the bottom', async ({ page, fixture: f }) => {
-  await release(f, b2(), 2);
+// The original plane's invitation (Tài 05/10: kept as it was): it appears only two seconds after the visitor reaches the bottom.
+test('the plane\'s invitation appears only two seconds after the visitor reaches the bottom, and opens the card', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 600 });
   await page.goto('/one'); await loaded(page);
   await page.waitForTimeout(2600);
@@ -225,117 +260,106 @@ test('v2: the hint appears only two seconds after the visitor reaches the bottom
   await page.locator('[data-hint]').click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
-test('v2: pressing sinks links to 96% and the plane to 70%; buttons and plane follow the configuration', async ({ page, fixture: f }) => {
-  await release(f, b2({ feedbackButton: { icon: 'chat', color: '#FF5500', outline: '#000000' } }), 2);
-  await page.goto('/one'); await loaded(page);
-  const links = page.locator('.guest-links a');
-  await expect(links.locator('> span')).toHaveText(['Instagram', 'Zalo', 'TikTok']);
-  for (const name of ['Instagram', 'Zalo', 'TikTok']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(1);
-  await expect(links.nth(0)).toHaveAttribute('href', 'https://www.instagram.com/quitesensational/');
-  await expect(links.nth(1)).toHaveAttribute('href', 'https://zalo.me/0961036265');
-  await expect(links.nth(2)).toHaveAttribute('href', 'https://www.tiktok.com/@taidoan450');
-  await expect(links.locator('svg.brand-mark')).toHaveCount(3);
-  const plane = page.locator('#private-feedback');
-  await expect(plane).toHaveAttribute('data-icon', 'chat');
-  await expect(plane.locator('path')).toHaveAttribute('fill', '#FF5500');
-  await expect(plane.locator('path')).toHaveAttribute('stroke', '#000000');
-  const press = async (selector: string) => {
-    const box = (await page.locator(selector).first().boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
-    await page.waitForTimeout(250); const pressed = await scale(page, selector);
-    await page.mouse.move(0, 0); await page.mouse.up(); return pressed;
-  };
-  expect(await press('.guest-links a')).toBeCloseTo(0.96, 2);
-  expect(await press('#private-feedback')).toBeCloseTo(0.7, 2);
-  await page.waitForTimeout(900);
-  expect(await scale(page, '#private-feedback')).toBeCloseTo(1, 2);
+// A1 (Tài 23/09), kept with the plane: every page is taller than the phone, so reaching the bottom is something the visitor
+// does; a page that fit the screen counted as "already at the bottom" on arrival and invited feedback unasked.
+test('every template still scrolls, so the plane\'s invitation never shows on arrival', async ({ page, fixture: f }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const { key } of CANVAS_TEMPLATES) {
+    await templateShop(f, key, `a1-${key}`);
+    await page.goto(`/a1-${key}`); await loaded(page);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight), key).toBeGreaterThanOrEqual(104);
+  }
+  await page.waitForTimeout(2600);
+  await expect(page.locator('[data-hint]')).toHaveCount(0);
 });
-test('v2: background picture, watermark, poster frame and logo come from the configuration; v1 still renders', async ({ page, fixture: f }) => {
-  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  const revision = await release(f, b2({ links: [{ label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
-    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] }), 2);
-  await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
-  // A background is a picture, never a video (Tài 26/09).
-  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', STEM_BACKGROUND.still);
-  await expect(page.locator('video')).toHaveCount(0);
-  await expect(page.locator('.guest-watermark-track span').first()).toHaveText('YOUR LOGO');
-  await expect(page.locator('.guest-poster-empty')).toHaveText('POSTER SỰ KIỆN');
-  // Chữ tắt dựng từ tên quán. Tên quán thuộc tài khoản (022), nhưng `publish()` ghi nội dung xuống hồ sơ
-  // trong cùng transaction — nên sau khi phát hành, tên của tài khoản CHÍNH LÀ tên vừa phát hành.
-  await expect(page.locator('.guest-logo')).toHaveText('QT');
+// A2: the plane and its invitation are one thing on every page, dark or light; the press sinks the plane to 70%.
+test('the plane and its invitation look the same on a dark and a light page, and a press sinks the plane to 70%', async ({ page, fixture: f }) => {
+  await templateShop(f, 'hair-styling', 'toi'); await templateShop(f, 'nen-ca-phe', 'sang');
+  await page.setViewportSize({ width: 390, height: 600 });
+  const look = async (slug: string) => {
+    await page.goto(`/${slug}`); await loaded(page);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(page.locator('[data-hint]')).toBeVisible({ timeout: 6000 });
+    // The invitation springs in (0.55 s, with overshoot): measured mid-flight its width differs by a pixel run to run.
+    await page.locator('[data-hint]').evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+    return page.evaluate(() => [...document.querySelectorAll('.guest-plane, .guest-hint')].map(element => {
+      const style = getComputedStyle(element); const box = element.getBoundingClientRect();
+      return [style.color, style.backgroundColor, style.boxShadow, style.fontSize, Math.round(box.width), Math.round(box.height), Math.round(box.left)];
+    }));
+  };
+  expect(await look('toi')).toEqual(await look('sang'));
+  const box = (await page.locator('#private-feedback').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.waitForTimeout(250);
+  const scale = () => page.locator('#private-feedback').evaluate(element => new DOMMatrix(getComputedStyle(element).transform).a);
+  expect(await scale()).toBeCloseTo(0.7, 2);
+  await page.mouse.move(0, 0); await page.mouse.up();
+  await page.waitForTimeout(900);
+  expect(await scale()).toBeCloseTo(1, 2);
+});
+// Mẫu Illustrate (`fx.hint`): after its time without a scroll an arrow says there is more below, and the first scroll takes it away.
+test('the scroll hint comes only after its time without a scroll, and leaves at the first scroll', async ({ page, fixture: f }) => {
+  await templateShop(f, 'illustrate-nha-khoa', 'rang');
+  await page.goto('/rang'); await loaded(page);
+  const hint = page.locator('.cv-hint');
+  // The template waits three seconds; the clock started when the page came alive, a moment before it was ready.
+  await page.waitForTimeout(1500);
+  await expect(hint).toHaveCount(0);
+  await expect(hint).toBeVisible({ timeout: 3000 });
+  await expect(hint).toContainText('Kéo xuống để khám phá thêm');
+  await hint.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(12);
+  await expect(hint).toHaveCount(0);
+  // A guest who scrolls before the time never sees it.
+  await page.goto('/rang'); await loaded(page);
+  await page.evaluate(() => window.scrollTo(0, 300));
+  await page.waitForTimeout(3500);
+  await expect(hint).toHaveCount(0);
+});
+test('the page draws what its document says: links and their tabs, the plane\'s look, hidden elements; a press sinks a button', async ({ page, fixture: f }) => {
+  await release(f, canvas('Quán Thử', doc => {
+    set(doc, 'instagram', { label: { vi: 'Facebook' }, icon: 'facebook', link: 'https://facebook.com/quanthu' });
+    set(doc, 'zalo', { label: { vi: 'Gọi cho quán', en: 'Call us' }, icon: 'phone', link: 'tel:+84901234567' });
+    set(doc, 'tiktok', { hide: true });
+    set(doc, 'anh-chinh', { hide: true });
+    set(doc, 'gop-y', { icon: 'chat', color: '#FF5500', edge: '#000000' });
+  }), 2);
+  await page.goto('/one'); await loaded(page);
   const facebook = page.getByRole('link', { name: 'Facebook' }), phone = page.getByRole('link', { name: 'Gọi cho quán' });
   await expect(facebook).toHaveAttribute('href', 'https://facebook.com/quanthu'); await expect(facebook).toHaveAttribute('target', '_blank');
   await expect(phone).toHaveAttribute('href', 'tel:+84901234567'); expect(await phone.getAttribute('target')).toBeNull();
+  // What the owner hid is not on the page at all, not merely invisible.
+  await expect(page.locator('[data-id="tiktok"], [data-id="anh-chinh"]')).toHaveCount(0);
+  const plane = page.locator('#private-feedback');
+  await expect(plane.locator('path')).toHaveAttribute('fill', '#FF5500');
+  await expect(plane.locator('path')).toHaveAttribute('stroke', '#000000');
+  await settled(page);
+  const box = (await facebook.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.waitForTimeout(250);
+  expect(await facebook.evaluate(element => new DOMMatrix(getComputedStyle(element).transform).a)).toBeCloseTo(0.96, 2);
+  await page.mouse.move(0, 0); await page.mouse.up();
+});
+// Cửa duyệt ảnh: a picture the shop uploaded reaches the guest page only once approved, and a page whose next picture waits
+// stays up as it was. Pictures only: a page never carries a video (Tài 26/09; the canvas has no video element).
+test('an uploaded picture is published only once approved; while one waits the live page keeps running', async ({ page, fixture: f }) => {
+  const waiting = 'https://media.example/waiting.jpg', approved = 'https://media.example/approved.jpg';
+  await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by)VALUES($1,$2,'image','fixture')", [f.shop, waiting]);
+  await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,'image','fixture','approved',clock_timestamp())", [f.shop, approved]);
+  const saved = await f.admin.saveDraft(f.page, 2, canvas('Quán Thử', doc => set(doc, 'anh-chinh', { src: waiting })));
+  await expect(f.admin.publish(f.page, saved)).rejects.toThrow('MEDIA_PENDING');
+  await page.goto('/one'); await loaded(page);
+  await expect(page.locator(`img[src="${waiting}"]`)).toHaveCount(0);
+  await expect(shownName(page)).toHaveText('Release One');
+  await expect(page.locator('[data-google]')).toBeVisible();
+  await release(f, canvas('Quán Thử', doc => set(doc, 'anh-chinh', { src: approved })), saved);
+  await page.reload(); await loaded(page);
+  await expect(page.locator(`img[src="${approved}"]`)).toHaveCount(1);
+  await expect(page.locator('video')).toHaveCount(0);
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}px`).toBe(true);
   }
-  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await loaded(page);
-  await expect(page.locator('img.guest-bg-media')).toBeVisible();
-  await expect(page.locator('.guest-watermark-track')).toHaveCSS('animation-name', 'none');
-  await expect(page.locator('#private-feedback')).toHaveCSS('animation-name', 'none');
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-
-  // Cửa duyệt ảnh (migration 023): uploaded media is published only once approved.
-  const old = { kind: 'video' as const, url: 'https://media.example/bg.mp4', still: 'https://media.example/bg.jpg' };
-  for (const url of [old.url, old.still, 'https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
-    await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
-      [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
-  // A page published before 26/09 with a video background -- written straight to the release, as it was then: the guest
-  // sees the video's first frame and no video at all.
-  const draft = (await f.db.query('SELECT template_version_id FROM page_drafts WHERE page_id=$1', [f.page.pageId])).rows[0];
-  const before = (await f.db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by)
-    VALUES($1,$2,$3,$4,$5,'fixture') RETURNING id`, [f.shop, f.page.pageId, draft.template_version_id,
-    JSON.stringify(b2({ background: { kind: 'media', media: old, loop: true } })), revision])).rows[0].id;
-  await f.db.query('UPDATE pages SET active_release_id=$2 WHERE id=$1', [f.page.pageId, before]);
-  await page.reload(); await loaded(page); await page.waitForLoadState('load');
-  await expect(page.locator('img.guest-bg-media')).toHaveAttribute('src', 'https://media.example/bg.jpg');
-  await expect(page.locator('video')).toHaveCount(0);
-  // A phone that refuses to play (iPhone Low Power Mode, Android Battery or Data Saver): the poster video goes, and the
-  // first frame the editor captured stays (lát F5).
-  const next = await release(f, b2({ poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), revision);
-  await page.addInitScript(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Low Power Mode', 'NotAllowedError')); });
-  await page.reload(); await loaded(page); await page.waitForLoadState('load');
-  await expect(page.locator('img[data-poster-still][data-video-blocked]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
-  await expect(page.locator('video')).toHaveCount(0);
-  await release(f, v1('Bản cũ'), next);
-  await page.reload(); await loaded(page);
-  await expect(page.locator('main')).toHaveAttribute('data-schema', '1');
-  await expect(page.getByRole('heading', { name: 'Bản cũ' })).toBeVisible();
-  await expect(page.locator('#private-feedback')).toHaveAttribute('data-icon', 'plane');
-  expect(errors).toEqual([]);
-});
-
-test('E9: a phone set to save data keeps the poster still and never fetches its video', async ({ page, fixture: f }) => {
-  for (const url of ['https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
-    await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
-      [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
-  await release(f, b2({ poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), 2);
-  const videos: string[] = []; page.on('request', r => { if (r.url().endsWith('.mp4')) videos.push(r.url()); });
-  await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }));
-  await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
-  // Settled: the choice is made, so "no video" here means never, not not-yet.
-  await expect(page.locator('img[data-poster-still][data-video-settled]')).toHaveAttribute('src', 'https://media.example/poster.jpg');
-  await expect(page.locator('video')).toHaveCount(0);
-  expect(videos).toEqual([]);
-});
-
-test('E9: the poster video is not in the first HTML, and joins once the page has loaded', async ({ page, fixture: f }) => {
-  for (const url of ['https://media.example/poster.mp4', 'https://media.example/poster.jpg'])
-    await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by,state,reviewed_at)VALUES($1,$2,$3,'fixture','approved',clock_timestamp())",
-      [f.shop, url, url.endsWith('.mp4') ? 'video' : 'image']);
-  await release(f, b2({ background: { kind: 'solid', color: '#223344' },
-    poster: { kind: 'video', url: 'https://media.example/poster.mp4', still: 'https://media.example/poster.jpg' } }), 2);
-  const html = await (await page.request.get('/one')).text();
-  expect(html).not.toContain('<video'); expect(html).toContain('data-poster-still');
-  // media.example never answers here (the suite aborts every non-local request), so the video fails at once and the
-  // still comes back; what is tested is when the browser asks for it -- only after the page has loaded.
-  let loadedAt = 0; const asked: number[] = [];
-  page.on('load', () => { loadedAt = Date.now(); });
-  page.on('request', r => { if (r.url() === 'https://media.example/poster.mp4') asked.push(Date.now()); });
-  await page.goto('/one'); await loaded(page); await page.waitForLoadState('load');
-  await expect.poll(() => asked.length).toBeGreaterThan(0);
-  expect(loadedAt).toBeGreaterThan(0); expect(asked[0]).toBeGreaterThanOrEqual(loadedAt);
 });
 /**
  * The behaviour log, end to end through a real browser on the path a real card leads to (lát mục 7). Every other
@@ -356,16 +380,21 @@ test('what the customer did reaches the log, through the published page, without
   await star(page, 4).click();
   await sendButton(page).click();
   await thanked(page);
+  // Google opens in its own tab (no thanks on this page); the tap is queued like the rest, and this page stays.
+  await page.context().route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
+  const tab = page.waitForEvent('popup');
+  await page.locator('[data-google]').click();
+  await (await tab).close();
 
   // Leaving is what flushes whatever is still queued.
   await page.evaluate(() => document.dispatchEvent(new Event('pagehide')));
   await expect.poll(async () => (await rows()).map(r => r.name).join(),
-    { timeout: 10_000 }).toContain('feedback_sent');
+    { timeout: 10_000 }).toContain('google_tapped');
 
   const logged = await rows();
-  // Four taps, a handful of requests at most: a beacon per tap would be a request on the hot path.
+  // Five taps, a handful of requests at most: a beacon per tap would be a request on the hot path.
   expect(beacons).toBeLessThanOrEqual(2);
-  expect(logged.map(r => r.name).slice(0, 4)).toEqual(['page_opened', 'card_opened', 'star_chosen', 'feedback_sent']);
+  expect(logged.map(r => r.name).slice(0, 5)).toEqual(['page_opened', 'card_opened', 'star_chosen', 'feedback_sent', 'google_tapped']);
   // The intervals are the QoE signal, and they only mean anything if they actually move.
   expect(logged[0].since_open_ms).toBe(0);
   expect(logged.at(-1)!.since_open_ms).toBeGreaterThan(0);
@@ -380,151 +409,37 @@ test('what the customer did reaches the log, through the published page, without
   expect((await f.db.query('SELECT 1 FROM page_visits WHERE id=$1', [visits[0].visit_id])).rowCount).toBe(1);
 });
 
-// A36 · lớp da. A1: the page is always taller than the phone, so reaching the bottom is something the visitor does.
-// A page shorter than the screen used to count as "already at the bottom" on arrival and invite feedback unasked.
-test('A36: a short page still scrolls, so the private-feedback invitation never shows on arrival', async ({ page, fixture: f }) => {
-  let revision = 2;
-  for (const layout of ['full-bleed', 'card'] as const) {
-    revision = await release(f, b2({ layout, links: [] }), revision);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/one'); await loaded(page);
-    await expect(page.locator('main')).toHaveAttribute('data-template', 'neutral');
-    const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
-    expect(room, layout).toBeGreaterThanOrEqual(128);
-    await page.waitForTimeout(2600);
-    await expect(page.locator('[data-hint]'), layout).toHaveCount(0);
-    await expect(page.locator('[data-google]')).toBeInViewport();
-  }
-});
-
-// A36 · số link: each count has its own arrangement, and a round button keeps its name for a screen reader.
-test('A36: one to six links each get their designed arrangement, and icon-only links keep their names', async ({ page, fixture: f }) => {
-  const all = [
-    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const },
-    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' as const },
-    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' as const },
-    { label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' as const },
-    { label: { vi: 'Website', en: 'Website' }, url: 'https://quanthu.example', icon: 'link' as const },
-    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' as const },
-  ];
-  // How many of the links show as a round, icon-only button at each count.
-  const round = [0, 0, 0, 1, 2, 5, 6];
-  await page.setViewportSize({ width: 390, height: 844 });
-  let revision = 2;
-  for (let n = 1; n <= 6; n++) {
-    revision = await release(f, b2({ links: all.slice(0, n) }), revision);
-    await page.goto('/one'); await loaded(page);
-    const widths = await page.locator('.guest-links a').evaluateAll(links => links.map(link => Math.round(link.getBoundingClientRect().width)));
-    expect(widths.filter(width => width === 46), `${n} links`).toHaveLength(round[n]);
-    for (const link of all.slice(0, n)) await expect(page.getByRole('link', { name: link.label.vi, exact: true })).toHaveCount(1);
-    if (n === 1) expect(widths[0]).toBeGreaterThan(300);
-    if (n === 2) expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
-  }
-});
-
-// A shop on a given template, because a draft keeps the template it was made on (thiet-ke-va-template.md mục 12).
-async function templateShop(f: Fixture, key: TemplateKey, slug: string, patch: Partial<PageConfig> = {}) {
-  const shop = randomUUID();
-  await f.db.query('INSERT INTO shops(id,slug,name)VALUES($1,$2,$3)', [shop, slug, `Quán ${slug}`]);
-  const template = await f.admin.createTemplate(key, 1);
-  const page = await f.admin.createPage(shop, template, { ...templateConfig(key), name: `Quán ${slug}`, googleUrl: 'https://maps.google.com/?cid=66', ...patch }, slug);
-  await f.admin.publish(page, 1);
-  return page;
-}
-const bigButtonShop = (f: Fixture) => templateShop(f, 'big-button', 'six');
-const googleStub = (page: Page) => page.route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
-
-test('template 6: one giant Google button in the middle of the phone, the same in every other respect', async ({ page, fixture: f }) => {
-  await bigButtonShop(f);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/six'); await loaded(page);
-  await expect(page.locator('main')).toHaveAttribute('data-template', 'big-button');
-  const google = page.locator('[data-google]');
-  await expect(google).toBeInViewport();
-  const box = (await google.boundingBox())!;
-  expect(box.height).toBeGreaterThanOrEqual(110);
-  // Its centre sits in the middle third of the screen: the page is the button.
-  expect(box.y + box.height / 2).toBeGreaterThan(844 / 3); expect(box.y + box.height / 2).toBeLessThan(844 * 2 / 3);
-  // Same tab, so the delayed navigation is not blocked as a popup; other templates still open a new tab.
-  expect(await google.getAttribute('target')).toBeNull();
-  const plane = (await page.locator('#private-feedback').boundingBox())!;
-  expect(box.height).toBeGreaterThan(plane.height);
-  // Tài, 24/09: the button is one raised orb holding Google's "G", its words running round it, and the words stay the
-  // link's name -- a visitor with a screen reader hears exactly what every other template says.
-  await expect(page.locator('main')).toHaveAttribute('data-button', 'orb');
-  await expect(page.getByRole('link', { name: 'Đánh giá trên Google', exact: true })).toHaveCount(1);
-  await expect(google.locator('.google-ring textPath')).toContainText('ĐÁNH GIÁ TRÊN GOOGLE');
-  const face = (await google.locator('.google-orb-face').boundingBox())!;
-  expect(Math.round(face.width)).toBe(Math.round(face.height));
-  expect(await google.locator('.google-g').evaluate(g => getComputedStyle(g).maskImage || getComputedStyle(g).getPropertyValue('-webkit-mask-image'))).toContain('svg');
-  await page.goto('/one'); await loaded(page);
-  await expect(page.locator('[data-google]')).toHaveAttribute('target', '_blank');
-});
-
-// Bản template (versions.ts): the one variable here is the version the release is pinned to -- same shop, same
-// configuration, same template key. Version 1's look must not follow the shop onto a version with its own stylesheet.
-test('a page is dressed by the template version it was published on, never by another version of the same template', async ({ page, fixture: f }) => {
-  const shop = await bigButtonShop(f);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/six'); await loaded(page);
-  const main = page.locator('main'), paper = () => main.evaluate(m => getComputedStyle(m).getPropertyValue('--c-paper').trim());
-  await expect(main).toHaveAttribute('data-template-version', '1');
-  expect(await paper()).toBe('#f6f3ee');
-  const second = await f.admin.createTemplate('big-button', 2);
-  await f.db.query('UPDATE page_drafts SET template_version_id=$2 WHERE page_id=$1', [shop.pageId, second]);
-  await f.admin.publish(shop, 2);
-  await page.reload(); await loaded(page);
-  await expect(main).toHaveAttribute('data-template', 'big-button');
-  await expect(main).toHaveAttribute('data-template-version', '2');
-  expect(await paper()).not.toBe('#f6f3ee');
-});
-
-test('template 6: a tap covers the page for 300 ms, then the same tab goes to Google, with the tap recorded', async ({ page, fixture: f }) => {
-  const shop = await bigButtonShop(f); await googleStub(page);
-  await page.goto('/six'); await loaded(page);
-  const started = Date.now();
-  await page.locator('[data-google]').click();
-  await expect(page.locator('main[data-leaving]')).toHaveCount(1);
-  // Still on our own page, and the cover is drawn: the page Google sends back is never under it.
-  expect(await page.evaluate(() => [location.hostname, getComputedStyle(document.querySelector('main')!, '::after').content])).toEqual(['127.0.0.1', '""']);
-  await page.waitForURL('https://maps.google.com/?cid=66');
-  expect(Date.now() - started).toBeGreaterThanOrEqual(280);
-  // The tap was queued before leaving and flushed on pagehide, so the same-tab exit does not lose it.
-  await expect.poll(async () => (await f.db.query(`SELECT e.name FROM page_events e JOIN page_visits v ON v.id=e.visit_id
-    WHERE v.shop_id=$1 AND e.name='google_tapped'`, [shop.shopId])).rowCount).toBe(1);
-  // Back on the page, with or without the back-forward cache, the cover is gone.
-  await page.goBack(); await loaded(page);
-  await expect(page.locator('main[data-leaving]')).toHaveCount(0);
-});
-
-// Lát M2 (Tài 27/09): on templates 1–5 a tap on Google shows the shop's thanks, hearts burst, the count runs the full four
-// seconds, then Google opens in a NEW tab and this page stays as it was, for the guest to come back to.
+// Lát M2 (Tài 27/09), now a page's own setting (`fx.thanks`, the editor's "Lời cảm ơn trước khi mở Google"): a tap on Google
+// shows the platform's thanks, hearts burst, the count runs the full time, then Google opens in a NEW tab and this page
+// stays as it was, for the guest to come back to.
 const googleTab = (page: Page) => page.context().route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
-test('templates 1–5: a tap thanks the guest, the count runs out, Google opens in a new tab and this page stays', async ({ page, fixture: f }) => {
-  const shop = await templateShop(f, 'minimal', 'hai'); await googleTab(page);
+test('with thanks before Google: a tap thanks the guest, the count runs out, Google opens in a new tab and this page stays', async ({ page, fixture: f }) => {
+  const shop = await templateShop(f, DEFAULT_TEMPLATE, 'hai', doc => { doc.fx = { thanks: 4 }; }); await googleTab(page);
   await page.goto('/hai'); await loaded(page);
+  const google = page.locator('[data-google]');
+  // The count opens the tab itself, so the link does not ask the browser for one.
+  expect(await google.getAttribute('target')).toBeNull();
   const tab = page.waitForEvent('popup', { timeout: 10_000 });
   const started = Date.now();
-  await page.locator('[data-google]').click();
+  await google.click();
   const card = page.locator('[data-thanks-countdown]');
   await expect(card).toHaveAttribute('data-thanks-countdown', '4');
   await expect(card.getByRole('dialog')).toContainText('Cảm ơn quý khách đã ghé!');
   await expect(card.getByRole('dialog')).toContainText('Merci beaucoup!');
   await expect(card.locator('.thanks-hearts span')).toHaveCount(14);
   await expect(card).toHaveAttribute('data-thanks-countdown', '2', { timeout: 4_000 });
-  const google = await tab;
+  const opened = await tab;
   expect(Date.now() - started).toBeGreaterThanOrEqual(3_900);
-  await google.waitForURL('https://maps.google.com/?cid=66');
+  await opened.waitForURL(SHOP_GOOGLE);
   // This page never left: same address, the card gone, the button where it was.
   expect(new URL(page.url()).pathname).toBe('/hai');
   await expect(card).toHaveCount(0);
-  await expect(page.locator('[data-google]')).toBeInViewport();
+  await expect(google).toBeInViewport();
   await expect.poll(async () => (await f.db.query(`SELECT e.name FROM page_events e JOIN page_visits v ON v.id=e.visit_id
     WHERE v.shop_id=$1 AND e.name='google_tapped'`, [shop.shopId])).rowCount).toBe(1);
 });
-
-test('templates 1–5: a held-back tab gets one tap on "Mở Google"; reduced motion keeps the thanks without the hearts', async ({ page, fixture: f }) => {
-  await templateShop(f, 'deco', 'bon');
+test('with thanks before Google: a held-back tab gets one tap on "Mở Google"; reduced motion keeps the thanks without the hearts', async ({ page, fixture: f }) => {
+  await templateShop(f, 'party', 'bon', doc => { doc.fx = { thanks: 2 }; });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   // A browser that refuses the delayed tab answers window.open with null.
   await page.addInitScript(() => { window.open = () => null; });
@@ -533,238 +448,12 @@ test('templates 1–5: a held-back tab gets one tap on "Mở Google"; reduced mo
   const card = page.locator('[data-thanks-countdown]');
   await expect(card.getByRole('dialog')).toContainText('Cảm ơn quý khách đã ghé!');
   await expect(card.locator('.thanks-hearts')).toHaveCount(0);
-  await expect(card).toHaveAttribute('data-thanks-countdown', 'blocked', { timeout: 6_000 });
+  await expect(card).toHaveAttribute('data-thanks-countdown', 'blocked', { timeout: 4_000 });
   const open = card.locator('[data-thanks-open]');
   await expect(open).toHaveText('Mở Google');
-  await expect(open).toHaveAttribute('href', 'https://maps.google.com/?cid=66');
+  await expect(open).toHaveAttribute('href', SHOP_GOOGLE);
   await expect(open).toHaveAttribute('target', '_blank');
   expect(new URL(page.url()).pathname).toBe('/bon');
-});
-
-test('template 6: with reduced motion the tap goes straight to Google, no cover', async ({ page, fixture: f }) => {
-  await bigButtonShop(f); await googleStub(page);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  // The cover would last only 300 ms, so watch for it rather than look for it afterwards.
-  let covered = false; await page.exposeFunction('coverSeen', () => { covered = true; });
-  await page.addInitScript(() => new MutationObserver(() => { if (document.querySelector('main[data-leaving]')) (window as unknown as { coverSeen: () => void }).coverSeen(); })
-    .observe(document, { subtree: true, attributes: true, attributeFilter: ['data-leaving'] }));
-  await page.goto('/six'); await loaded(page);
-  await page.locator('[data-google]').click();
-  await page.waitForURL('https://maps.google.com/?cid=66');
-  expect(covered).toBe(false);
-});
-
-// Template 5 · Ánh sáng tụ: a dark page where light gathers on the Google button and the pattern blurs with distance.
-const luminance = (rgb: string) => { const [r, g, b] = rgb.match(/[\d.]+/g)!.slice(0, 3).map(n => Number(n) / 255)
-  .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-const contrast = (a: string, b: string) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-test('template 5: light gathers on the Google button, and every text stays readable on the dark page', async ({ page, fixture: f }) => {
-  await templateShop(f, 'spotlight', 'five', { links: [
-    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
-    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' }] });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/five'); await loaded(page);
-  await expect(page.locator('main')).toHaveAttribute('data-template', 'spotlight');
-  const google = page.locator('[data-google]');
-  await expect(google).toBeInViewport();
-  // The glow is the button's own shadow, so it follows the button wherever the name pushes it.
-  expect(await google.evaluate(element => getComputedStyle(element).boxShadow)).toContain('rgba(245, 185, 74');
-  // Near is sharp, far is blurred: the decoration, never the text.
-  const layers = await page.locator('.guest-body').evaluate(body => [getComputedStyle(body, '::before').filter, getComputedStyle(body, '::after').filter]);
-  expect(layers).toEqual(['none', 'blur(2.5px)']);
-  expect(await page.locator('.guest h1').evaluate(element => getComputedStyle(element).filter)).toBe('none');
-  // Links are dark pills with light ink, not light ink on the default white pill.
-  // Measured against the pill's own painted background (the first stop of its gradient), never against an assumed one.
-  const [ink, paint] = await page.locator('.guest-links a').first().evaluate(link => [getComputedStyle(link).color, getComputedStyle(link).backgroundImage]);
-  expect(contrast(ink, paint.match(/rgba?\([^)]*\)/)![0])).toBeGreaterThanOrEqual(4.5);
-  // Inside the private card the fields take the template's paper and ink.
-  await openCard(page);
-  const field = await page.locator('#message').evaluate(element => [getComputedStyle(element).color, getComputedStyle(element).backgroundColor]);
-  expect(contrast(field[0], field[1])).toBeGreaterThanOrEqual(4.5);
-});
-
-// A2: the paper plane and its invitation are one thing under every template, dark or light.
-test('the private-feedback button and its invitation look the same under a dark and a light template', async ({ page, fixture: f }) => {
-  await templateShop(f, 'spotlight', 'five'); await bigButtonShop(f);
-  await page.setViewportSize({ width: 390, height: 600 });
-  const look = async (slug: string) => {
-    await page.goto(`/${slug}`); await loaded(page);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect(page.locator('[data-hint]')).toBeVisible({ timeout: 6000 });
-    // The invitation springs in (0.55 s, with overshoot): measured mid-flight its width differs by a pixel run to run.
-    await page.locator('[data-hint]').evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
-    return page.evaluate(() => [...document.querySelectorAll('.guest-plane, .guest-hint')].map(element => {
-      const style = getComputedStyle(element); const box = element.getBoundingClientRect();
-      return [style.color, style.backgroundColor, style.boxShadow, style.fontSize, Math.round(box.width), Math.round(box.height), Math.round(box.left)];
-    }));
-  };
-  expect(await look('five')).toEqual(await look('six'));
-});
-
-// Template 3 · Kính (thiet-ke-va-template.md mục 15): every pane carries a copy of the scene shifted by exactly where it sits,
-// refracted by a filter every engine runs; the scene scrolls with the page so the filter never has to run again.
-const glassPlacement = (page: Page) => page.evaluate(() => {
-  const main = document.querySelector('main')!, m = main.getBoundingClientRect();
-  return Math.max(...[...document.querySelectorAll<HTMLElement>('.guest-body, .guest-links a')].flatMap(pane => {
-    const box = pane.getBoundingClientRect();
-    return [Math.abs(parseFloat(pane.style.getPropertyValue('--gx')) - (box.left - m.left)), Math.abs(parseFloat(pane.style.getPropertyValue('--gy')) - (box.top - m.top))];
-  }));
-});
-test('template 3: glass panes carry an aligned, refracted copy of the scene, and the Google button stays solid', async ({ page, fixture: f }) => {
-  await templateShop(f, 'glass', 'three', { links: [
-    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
-    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
-    { label: { vi: 'Thực đơn', en: 'Menu' }, url: 'https://quanthu.example/menu', icon: 'link' }] });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/three'); await loaded(page);
-  await expect(page.locator('main[data-glass]')).toHaveCount(1);
-  expect(await glassPlacement(page)).toBeLessThan(1);
-  const filters = await page.evaluate(() => [getComputedStyle(document.querySelector('.guest-body')!, '::before').filter,
-    getComputedStyle(document.querySelector('.guest-links a')!, '::before').filter, getComputedStyle(document.querySelector('.guest-bg')!).position]);
-  expect(filters[0]).toContain('nfc-glass-lg'); expect(filters[1]).toContain('nfc-glass-sm');
-  // The scene scrolls with the page: glass and scene never slide past each other.
-  expect(filters[2]).toBe('absolute');
-  await expect(page.locator('video')).toHaveCount(0);
-  const google = page.locator('[data-google]');
-  await expect(google).toBeInViewport();
-  expect(await google.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('gradient');
-  // A language switch rewraps the lines above the links: the panes move without changing size, and the copies follow.
-  await page.locator('#language').selectOption('en');
-  await expect.poll(() => glassPlacement(page)).toBeLessThan(1);
-});
-
-// Template 4 · Chồng thẻ (ảnh Tài gửi 24/09): a tilted card over a second card that is the shop's poster slot.
-test('template 4: a tilted card over the poster card, links as rows, and nothing covers the Google button', async ({ page, fixture: f }) => {
-  // Six links: the tallest card a shop can make, so the tilt's reach to the right is measured at its worst.
-  await templateShop(f, 'deco', 'four', { links: [
-    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
-    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
-    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' },
-    { label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' },
-    { label: { vi: 'Website', en: 'Website' }, url: 'https://quanthu.example', icon: 'link' },
-    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' }] });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/four'); await loaded(page);
-  await expect(page.locator('main')).toHaveAttribute('data-template', 'deco');
-  const google = page.locator('[data-google]');
-  await expect(google).toBeInViewport();
-  // The card is tilted, and the Google button is what a tap on its centre reaches: no card of the stack lies over it.
-  expect(await page.locator('.guest-body').evaluate(body => getComputedStyle(body).transform)).not.toBe('none');
-  const box = (await google.boundingBox())!;
-  expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-google]'), [box.x + box.width / 2, box.y + box.height / 2])).toBe(true);
-  expect(box.y + box.height).toBeLessThan(640);
-  // Links are full-width rows of one width, each still named.
-  const widths = await page.locator('.guest-links a').evaluateAll(links => links.map(link => Math.round(link.getBoundingClientRect().width)));
-  expect(new Set(widths).size).toBe(1); expect(widths[0]).toBeGreaterThan(250);
-  for (const name of ['Instagram', 'Zalo', 'TikTok', 'Facebook', 'Website', 'Gọi cho quán']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(1);
-  const [ink, paint] = await page.locator('.guest-links a').first().evaluate(link => [getComputedStyle(link).color, getComputedStyle(link).backgroundColor]);
-  expect(contrast(ink, paint)).toBeGreaterThanOrEqual(4.5);
-  // The Google button is light here, so its label must be dark.
-  const label = await google.evaluate(element => getComputedStyle(element).color);
-  expect(contrast(label, 'rgb(255, 255, 255)')).toBeGreaterThanOrEqual(4.5);
-  // The tilted card stays on the screen: its far corner does not run off the right edge of a 390px phone.
-  expect(await page.locator('.guest-body').evaluate(body => body.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
-});
-
-// Template 2 · Tối giản (ảnh "Minimal Dark Card" Tài gửi 24/09): one dark card with a blurred glow around it, links as tiles.
-test('template 2: a dark card with a glow around it, and links laid out as even tiles for every count', async ({ page, fixture: f }) => {
-  const all = [
-    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const },
-    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' as const },
-    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' as const },
-    { label: { vi: 'Facebook', en: 'Facebook' }, url: 'https://facebook.com/quanthu', icon: 'facebook' as const },
-    { label: { vi: 'Website', en: 'Website' }, url: 'https://quanthu.example', icon: 'link' as const },
-    { label: { vi: 'Gọi cho quán', en: 'Call us' }, url: 'tel:+84901234567', icon: 'phone' as const },
-  ];
-  const shop = await templateShop(f, 'minimal', 'two', { links: all.slice(0, 1) });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/two'); await loaded(page);
-  await expect(page.locator('main')).toHaveAttribute('data-template', 'minimal');
-  await expect(page.locator('[data-google]')).toBeInViewport();
-  // The glow is a blurred layer behind the card, drawn once: a static filter, never a backdrop filter.
-  const glow = await page.locator('.guest-body').evaluate(body => [getComputedStyle(body, '::before').filter, getComputedStyle(body).backdropFilter]);
-  expect(glow[0]).toContain('blur'); expect(glow[1]).toBe('none');
-  // An empty poster slot is not shown; a shop's poster would be.
-  await expect(page.locator('.guest-poster-empty')).toBeHidden();
-  // Rows of tiles, as [row, width] per link: every row fills the card, and tiles in a row are equal.
-  const rows = [[[1]], [[2]], [[3]], [[2], [2]], [[3], [2]], [[3], [3]]];
-  let revision = 2;
-  for (let n = 1; n <= 6; n++) {
-    if (n > 1) { const saved = await f.admin.saveDraft(shop, revision, { ...templateConfig('minimal'), name: 'Quán two', googleUrl: 'https://maps.google.com/?cid=66', links: all.slice(0, n) });
-      await f.admin.publish(shop, saved); revision = saved + 1; await page.goto('/two'); await loaded(page); }
-    const boxes = await page.locator('.guest-links a').evaluateAll(links => links.map(link => { const b = link.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.width)]; }));
-    const byRow = [...new Set(boxes.map(([top]) => top))].map(top => boxes.filter(([t]) => t === top).map(([, w]) => w));
-    expect(byRow.map(row => [row.length]), `${n} links`).toEqual(rows[n - 1]);
-    for (const row of byRow) expect(Math.max(...row) - Math.min(...row), `${n} links`).toBeLessThanOrEqual(1);
-    for (const link of all.slice(0, n)) await expect(page.getByRole('link', { name: link.label.vi, exact: true })).toHaveCount(1);
-  }
-});
-
-// Template 1 · Bản gốc, thẻ trôi (Tài chốt 24/09, ý 1 + 2): the background stays put, only the card scrolls; the card's top
-// edge fades from clear to paper over a blurred band, and the background eases in and darkens as the page scrolls.
-test('template 1: a floating card whose top fades into the background, text only on solid paper, and a background that breathes', async ({ page, fixture: f }) => {
-  await templateShop(f, 'standard', 'one-std', { links: [
-    { label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' },
-    { label: { vi: 'Zalo', en: 'Zalo' }, url: 'https://zalo.me/0900000000', icon: 'zalo' },
-    { label: { vi: 'TikTok', en: 'TikTok' }, url: 'https://tiktok.com/@quanthu', icon: 'tiktok' }] });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/one-std'); await loaded(page);
-  await expect(page.locator('main')).toHaveAttribute('data-template', 'standard');
-  await expect(page.locator('[data-google]')).toBeInViewport();
-  const card = await page.evaluate(() => {
-    const body = document.querySelector('.guest-body')!, box = body.getBoundingClientRect(), h1 = document.querySelector('.guest h1')!.getBoundingClientRect();
-    const paper = getComputedStyle(body, '::after'), band = getComputedStyle(body, '::before');
-    return { mask: paper.maskImage || paper.getPropertyValue('-webkit-mask-image'), blur: band.backdropFilter || band.getPropertyValue('-webkit-backdrop-filter'),
-      textStartsAt: h1.top - box.top, sides: [box.left, window.innerWidth - box.right], bg: getComputedStyle(document.querySelector('.guest-bg')!).position };
-  });
-  expect(card.mask).toContain('gradient'); expect(card.blur).toContain('blur');
-  // The card floats: margins on both sides, and the background never scrolls.
-  expect(Math.min(...card.sides)).toBeGreaterThanOrEqual(10); expect(card.bg).toBe('fixed');
-  // Text begins below the fade, so it never sits on half-clear paper over a moving background.
-  const fadeEnd = await page.locator('.guest-body').evaluate(body => { const probe = document.createElement('div');
-    probe.style.height = 'var(--fade)'; body.appendChild(probe); const h = probe.getBoundingClientRect().height; probe.remove(); return h; });
-  expect(fadeEnd).toBeGreaterThan(40); expect(card.textStartsAt).toBeGreaterThanOrEqual(fadeEnd);
-  // Links are three even tiles in one row.
-  const tiles = await page.locator('.guest-links a').evaluateAll(links => links.map(link => { const b = link.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.width)]; }));
-  expect(new Set(tiles.map(([top]) => top)).size).toBe(1); expect(Math.max(...tiles.map(([, w]) => w)) - Math.min(...tiles.map(([, w]) => w))).toBeLessThanOrEqual(1);
-  // Idea 2, where the browser has scroll-driven animations: the background grows and dims as the page scrolls.
-  if (await page.evaluate(() => CSS.supports('animation-timeline: scroll()'))) {
-    const look = () => page.evaluate(() => { const bg = document.querySelector('.guest-bg')!;
-      return [new DOMMatrix(getComputedStyle(bg).transform).a, Number(getComputedStyle(bg, '::after').opacity)]; });
-    expect(await look()).toEqual([1, 0]);
-    // Measured over the page's whole scroll, so even a short page reaches the full effect at its foot.
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect.poll(async () => (await look()).map(n => Math.round(n * 100) / 100)).toEqual([1.08, 0.35]);
-  }
-});
-
-// Cửa duyệt ảnh (migration 023): a picture waiting for review never reaches the guest page, and the page stays up.
-test('an uploaded picture that is still waiting for review cannot be published; the live page keeps running', async ({ page, fixture: f }) => {
-  const poster = 'https://media.example/waiting.jpg';
-  await f.db.query("INSERT INTO media_assets(shop_id,url,kind,uploaded_by)VALUES($1,$2,'image','fixture')", [f.shop, poster]);
-  const saved = await f.admin.saveDraft(f.page, 2, b2({ poster: { kind: 'image', url: poster } }));
-  await expect(f.admin.publish(f.page, saved)).rejects.toThrow('MEDIA_PENDING');
-  await page.goto('/one'); await loaded(page);
-  await expect(page.locator(`img[src="${poster}"]`)).toHaveCount(0);
-  await expect(page.locator('[data-google]')).toBeVisible();
-});
-
-// Tài báo 24/09: trên shop template 6 thật, thẻ góp ý mở được nhưng không bấm được gì, kèm "Chưa kết nối được".
-// The private card has to work under every template: open it, pick a star, write, send, see the thanks.
-test('private feedback works end to end under every one of the six templates', async ({ page, fixture: f }) => {
-  const { TEMPLATE_KEYS } = await import('../lib/publishing/templates');
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const key of TEMPLATE_KEYS) {
-    const slug = `pf-${key}`;
-    await templateShop(f, key, slug);
-    await page.goto(`/${slug}`); await loaded(page);
-    await expect(page.locator('.guest-connection'), key).toHaveCount(0);
-    await openCard(page);
-    await star(page, 4).click();
-    await page.locator('#message').fill(`Góp ý thử ở template ${key}`);
-    await sendButton(page).click();
-    await expect(page.locator('[data-thanks]'), key).toBeVisible();
-  }
 });
 
 // Tài báo 24/09 (shop Googy, Chrome trên iPhone): sau khi shop phát hành lại, khách tải lại trang trong vòng một lượt ghé
@@ -773,76 +462,23 @@ test('private feedback works end to end under every one of the six templates', a
 test('a guest who reloads after the shop republishes can still send feedback', async ({ page, fixture: f }) => {
   await page.goto('/one'); await loaded(page);
   await openCard(page); await star(page, 5).click(); await page.keyboard.press('Escape');
-  await release(f, b2({ name: 'Quán Sau Khi Sửa' }), 2);
+  await release(f, canvas('Quán Sau Khi Sửa'), 2);
   await page.reload(); await loaded(page);
-  await expect(page.locator('.guest-connection')).toHaveCount(0);
+  await expect(shownName(page)).toHaveText('Quán Sau Khi Sửa');
+  await expect(page.locator('.cv-connection')).toHaveCount(0);
   await openCard(page); await star(page, 3).click();
   await page.locator('#message').fill('Vẫn gửi được sau khi quán sửa trang');
   await sendButton(page).click();
   await expect(page.locator('[data-thanks]')).toBeVisible();
 });
 
-// Template 6: on Android tilting the phone moves the light on the orb; iPhone asks permission for the sensor, so there the
-// page never listens -- a guest page never asks a visitor for anything.
-test('template 6: the light on the orb follows the tilt of the phone, and the visitor is never asked for the sensor', async ({ page, fixture: f }) => {
-  await bigButtonShop(f);
-  // Record any attempt to ask for the motion sensor: a guest page must never make one.
-  await page.addInitScript(() => { (window as unknown as { asked: number }).asked = 0;
-    (window.DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission = () => { (window as unknown as { asked: number }).asked++; return Promise.resolve('granted'); }; });
-  await page.goto('/six'); await loaded(page);
-  const tilt = () => page.evaluate(() => [document.querySelector('main')!.style.getPropertyValue('--tilt-x'), document.querySelector('main')!.style.getPropertyValue('--tilt-y')]);
-  expect(await tilt()).toEqual(['', '']);
-  await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 75, gamma: -30 })));
-  await expect.poll(tilt).toEqual(['-14.0%', '14.0%']);
-  await page.locator('[data-google]').hover();
-  expect(await page.evaluate(() => (window as unknown as { asked: number }).asked)).toBe(0);
-  // Reduced motion: the light stays where it is.
-  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await loaded(page);
-  await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 75, gamma: -30 })));
-  await page.waitForTimeout(200);
-  expect(await tilt()).toEqual(['', '']);
-});
-
-// Lát M3: the page's blocks. The owner switches the poster and the links off and on; the Google invitation, the private
-// button and the legal line never move; with every block on, the page is the page it was before sections.
-test('sections: a hidden poster or row of links leaves the page, Google stays in the first screen, and all on is the page of old', async ({ page, fixture: f }) => {
-  const links = [{ label: { vi: 'Instagram', en: 'Instagram' }, url: 'https://instagram.com/quanthu', icon: 'instagram' as const }];
-  // One shop per template: a template's version row is created once (templateShop makes it).
-  await templateShop(f, 'minimal', 'khoi', { links, poster: { kind: 'image', url: STEM_BACKGROUND.still },
-    sections: [{ kind: 'poster', hidden: true }, { kind: 'links' }] });
-  await page.goto('/khoi'); await loaded(page);
-  await expect(page.locator('.guest-poster')).toHaveCount(0);
-  await expect(page.locator('.guest-links a')).toHaveCount(1);
-  await expect(page.locator('[data-google]')).toBeInViewport();
-  await expect(page.locator('main')).toHaveAttribute('data-schema', '3');
-  await templateShop(f, 'deco', 'khoihai', { links, poster: { kind: 'image', url: STEM_BACKGROUND.still },
-    sections: [{ kind: 'poster' }, { kind: 'links', hidden: true }] });
-  await page.goto('/khoihai'); await loaded(page);
-  await expect(page.locator('.guest-poster')).toHaveCount(1);
-  await expect(page.locator('.guest-links')).toHaveCount(0);
-  await expect(page.locator('[data-google]')).toBeInViewport();
-  await expect(page.locator('#private-feedback')).toBeVisible();
-  await expect(page.locator('[data-legal]')).toBeVisible();
-  // Every block on: the same page, node for node, as the same content written before sections (version 2).
-  const { sections: _none, ...older } = { ...templateConfig('spotlight'), name: 'Quán khoi', googleUrl: 'https://maps.google.com/?cid=66', links,
-    poster: { kind: 'image' as const, url: STEM_BACKGROUND.still } }; void _none;
-  await templateShop(f, 'spotlight', 'khoiba', { ...older, sections: [{ kind: 'poster' }, { kind: 'links' }] });
-  // Written as before sections: straight through the publishing core, since templateShop starts from today's version 3.
-  const oldShop = randomUUID();
-  await f.db.query('INSERT INTO shops(id,slug,name)VALUES($1,$2,$3)', [oldShop, 'khoicu', 'Quán khoicu']);
-  const spotlight = (await f.db.query("SELECT id FROM template_versions WHERE template_key='spotlight' AND version=1")).rows[0].id;
-  const oldPage = await f.admin.createPage(oldShop, spotlight, { ...older, schemaVersion: 2 }, 'khoicu');
-  await f.admin.publish(oldPage, 1);
-  const shape = async (slug: string) => { await page.goto(`/${slug}`); await loaded(page);
-    return page.locator('main .guest-sheet').evaluate(sheet => [...sheet.querySelectorAll('*')].map(el => `${el.tagName}.${el.className}`).join(' ')); };
-  expect(await shape('khoiba')).toBe(await shape('khoicu'));
-});
-
-// Lát S0 (audit A1): the tab carries the shop's own name -- it used to read "NFC Feedback · Bản thử" on every shop --
-// and a guest page is never indexed, while the platform's front page is.
-test('a guest page is titled with the shop name and never indexed; the front page can be', async ({ page }) => {
+// Lát S0 (audit A1): the tab carries the page's own name -- it used to read "NFC Feedback · Bản thử" on every shop -- and a
+// guest page is never indexed, while the platform's front page is.
+test('a guest page is titled with its own name and never indexed; the front page can be', async ({ page, fixture: f }) => {
+  const live = (await f.db.query('SELECT r.config_snapshot->>\'name\' AS name FROM pages p JOIN page_releases r ON r.id=p.active_release_id WHERE p.id=$1', [f.page.pageId])).rows[0];
   await page.goto('/one'); await loaded(page);
-  await expect(page).toHaveTitle((await page.locator('main h1').textContent())!.trim());
+  await expect(page).toHaveTitle(live.name);
+  expect(live.name).toBe('Release One');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   await page.goto('/');
   expect(await page.title()).not.toMatch(/Bản thử/);
@@ -851,7 +487,7 @@ test('a guest page is titled with the shop name and never indexed; the front pag
 
 // Lát P4: a paused page says so, with nothing of the page behind it; a closed page's link no longer exists.
 test('a paused page tells the guest it is paused; a closed page answers 404, for its link and its cards alike', async ({ page, fixture: f }) => {
-  const shop = await templateShop(f, 'minimal', 'dung');
+  const shop = await templateShop(f, DEFAULT_TEMPLATE, 'dung');
   const tag = await f.admin.createTag(shop, 'dung-card'); await f.admin.setTagState(shop, tag, 'active');
   await f.admin.pausePage(shop, 'admin');
   for (const path of ['/dung', '/t/dung-card']) {

@@ -715,3 +715,43 @@ script. Phiên mới mở thẳng ở `~/Desktop/QuiteSensational` thì không g
 **Regex trong PostgreSQL không cho số lặp quá 255 — lỗi của Claude, 05/10.** Ràng buộc `place_id ~ '^[A-Za-z0-9_-]{10,300}$'` tạo bảng
 được, nhưng lần ghi đầu tiên vào cột đó báo `invalid regular expression: invalid repetition count(s)` và API trả 503. Giới hạn
 độ dài bằng `char_length(...) BETWEEN a AND b`, còn regex chỉ kiểm ký tự (`^[...]+$`).
+
+**Cắt CSS theo hai mốc lấy mất 70 dòng không liên quan — lỗi của Claude, 05/10.** Gỡ khối `.cv-feedback` khỏi
+`components/canvas/canvas.css` bằng `s[index(mốc đầu):index(mốc cuối)]`, mốc cuối là `@keyframes cv-rise-sheet` — nhưng
+khung đó nằm sau cả khối gợi ý kéo xuống, ngôn ngữ, dòng pháp lý, footer, thẻ bài và wifi, nên các khối ấy mất theo; trang
+khách hiện nút "Xoá dữ liệu" kiểu nút xám mặc định. `canvas.css` chưa từng commit nên git không cứu được: khôi phục bằng cách
+lấy bản `Write` gốc trong bản ghi phiên (`~/.claude/projects/.../*.jsonl`) và chạy lại từng lệnh sửa sau đó, rồi so với tệp
+hiện tại (khớp từng ký tự ngoài vùng mất) trước khi chép vùng mất trở lại. Cách tránh: **in đúng đoạn sắp cắt ra trước khi
+ghi** (hoặc `assert` số dòng / tên khối nằm trong đoạn), và với tệp chưa commit thì chép một bản vào scratchpad trước khi sửa
+bằng script.
+
+**Mã chạy cùng app nhập từ thư mục test làm hỏng bản build — lỗi của Claude, 05/10.** `scripts/local/seed.ts` mượn
+`addExperience` của `repository-tests/owner-fixture.ts`. `tsconfig.json` gồm mọi `**/*.ts`, nên `next build` kiểm kiểu cả tệp
+này: trong checkout đủ thì qua, nhưng bản sao app của harness (`integration-tests/run-local.mjs`) không có thư mục test, nên
+bước `--build` của **cả bốn** bộ harness đỏ (`TS2307 Cannot find module '@/repository-tests/owner-fixture'`) trong khi test của
+chúng đều qua — và CI trên `3571676` (đợt ①, đã đẩy nhánh) đỏ vì đúng lỗi này. Sửa: seed có hàm `experience()` riêng, đi đúng
+đường của một thẻ thật. Cách tránh: mã ngoài thư mục test (`app`, `components`, `lib`, `server`, `scripts`) không bao giờ
+`import` từ `repository-tests`, `integration-tests`, `tests` — kiểm bằng
+`grep -rnE "from '(@/)?(\.\./)*(repository-tests|integration-tests|tests)/" app components lib server scripts`. Đọc dòng `exit=`
+của từng bộ trong `summary.txt`, không chỉ dòng "N passed": bước build chạy **sau** test.
+
+**Một bảng rộng đẩy cả tab ra ngoài màn hình điện thoại, không có thanh cuộn nào báo — lỗi của Claude, 05/10.** Bảng thẻ NFC
+(`min-width: 680px`) nằm trong một ô lưới; ô lưới mặc định rộng theo nội dung rộng nhất (`min-width: auto`), nên thẻ Quản lý
+rộng 764px trên điện thoại 390px. Khung giấu phần tràn ngang (`overflow-x: hidden`), nên không có cuộn ngang để thấy, chỉ mất
+mép phải: nút "Tạm dừng ngay" ra ngoài tầm tay, và kiểm `scrollWidth <= innerWidth` của bộ owner không bắt được. Sửa:
+`.grid > *, .split > * { min-width: 0 }` trong `components/qs/tabs/tabs.module.css` (bảng cuộn trong khung riêng của nó); bộ
+owner thêm kiểm `clipped`: phần tử nào vượt mép phải mà không nằm trong một khung cuộn ngang riêng thì đỏ.
+
+**Dải nổi phải chừa chỗ bằng đúng chiều cao của nó, không bằng một con số — lỗi của Claude, 05/10.** Dải "Đang xem thay mặt"
+nổi ở chân màn hình; khung chừa `padding-bottom: 130px`, đủ cho hai dòng trên máy tính, nhưng trên điện thoại dải xuống năm sáu
+dòng (cao 190px), nên cuối mỗi tab nằm sau dải. Sửa: dải tự đo bằng `ResizeObserver` và đặt `--qs-support-room` cho khung
+(`components/qs/support-banner.tsx`); bộ admin kiểm ở bề ngang 390px.
+
+**Harness xanh mà thoát 1 vì xoá thư mục tạm — 05/10.** Bộ admin qua đủ 11 test, bản build và 2 test cổng production, rồi
+`rm(temp)` cuối `integration-tests/run-local.mjs` ném `ENOTEMPTY`: `next` để lại tiến trình con còn ghi vào bản sao vài khoảnh
+khắc sau khi tiến trình chính thoát. Sửa: `rm(..., { maxRetries: 10, retryDelay: 200 })`. Thấy `exit=1` mà mọi dòng "passed"
+đều đủ thì đọc đuôi log trước khi kết luận test đỏ.
+
+**zsh dừng cả lệnh khi một glob không khớp — lỗi của Claude, 05/10 (hai lần).** `grep -rn … --include=*.ts` không có nháy: zsh
+tự mở `*.ts` ở thư mục hiện tại, không khớp thì báo `no matches found` và **không chạy** lệnh đó cùng mọi lệnh sau nó trên dòng
+(lệnh kiểm cuối của phiên trước chết như vậy). Luôn để nháy: `--include='*.ts'`.

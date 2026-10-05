@@ -4,6 +4,7 @@
  * Thanh toán theo bảng giá mới (kịch bản mục 3): hai gói, trả tháng hoặc năm; giai đoạn trải nghiệm miễn phí hết.
  */
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { TabProps } from './index';
 import styles from './tabs.module.css';
 import ActivityPanel from '../../activity-panel';
@@ -16,9 +17,21 @@ const VIEWS: [View, string][] = [['activity', 'Hoạt động'], ['billing', 'Th
 export default function SettingsTab({ slug, query, role }: TabProps) {
   const [view, setView] = useState<View>(query.view === 'profile' ? 'profile' : query.view === 'billing' ? 'billing' : 'activity');
   const { profile, setProfile } = useProfile(view === 'profile');
+  const router = useRouter(), [leaving, setLeaving] = useState(''), [busy, setBusy] = useState(false);
+  // Signs this device out (the account's other devices stay signed in), then the sign-in page, back to this shop after.
+  const signOut = async () => {
+    setBusy(true); setLeaving('');
+    try {
+      const response = await fetch('/api/owner/v2/logout', { method: 'POST' });
+      if (response.ok) { router.replace(`/owner/login?next=${encodeURIComponent(`/app/${slug}`)}`); return; }
+      setLeaving('Chưa đăng xuất được. Thử lại.');
+    } catch { setLeaving('Không thể kết nối. Thử lại.'); } finally { setBusy(false); }
+  };
   return <div className={styles.split}>
     <nav className={styles.side} aria-label="Cài đặt">{VIEWS.map(([key, label]) =>
-      <button key={key} type="button" aria-current={view === key ? 'page' : undefined} onClick={() => setView(key)}>{label}</button>)}</nav>
+      <button key={key} type="button" aria-current={view === key ? 'page' : undefined} onClick={() => setView(key)}>{label}</button>)}
+      {role !== 'support' && <button type="button" data-sign-out disabled={busy} onClick={() => void signOut()}>{busy ? 'Đang đăng xuất…' : 'Đăng xuất'}</button>}
+      {leaving && <p className="qs-small qs-error" role="status">{leaving}</p>}</nav>
     <div>
       {view === 'activity' && <section className={styles.card}><h2>Hoạt động</h2><p>Ai đã làm gì trong quán, mới nhất trên cùng.</p>
         <div className={styles.legacy}><ActivityPanel endpoint={`/api/owner/v2/${slug}`} /></div></section>}

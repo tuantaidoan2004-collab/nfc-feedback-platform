@@ -66,7 +66,7 @@ export default function CardsPanel({ endpoint, origin, page = null }: { endpoint
         <td><button type="button" className={styles.noteButton} onClick={() => void copy(card)}>{link(card).replace(/^https?:\/\//, '')}</button></td>
         <td className={styles.rowButtons}>
           {card.state !== 'active' && list.canActivate && <button type="button" disabled={busy} onClick={() => activate(card)}>{card.state === 'disabled' ? 'Bật lại' : 'Kích hoạt'}</button>}
-          {card.state === 'active' && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Tạm tắt thẻ ${card.code}? Khách chạm thẻ sẽ không mở được trang, và từ tháng sau thẻ không bị tính phí.`)) void send('PATCH', { id: card.id, state: 'disabled' }, `Đã tắt thẻ ${card.code}.`); }}>Tạm tắt</button>}
+          {card.state === 'active' && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Tạm tắt thẻ ${card.code}? Khách chạm thẻ sẽ không mở được trang cho tới khi bật lại.`)) void send('PATCH', { id: card.id, state: 'disabled' }, `Đã tắt thẻ ${card.code}.`); }}>Tạm tắt</button>}
         </td>
       </tr>)}</tbody>
     </table></div>}

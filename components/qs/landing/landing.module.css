@@ -35,8 +35,9 @@
 .page .tile small { color: #6b6f76; font-size: 13px; }
 .empty { display: grid; gap: 14px; justify-items: center; text-align: center; padding: 26px 10px; }
 .page .empty p { max-width: 520px; color: #44474d; font-size: 17px; }
-.page .templateTile { aspect-ratio: 9 / 14; border-radius: 22px; display: grid; place-items: end center; padding: 16px; color: #fff; font-weight: 600; text-decoration: none; position: relative; overflow: hidden; }
-.templateTile::after { content: ''; position: absolute; left: 18%; right: 18%; top: 48%; height: 34px; border-radius: 999px; background: rgba(255, 255, 255, .85); }
+.page .templateTile { aspect-ratio: 9 / 14; border-radius: 22px; display: grid; place-items: end center; padding: 12px; color: #fff; font-weight: 600; text-decoration: none;
+  position: relative; overflow: hidden; background: #f2f2f4; }
+.templateTile > span { position: relative; padding: 6px 12px; border-radius: 999px; background: #0b0b0ccc; font-size: 13px; }
 /* Khúc A: video toàn khung (làm bằng HyperFrames ở bước cuối). */
 .video { position: relative; height: 100dvh; display: grid; place-items: center; overflow: hidden; color: #fff;
   background: radial-gradient(60% 50% at 50% 45%, #1d2a55 0%, #0b0f1e 70%, #05070d 100%); }

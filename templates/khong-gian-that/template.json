@@ -1,0 +1,429 @@
+{
+  "key": "khong-gian-that",
+  "number": 1,
+  "name": "Không gian thật",
+  "groups": [
+    "Không gian thực",
+    "Thuỷ tinh"
+  ],
+  "about": "Ảnh thật của quán làm nền, biển hiệu khung vàng, thẻ kính mờ chứa nút Google và mạng xã hội, ảnh polaroid nghiêng.",
+  "doc": {
+    "v": 1,
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 740,
+        "bg": {
+          "src": "art:barber",
+          "gray": true
+        },
+        "els": [
+          {
+            "id": "cau-vong",
+            "t": "image",
+            "x": -30,
+            "y": -10,
+            "w": 330,
+            "h": 250,
+            "src": "art:prism",
+            "o": 0.85,
+            "motion": {
+              "in": "fade",
+              "at": 600
+            }
+          },
+          {
+            "id": "bien",
+            "t": "shape",
+            "shape": "rect",
+            "x": 96,
+            "y": 40,
+            "w": 198,
+            "h": 143,
+            "radius": 4,
+            "fill": {
+              "kind": "linear",
+              "angle": 180,
+              "stops": [
+                [
+                  "#2b2118",
+                  0
+                ],
+                [
+                  "#140e09",
+                  100
+                ]
+              ]
+            },
+            "edge": {
+              "w": 7,
+              "color": {
+                "kind": "linear",
+                "angle": 135,
+                "stops": [
+                  [
+                    "#f6e19a",
+                    0
+                  ],
+                  [
+                    "#b98a2e",
+                    30
+                  ],
+                  [
+                    "#fff1b8",
+                    50
+                  ],
+                  [
+                    "#a3741f",
+                    72
+                  ],
+                  [
+                    "#f3d27a",
+                    100
+                  ]
+                ]
+              }
+            },
+            "shadow": {
+              "x": 0,
+              "y": 12,
+              "blur": 30,
+              "color": "#000000aa"
+            },
+            "motion": {
+              "in": "drop",
+              "at": 100
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 104,
+            "y": 58,
+            "w": 182,
+            "h": 56,
+            "words": {
+              "vi": "TÊN QUÁN"
+            },
+            "font": "slab",
+            "size": 34,
+            "color": "#f4efe6",
+            "spacing": 4,
+            "shadow": {
+              "x": 0,
+              "y": 2,
+              "blur": 0,
+              "color": "#00000099"
+            },
+            "motion": {
+              "in": "fade",
+              "at": 300
+            }
+          },
+          {
+            "id": "gach",
+            "t": "shape",
+            "shape": "line",
+            "x": 130,
+            "y": 120,
+            "w": 130,
+            "h": 1.6,
+            "fill": "#e8d9b8",
+            "motion": {
+              "in": "fade",
+              "at": 400
+            }
+          },
+          {
+            "id": "nganh",
+            "t": "text",
+            "x": 104,
+            "y": 127,
+            "w": 182,
+            "h": 30,
+            "words": {
+              "vi": "BARBERSHOP"
+            },
+            "font": "display",
+            "size": 16,
+            "color": "#f4efe6",
+            "weight": 700,
+            "spacing": 24,
+            "motion": {
+              "in": "fade",
+              "at": 450
+            }
+          },
+          {
+            "id": "the-kinh",
+            "t": "shape",
+            "shape": "rect",
+            "x": 52,
+            "y": 204,
+            "w": 286,
+            "h": 312,
+            "radius": 28,
+            "glass": {
+              "blur": 12,
+              "tint": "#ffffff33"
+            },
+            "edge": {
+              "w": 1.2,
+              "color": "#ffffff70"
+            },
+            "shadow": {
+              "x": 0,
+              "y": 18,
+              "blur": 40,
+              "color": "#00000066"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 200
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "maps",
+            "x": 78,
+            "y": 236,
+            "w": 236,
+            "h": 46,
+            "shadow": "soft",
+            "motion": {
+              "in": "pop",
+              "at": 500
+            }
+          },
+          {
+            "id": "cam-on",
+            "t": "text",
+            "x": 74,
+            "y": 286,
+            "w": 244,
+            "h": 32,
+            "words": {
+              "vi": "Chúng tôi sẽ rất cảm kích nếu nhận được đánh giá Google của bạn.",
+              "en": "We would really appreciate your Google review."
+            },
+            "font": "sans",
+            "size": 11.5,
+            "color": "#f4f4f4",
+            "line": 1.35,
+            "motion": {
+              "in": "fade",
+              "at": 650
+            }
+          },
+          {
+            "id": "polaroid",
+            "t": "image",
+            "x": 36,
+            "y": 318,
+            "w": 106,
+            "h": 128,
+            "r": -9,
+            "src": "art:photo",
+            "frame": "polaroid",
+            "caption": {
+              "vi": "@tenquan"
+            },
+            "motion": {
+              "in": "left",
+              "at": 750,
+              "loop": "sway"
+            }
+          },
+          {
+            "id": "instagram",
+            "t": "button",
+            "look": "ring",
+            "icon": "instagram",
+            "label": {
+              "vi": "instagram"
+            },
+            "link": "https://www.instagram.com/",
+            "x": 148,
+            "y": 326,
+            "w": 170,
+            "h": 30,
+            "size": 14,
+            "edge": {
+              "w": 2.6,
+              "color": {
+                "kind": "linear",
+                "angle": 90,
+                "stops": [
+                  [
+                    "#f9ce34",
+                    0
+                  ],
+                  [
+                    "#ee2a7b",
+                    50
+                  ],
+                  [
+                    "#6228d7",
+                    100
+                  ]
+                ]
+              }
+            },
+            "motion": {
+              "in": "right",
+              "at": 800
+            }
+          },
+          {
+            "id": "tiktok",
+            "t": "button",
+            "look": "ring",
+            "icon": "tiktok",
+            "label": {
+              "vi": "TikTok"
+            },
+            "link": "https://www.tiktok.com/",
+            "x": 148,
+            "y": 366,
+            "w": 170,
+            "h": 30,
+            "size": 14,
+            "edge": {
+              "w": 2.6,
+              "color": {
+                "kind": "linear",
+                "angle": 90,
+                "stops": [
+                  [
+                    "#25f4ee",
+                    0
+                  ],
+                  [
+                    "#fe2c55",
+                    100
+                  ]
+                ]
+              }
+            },
+            "motion": {
+              "in": "right",
+              "at": 880
+            }
+          },
+          {
+            "id": "zalo",
+            "t": "button",
+            "look": "outline",
+            "icon": "zalo",
+            "label": {
+              "vi": "Zalo OA"
+            },
+            "link": "https://zalo.me/",
+            "x": 170,
+            "y": 408,
+            "w": 126,
+            "h": 32,
+            "size": 14,
+            "edge": {
+              "w": 2.2,
+              "color": "#1f5bff"
+            },
+            "motion": {
+              "in": "right",
+              "at": 960
+            }
+          },
+          {
+            "id": "vien",
+            "t": "shape",
+            "shape": "rect",
+            "x": 78,
+            "y": 458,
+            "w": 240,
+            "h": 46,
+            "radius": 23,
+            "glass": {
+              "blur": 10,
+              "tint": "#ffffff55"
+            },
+            "edge": {
+              "w": 1,
+              "color": "#ffffff66"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 1000
+            }
+          },
+          {
+            "id": "ten-quan-ky",
+            "t": "text",
+            "x": 86,
+            "y": 458,
+            "w": 96,
+            "h": 46,
+            "words": {
+              "vi": "Tên Quán"
+            },
+            "font": "script",
+            "size": 26,
+            "color": "#141414",
+            "r": -6,
+            "motion": {
+              "in": "fade",
+              "at": 1100
+            }
+          },
+          {
+            "id": "website",
+            "t": "button",
+            "look": "link",
+            "label": {
+              "vi": "tenquan.vn"
+            },
+            "link": "https://quitesensational-review-bio.com/",
+            "x": 186,
+            "y": 468,
+            "w": 96,
+            "h": 26,
+            "size": 15,
+            "weight": 600,
+            "fg": "#141414",
+            "motion": {
+              "in": "fade",
+              "at": 1100
+            }
+          },
+          {
+            "id": "link",
+            "t": "icon",
+            "icon": "link",
+            "color": "#141414",
+            "link": "https://quitesensational-review-bio.com/",
+            "x": 284,
+            "y": 469,
+            "w": 24,
+            "h": 24,
+            "motion": {
+              "in": "fade",
+              "at": 1150
+            }
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 666,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      }
+    ]
+  }
+}

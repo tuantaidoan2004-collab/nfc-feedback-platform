@@ -1,0 +1,99 @@
+/*
+ * Máy bay giấy góp ý riêng, lời mời của nó và thẻ góp ý — bản gốc của trang khách (lát B2–B3, A2), chuyển nguyên vào trang
+ * canvas. Tài 05/10: "cái máy bay giấy gửi phản hồi về cho shop là vẫn giữ như cũ nha, nó tuyệt đẹp và mượt rồi chứ đừng code
+ * máy bay giấy mới." Mọi quy tắc dưới đây là của components/guest-page.css cũ, với token của skin.css cũ ở giá trị mặc định
+ * (bản cũ đọc chúng từ `.guest`; trang canvas không có `.guest`, nên chúng được ghi thẳng vào đây). Template không chạm vào nó.
+ * Thêm đúng một điều: luật 0.1 (nút Google không bị gì che) — máy bay giấy lùi đi khi đè lên nút Google (`data-away`).
+ */
+.guest-float, .guest-modal {
+  --forest: #214034; --forest-deep: #17302a; --mist: #eff2e8; --paper: #fbfcf7; --line: #d6dccb; --ink: #1d2f28; --muted: #5d6b63;
+  --c-brand: #214034; --c-on-brand: #eff2e8; --c-radius: 28px;
+  /* Apple-like spring, generated for a stiff, lightly damped motion. Browsers without linear() keep the cubic fallback. */
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --press: transform .12s cubic-bezier(.3, 0, .5, 1);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  .guest-float, .guest-modal { --spring: linear(0, .009, .035 2.1%, .141, .281 6.7%, .723 12.9%, .938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, .991, .977 51%, .974 53.8%, .975 57.1%, .997 69.8%, 1.003 76.9%, 1.004 83.8%, 1); }
+}
+
+/* Every button and link sinks a little while pressed and springs back on release. */
+.guest-float button, .guest-modal button, .guest-modal a { -webkit-tap-highlight-color: transparent; transition: transform .45s var(--spring); }
+.guest-float button:not(:disabled):active, .guest-modal button:not(:disabled):active, .guest-modal a:active { transform: scale(.96); transition: var(--press); }
+
+/* Floating private-feedback button: the glyph alone, no disc behind it. */
+.guest-float {
+  position: fixed; z-index: 30; left: max(14px, env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 6px; pointer-events: none;
+}
+/* Luật 0.1 on a canvas page, where the Google button may stand anywhere in the first screen: while the plane would lie over
+   it, the plane steps aside, so nothing covers the button -- neither its picture nor where a finger lands. */
+.guest-float[data-away] { opacity: 0; transition: opacity .25s ease; }
+.guest-float[data-away] > * { pointer-events: none; }
+.guest-float .guest-plane {
+  pointer-events: auto; width: 60px; height: 60px; padding: 0; border: 0; background: none; display: grid; place-items: center;
+  filter: drop-shadow(0 6px 10px #0b1d1666) drop-shadow(0 1px 1px #0b1d1640);
+  animation: guest-float 3.2s ease-in-out infinite; transition: transform .6s var(--spring);
+}
+.guest-float button.guest-plane:not(:disabled):active { transform: scale(.7); transition: transform .1s cubic-bezier(.3, 0, .5, 1); animation-play-state: paused; }
+@keyframes guest-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+/* A2: the plane and its invitation look the same on every page, so their ink is fixed. */
+.guest-float .guest-hint {
+  pointer-events: auto; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 999px; font-size: 13px; font-weight: 650; color: #17302a;
+  background: #fbfcf7eb; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 0 0 1px #21403414, 0 8px 20px -10px #0b1d1680; transform-origin: left center;
+  animation: guest-hint-in .55s var(--spring) both;
+}
+@keyframes guest-hint-in { from { opacity: 0; transform: translateX(-10px) scale(.85); } to { opacity: 1; transform: none; } }
+
+/* Spotlight card: everything behind is dimmed and blurred. */
+.guest-modal {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px;
+  background: #0b1d1673; -webkit-backdrop-filter: blur(14px) saturate(120%); backdrop-filter: blur(14px) saturate(120%);
+  animation: guest-fade .2s ease-out both;
+}
+@keyframes guest-fade { from { opacity: 0; } to { opacity: 1; } }
+.guest-card {
+  position: relative; z-index: 50; width: 100%; max-width: 400px; max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
+  padding: 22px 20px 18px; border-radius: var(--c-radius); background: var(--paper); color: var(--ink); text-align: left; outline: none;
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #21403414, 0 30px 80px -24px #0b1d16b3;
+  animation: guest-card-in .5s var(--spring) both;
+}
+@keyframes guest-card-in { from { opacity: 0; transform: translateY(24px) scale(.92); } to { opacity: 1; transform: none; } }
+.guest-card h2 { margin: 0 40px 4px 0; font-size: 20px; line-height: 1.2; letter-spacing: -.02em; color: var(--forest-deep); }
+.guest-note { margin: 0 auto; max-width: 300px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.guest-card .guest-note { margin: 0; max-width: none; }
+.guest-modal .guest-close {
+  position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--mist); color: var(--forest); font-size: 22px; line-height: 1;
+}
+.guest-feeling { margin: 16px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.guest-stars { display: flex; justify-content: center; gap: 4px; margin-top: 4px; }
+.guest-modal .guest-stars button { width: 52px; height: 52px; padding: 0; border: 0; background: transparent; line-height: 1; }
+.guest-star { display: inline-block; font-size: 36px; color: #d3d8cc; }
+.guest-face { display: inline-block; font-size: 34px; animation: guest-face-in .5s var(--spring) both; }
+@keyframes guest-face-in { from { opacity: 0; transform: scale(.35) rotate(-18deg); } to { opacity: 1; transform: none; } }
+.guest-card label { display: block; margin: 12px 0 6px; font-size: 12px; font-weight: 700; }
+.guest-card select, .guest-card textarea, .guest-card input {
+  display: block; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper);
+  color: var(--ink); font: inherit; font-size: 16px;
+}
+.guest-card textarea { resize: vertical; }
+.guest-card input::placeholder, .guest-card textarea::placeholder { color: #9aa49c; }
+.guest-status { margin: 12px 0 0; min-height: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+.guest-modal .guest-send, .cv-connection .guest-send {
+  width: 100%; min-height: 48px; margin-top: 14px; border: 0; border-radius: 14px; color: var(--c-on-brand, #eff2e8); font-weight: 700;
+  background: linear-gradient(180deg, #2c4f41, #17302a); box-shadow: inset 0 1px 0 #ffffff33, 0 6px 14px -8px #17302a99;
+}
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  .guest-modal .guest-send, .cv-connection .guest-send { background: linear-gradient(180deg, color-mix(in srgb, #214034 90%, #fff), color-mix(in srgb, #214034 75%, #000)); }
+}
+.guest-modal .guest-send:disabled, .cv-connection .guest-send:disabled { opacity: .5; }
+.guest-thanks { padding: 18px 4px 4px; text-align: center; }
+.guest-thanks p { margin: 8px 24px 6px; font-size: 20px; line-height: 1.35; font-weight: 750; letter-spacing: -.01em; color: var(--forest-deep); }
+.guest-fineprint { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
+.guest-fineprint a { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .guest-float .guest-plane, .guest-float .guest-hint, .guest-modal, .guest-card, .guest-face { animation: none; }
+  .guest-float button, .guest-modal button, .guest-modal a, .guest-float .guest-plane { transition: none; }
+}

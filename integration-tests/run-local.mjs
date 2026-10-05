@@ -12,8 +12,7 @@ const admin = new pg.Pool({ connectionString: local });
 const scoped = new URL(local); scoped.searchParams.set('options', `-c search_path=${schema}`);
 const db = new pg.Pool({ connectionString: scoped.href });
 const children = [], logs = [];
-// Administration needs migration 004 as well: admin_audit references owner identities for on-behalf-of work.
-// The owner dashboard needs 005, 007 and 008 in turn: it shows the shop every administrator session and its own support switch.
+// `--owner` opens the owners' side of the app, `--admin` the administrators' too (they act on owners' shops).
 const platformAdmin = process.argv.includes('--admin');
 const owner = platformAdmin || process.argv.includes('--owner');
 // `--publishing` is still accepted (CI passes it) but changes nothing: every mode publishes since lát A3b.
@@ -31,6 +30,9 @@ const googleFixture = { NFC_GOOGLE_CLIENT_ID: 'harness-client.apps.googleusercon
 // DISPLAY and XAUTHORITY are what `xvfb-run` puts in this process's environment: the one case that opens a headed
 // Chrome launches it from the child, and without them that Chrome answers "Missing X server or $DISPLAY" (lát A4).
 const passed = Object.fromEntries(['CI', 'CHROME_PATH', 'DISPLAY', 'XAUTHORITY'].filter(name => process.env[name]).map(name => [name, process.env[name]]));
+// The picture store the dev apps upload into: the local app's own (scripts/local/store.ts), on 3328, files in the temp copy.
+const storeFixture = { STORAGE_ENDPOINT: 'http://127.0.0.1:3328', STORAGE_REGION: 'auto', R2_BUCKET: 'nfc-media', R2_ACCESS_KEY_ID: 'harness',
+  R2_SECRET_ACCESS_KEY: randomBytes(32).toString('hex'), MEDIA_PUBLIC_ORIGIN: 'http://127.0.0.1:3328/nfc-media' };
 const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1', ...passed };
 async function run(args, cwd, env) {
   return new Promise((yes, no) => {
@@ -62,14 +64,13 @@ async function warm(origin) {
     // The behaviour beacon (lát mục 7). A route compiled on its first call makes `next dev` reload every open
     // page, and a beacon fires while another test has a half-filled login form on screen.
     `/api/v2/pages/visits/${zero}/events`,
-    // The builder before an account (lát D4): its page, its signing route, a draft link, and the crawler files.
-    '/bat-dau', '/api/start/drafts', '/thu/x.y.z', '/robots.txt', '/sitemap.xml',
-    // Saving it (lát D4b): the signup route, the waiting page, and /gov's decision route.
-    '/api/start/signup', '/owner/cho-duyet', `/gov/api/signups/${zero}`,
-    // The text gate (lát M2b): /gov's decision route.
-    `/gov/api/texts/${zero}`,
-    // The billing tab (lát P5b-lite): the owner's read, and /gov's two writes.
-    '/api/owner/v2/one/billing', '/gov/api/payments', '/gov/api/payment-settings',
+    // Sign-up and onboarding (đợt ①), the canvas editor and its API (đợt ②), the templates, and the crawler files.
+    '/bat-dau', '/api/start/signup', '/app/one', '/app/one/library', '/app/one/sua/one', '/api/owner/v2/one/design', '/templates', '/templates/basic-1',
+    '/app/one/dashboard', '/app/one/data', '/app/one/my-card', '/app/one/quan-ly', '/app/one/cai-dat', '/api/owner/v2/one/overview', '/api/owner/v2/one/pulse',
+    '/api/owner/v2/one/google-business', '/api/owner/v2/one/onboarding', '/api/owner/v2/one/help', '/api/owner/v2/logout', '/owner/setup/' + '0'.repeat(64),
+    // A self-signed-up shop's first publish (đợt ②): the draft /gov looks at, and the decision.
+    `/gov/xem/${zero}`, `/gov/api/publish-reviews/${zero}`,
+    '/robots.txt', '/sitemap.xml',
     // Google sign-in (lát D4c).
     '/api/owner/v2/google/start', '/api/owner/v2/google/callback'];
   await Promise.all(paths.map(path => fetch(`${origin}${path}`).catch(() => null)));
@@ -80,7 +81,7 @@ async function startApp(name, port, flag, builtApp) {
   // The built app deliberately leaves NFC_ENV unset: the production gate test proves feature flags alone
   // never open v2. Dev apps declare it so the rest of the suite exercises the enabled surfaces.
   const env = { ...safeEnv, NODE_ENV: builtApp ? 'production' : 'development', ...(builtApp ? {} : { NFC_ENV: 'local' }), SERVER_DATA_ENABLED: 'true', DATABASE_URL: scoped.href,
-    APP_ORIGIN: `http://127.0.0.1:${port}`, NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: flag, NFC_RENDER_SIGNING_KEY: signingFixture, NFC_TOTP_KEY: totpFixture, ...googleFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
+    APP_ORIGIN: `http://127.0.0.1:${port}`, ...(builtApp ? {} : storeFixture), NFC_VISITS_V2_ENABLED: flag, NFC_PUBLISHING_ENABLED: flag, NFC_RENDER_SIGNING_KEY: signingFixture, NFC_TOTP_KEY: totpFixture, ...googleFixture, NFC_OWNER_V2_ENABLED: owner && flag === 'true' ? 'true' : 'false', NFC_ADMIN_ENABLED: platformAdmin && flag === 'true' ? 'true' : 'false' };
   const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...(builtApp ? ['start'] : ['dev', '--webpack']), '--hostname', '127.0.0.1', '--port', String(port)],
     { cwd, env, stdio: ['ignore', log.fd, log.fd] });
   children.push(child);
@@ -94,12 +95,13 @@ async function startApp(name, port, flag, builtApp) {
 }
 try {
   await admin.query(`CREATE SCHEMA ${schema}`);
-  // Every mode has the published guest page since lát A3b, so every mode has the publishing schema. 021 must follow
-  // 003, as it does on Neon (filename order): it replaces the receipt trigger 003 installs. Before 003 it was a no-op,
-  // 003 then put the strict trigger back, and a customer's erase answered 503 -- but only here, never in production.
-  for (const migration of ['001_core.sql', '002_visit_ratings.sql', '010_feedback_without_rating.sql', '011_feedback_phone.sql', '018_guest_flood_control.sql', '020_page_events.sql', '003_publishing.sql', '021_erase_on_request.sql', '013_short_card_codes.sql', '022_shop_profile.sql', '009_template_shop.sql', '023_media_review.sql','030_text_review.sql', '024_pages.sql', '025_page_labels.sql', '026_page_lifecycle.sql', '027_page_debt.sql', '028_retire_legacy.sql', ...(owner ? ['004_owner_dashboard.sql', '005_platform_admin.sql', '006_owner_email_setup.sql', '007_admin_impersonation.sql', '008_shop_support_grants.sql', '012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql','029_shop_signups.sql','031_billing.sql','032_google_sign_in.sql'] : [])]) await db.query(await readFile(join(root, 'db/migrations', migration), 'utf8'));
+  // The whole database in one step (Tài 05/10: no migrations while the frame is rebuilt): db/schema.sql, as the app and the
+  // repository suite use it, so the harness never runs on a schema the app does not have.
+  await db.query(await readFile(join(root, 'db/schema.sql'), 'utf8'));
   await db.query("INSERT INTO shops(slug,name,google_url) VALUES('one','Local test shop','https://maps.google.com/'),('two','Local test shop two',null)");
   const buildOnly = process.argv.includes('--build-only');
+  if (owner && !buildOnly) children.push(spawn(process.execPath, ['--experimental-transform-types', '--no-warnings', '--import', './scripts/local/hooks.mjs', 'scripts/local/store.ts'],
+    { cwd: root, env: { ...safeEnv, ...storeFixture, NFC_LOCAL_MEDIA_DIR: join(temp, 'media'), APP_ORIGIN: 'http://127.0.0.1:3317' }, stdio: 'ignore' }));
   const app = buildOnly ? await copyApp('build') : await startApp('on', 3317, 'true');
   if (!buildOnly) {
   await startApp('off', 3318, 'false');
@@ -129,5 +131,7 @@ try {
   })));
   await Promise.all(logs.map(log => log.close()));
   await db.end(); await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await admin.end();
-  await rm(temp, { recursive: true, force: true });
+  // `next` leaves worker processes that can still be writing into the copy for a moment after it exits; without retries the
+  // delete then fails with ENOTEMPTY and turns a green run red (admin harness, 05/10).
+  await rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

@@ -2,11 +2,11 @@
 // few pieces of private feedback. Idempotent: a database that already has the sample shop is left alone. Local only --
 // the passwords below are throwaway values for 127.0.0.1 and are printed by `node scripts/local.mjs`.
 import pg from 'pg';
-import { PublishingAdmin } from '@/lib/publishing/repository';
-import { defaultConfig } from '@/lib/publishing/config';
+import { PublishingAdmin, templateVersionRow } from '@/lib/publishing/repository';
+import { DEFAULT_TEMPLATE, pageFromTemplate } from '@/lib/canvas/templates';
+import { pageLabel } from '@/lib/owner/page-names';
 import { OwnerAuth } from '@/lib/owner/auth';
 import { seal, fromBase32 } from '@/lib/admin/totp';
-import { addExperience } from '@/repository-tests/owner-fixture';
 import { PublishingResolver } from '@/lib/publishing/repository';
 import { VisitRatingRepository } from '@/lib/repositories/visit-ratings';
 import { publishingVisitPolicy } from '@/lib/publishing/visit-policy';
@@ -22,14 +22,14 @@ try {
   else {
     const shop = (await db.query("INSERT INTO shops(slug,name,google_url)VALUES($1,'Quán Mẫu','https://maps.google.com/')RETURNING id", [LOCAL.slug])).rows[0].id;
     const admin = new PublishingAdmin(db, async () => ({ actorId: 'local-seed' }));
-    const template = (await db.query("SELECT id FROM template_versions WHERE template_key='neutral' AND version=1")).rows[0]?.id ?? await admin.createTemplate('neutral', 1);
-    const page = await admin.createPage(shop, template, { ...defaultConfig('Quán Mẫu'), googleUrl: 'https://maps.google.com/' }, LOCAL.slug);
+    // The sample shop's page is a copy of the default template, with the shop's name in it (lib/canvas/templates.ts).
+    const page = await admin.createPage(shop, await templateVersionRow(db, DEFAULT_TEMPLATE), pageFromTemplate(DEFAULT_TEMPLATE, 'Quán Mẫu'), LOCAL.slug, pageLabel(0));
     await admin.publish(page, 1);
     const owner = await new OwnerAuth(db).bootstrap(LOCAL.owner, LOCAL.ownerPassword, async () => {});
     await db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [owner, shop]);
-    await addExperience(db, LOCAL.slug, 5, null);
-    await addExperience(db, LOCAL.slug, 2, 'Cà phê hôm nay hơi nguội, nhân viên vẫn dễ thương.');
-    await addExperience(db, LOCAL.slug, null, 'Quán nên mở cửa sớm hơn vào cuối tuần.');
+    await experience(5, null);
+    await experience(2, 'Cà phê hôm nay hơi nguội, nhân viên vẫn dễ thương.');
+    await experience(null, 'Quán nên mở cửa sớm hơn vào cuối tuần.');
     console.log('Seed: shop, page, owner and three experiences created.');
   }
   await history();
@@ -38,6 +38,18 @@ try {
   await db.query('UPDATE platform_admins SET totp_secret=$2,totp_enrolled_at=coalesce(totp_enrolled_at,clock_timestamp()) WHERE username=$1 AND totp_secret IS NULL',
     [LOCAL.admin, seal(fromBase32(LOCAL.totp))]);
 } finally { await db.end(); }
+
+/**
+ * One guest's visit to the sample shop: stars, words, or both, through the same path a real card takes. Its own, not the test
+ * fixture's: the app's production build type-checks this file, and a copy of the app holds no tests (integration-tests/run-local.mjs).
+ */
+async function experience(score: number | null, words: string | null) {
+  const c = (await new PublishingResolver(db).live({ slug: LOCAL.slug })).context;
+  const hash = createHash('sha256').update(randomUUID()).digest('hex'), repo = new VisitRatingRepository(db, undefined, publishingVisitPolicy(c));
+  const v = await repo.registerVisit(c, randomUUID(), 'load', hash);
+  if (score !== null) await repo.recordRating({ ...c, visitId: v.visit.visitId }, { intentId: randomUUID(), expectedRevision: 0, score }, hash);
+  if (words) await repo.recordPrivateFeedback({ ...c, visitId: v.visit.visitId }, { intentId: randomUUID(), expectedRevision: score === null ? 0 : 1, topic: 'other', message: words }, hash);
+}
 
 /**
  * Forty days of a believable shop (05/10, for the Dashboard): a few opens a day, about four in ten tap Google, some leave

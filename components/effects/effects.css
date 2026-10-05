@@ -1,34 +1,33 @@
 /*
- * Effect modules of the guest page (lát M2). Platform code a template switches on in its manifest; a template's own
- * stylesheet never restyles these. Every selector is scoped to .guest and reads only skin tokens (DESIGN.md mục 4),
- * checked with the template stylesheets in tests/contracts/skin.spec.ts.
+ * Effect modules of the guest page (lát M2), drawn by the platform the same on every canvas page (components/canvas): a
+ * page's document switches one on (`doc.fx`), never restyles it. Fixed colours, scoped to the page (`.cv`).
  */
 
-/* ---- Lời cảm ơn trước khi sang Google (effects.thankYouSeconds; thanks.tsx) ---- */
-.guest .thanks-layer { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 24px;
+/* ---- Lời cảm ơn trước khi sang Google (doc.fx.thanks; thanks.tsx) ---- */
+.cv .thanks-layer { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 24px;
   background: #0b0914c7; animation: thanks-in .2s ease-out both; }
-.guest .thanks-card { position: relative; width: min(360px, 100%); display: grid; justify-items: center; gap: 12px; padding: 28px 24px 24px;
-  border-radius: var(--c-radius); background: var(--c-paper); color: var(--c-ink); text-align: center;
-  box-shadow: 0 0 0 1px var(--c-line), 0 30px 80px -30px #000a; }
-.guest .thanks-title { margin: 0; font-family: var(--c-display); font-size: 22px; font-weight: 800; line-height: 1.25; text-wrap: balance; }
-.guest .thanks-body { margin: 0; color: var(--c-ink-2); font-size: 15px; line-height: 1.55; }
-.guest .thanks-blocked { margin: 0; color: var(--c-ink-2); font-size: 15px; }
-.guest .thanks-blocked a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; margin-top: 8px; border-radius: 999px;
-  background: var(--c-brand); color: var(--c-on-brand); font-weight: 700; text-decoration: none; }
+.cv .thanks-card { position: relative; width: min(360px, 100%); display: grid; justify-items: center; gap: 12px; padding: 28px 24px 24px;
+  border-radius: 24px; background: #fff; color: #16141c; text-align: center; font-family: var(--font-qs), system-ui, sans-serif;
+  box-shadow: 0 0 0 1px #e7e3ec, 0 30px 80px -30px #000a; }
+.cv .thanks-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.25; text-wrap: balance; }
+.cv .thanks-body { margin: 0; color: #5d5866; font-size: 15px; line-height: 1.55; }
+.cv .thanks-blocked { margin: 0; color: #5d5866; font-size: 15px; }
+.cv .thanks-blocked a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; margin-top: 8px; border-radius: 999px;
+  background: #16141c; color: #fff; font-weight: 700; text-decoration: none; }
 /* The count sits in a ring that empties over the whole wait. */
 @property --thanks-left { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
-.guest .thanks-count { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%;
-  background: radial-gradient(circle closest-side, var(--c-paper) 82%, transparent 84%), conic-gradient(var(--c-brand) var(--thanks-left), var(--c-line) 0);
-  color: var(--c-ink); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
+.cv .thanks-count { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%;
+  background: radial-gradient(circle closest-side, #fff 82%, transparent 84%), conic-gradient(#16141c var(--thanks-left), #e7e3ec 0);
+  color: #16141c; font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
   animation: thanks-ring var(--s, 4s) linear both; }
 /* Hearts from the top edge of the card, fanning up and out like a firework and gone -- above the words, never over them.
    Soft pinks, never the Google mark's colours. */
-.guest .thanks-hearts { position: absolute; left: 50%; top: 0; width: 0; height: 0; pointer-events: none; }
-.guest .thanks-hearts span { position: absolute; left: 0; top: 0; font-size: 22px; line-height: 1; color: #ff8fb8; opacity: 0;
+.cv .thanks-hearts { position: absolute; left: 50%; top: 0; width: 0; height: 0; pointer-events: none; }
+.cv .thanks-hearts span { position: absolute; left: 0; top: 0; font-size: 22px; line-height: 1; color: #ff8fb8; opacity: 0;
   --a: calc(-168deg + var(--i) / (var(--n) - 1) * 156deg);
   animation: thanks-heart 1.1s cubic-bezier(.2, .7, .3, 1) calc(var(--i) * 18ms) both; }
-.guest .thanks-hearts span:nth-child(3n) { color: #ff6fa3; font-size: 18px; }
-.guest .thanks-hearts span:nth-child(3n + 1) { color: #ffc2d9; font-size: 26px; }
+.cv .thanks-hearts span:nth-child(3n) { color: #ff6fa3; font-size: 18px; }
+.cv .thanks-hearts span:nth-child(3n + 1) { color: #ffc2d9; font-size: 26px; }
 @keyframes thanks-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes thanks-ring { from { --thanks-left: 100%; } to { --thanks-left: 0%; } }
 @keyframes thanks-heart {
@@ -38,15 +37,16 @@
 }
 
 /* ---- Con trỏ chờ gõ đổi màu (Tài 27/09, ui-ux-nguon-tham-khao.md mục 5D) ----
- * Four colours of the template's own palette, stepping while the guest writes. Never Google's colours: this box has
- * promised "Góp ý này không đăng lên Google", and dressing it in Google's colours would blur that promise. */
-.guest .guest-card textarea:focus, .guest .guest-card input:focus { animation: guest-caret 1.6s steps(1, end) infinite; }
+ * Four soft colours stepping while the guest writes. Never Google's colours: this box has promised "Góp ý này không
+ * đăng lên Google", and dressing it in Google's colours would blur that promise. */
+.guest-card textarea:focus, .guest-card input:focus { animation: guest-caret 1.6s steps(1, end) infinite; }
+/* The original page's colours at their default (the card is the original one: components/guest/plane.css). */
 @keyframes guest-caret {
-  0% { caret-color: var(--c-brand); }
-  25% { caret-color: var(--c-accent); }
-  50% { caret-color: var(--c-c2); }
-  75% { caret-color: var(--c-ink-2); }
+  0% { caret-color: #214034; }
+  25% { caret-color: #c88a1e; }
+  50% { caret-color: #eff2e8; }
+  75% { caret-color: #17302a; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .guest .thanks-layer, .guest .thanks-count, .guest .guest-card textarea:focus, .guest .guest-card input:focus { animation: none; }
+  .cv .thanks-layer, .cv .thanks-count, .guest-card textarea:focus, .guest-card input:focus { animation: none; }
 }

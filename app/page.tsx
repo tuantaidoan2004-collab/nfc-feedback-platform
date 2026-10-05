@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Landing from '@/components/qs/landing/landing';
-import { templateCards } from '@/lib/publishing/templates';
+import { templateCards } from '@/lib/canvas/templates';
 import { PLATFORM_NAME } from '@/lib/brand';
 import '@/components/qs/qs.css';
 

@@ -26,8 +26,9 @@
 .qs h1 { font-size: clamp(26px, 6vw, 40px); line-height: 1.12; letter-spacing: -.03em; font-weight: 700; }
 .qs h2 { font-size: 20px; letter-spacing: -.02em; font-weight: 650; }
 .qs h3 { font-size: 16px; letter-spacing: -.01em; font-weight: 650; }
-.qs a { color: inherit; }
-.qs button { font: inherit; color: inherit; }
+/* A reset, so it weighs nothing (any class wins over it), and never inside a canvas page (the editor draws one inside .qs). */
+:where(.qs a:not(.cv a)) { color: inherit; }
+:where(.qs button:not(.cv button)) { font: inherit; color: inherit; }
 .qs :focus-visible { outline: 2px solid var(--qs-blue); outline-offset: 3px; }
 .qs .qs-muted { color: var(--qs-muted); }
 .qs .qs-small { font-size: 13px; }
@@ -72,3 +73,13 @@
   --p-radius-lg: 20px; --p-radius: 14px; --p-radius-sm: 10px; --p-font: inherit; --p-chart-1: #9bb6ff; --p-chart-2: var(--qs-blue);
   --ink: var(--qs-ink); --muted: var(--qs-muted); --line: var(--qs-line); --paper: var(--qs-card); --mist: var(--qs-soft);
 }
+
+/* Phiên xem thay mặt (components/qs/support-banner.tsx): on every screen the administrator sees. In the frame it floats at the
+   foot of the screen, clear of the Orb in its corner; the frame leaves room for it as tall as the strip, which measures itself
+   (two lines on a computer, five or six on a phone). In the editor it is a strip of the banner row. */
+.qs-support { position: relative; z-index: 60; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 16px;
+  background: #f4ecff; color: #3b1d6e; border-bottom: 1px solid #e2d2ff; font-size: 14px; }
+.qs-support .qs-btn { margin-left: auto; }
+.qs-support-float { position: fixed; left: 50%; bottom: 14px; translate: -50% 0; width: min(820px, calc(100vw - 24px)); border: 1px solid #e2d2ff;
+  border-radius: 18px; box-shadow: 0 12px 40px rgba(59, 29, 110, .22); }
+.qs[data-support] { padding-bottom: var(--qs-support-room, 130px); }

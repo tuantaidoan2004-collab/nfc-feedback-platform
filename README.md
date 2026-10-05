@@ -23,7 +23,7 @@ hoặc **tự chạy** trên một máy Linux bất kỳ có Docker (`docs/tu-ch
 - `app/` — route Next.js: trang khách `/<slug>` và `/t/<mã thẻ>`, dashboard `/ZZZ/<slug>`, quản trị `/gov`, API.
 - `components/` — giao diện; `shop-feedback-v2.tsx` là trang khách.
 - `templates/<khoá>/` — mỗi template là một gói (manifest + CSS mỗi bản); `node scripts/templates.mjs` sinh registry.
-- `lib/`, `server/` — nghiệp vụ và biên máy chủ; `db/migrations/` — lược đồ PostgreSQL theo thứ tự số.
+- `lib/`, `server/` — nghiệp vụ và biên máy chủ; `db/schema.sql` — toàn bộ lược đồ PostgreSQL trong một tệp (không migration trong lúc dựng lại khung; `scripts/apply-schema.mjs` dựng database trống từ nó).
 - `tests/contracts`, `client-tests`, `repository-tests`, `integration-tests` — bảy bộ test, chạy đủ trên CI.
 
 Không đưa bí mật, dữ liệu thanh toán hay dữ liệu khách lên repo này: repo công khai.

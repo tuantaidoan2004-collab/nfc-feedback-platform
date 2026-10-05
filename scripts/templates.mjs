@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Sinh registry template từ các gói `templates/<khoá>/` (lát M1, 27/09). Không nơi nào khác trong mã liệt kê template.
+ * Sinh danh sách template từ các thư mục `templates/<khoá>/template.json` (đợt ②, 05/10: template canvas). Không nơi nào
+ * khác trong mã liệt kê template.
  *
- *   node scripts/templates.mjs          ghi lib/publishing/templates.generated.ts và components/guest-styles.ts
- *   node scripts/templates.mjs --check  chỉ so; thoát 1 nếu hai tệp đó cũ hơn các gói (test hợp đồng gọi lệnh này)
+ *   node scripts/templates.mjs          ghi lib/canvas/templates.generated.ts
+ *   node scripts/templates.mjs --check  chỉ so; thoát 1 nếu tệp đó cũ hơn các thư mục (test hợp đồng gọi lệnh này)
  *
- * Ở đây chỉ kiểm những gì cần để sinh được (thư mục, JSON đọc được, khoá và số không trùng). Kiểm đầy đủ từng manifest
- * là `manifestProblems` trong lib/publishing/template-manifest.ts, chạy trong tests/contracts/templates.spec.ts.
+ * Ở đây chỉ kiểm những gì cần để sinh được (thư mục, JSON đọc được, khoá và số không trùng). Kiểm đầy đủ từng tài liệu
+ * (lib/canvas/validate.ts) và luật Google (lib/publishing/policy.ts) chạy trong tests/contracts/templates.spec.ts.
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,35 +17,22 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const dir = join(root, 'templates');
 const fail = message => { console.error(`templates: ${message}`); process.exit(1); };
 
-const packages = readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => {
-  const file = join(dir, entry.name, 'manifest.json');
-  if (!existsSync(file)) fail(`${entry.name}/ thiếu manifest.json`);
-  let manifest; try { manifest = JSON.parse(readFileSync(file, 'utf8')); } catch (error) { fail(`${entry.name}/manifest.json không đọc được: ${error.message}`); }
-  if (manifest.key !== entry.name) fail(`${entry.name}/manifest.json: "key" phải là "${entry.name}"`);
-  if (!Array.isArray(manifest.versions) || !manifest.versions.length) fail(`${entry.name}: cần ít nhất một bản`);
-  return manifest;
+const templates = readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => {
+  const file = join(dir, entry.name, 'template.json');
+  if (!existsSync(file)) fail(`${entry.name}/ thiếu template.json`);
+  let template; try { template = JSON.parse(readFileSync(file, 'utf8')); } catch (error) { fail(`${entry.name}/template.json không đọc được: ${error.message}`); }
+  if (template.key !== entry.name) fail(`${entry.name}/template.json: "key" phải là "${entry.name}"`);
+  return template;
 }).sort((a, b) => a.number - b.number);
-for (const [i, manifest] of packages.entries())
-  if (packages.findIndex(other => other.number === manifest.number) !== i) fail(`hai template cùng "number" ${manifest.number}`);
+for (const [i, template] of templates.entries())
+  if (templates.findIndex(other => other.number === template.number) !== i) fail(`hai template cùng "number" ${template.number}`);
 
-const banner = '// Sinh bởi `node scripts/templates.mjs` từ templates/*/ — đừng sửa tay (lát M1).\n';
-const registry = `${banner}import type { TemplateManifest } from './template-manifest';
+const text = `// Sinh bởi \`node scripts/templates.mjs\` từ templates/*/template.json — đừng sửa tay.
+import type { CanvasTemplate } from './templates';
 
-export const TEMPLATE_KEYS = [${packages.map(p => `'${p.key}'`).join(', ')}] as const;
-export const TEMPLATE_MANIFESTS: readonly TemplateManifest[] = ${JSON.stringify(packages, null, 2)};
+export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = ${JSON.stringify(templates, null, 1)};
 `;
-const styles = `${banner}// Mọi tệp CSS trang khách mặc, theo thứ tự: trang, lớp da chung, rồi từng bản template đóng băng (sau skin.css để token
-// của bản template đè mặc định). Mọi selector gói trong \`.guest\` (tests/contracts/skin.spec.ts), nên dashboard nạp chúng
-// (pages-panel.tsx khung trang khách) cũng không bị đổi kiểu. Dưới \`next dev\`, route mang CSS toàn cục mới tải lại mọi
-// trang đang mở -- kể cả dashboard -- lần đầu nó được khung.
-import './guest-page.css';
-import './skin.css';
-import './effects/effects.css';
-${packages.flatMap(p => p.versions.map(v => `import '../templates/${p.key}/v${v.version}.css';`)).join('\n')}
-`;
-
-const outputs = [[join(root, 'lib/publishing/templates.generated.ts'), registry], [join(root, 'components/guest-styles.ts'), styles]];
+const output = join(root, 'lib/canvas/templates.generated.ts');
 if (process.argv.includes('--check')) {
-  const stale = outputs.filter(([file, text]) => !existsSync(file) || readFileSync(file, 'utf8') !== text).map(([file]) => file.slice(root.length));
-  if (stale.length) fail(`cũ hơn các gói, chạy \`node scripts/templates.mjs\`: ${stale.join(', ')}`);
-} else for (const [file, text] of outputs) writeFileSync(file, text);
+  if (!existsSync(output) || readFileSync(output, 'utf8') !== text) fail('lib/canvas/templates.generated.ts cũ hơn các thư mục, chạy `node scripts/templates.mjs`');
+} else writeFileSync(output, text);

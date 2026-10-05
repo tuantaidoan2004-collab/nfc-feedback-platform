@@ -7,12 +7,20 @@ import {MediaReview} from '../lib/admin/media-review';
 import {UPLOAD_EXPIRES_SECONDS} from '../lib/owner/media';
 import {AdminAuth} from '../lib/admin/auth';
 import {PublishingAdmin,PublishingResolver} from '../lib/publishing/repository';
-import { templateConfig } from '../lib/publishing/templates';
+import { DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
 
 /**
  * Cửa duyệt ảnh (migration 023, docs/thiet-ke-va-template.md mục 10). Shops upload; nothing they upload reaches a guest
  * page until the operator approves it; the check sits where a shop publishes, so a page already live stays live.
  */
+/** A shop's page whose hero picture (and, if given, its first section's background) is an upload at `url`. */
+const pictured=(name:string,url:string,background?:string)=>{
+ const page=pageFromTemplate(DEFAULT_TEMPLATE,name),first=page.doc.sections[0];
+ first.els=first.els.map(el=>el.id==='anh-chinh'&&el.t==='image'?{...el,src:url}:el);
+ if(background)first.bg={...first.bg,src:background};
+ return page;
+};
+const shows=(config:{doc:unknown},url:string)=>JSON.stringify(config.doc).includes(url);
 /** The shop's page (migration 024): provisioning returns both ids. */
 const pageOf=(m:{shopId:string;pageId:string})=>({shopId:m.shopId,pageId:m.pageId});
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
@@ -82,18 +90,22 @@ test('a page with an unreviewed picture cannot be published, and the page alread
  const made=await f.shops.create(f.actorId,input);
  const admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId})),live=new PublishingResolver(f.db);
  const poster=`https://media.example/shops/${made.shopId}/a.jpg`;
- const withPoster={...templateConfig('standard'),name:input.name,googleUrl:'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',poster:{kind:'image' as const,url:poster}};
+ const withPoster=pictured(input.name,poster);
  let revision=await admin.saveDraft(pageOf(made),2,withPoster);
  // Never uploaded through the platform: an address typed into a draft is refused outright.
  await expect(admin.publish(pageOf(made),revision)).rejects.toThrow('MEDIA_UNKNOWN');
+ // Plain http is a page source only for the local app's store (scripts/local/store.ts), and even there it must be an upload.
+ const typed=await admin.saveDraft(pageOf(made),revision,pictured(input.name,'http://127.0.0.1:3322/nfc-media/x.jpg'));
+ await expect(admin.publish(pageOf(made),typed)).rejects.toThrow('MEDIA_UNKNOWN');
+ revision=await admin.saveDraft(pageOf(made),typed,withPoster);
  const id=await queue(f,made.shopId,poster);
  await expect(admin.publish(pageOf(made),revision)).rejects.toThrow('MEDIA_PENDING');
  // While it waits, the guest page is the one published before, untouched.
- expect((await live.live({slug:made.slug})).config.poster).toBeNull();
+ expect(shows((await live.live({slug:made.slug})).config,poster)).toBe(false);
  expect(await f.review.pending()).toEqual([expect.objectContaining({id,url:poster,slug:made.slug,shop_name:input.name,kind:'image'})]);
  await f.review.decide(f.actorId,id,{decision:'approve'});
  await admin.publish(pageOf(made),revision);
- expect((await live.live({slug:made.slug})).config.poster).toEqual({kind:'image',url:poster});
+ expect(shows((await live.live({slug:made.slug})).config,poster)).toBe(true);
  expect(await f.review.pending()).toEqual([]);
  // A refusal carries a reason, and a page holding the refused picture cannot be published.
  const logo=`https://media.example/shops/${made.shopId}/b.png`,second=await queue(f,made.shopId,logo);
@@ -101,7 +113,7 @@ test('a page with an unreviewed picture cannot be published, and the page alread
  await expect(f.review.decide(f.actorId,second,{decision:'reject',reason:'   '})).rejects.toThrow('REASON_REQUIRED');
  await expect(f.review.decide(f.actorId,second,{decision:'reject',reason:'<b>x</b>'})).rejects.toThrow('REASON_REQUIRED');
  await f.review.decide(f.actorId,second,{decision:'reject',reason:'Logo của một thương hiệu khác'});
- revision=await admin.saveDraft(pageOf(made),revision+1,{...withPoster,logo:{kind:'image',url:logo}});
+ revision=await admin.saveDraft(pageOf(made),revision+1,pictured(input.name,poster,logo));
  await expect(admin.publish(pageOf(made),revision)).rejects.toThrow('MEDIA_REJECTED');
  // A decision is final for that upload.
  await expect(f.review.decide(f.actorId,second,{decision:'approve'})).rejects.toThrow('MEDIA_ALREADY_REVIEWED');
@@ -111,20 +123,20 @@ test('a page with an unreviewed picture cannot be published, and the page alread
  expect((await f.db.query('SELECT state,reason FROM media_assets WHERE id=$1',[second])).rows).toEqual([{state:'rejected',reason:'Logo của một thương hiệu khác'}]);
 });
 
-test('an approved picture belongs to its shop, or to the template every shop starts from',async({f})=>{
+test('an approved picture belongs to its shop and to no other, the sample shop included',async({f})=>{
  const one=await f.shops.create(f.actorId,input);
  const two=await f.shops.create(f.actorId,{...input,ownerUsername:'quan-hai',ownerEmail:'hai@example.com'});
  const admin=new PublishingAdmin(f.db,async()=>({actorId:f.actorId}));
  const theirs=`https://media.example/shops/${one.shopId}/x.jpg`;await f.review.decide(f.actorId,await queue(f,one.shopId,theirs),{decision:'approve'});
- const borrowed={...templateConfig('standard'),name:'Quán Hai',googleUrl:'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',poster:{kind:'image' as const,url:theirs}};
+ const borrowed=pictured('Quán Hai',theirs);
  await expect(admin.publish(pageOf(two),await admin.saveDraft(pageOf(two),2,borrowed))).rejects.toThrow('MEDIA_UNKNOWN');
- // The template's own approved picture is every shop's starting point, so a clone can publish with it.
- const template=(await f.db.query('SELECT id FROM shops WHERE is_template')).rows[0].id;
+ // The sample shop is a shop like any other: its pictures are its own (new pages start from a template's drawings).
+ const template=(await f.shops.ensureTemplate(f.actorId)).shopId;
  const shared=`https://media.example/shops/${template}/t.jpg`;await f.review.decide(f.actorId,await queue(f,template,shared),{decision:'approve'});
  const draft=Number((await f.db.query('SELECT revision FROM page_drafts WHERE shop_id=$1',[two.shopId])).rows[0].revision);
- await admin.publish(pageOf(two),await admin.saveDraft(pageOf(two),draft,{...borrowed,poster:{kind:'image',url:shared}}));
- // Built-in media is the platform's own: the standard template's video needs no review.
- expect((await f.db.query('SELECT count(*)::int n FROM media_assets WHERE url LIKE $1',['%stem-background%'])).rows[0].n).toBe(0);
+ await expect(admin.publish(pageOf(two),await admin.saveDraft(pageOf(two),draft,pictured('Quán Hai',shared)))).rejects.toThrow('MEDIA_UNKNOWN');
+ // Built-in pictures are the platform's own: a template's drawings need no review.
+ expect((await f.db.query("SELECT count(*)::int n FROM media_assets WHERE url LIKE 'art:%'")).rows[0].n).toBe(0);
  await expect(f.review.decide(f.actorId,'not-a-uuid',{decision:'approve'})).rejects.toThrow('INVALID_INPUT');
  await expect(f.review.decide(f.actorId,randomUUID(),{decision:'approve'})).rejects.toThrow('MEDIA_NOT_FOUND');
  await expect(f.review.decide(f.actorId,randomUUID(),{decision:'maybe'})).rejects.toThrow('INVALID_INPUT');

@@ -17,7 +17,7 @@ Khách chấm ở `/A` vẫn ở `/A`; chủ mở/làm mới `/ZZZ/A` để th�
 
 ## Cơ chế đã có trong mã
 
-- Migration `db/migrations/001_core.sql`; chạy bằng `node scripts/migrate.mjs` trên DB development riêng, không tự chạy khi request tới.
+- Lược đồ: `db/schema.sql`, một tệp (từ đợt ① 05/10, thay chuỗi migration 001–033); `scripts/apply-schema.mjs` dựng database trống từ nó, không bao giờ tự chạy khi request tới.
 - Bật bằng `SERVER_DATA_ENABLED=true`, `DATABASE_URL`, `APP_ORIGIN`; không có DB thì báo không sẵn sàng, không chuyển sang lưu localStorage.
 - Token trải nghiệm ngẫu nhiên nằm trong cookie HttpOnly; DB chỉ lưu hash. Unique theo shop/token. Thời gian cookie 30 ngày là lựa chọn tạm của bản development, chưa phải quy tắc nhiều lần ghé.
 - Ghi rating/góp ý dùng revision có điều kiện; request cũ bị 409, không ghi đè điểm mới. Trình duyệt tuần tự hóa thao tác và chỉ xác nhận lưu khi server trả thành công. Sau lỗi không rõ đã lưu hay chưa, tải lại để lấy revision thực tế.

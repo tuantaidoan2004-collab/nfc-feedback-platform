@@ -173,10 +173,10 @@ jobs:
           set -a; . deploy/.env; set +a
           R2_ACCESS_KEY_ID="$STORE_USER" R2_SECRET_ACCESS_KEY="$STORE_PASSWORD" R2_BUCKET=nfc-media STORAGE_REGION=us-east-1 \
             node scripts/selfhost-smoke.mjs
-      - name: every migration applied
+      - name: the database is db/schema.sql
         run: |
-          test "$(docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec -T db psql -U nfc -d nfc -Atc 'SELECT count(*) FROM schema_migrations')" \
-            = "$(ls db/migrations/*.sql | wc -l | tr -d ' ')"
+          test "$(docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec -T db psql -U nfc -d nfc -Atc 'SELECT hash FROM applied_schema')" \
+            = "$(node -e "process.stdout.write(require('crypto').createHash('sha256').update(require('fs').readFileSync('db/schema.sql')).digest('hex').slice(0,16))")"
       - name: why it failed
         if: failure()
         run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs --no-color --tail=200

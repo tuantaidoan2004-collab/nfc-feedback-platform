@@ -164,7 +164,7 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình templat
 | **13** | Hai luật dùng chung mọi template: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi template, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-29
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-10-05 (chiều)
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên, rồi [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md)
 (logic gốc, đích kiến trúc module, tự chạy được, đội ngũ), rồi khối này. Việc còn lại: [`roadmap-slices.md`](roadmap-slices.md).
@@ -172,22 +172,40 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
-**05/10 — đổi hướng lớn, đang dựng lại (đợt ① gần xong, chưa commit).** Nguồn chính: `rieng/kich-ban.md` (kịch bản),
-`rieng/thiet-ke-goc.md` (nguyên văn + 12 câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai).
-Dự án ở `~/Desktop/QuiteSensational` (thẻ Finder "Cam"); chạy local `node scripts/local.mjs`; test DB `node scripts/test-db.mjs`.
+**05/10 — đổi hướng lớn, đang dựng lại.** Nguồn chính: `rieng/kich-ban.md` (kịch bản), `rieng/thiet-ke-goc.md` (nguyên văn
++ câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`
+(thẻ Finder "Cam"); chạy local `node scripts/local.mjs`; test DB `node scripts/test-db.mjs`.
 
-Đã xong trong đợt ①: database một tệp `db/schema.sql` (local tự làm lại khi tệp đổi) · Orb bản đầu (WebGL, tách 6 tab cánh quạt,
-núp góc trái trong tab, nảy theo `/api/owner/v2/<shop>/pulse`) · 6 tab bản khung ở `/app/<slug>/…` (Data gộp góp ý riêng + đánh giá
-Google; Library kiểu Canva; My Card; Quản lý; Cài đặt với bảng giá mới) · onboarding theo ảnh Jitter (pha trời xanh: chào → tên →
-loại quán → tài khoản; pha xám: thẻ Template/Dashboard, bước Google hai cột) · đăng ký dùng ngay (`lib/account/signup.ts`) ·
-tìm quán bằng Places API (mẫu khi chưa có key) và Google Business giả lập đúng định dạng Google (`lib/google/*`) · "Nhờ tạo giúp"
-ở `/gov` · khung landing, `/pricing`, `/templates` · đã gỡ trình dựng cũ, `/thu`, chờ duyệt cũ, dashboard cũ, tính tiền theo trang.
-Kiểm 05/10: tsc sạch; eslint 0 lỗi; repository **171 qua**; contracts **123 qua**. Chưa chạy: client và bốn lệnh harness.
+**Đợt ① đã commit (`3571676`, đã đẩy nhánh):** database một tệp `db/schema.sql` · Orb bản đầu · 6 tab bản khung ở `/app/<slug>/…`
+· onboarding theo ảnh Jitter · đăng ký dùng ngay · **Place ID dán tay** (Tài 05/10: chưa bật Places API; nút mở trang tìm Place ID
+của Google + một ô dán, ở onboarding và `/gov`) · Google Business giả lập đúng định dạng Google · "Nhờ tạo giúp" ở `/gov` · Dashboard
+kiểu YouTube Studio. Nợ của đợt ① đã trả trong đợt ②: `db/migrations`, `db/rollback`, `scripts/migrate.mjs` đã xoá; Docker,
+compose, CI dùng `scripts/apply-schema.mjs` (dựng database **trống** từ `db/schema.sql`, database có dữ liệu mà lược đồ khác thì
+dừng, không tự sửa); `owner-dashboard.spec.ts` và `admin-http.spec.ts` viết lại cho khung mới.
 
-**Còn lại của đợt ①:** xoá `db/migrations`, `db/rollback`; thay `scripts/migrate.mjs` bằng lệnh áp `db/schema.sql` và sửa
-`Dockerfile`, `deploy/docker-compose.yml`, `docs/tu-chay.md`, `README.md`; `integration-tests/run-local.mjs` còn áp danh sách
-migration → đổi sang `db/schema.sql`; viết lại các spec integration của UI đã gỡ (`owner-dashboard.spec.ts`, phần signups/billing
-của `admin-http.spec.ts`, editor cũ trong `publishing.spec.ts`); chạy đủ 7 bộ. Rồi đợt ② (Library + canvas + trang khách).
+**Đợt ② đang làm (chưa commit):** trang của quán = **tài liệu canvas** (`lib/canvas/doc.ts`; `PageConfig` v4 = tên + tài liệu,
+`lib/publishing/config.ts`) · 10 template dựng lại từ ảnh Tài (`templates/<khoá>/template.json`, sinh bằng `node scripts/templates.mjs`;
+6 template cũ và lớp da CSS đã xoá) · trang khách, xem trước, ảnh thu nhỏ vẽ từ canvas (`components/canvas/render.tsx`, lõi khách
+`components/guest/core.tsx`) · nút Google luôn dùng `shops.google_url` của quán · Library 10 mẫu bằng ảnh thật, tạo trang từ mẫu tự
+điền và tự co tên quán · **trình sửa canvas** `/app/<slug>/sua/<trang>` (`components/canvas/editor/*`, phép sửa thuần
+`lib/canvas/edit.ts`) · **máy bay giấy góp ý riêng giữ nguyên bản cũ** (Tài 05/10: "đừng code máy bay giấy mới") — nút xanh góc
+trái, lời mời sau 2 giây ở cuối trang, thẻ spotlight, chuyển nguyên vào `components/guest/plane.css`; trang luôn cao hơn màn hình
+(A1) và chừa chỗ cho máy bay · **duyệt lần phát hành đầu** của quán tự đăng ký (kịch bản mục 4): lõi phát hành từ chối
+`PUBLISH_REVIEW_REQUIRED`, trình sửa đổi nút thành "Gửi duyệt" (`publish_reviews`, một yêu cầu chờ mỗi quán), `/gov` khung "Trang
+chờ duyệt lần đầu" có ảnh trang + `/gov/xem/<trang>`, duyệt là phát hành đúng bản nháp đang thấy, chưa duyệt thì ghi lý do chủ quán
+đọc trong trình sửa · khung mới có lại những gì dashboard cũ có mà khung bản đầu thiếu: **Đăng xuất** (Cài đặt), **tạm dừng khẩn
+cấp** (Quản lý), **dải "Đang xem thay mặt"** của phiên quản trị trên mọi màn (nổi ở chân màn hình, không che Orb; trong trình
+sửa nằm ở hàng băng) và **lượt quản trị vào + lịch sử
+mức hỗ trợ** cho chủ quán (Quản lý); phiên hỗ trợ chỉ đọc trong Data. Gỡ cửa duyệt lời cảm ơn M2b. Trang đầu của quán tên
+**"Trang chính"**, như Library đặt (`lib/owner/page-names.ts`). **Tải ảnh quán lên trong trình sửa** (ô Ảnh và
+nền khúc): thu nhỏ trong trình duyệt, gửi thẳng vào kho, nhãn chờ duyệt / đã duyệt / bị từ chối, phát hành bị giữ tới khi duyệt
+ở `/gov`; máy local có kho ảnh riêng (`scripts/local/store.ts`), nên `db/schema.sql` nhận địa chỉ ảnh `http://127.0.0.1` như
+`lib/media/storage-settings.ts` đã nhận. Bảy bộ test viết lại theo canvas và khung mới, **xanh chiều 05/10**:
+repository 163 · contracts 110 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 12 · admin 11, mỗi bộ harness kèm
+bản build production. CI trên `3571676` (đợt ①) đỏ: bốn bộ harness vì seed nhập test fixture (đã sửa, `operations-gotchas.md`),
+bước smoke của self-host chưa rõ (log cần đăng nhập GitHub; đợt ② đã thay chuỗi migration bước đó dùng) — xem lại khi đẩy.
+**Còn lại của đợt ②:** khối Sự kiện ở khúc B (đồng nghiệp làm `EventBlock`,
+`rieng/doi-tac-su-kien/HANDOFF-dong-nghiep.md`) · Tài xem ảnh và nhận xét → sửa → commit một lần.
 
 **Phiên mới bắt đầu từ đây (29/09 — ngày cuối Vercel Pro và Claude Pro; Tài dành một tuần lập kế hoạch, thẻ NFC về thì làm
 tiếp):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → P5b-lite → D4c. **Production = `main` = `9225e50`** (Vercel,

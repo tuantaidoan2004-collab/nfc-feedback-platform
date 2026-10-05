@@ -1,53 +1,20 @@
-import { PublishingError, type Localized, type PageConfig } from './config';
+import { PublishingError, type PageConfig } from './config';
 import { fold } from '../text-fold';
+import { googleProblems, linkRuleProblem, wordsOf } from '../canvas/layout';
 
 /**
- * The product's own Google rules, enforced where a shop writes its page (lát A7/F-013, Astra 2026-09-20).
+ * The product's own Google rules, enforced where a shop writes its page (lát A7/F-013, Astra 2026-09-20; canvas 05/10).
  *
  * `google-policy.md` rule 4, 5, 7 and 8 say the platform must never let a shop offer something in exchange for a
- * review, name an employee to mention, or put a marketing line next to the Google button as if trading with it.
- * Until now the schema enforced the *shape* of a page and nothing about what it said, so a shop could publish a
- * link labelled "Đánh giá Google 5 sao để nhận quà" and the platform would serve it. The penalty for that lands on
- * the shop's own Google listing, which is the whole reason that file exists.
+ * review, name an employee to mention, or put a marketing line next to the Google button as if trading with it. The
+ * penalty lands on the shop's own Google listing, which is the whole reason that file exists.
  *
- * Two different problems, two different answers, because only one of them can be closed properly:
- *
- *   - a service link is a button that names an action, so its label comes from a fixed neutral list. That is a
- *     fence: nothing else can be published, in any language, ever;
- *   - the shop's name and its question are genuinely free text, so they get a tripwire: a small set of words that
- *     no honest page needs together. It will not catch a determined shop writing around it, and it is not meant
- *     to. What it catches is the shop that did not know the rule -- which is most of them -- and the written
- *     guidance carries the rest.
- *
- * Checked where a shop writes, never where a page is read: an already-published page keeps rendering, so a rule
- * added today cannot take a live page down.
+ * On a canvas page every word is free text, written like in Canva, so every word goes through the trip-wire below: a
+ * small set of words no honest page needs together. It will not catch a determined shop writing around it, and it is not
+ * meant to; it catches the shop that did not know the rule -- most of them -- and the written guidance and the review of
+ * a new account's first publication carry the rest. The Google button itself is the platform's: its words and its link
+ * cannot be edited at all, so no page can bend it.
  */
-
-/**
- * Every label a service button may carry. Neutral by construction: each one names an action or a place, and none
- * of them can be bent into an offer.
- *
- * Meant to grow. Blocking a shop from labelling a button it legitimately needs is a real cost, and the first
- * version of this list was already missing "Đặt lịch" -- which a salon or a spa needs and which a test caught.
- * Adding an entry is a one-line change; the only rule is that the entry must read as neutral on its own, which
- * the test for this list checks against the same tripwire the free text goes through.
- */
-export const SERVICE_LABELS: Localized[] = [
-  { vi: 'Zalo', en: 'Zalo' },
-  { vi: 'Instagram', en: 'Instagram' },
-  { vi: 'Facebook', en: 'Facebook' },
-  { vi: 'TikTok', en: 'TikTok' },
-  { vi: 'Website', en: 'Website' },
-  { vi: 'Thực đơn', en: 'Menu' },
-  { vi: 'Đặt chỗ', en: 'Book a table' },
-  { vi: 'Đặt lịch', en: 'Book' },
-  { vi: 'Đặt hàng', en: 'Order' },
-  { vi: 'Gọi', en: 'Call' },
-  { vi: 'Gọi cho quán', en: 'Call us' },
-  { vi: 'Chỉ đường', en: 'Directions' },
-  { vi: 'Giờ mở cửa', en: 'Opening hours' },
-  { vi: 'Bảng giá', en: 'Price list' },
-];
 
 /** One folding rule for the whole product; the activity search uses the same one. */
 const plain = fold;
@@ -110,30 +77,12 @@ export function googleUrlProblem(value: string): 'host' | 'prefill' | null {
 }
 
 /**
- * The thank-you line (lát M2b) sits between the guest's tap on Google and Google itself, so it must never ask for a
- * rating or a number of stars (google-policy.md luật 3 và 7): "cho quán 5 sao nhé" is exactly the prompt the rules
- * forbid. Stars as a glyph are refused too (Tài: "không bao giờ hình ngôi sao"). Whole words, accents folded, like the
- * trip-wire above; the administrator's review catches what words cannot.
+ * Throws when a page may not be saved or published; read paths never call this (a rule added today must not take a live page
+ * down). The page's own Google rules (layout.ts: one Google button, wholly in the first screen, nothing private above it), where
+ * its links lead, and the trip-wire above over every word it shows, in both languages, and over its name.
  */
-const RATING_WORDS = ['sao', 'star', 'stars', 'rating', 'rate', 'danh gia 5', 'cham diem', 'diem 10'];
-export function thanksProblem(value: string): 'rating' | 'reward' | 'naming' | null {
-  if (/[★☆⭐✩✪✫✬✭✮✯✰🌟]/u.test(value) || hits(plain(value), RATING_WORDS)) return 'rating';
-  return freeTextProblem(value);
-}
-
-/** Throws when a page may not be saved or published. Read paths never call this. */
 export function assertPublishable(config: PageConfig) {
-  if (googleUrlProblem(config.googleUrl)) throw new PublishingError('POLICY_GOOGLE_URL');
-  for (const link of config.links) {
-    if (!SERVICE_LABELS.some(allowed => allowed.vi === link.label.vi && allowed.en === link.label.en)) {
-      throw new PublishingError('POLICY_LINK_LABEL');
-    }
-  }
-  for (const value of [config.name, config.text.question.vi, config.text.question.en]) {
-    if (freeTextProblem(value)) throw new PublishingError('POLICY_GOOGLE_EXCHANGE');
-  }
-  if (config.thanks) for (const value of [config.thanks.vi, config.thanks.en]) {
-    const problem = thanksProblem(value);
-    if (problem) throw new PublishingError(problem === 'rating' ? 'POLICY_THANKS_RATING' : 'POLICY_GOOGLE_EXCHANGE');
-  }
+  const google = googleProblems(config.doc); if (google) throw new PublishingError(`POLICY_${google}`);
+  const link = linkRuleProblem(config.doc); if (link) throw new PublishingError(link === 'INVALID_PAGE' ? 'INVALID_CONFIG' : link);
+  for (const value of [config.name, ...wordsOf(config.doc)]) if (freeTextProblem(value)) throw new PublishingError('POLICY_GOOGLE_EXCHANGE');
 }

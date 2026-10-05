@@ -1,0 +1,521 @@
+{
+  "key": "illustrate-nha-khoa",
+  "number": 6,
+  "name": "Illustrate · Nha khoa",
+  "groups": [
+    "Only Poster",
+    "Simple"
+  ],
+  "about": "Chữ uốn cong, ảnh trong khung bốn cánh, chữ lớn có bóng, nút Google bóng cứng; sau 3 giây có mũi tên gợi ý kéo xuống xem dịch vụ.",
+  "doc": {
+    "v": 1,
+    "fx": {
+      "hint": 3000
+    },
+    "sections": [
+      {
+        "id": "a",
+        "name": "Khúc A",
+        "h": 600,
+        "bg": {
+          "fill": "#d4e8ef"
+        },
+        "els": [
+          {
+            "id": "chu-cong",
+            "t": "text",
+            "x": 80,
+            "y": 40,
+            "w": 230,
+            "h": 74,
+            "words": {
+              "vi": "it's time to"
+            },
+            "font": "serif",
+            "size": 30,
+            "color": "#1f4e79",
+            "weight": 600,
+            "arc": 150,
+            "motion": {
+              "in": "fade",
+              "at": 100
+            }
+          },
+          {
+            "id": "anh",
+            "t": "image",
+            "src": "art:smile",
+            "mask": "clover",
+            "x": 81,
+            "y": 99,
+            "w": 228,
+            "h": 222,
+            "motion": {
+              "in": "zoom",
+              "at": 200
+            }
+          },
+          {
+            "id": "rang-trai",
+            "t": "icon",
+            "icon": "tooth",
+            "color": "#94b8d6",
+            "x": 48,
+            "y": 196,
+            "w": 26,
+            "h": 30,
+            "motion": {
+              "in": "pop",
+              "at": 500,
+              "loop": "bob"
+            }
+          },
+          {
+            "id": "rang-phai",
+            "t": "icon",
+            "icon": "tooth",
+            "color": "#94b8d6",
+            "x": 316,
+            "y": 196,
+            "w": 26,
+            "h": 30,
+            "motion": {
+              "in": "pop",
+              "at": 550,
+              "loop": "bob"
+            }
+          },
+          {
+            "id": "chu-lon",
+            "t": "text",
+            "x": 50,
+            "y": 288,
+            "w": 290,
+            "h": 96,
+            "words": {
+              "vi": "Smile"
+            },
+            "font": "serif",
+            "size": 78,
+            "color": "#1f4e79",
+            "weight": 800,
+            "shadow": {
+              "x": 4,
+              "y": 4,
+              "blur": 0,
+              "color": "#9ec1dd"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 400
+            }
+          },
+          {
+            "id": "google",
+            "t": "google",
+            "look": "maps",
+            "shadow": "hard",
+            "x": 72,
+            "y": 398,
+            "w": 246,
+            "h": 50,
+            "motion": {
+              "in": "pop",
+              "at": 650
+            }
+          },
+          {
+            "id": "logo",
+            "t": "icon",
+            "icon": "clinic",
+            "x": 287,
+            "y": 462,
+            "w": 34,
+            "h": 34,
+            "motion": {
+              "in": "fade",
+              "at": 800
+            }
+          },
+          {
+            "id": "ten-quan",
+            "t": "text",
+            "x": 228,
+            "y": 498,
+            "w": 150,
+            "h": 16,
+            "words": {
+              "vi": "TÊN PHÒNG KHÁM"
+            },
+            "font": "sans",
+            "size": 11.5,
+            "color": "#c62f3a",
+            "weight": 800,
+            "motion": {
+              "in": "fade",
+              "at": 850
+            }
+          },
+          {
+            "id": "khau-hieu",
+            "t": "text",
+            "x": 228,
+            "y": 514,
+            "w": 150,
+            "h": 14,
+            "words": {
+              "vi": "Răng tốt · Sức khoẻ tốt",
+              "en": "Good teeth · Good health"
+            },
+            "font": "sans",
+            "size": 8.5,
+            "color": "#1f9d6b",
+            "motion": {
+              "in": "fade",
+              "at": 900
+            }
+          },
+          {
+            "id": "gop-y",
+            "t": "feedback",
+            "x": 14,
+            "y": 526,
+            "w": 60,
+            "h": 60,
+            "icon": "plane",
+            "color": "#229ED9",
+            "edge": "#FFFFFF"
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "name": "Dịch vụ",
+        "h": 560,
+        "bg": {
+          "fill": "#eaf4f8"
+        },
+        "els": [
+          {
+            "id": "tieu-de",
+            "t": "text",
+            "x": 30,
+            "y": 36,
+            "w": 330,
+            "h": 40,
+            "words": {
+              "vi": "Dịch vụ của chúng tôi",
+              "en": "Our services"
+            },
+            "font": "serif",
+            "size": 26,
+            "color": "#1f4e79",
+            "weight": 700,
+            "motion": {
+              "in": "rise"
+            }
+          },
+          {
+            "id": "the-0",
+            "t": "shape",
+            "shape": "rect",
+            "x": 30,
+            "y": 96,
+            "w": 330,
+            "h": 78,
+            "radius": 18,
+            "fill": "#ffffff",
+            "shadow": {
+              "x": 0,
+              "y": 6,
+              "blur": 18,
+              "color": "#1f4e7922"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 100
+            }
+          },
+          {
+            "id": "bieu-tuong-0",
+            "t": "icon",
+            "icon": "tooth",
+            "color": "#1f4e79",
+            "x": 50,
+            "y": 118,
+            "w": 32,
+            "h": 34,
+            "motion": {
+              "in": "pop",
+              "at": 200
+            }
+          },
+          {
+            "id": "ten-dv-0",
+            "t": "text",
+            "x": 96,
+            "y": 106,
+            "w": 250,
+            "h": 24,
+            "words": {
+              "vi": "Tẩy trắng răng",
+              "en": "Teeth whitening"
+            },
+            "font": "sans",
+            "size": 16,
+            "color": "#1f4e79",
+            "weight": 700,
+            "align": "left",
+            "motion": {
+              "in": "fade",
+              "at": 220
+            }
+          },
+          {
+            "id": "mo-ta-0",
+            "t": "text",
+            "x": 96,
+            "y": 132,
+            "w": 250,
+            "h": 30,
+            "words": {
+              "vi": "Sáng màu răng an toàn, không ê buốt."
+            },
+            "font": "sans",
+            "size": 12,
+            "color": "#4b6b85",
+            "align": "left",
+            "motion": {
+              "in": "fade",
+              "at": 260
+            }
+          },
+          {
+            "id": "the-1",
+            "t": "shape",
+            "shape": "rect",
+            "x": 30,
+            "y": 188,
+            "w": 330,
+            "h": 78,
+            "radius": 18,
+            "fill": "#ffffff",
+            "shadow": {
+              "x": 0,
+              "y": 6,
+              "blur": 18,
+              "color": "#1f4e7922"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 220
+            }
+          },
+          {
+            "id": "bieu-tuong-1",
+            "t": "icon",
+            "icon": "clinic",
+            "color": "#1f4e79",
+            "x": 50,
+            "y": 210,
+            "w": 32,
+            "h": 34,
+            "motion": {
+              "in": "pop",
+              "at": 320
+            }
+          },
+          {
+            "id": "ten-dv-1",
+            "t": "text",
+            "x": 96,
+            "y": 198,
+            "w": 250,
+            "h": 24,
+            "words": {
+              "vi": "Khám tổng quát",
+              "en": "Check-up"
+            },
+            "font": "sans",
+            "size": 16,
+            "color": "#1f4e79",
+            "weight": 700,
+            "align": "left",
+            "motion": {
+              "in": "fade",
+              "at": 340
+            }
+          },
+          {
+            "id": "mo-ta-1",
+            "t": "text",
+            "x": 96,
+            "y": 224,
+            "w": 250,
+            "h": 30,
+            "words": {
+              "vi": "Kiểm tra, cạo vôi, tư vấn chăm sóc."
+            },
+            "font": "sans",
+            "size": 12,
+            "color": "#4b6b85",
+            "align": "left",
+            "motion": {
+              "in": "fade",
+              "at": 380
+            }
+          },
+          {
+            "id": "the-2",
+            "t": "shape",
+            "shape": "rect",
+            "x": 30,
+            "y": 280,
+            "w": 330,
+            "h": 78,
+            "radius": 18,
+            "fill": "#ffffff",
+            "shadow": {
+              "x": 0,
+              "y": 6,
+              "blur": 18,
+              "color": "#1f4e7922"
+            },
+            "motion": {
+              "in": "rise",
+              "at": 340
+            }
+          },
+          {
+            "id": "bieu-tuong-2",
+            "t": "icon",
+            "icon": "sparkle",
+            "color": "#1f4e79",
+            "x": 50,
+            "y": 302,
+            "w": 32,
+            "h": 34,
+            "motion": {
+              "in": "pop",
+              "at": 440
+            }
+          },
+          {
+            "id": "ten-dv-2",
+            "t": "text",
+            "x": 96,
+            "y": 290,
+            "w": 250,
+            "h": 24,
+            "words": {
+              "vi": "Niềng răng",
+              "en": "Braces"
+            },
+            "font": "sans",
+            "size": 16,
+            "color": "#1f4e79",
+            "weight": 700,
+            "align": "left",
+            "motion": {
+              "in": "fade",
+              "at": 460
+            }
+          },
+          {
+            "id": "mo-ta-2",
+            "t": "text",
+            "x": 96,
+            "y": 316,
+            "w": 250,
+            "h": 30,
+            "words": {
+              "vi": "Mắc cài và khay trong suốt."
+            },
+            "font": "sans",
+            "size": 12,
+            "color": "#4b6b85",
+            "align": "left",
+            "motion": {
+              "in": "fade",
+              "at": 500
+            }
+          },
+          {
+            "id": "dat-lich",
+            "t": "button",
+            "look": "pill",
+            "icon": "calendar",
+            "label": {
+              "vi": "Đặt lịch khám",
+              "en": "Book a visit"
+            },
+            "link": "https://quitesensational-review-bio.com/",
+            "x": 85,
+            "y": 392,
+            "w": 220,
+            "h": 50,
+            "size": 16,
+            "bg": "#1f4e79",
+            "fg": "#ffffff",
+            "motion": {
+              "in": "pop",
+              "at": 500,
+              "loop": "pulse"
+            }
+          },
+          {
+            "id": "mxh",
+            "t": "stack",
+            "x": 95,
+            "y": 462,
+            "w": 200,
+            "h": 40,
+            "gap": 0,
+            "kids": [
+              {
+                "id": "hang-mxh",
+                "t": "row",
+                "h": 40,
+                "gap": 18,
+                "kids": [
+                  {
+                    "id": "ig",
+                    "t": "icon",
+                    "icon": "instagram",
+                    "link": "https://www.instagram.com/",
+                    "w": 34,
+                    "h": 34
+                  },
+                  {
+                    "id": "fb",
+                    "t": "icon",
+                    "icon": "facebook",
+                    "link": "https://www.facebook.com/",
+                    "w": 34,
+                    "h": 34
+                  },
+                  {
+                    "id": "zl",
+                    "t": "icon",
+                    "icon": "zalo",
+                    "link": "https://zalo.me/",
+                    "w": 34,
+                    "h": 34
+                  },
+                  {
+                    "id": "tt",
+                    "t": "icon",
+                    "icon": "tiktok",
+                    "link": "https://www.tiktok.com/",
+                    "w": 34,
+                    "h": 34
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
