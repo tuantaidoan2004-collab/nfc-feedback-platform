@@ -183,7 +183,10 @@ kiểu YouTube Studio. Nợ của đợt ① đã trả trong đợt ②: `db/mi
 compose, CI dùng `scripts/apply-schema.mjs` (dựng database **trống** từ `db/schema.sql`, database có dữ liệu mà lược đồ khác thì
 dừng, không tự sửa); `owner-dashboard.spec.ts` và `admin-http.spec.ts` viết lại cho khung mới.
 
-**Đợt ② đang làm (chưa commit):** trang của quán = **tài liệu canvas** (`lib/canvas/doc.ts`; `PageConfig` v4 = tên + tài liệu,
+**Đợt ② đã commit (`69dcad2`, sửa CI `9020a9a`, ảnh Docker `c220d79`; đã đẩy nhánh). **Production
+chạy khung mới từ 05/10: `main` = `c220d79`**, database production dựng lại từ `db/schema.sql` (dữ liệu cũ ở branch Neon
+`truoc-doi-khung-0510`); các bước ở `production-launch.md` mục "Đổi khung trên production". Tài còn: đăng ký lại mã 6 số ở `/gov`,
+tạo lại shop template và các quán; branch Neon preview vẫn lược đồ cũ. trang của quán = **tài liệu canvas** (`lib/canvas/doc.ts`; `PageConfig` v4 = tên + tài liệu,
 `lib/publishing/config.ts`) · 10 template dựng lại từ ảnh Tài (`templates/<khoá>/template.json`, sinh bằng `node scripts/templates.mjs`;
 6 template cũ và lớp da CSS đã xoá) · trang khách, xem trước, ảnh thu nhỏ vẽ từ canvas (`components/canvas/render.tsx`, lõi khách
 `components/guest/core.tsx`) · nút Google luôn dùng `shops.google_url` của quán · Library 10 mẫu bằng ảnh thật, tạo trang từ mẫu tự

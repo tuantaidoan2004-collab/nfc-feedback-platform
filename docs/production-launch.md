@@ -29,6 +29,35 @@ Gõ mật khẩu bằng **bàn phím tiếng Anh**: bộ gõ tiếng Việt đ�
 
 **Muốn biết database production có sống không:** mở **`/api/health`** — `200 {"status":"ok"}` là app và database đều trả lời, `503 {"status":"unavailable"}` là database không trả lời trong 3 giây (lát B3 phần đầu, 29/09; có trên production sau lần đẩy kế tiếp lên `main`). Đây là cách kiểm sau mỗi lần xoay credential, chạy migration hay chuyển máy, và là địa chỉ để một dịch vụ giám sát gọi. `/gov/login` và `/owner/login` trả 200 **không** chứng minh gì vì chúng không đọc database.
 
+## Đổi khung trên production (05/10/2026)
+
+Khung mới (đợt ①②) thay bản cũ. Database production làm lại từ `db/schema.sql`: dữ liệu cũ (shop template `urr6ud`, các shop
+thử, admin và 2FA) **xoá khỏi database đang chạy**, nhưng còn nguyên trong một branch Neon chụp trước khi xoá. Thứ tự (database
+trước, code sau: code mới không chạy trên lược đồ cũ):
+
+1. **Đã làm 05/10:** branch Neon `truoc-doi-khung-0510` (`br-withered-meadow-aza784z2`, không compute) chụp branch `production`
+   của project `purple-waterfall-11672045` trước khi xoá — dữ liệu cũ nằm đó.
+2. **Tài, Terminal:** xoá lược đồ cũ, dựng lược đồ mới, tạo admin. Connection string *direct* lấy bằng Neon CLI (đã đăng nhập
+   trên máy Tài, `npx neon@latest`), không in ra màn hình. Chế độ tự động của Claude Code chặn agent đọc/sửa database
+   production, nên bước này Tài chạy. Lệnh ở mục dưới.
+3. **Đã làm 05/10:** Tài chạy bước 2; agent đẩy `main` = `c220d79`, Vercel deploy production. Kiểm: `/`, `/bat-dau`, `/pricing`,
+   `/templates`, `/gov/login`, `/owner/login` 200; `/api/health` `ok`; `/app` chưa đăng nhập 307 sang đăng nhập; API chủ quán 401.
+4. **Tài:** vào `/gov`, đăng ký lại mã 6 số (database mới: quét QR mới, xoá mục cũ trong ứng dụng xác thực, giữ 10 mã dự
+   phòng mới), tạo lại shop template và các quán.
+
+```bash
+cd ~/Desktop/QuiteSensational
+export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)"
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+node scripts/apply-schema.mjs
+node scripts/bootstrap-admin.mjs tai --handle=Quitesensational --title="Admin Tài"
+unset DATABASE_URL
+```
+
+`apply-schema.mjs` in `Database: built from db/schema.sql (<hash>)`. Biến Vercel không cần thêm biến mới; Google Business
+chưa bật (`NFC_GOOGLE_BUSINESS_ENABLED` để trống) thì bước Google của quán ghi "Đang chờ Google cấp quyền API". Branch Neon
+**preview** vẫn là lược đồ cũ: bản preview của nhánh chỉ chạy lại sau khi làm bước 2 trên branch đó.
+
 ## Đăng nhập bằng Google (D4c, 28/09)
 
 OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:
