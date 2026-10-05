@@ -73,9 +73,10 @@ máy Tài; production không gọi vào máy đó được, nên **tool là bên
 Biến Vercel (Production): chỉ **`NFC_MAPS_KEY`** = `api_key` trong `~/MAps/config.json` (Sensitive; Tài đã thêm 05/10).
 `NFC_MAPS_SHOP` không còn dùng, xoá được. Không có `NFC_MAPS_KEY` thì địa chỉ trả 404.
 
-Lược đồ: production dựng từ lược đồ `607d263bd56bc02c` lên `6ac19fbf412a9a5d` (thêm `maps_url`, `requested_at`, `handed_at`;
-`help_requests` thành `edit_requests` của "Nhờ admin sửa") bằng lệnh dưới. Đã chạy thử 05/10 trên database dựng từ lược đồ cũ:
-`pg_dump -s` trùng bản dựng mới. Kết nối `maps` kiểu cũ (một quán qua `NFC_MAPS_SHOP`, chưa có link) bị xoá; quán dán link lại.
+Lược đồ: production từ `312c757a73cace9e` hoặc `607d263bd56bc02c` lên `6ac19fbf412a9a5d` (thêm `maps_url`, `requested_at`, `handed_at`;
+`help_requests` thành `edit_requests` của "Nhờ admin sửa") bằng lệnh dưới. Đã chạy thử 05/10 trên database dựng từ cả hai lược đồ cũ:
+`pg_dump -s` trùng bản dựng mới. (Lần đầu chỉ nhận `607d263b`, nhưng lệnh của mục cũ chưa từng chạy trên production: lệnh dừng
+đúng như thiết kế, không đổi gì.) Kết nối `maps` kiểu cũ (một quán qua `NFC_MAPS_SHOP`, chưa có link) bị xoá; quán dán link lại.
 Chạy **trước** khi đẩy code (code mới không chạy trên lược đồ cũ):
 
 ```bash
@@ -83,9 +84,14 @@ cd ~/Desktop/QuiteSensational
 export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)"
 /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
--- Production phải đang ở lược đồ 607d263bd56bc02c (đã chạy lệnh mục trước); khác thì dừng, không đổi gì.
-DO $$ BEGIN IF (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1) IS DISTINCT FROM '607d263bd56bc02c' THEN
-  RAISE EXCEPTION 'production không ở lược đồ 607d263bd56bc02c'; END IF; END $$;
+-- Từ 312c757a73cace9e (đổi khung 05/10) hoặc 607d263bd56bc02c (nguồn maps); lược đồ khác thì dừng, không đổi gì, và in nó ra.
+DO $$ DECLARE h text := (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1); BEGIN
+  IF h IS NULL OR h NOT IN ('312c757a73cace9e','607d263bd56bc02c') THEN RAISE EXCEPTION 'production đang ở lược đồ %', h; END IF; END $$;
+-- Bản giả lập thành nguồn maps (bước của 312c757a; trên 607d263b không đổi gì).
+DELETE FROM google_reviews WHERE shop_id IN (SELECT shop_id FROM google_business_connections WHERE mode NOT IN ('google','maps'));
+DELETE FROM google_business_connections WHERE mode NOT IN ('google','maps');
+ALTER TABLE google_business_connections DROP CONSTRAINT google_business_connections_mode_check,
+  ADD CONSTRAINT google_business_connections_mode_check CHECK (mode = ANY (ARRAY['google'::text, 'maps'::text]));
 -- Quán nối tool Google Maps theo cách cũ (một quán qua NFC_MAPS_SHOP) chưa có link: bỏ, chủ quán dán link lại ở tab Data.
 DELETE FROM google_reviews WHERE shop_id IN (SELECT shop_id FROM google_business_connections WHERE mode = 'maps');
 DELETE FROM google_business_connections WHERE mode = 'maps';
