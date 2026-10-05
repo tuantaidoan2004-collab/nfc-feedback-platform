@@ -34,6 +34,19 @@ khởi động sau; không có `~/MAps` thì chủ quán chưa có quán và `/a
 
 Chưa có: tải ảnh lên (cần kho S3 — `docs/tu-chay.md` có SeaweedFS), đăng nhập Google.
 
+**Sửa trang khi quán bấm "Nhờ admin sửa" (Tài 05/10):** Tài đưa agent ý của quán và các file quán gửi qua Zalo. Agent:
+
+```bash
+node scripts/sua-trang.mjs ds
+node scripts/sua-trang.mjs lay <mã trang>
+node scripts/sua-trang.mjs dang <mã trang>
+```
+
+`ds` liệt kê trang chờ sửa · `lay` ghi bản nháp vào `rieng/sua/<mã>.json` và in mọi chỗ thay được (ảnh, chữ, nút) · agent sửa tệp
+đó, chép file của quán vào `rieng/sua/files/` và ghi đường dẫn vào `src` (vd `"files/anh-bia.jpg"`) · `dang` thu nhỏ ảnh (`sips`,
+HEIC/JPG/PNG, tối đa 1600 px), đổi video sang MP4 720p (`avconvert`), tải lên kho (duyệt sẵn), lưu, phát hành, đóng yêu cầu.
+Mặc định là database và kho ảnh local; production dùng `--env <tệp>` (DATABASE_URL và các biến R2 do Tài tự ghi, ngày Tài cần).
+
 **Bảy bộ test** vẫn là cách biết mọi thứ còn đúng, chạy trước khi đẩy `main`: lệnh ở `docs/operations-gotchas.md`.
 
 ## Chạy như production trên một máy

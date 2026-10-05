@@ -37,11 +37,12 @@ function ArcText({ words, w, h, size, radius, color, font, weight, spacing, id }
 
 export function Media({ src, fit = 'cover', focus, id, gray, top }: { src: string; fit?: 'cover' | 'contain'; focus?: [number, number]; id: string; gray?: boolean; top?: boolean }) {
   if (src.startsWith('art:')) return <div className={`cv-media ${gray ? 'cv-gray' : ''}`}><Art art={src.slice(4) as never} id={id} top={top} /></div>;
-  return <img className={`cv-media ${gray ? 'cv-gray' : ''}`} src={src} alt="" loading="lazy" decoding="async"
-    style={{ objectFit: fit, objectPosition: focus ? `${focus[0]}% ${focus[1]}%` : undefined }} />;
+  const style = { objectFit: fit, objectPosition: focus ? `${focus[0]}% ${focus[1]}%` : undefined };
+  // A shop's clip (an upload ending .mp4): plays silently on a loop wherever a picture could stand, as a poster video does.
+  if (/\.mp4$/i.test(src)) return <video className={`cv-media ${gray ? 'cv-gray' : ''}`} src={src} autoPlay muted loop playsInline preload="metadata" style={style} />;
+  return <img className={`cv-media ${gray ? 'cv-gray' : ''}`} src={src} alt="" loading="lazy" decoding="async" style={style} />;
 }
 
-// Memoised here and below so the editor (components/canvas/editor) redraws only what changed while a finger drags one element.
 const BackgroundView = memo(function BackgroundView({ bg, id, className, haze }: { bg: Background; id: string; className: string; haze?: boolean }) {
   const picture = bg.src && <div className={haze ? 'cv-haze' : undefined} style={haze ? undefined : { position: 'absolute', inset: 0, filter: bg.blur ? `blur(${bg.blur}px)` : undefined }}>
     <Media src={bg.src} fit={bg.fit} focus={bg.focus ?? (haze ? undefined : [50, 0])} id={haze ? `${id}-haze` : id} gray={bg.gray} top={!haze} /></div>;
@@ -197,15 +198,13 @@ function footerTone(doc: PageDoc): 'light' | 'dark' {
 
 type PageProps = { doc: PageDoc; mode: GuestMode; slug: string; googleUrl: string | null; render?: RenderBinding;
   /** What stands between the first section and the rest: the shop's events (khúc B, kịch bản mục 8). */
-  afterFirst?: ReactNode;
-  /** Drawn inside the editor: sections at their designed height, nothing floating, nothing waiting to appear. */
-  edit?: boolean };
-export default function CanvasPage({ doc, mode, slug, googleUrl, render, afterFirst, edit }: PageProps) {
+  afterFirst?: ReactNode };
+export default function CanvasPage({ doc, mode, slug, googleUrl, render, afterFirst }: PageProps) {
   const all = [...walk(doc)];
   const legal = all.some(el => el.t === 'legal'), lang = all.some(el => el.t === 'lang');
   const plane = doc.sections.flatMap(s => s.els).find((el): el is Extract<El, { t: 'feedback' }> => el.t === 'feedback' && !el.hide);
   return <GuestCore mode={mode} slug={slug} render={render} googleUrl={googleUrl} thanksSeconds={doc.fx?.thanks ?? 0} layout="canvas"
-    className={edit ? `${fontVariables} cv-editing` : fontVariables}
+    className={fontVariables}
     style={{ background: doc.backdrop ? 'transparent' : pageColor(doc) }}>
     {doc.backdrop && <BackgroundView bg={doc.backdrop} id="backdrop" className="cv-backdrop" />}
     {doc.band && <div className="cv-band-layer" aria-hidden="true"><div className="cv-col"><div className="cv-band-u">
@@ -217,9 +216,9 @@ export default function CanvasPage({ doc, mode, slug, googleUrl, render, afterFi
     </div>)}
     {!legal && <footer className="cv-footer" data-tone={footerTone(doc)}><LegalLine withLanguage={!lang} /></footer>}
     {/* Room for the paper plane at the foot of the page, so it never lies over the last of the page (canvas.css `.cv-floor`). */}
-    {!edit && <div className="cv-floor" aria-hidden="true" />}
-    {plane && !edit && <FeedbackPlane el={plane} />}
-    {doc.fx?.hint && doc.sections.length > 1 && mode !== 'still' && !edit && <ScrollHint after={doc.fx.hint} />}
-    {!edit && <SectionWatch />}
+    <div className="cv-floor" aria-hidden="true" />
+    {plane && <FeedbackPlane el={plane} />}
+    {doc.fx?.hint && doc.sections.length > 1 && mode !== 'still' && <ScrollHint after={doc.fx.hint} />}
+    <SectionWatch />
   </GuestCore>;
 }

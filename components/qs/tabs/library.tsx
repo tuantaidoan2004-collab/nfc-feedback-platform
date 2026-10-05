@@ -1,98 +1,84 @@
 'use client';
 /**
- * Tab Library — giống trang chủ Canva (kịch bản mục 8). Thanh bên: tạo mới, Home (project đã sửa và phát hành), Tải lên,
- * Template, Brand, My Card, Sự kiện, More. Bản khung: Home và Template chạy thật; Tải lên, Brand, Sự kiện dựng ở đợt ⑤;
- * canvas sửa trang ở đợt ②. Trong onboarding, đây là bước Template: chọn một mẫu, hoặc bỏ qua sang bước Dashboard.
+ * Tab Library (kịch bản mục 8, Tài 05/10: bỏ trình sửa canvas). Thanh bên: tạo mới, Home (các trang của quán), Template,
+ * Sự kiện, My Card. Chọn một mẫu → xem mẫu mang tên quán → Phát hành luôn, hoặc Nhờ admin sửa (components/qs/tabs/pages-ui.tsx).
+ * Trong onboarding, đây là bước Template: chọn một mẫu, hoặc bỏ qua sang bước Dashboard.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { TabProps } from './index';
 import type { TemplateCard } from '@/lib/canvas/templates';
-import { pageLabel } from '@/lib/owner/page-names';
+import type { PageSummary } from '@/lib/owner/pages';
 import PageThumb from '@/components/canvas/thumb';
 import styles from './tabs.module.css';
 import Icon, { type IconName } from '../icons';
+import { PageSheet, StateTag, TemplateSheet, usePages } from './pages-ui';
 
-type Section = 'home' | 'tai-len' | 'template' | 'brand' | 'su-kien' | 'more';
-const SECTIONS: [Section, string, IconName][] = [['home', 'Home', 'home'], ['tai-len', 'Tải lên', 'upload'], ['template', 'Template', 'template'],
-  ['brand', 'Brand', 'brand'], ['su-kien', 'Sự kiện', 'event'], ['more', 'More', 'more']];
+type Section = 'home' | 'template' | 'su-kien';
+const SECTIONS: [Section, string, IconName][] = [['home', 'Home', 'home'], ['template', 'Template', 'template'], ['su-kien', 'Sự kiện', 'event']];
 // Nhóm template theo cách hoạt động (kịch bản mục 8), theo thứ tự Tài liệt kê; nhóm chưa có mẫu nào thì không hiện.
 const ALL = 'Tất cả';
-type Page = { slug: string; label: string | null; state: string; template: { key: string } };
-const STATES: Record<string, string> = { draft: 'Bản nháp', active: 'Đã phát hành', paused: 'Tạm dừng', closed: 'Đã đóng' };
 
-export default function LibraryTab({ slug, onboarding, query, templates, groups, origin }: TabProps) {
+export default function LibraryTab({ slug, name, onboarding, query, templates, groups, origin }: TabProps) {
   const router = useRouter();
-  const [section, setSection] = useState<Section>(onboarding ? 'template' : ((query.muc as Section) ?? 'home'));
-  const [pages, setPages] = useState<Page[] | null>(null), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/owner/v2/${slug}/pages`, { cache: 'no-store' }).catch(() => null);
-    if (response?.ok) setPages((await response.json()).pages); else setPages([]);
-  }, [slug]);
-  useEffect(() => { void Promise.resolve().then(load); }, [load]);
-  const go = (next: Section) => { setSection(next); setNotice(''); };
-  const step = async (value: 'done' | 'skipped') => fetch(`/api/owner/v2/${slug}/onboarding`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ step: 'template', value }) });
-  const useTemplate = async (card: TemplateCard) => {
-    setBusy(true); setNotice('Đang tạo trang…');
-    const response = await fetch(`/api/owner/v2/${slug}/pages`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template: card.key, label: pageLabel(pages?.length ?? 0) }) }).catch(() => null);
-    if (!response?.ok) { setBusy(false); setNotice('Chưa tạo được trang. Thử lại.'); return; }
-    // Straight into the editor (kịch bản mục 9); during onboarding the editor's own "Xong" closes the Template step.
-    const made = await response.json();
-    router.push(`/app/${slug}/sua/${made.slug}`);
+  const [section, setSection] = useState<Section>(onboarding ? 'template' : (['home', 'template', 'su-kien'].includes(query.muc ?? '') ? query.muc as Section : 'home'));
+  const { pages, reload } = usePages(slug);
+  const [card, setCard] = useState<TemplateCard | null>(null), [open, setOpen] = useState<string | null>(null);
+  const opened = pages?.find(page => page.slug === open) ?? null;
+  const skip = async () => {
+    await fetch(`/api/owner/v2/${slug}/onboarding`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'template', value: 'skipped' }) });
+    router.push('/bat-dau/tien-trinh');
   };
   return <div>
     {onboarding && <section className={styles.banner} data-onboarding-template>
       <div className={styles.row}>
-        <div><span className="qs-pill">Bước Template</span><h2 style={{ marginTop: 8 }}>Chọn một mẫu để tạo trang của quán</h2>
-          <p className="qs-muted qs-small">Mọi mẫu đều miễn phí trong giai đoạn trải nghiệm. Bạn sửa được hết sau này.</p></div>
+        <div><span className="qs-pill">Bước Template</span><h2 style={{ marginTop: 8 }}>Chọn một mẫu cho trang của quán</h2>
+          <p className="qs-muted qs-small">Bấm vào mẫu để xem, rồi phát hành luôn hoặc nhờ admin sửa. Mọi mẫu đều miễn phí trong giai đoạn trải nghiệm.</p></div>
         <div style={{ display: 'grid', justifyItems: 'center', gap: 4 }}>
-          <button type="button" className="qs-btn" onClick={async () => { await step('skipped'); router.push('/bat-dau/tien-trinh'); }}>Bỏ qua, đến bước tạo Dashboard</button>
-          <button type="button" className="qs-link" onClick={async () => { await step('skipped'); router.push('/bat-dau/tien-trinh'); }}>skip</button>
+          <button type="button" className="qs-btn" onClick={() => void skip()}>Bỏ qua, đến bước tạo Dashboard</button>
+          <button type="button" className="qs-link" onClick={() => void skip()}>skip</button>
         </div>
       </div>
     </section>}
     <div className={styles.split}>
       <nav className={styles.side} aria-label="Library">
-        <button type="button" className={styles.create} aria-label="Tạo mới" title="Tạo mới" onClick={() => go('template')}><Icon name="plus" /></button>
-        {SECTIONS.map(([key, label, icon]) => <button key={key} type="button" aria-current={section === key ? 'page' : undefined} onClick={() => go(key)}>
+        <button type="button" className={styles.create} aria-label="Tạo mới" title="Tạo mới" onClick={() => setSection('template')}><Icon name="plus" /></button>
+        {SECTIONS.map(([key, label, icon]) => <button key={key} type="button" aria-current={section === key ? 'page' : undefined} onClick={() => setSection(key)}>
           <Icon name={icon} size={20} />{label}</button>)}
         <Link href={`/app/${slug}/my-card`}><Icon name="card" size={20} />My Card</Link>
       </nav>
       <div className={styles.grid}>
-        {notice && <p className="qs-small" role="status">{notice}</p>}
-        {section === 'home' && <Home pages={pages} slug={slug} origin={origin} onCreate={() => go('template')} />}
-        {section === 'template' && <Templates templates={templates} groups={groups} busy={busy} onUse={useTemplate} />}
-        {section === 'tai-len' && <Placeholder title="Tải lên" text="Font chữ, ảnh nền, logo của quán — tải lên một lần, dùng lại trong mọi trang. Đang dựng ở đợt ⑤." />}
-        {section === 'brand' && <Placeholder title="Brand" text="Các thư mục lưu màu, font, ảnh mặc định của quán; kéo từ Tải lên vào, áp cho template và vài chỗ của dashboard. Đang dựng ở đợt ⑤." />}
+        {section === 'home' && <Home pages={pages} slug={slug} onCreate={() => setSection('template')} onOpen={setOpen} />}
+        {section === 'template' && <Templates templates={templates} groups={groups} onPick={setCard} />}
         {section === 'su-kien' && <Events />}
-        {section === 'more' && <More slug={slug} />}
       </div>
     </div>
+    {card && <TemplateSheet slug={slug} name={name} card={card} pages={pages?.length ?? 0} origin={origin} onboarding={onboarding}
+      onClose={() => setCard(null)} onMade={() => void reload()} />}
+    {opened && <PageSheet slug={slug} page={opened} origin={origin} onClose={() => setOpen(null)} onChanged={() => void reload()} />}
   </div>;
 }
 
-function Home({ pages, slug, origin, onCreate }: { pages: Page[] | null; slug: string; origin: string; onCreate: () => void }) {
+function Home({ pages, slug, onCreate, onOpen }: { pages: PageSummary[] | null; slug: string; onCreate: () => void; onOpen: (page: string) => void }) {
   return <section className={styles.grid}>
-    <div className={styles.row}><h2>Dự án của bạn</h2><button type="button" className="qs-btn small" onClick={onCreate}><Icon name="plus" size={16} /> Tạo trang</button></div>
+    <div className={styles.row}><h2>Trang của quán</h2><button type="button" className="qs-btn small" onClick={onCreate}><Icon name="plus" size={16} /> Tạo trang</button></div>
     {pages === null ? <p className="qs-muted">Đang tải…</p> : <div className={styles.tiles}>
-      <button type="button" className={styles.tile} onClick={onCreate}><div className={styles.newTile}><Icon name="plus" size={28} /><span className="qs-small">Tạo mới</span></div></button>
-      {pages.map(page => <article key={page.slug} className={styles.tile}>
-        <Link className={styles.thumb} href={`/app/${slug}/sua/${page.slug}`} aria-label={`Sửa ${page.label || page.slug}`}>
+      <button type="button" className={styles.tile} onClick={onCreate}><div className={styles.newTile}><Icon name="plus" size={28} /><span className="qs-small">Chọn mẫu</span></div></button>
+      {pages.map(page => <article key={page.slug} className={styles.tile} data-page={page.slug}>
+        <button type="button" className={styles.thumb} onClick={() => onOpen(page.slug)} aria-label={`Mở ${page.label || page.slug}`}>
           <PageThumb src={`/ZZZ/${slug}/thumb/${page.slug}`} title={`Ảnh trang ${page.slug}`} />
-          <span className={`qs-pill ${styles.tag}`}>{STATES[page.state] ?? page.state}</span><span className={styles.use}>Sửa trang</span></Link>
+          <span className={styles.tag}><StateTag page={page} /></span><span className={styles.use}>Xem trang</span></button>
         <strong>{page.label || page.slug}</strong>
-        <span className={styles.meta}>/{page.slug}{page.state !== 'draft' && <> · <a href={`${origin}/${page.slug}`} target="_blank" rel="noreferrer">Mở trang ↗</a></>}</span></article>)}
+        <span className={styles.meta}>/{page.slug}</span></article>)}
     </div>}
   </section>;
 }
 
 /** Folded for search: "ca phe" finds "Cà phê". */
-const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-function Templates({ templates, groups, busy, onUse }: { templates: TemplateCard[]; groups: string[]; busy: boolean; onUse: (card: TemplateCard) => void }) {
+function Templates({ templates, groups, onPick }: { templates: TemplateCard[]; groups: string[]; onPick: (card: TemplateCard) => void }) {
   const [search, setSearch] = useState(''), [group, setGroup] = useState(ALL);
   const chips = useMemo(() => [ALL, ...groups.filter(name => templates.some(card => card.groups.includes(name)))], [templates, groups]);
   const shown = useMemo(() => templates.filter(card => fold(`${card.name} ${card.about} ${card.groups.join(' ')}`).includes(fold(search.trim()))
@@ -101,13 +87,13 @@ function Templates({ templates, groups, busy, onUse }: { templates: TemplateCard
     <div className={styles.search}><Icon name="search" size={18} /><input className={`qs-input ${styles.searchInput}`} placeholder="Tìm template" value={search} onChange={event => setSearch(event.target.value)} aria-label="Tìm template" /></div>
     <div className={styles.chips} role="group" aria-label="Nhóm template">{chips.map(name => <button key={name} type="button" aria-pressed={group === name} onClick={() => setGroup(name)}>{name}</button>)}</div>
     <div className={styles.tiles}>{shown.map(card => <article key={card.key} className={styles.tile} data-template={card.key}>
-      <button type="button" className={styles.thumb} disabled={busy} onClick={() => onUse(card)} aria-label={`Dùng mẫu ${card.name}`}>
+      <button type="button" className={styles.thumb} onClick={() => onPick(card)} aria-label={`Xem mẫu ${card.name}`}>
         <PageThumb src={`/templates/${card.key}?anh=1`} title={`Mẫu ${card.name}`} />
         <span className={`qs-pill free ${styles.tag}`}>Free</span>
-        <span className={styles.use}>Dùng mẫu này</span>
+        <span className={styles.use}>Xem mẫu</span>
       </button>
       <strong>{card.name}</strong>
-      <span className={styles.meta}>{card.groups.join(' · ')} · <a href={`/templates/${card.key}`} target="_blank" rel="noreferrer">Xem thử</a></span>
+      <span className={styles.meta}>{card.groups.join(' · ')}</span>
     </article>)}
       {shown.length === 0 && <p className="qs-muted">Chưa có template nào khớp.</p>}
     </div>
@@ -124,27 +110,4 @@ function Events() {
       <button type="button" className="qs-btn small" disabled>Add — chờ link của nhà tổ chức</button>
     </article>
   </section>;
-}
-
-function More({ slug }: { slug: string }) {
-  const [state, setState] = useState<'' | 'sending' | 'sent' | 'already' | 'error'>('');
-  return <section className={styles.grid}>
-    <h2>More</h2>
-    <article className={styles.card} style={{ display: 'grid', gap: 10 }}>
-      <h3>Nhờ admin tạo giúp</h3>
-      <p className="qs-muted qs-small">Thấy ngộp hoặc bận? Gửi yêu cầu, đội ngũ Quite Sensational sẽ dựng trang giúp bạn và báo lại.</p>
-      <button type="button" className="qs-btn small" disabled={state === 'sending' || state === 'sent' || state === 'already'} onClick={async () => {
-        setState('sending');
-        const response = await fetch(`/api/owner/v2/${slug}/help`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).catch(() => null);
-        const body = await response?.json().catch(() => ({}));
-        setState(!response?.ok ? 'error' : body.already ? 'already' : 'sent');
-      }}>{state === 'sent' ? 'Đã gửi — admin sẽ liên hệ' : state === 'already' ? 'Yêu cầu đã được gửi trước đó' : state === 'sending' ? 'Đang gửi…' : 'Gửi yêu cầu'}</button>
-      {state === 'error' && <p className="qs-error">Chưa gửi được. Thử lại.</p>}
-    </article>
-    <article className={styles.card}><h3>Kết nối MCP</h3><p>Làm sau cùng, khi mọi phần khác đã xong.</p></article>
-  </section>;
-}
-
-function Placeholder({ title, text }: { title: string; text: string }) {
-  return <section className={`${styles.card} ${styles.empty}`}><strong>{title}</strong><span>{text}</span></section>;
 }

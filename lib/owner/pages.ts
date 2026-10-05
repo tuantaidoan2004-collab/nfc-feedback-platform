@@ -4,6 +4,7 @@ import { recordActivity } from './activity';
 import { PublishingAdmin, PublishingError, templateVersionRow, type PageRef, type PauseReason } from '../publishing/repository';
 import { canvasTemplate, pageFromTemplate } from '../canvas/templates';
 import { withShortCode } from '../short-code';
+import { firstPublishOf } from './design';
 
 /**
  * Which page of the shop a dashboard request is about (migration 024, `docs/goi-va-trang.md`). Named by its link;
@@ -20,7 +21,15 @@ export async function pageOf(db: PoolClient | Pool, shopId: string, slug?: strin
 }
 
 export type PageSummary = { slug: string; label: string; state: 'draft' | 'active' | 'paused' | 'closed'; pauseReason: PauseReason | null;
-  template: { key: string; version: number }; createdAt: string };
+  template: { key: string; version: number }; createdAt: string;
+  /** The draft's revision: what "Phát hành" publishes. */
+  revision: number;
+  /** The draft differs from what guests see (or nothing is live yet). */
+  unpublished: boolean;
+  /** "Nhờ admin sửa" still open for this page (lib/owner/edit-requests.ts), with what the shop wrote. */
+  editRequest: { at: string; message: string | null } | null;
+  /** The shop's first publish waiting for Tài, or sent back with his reason (lib/owner/design.ts firstPublishOf). */
+  review: { state: 'pending' | 'rejected'; reason: string | null } | null };
 const label = (value: unknown) => {
   if (typeof value !== 'string' || value.trim().length > 60 || /[\u0000-\u001f<>]/.test(value)) throw new OwnerError(400, 'INVALID_PAGE');
   return value.trim();
@@ -45,12 +54,19 @@ export class OwnerPages {
   async list(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'design');
-      const rows = (await db.query(`SELECT p.slug,p.label,p.state,p.pause_reason,tv.template_key,tv.version,p.created_at FROM pages p
-        JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id
+      const rows = (await db.query(`SELECT p.slug,p.label,p.state,p.pause_reason,tv.template_key,tv.version,p.created_at,d.revision,
+          (r.config_snapshot IS NULL OR r.config_snapshot<>d.config) unpublished,e.created_at edit_at,e.message edit_message
+        FROM pages p JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id
+        LEFT JOIN page_releases r ON r.id=p.active_release_id
+        LEFT JOIN edit_requests e ON e.page_id=p.id AND e.handled_at IS NULL
         WHERE p.shop_id=$1 ORDER BY p.created_at,p.id`, [access.shopId])).rows;
+      const first = await firstPublishOf(db, access.shopId);
       // No price per page any more (Tài 05/10): a shop pays for a plan (lib/billing/plans.ts), not for each page.
       const pages = rows.map(row => ({ slug: row.slug, label: row.label, state: row.state, pauseReason: row.pause_reason,
-        template: { key: row.template_key, version: Number(row.version) }, createdAt: new Date(row.created_at).toISOString() })) as PageSummary[];
+        template: { key: row.template_key, version: Number(row.version) }, createdAt: new Date(row.created_at).toISOString(),
+        revision: Number(row.revision), unpublished: !!row.unpublished,
+        editRequest: row.edit_at ? { at: new Date(row.edit_at).toISOString(), message: row.edit_message } : null,
+        review: first && first.state !== 'needed' && first.page === row.slug ? { state: first.state, reason: first.reason } : null })) as PageSummary[];
       return { pages, canManage: access.actor.kind === 'owner' && access.role === 'owner' };
     });
   }
@@ -87,7 +103,7 @@ export class OwnerPages {
       });
       await db.query('UPDATE pages SET label=$3 WHERE shop_id=$1 AND id=$2', [page.shopId, page.pageId, name]);
       await recordActivity(db, access, 'page.create', `${name || page.slug} (${page.slug})`);
-      return { slug: page.slug, label: name };
+      return { slug: page.slug, label: name, revision: 1 };
     });
   }
 

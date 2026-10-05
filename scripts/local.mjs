@@ -1,7 +1,7 @@
 // One command for the local app: `node scripts/local.mjs`.
 // Starts a PostgreSQL that lives in ~/.nfc-local (Postgres.app's binaries, port 55460, separate from the test cluster on
 // 55439), builds the database from db/schema.sql — again from scratch whenever that file changes (Tài 05/10: no
-// migrations while the frame is rebuilt) — seeds the owner and the Google Maps tool's shop, and runs `next dev` on http://127.0.0.1:3321 with every
+// migrations while the frame is rebuilt) — seeds the owner and an empty shop, and runs `next dev` on http://127.0.0.1:3321 with every
 // surface open.
 //   node scripts/local.mjs code     the administrator's current six-digit code
 //   node scripts/local.mjs --reset  the database from scratch even if the schema did not change
@@ -23,7 +23,7 @@ const bin = process.env.PG_BIN ?? '/Applications/Postgres.app/Contents/Versions/
 const data = join(homedir(), '.nfc-local', 'pg'), port = 55460, database = 'nfc_local';
 const url = `postgresql://nfc@127.0.0.1:${port}/${database}`;
 const LOCAL = { admin: 'tai', adminPassword: 'local-admin-password', owner: 'chuquan', ownerPassword: 'local-owner-password',
-  totp: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP' };
+  totp: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', slug: 'chuquan' };
 const lan = process.argv.includes('--lan');
 const lanAddress = () => Object.values(networkInterfaces()).flat().find(i => i && i.family === 'IPv4' && !i.internal)?.address;
 const host = lan ? (lanAddress() ?? '127.0.0.1') : '127.0.0.1', origin = `http://${host}:3321`;
@@ -36,14 +36,14 @@ function privateGoogle() {
   const pairs = readFileSync('rieng/google.env', 'utf8').split('\n').map(line => line.match(/^([A-Z_]+)=(.*)$/)).filter(Boolean);
   return Object.fromEntries(pairs.filter(([, name]) => GOOGLE_NAMES.includes(name)).map(([, name, value]) => [name, value.trim()]));
 }
-// The Google Maps review tool on this machine (Tài 05/10: its real reviews replace the sample ones). The app's server asks it
-// at 127.0.0.1:8000 with its key; the seed makes the shop it follows (MAPS_SHOP), the only shop of the local app.
-const MAPS_SHOP = 'quan-google-maps';
+// The Google Maps review tool on this machine (Tài 05/10). Shops paste their own Google Maps link; the tool asks this app
+// which to read and signs both ways with its `api_key`, read here from its own config.json and given to the app as
+// NFC_MAPS_KEY. To have the tool read for this app once: `.venv/bin/python review_tracker.py qs-sync --qs <origin>` in ~/MAps.
 function mapsTool() {
   const file = join(process.env.NFC_MAPS_DIR ?? join(homedir(), 'MAps'), 'config.json');
   if (!existsSync(file)) return {};
   let key; try { key = JSON.parse(readFileSync(file, 'utf8')).api_key; } catch { return {}; }
-  return typeof key === 'string' && key ? { NFC_MAPS_URL: process.env.NFC_MAPS_URL || 'http://127.0.0.1:8000', NFC_MAPS_KEY: key, NFC_MAPS_SHOP: MAPS_SHOP } : {};
+  return typeof key === 'string' && key ? { NFC_MAPS_KEY: key } : {};
 }
 const env = { ...process.env, NFC_ENV: 'local', SERVER_DATA_ENABLED: 'true', DATABASE_URL: url, APP_ORIGIN: origin,
   NFC_VISITS_V2_ENABLED: 'true', NFC_OWNER_V2_ENABLED: 'true', NFC_ADMIN_ENABLED: 'true', NFC_PUBLISHING_ENABLED: 'true',
@@ -52,7 +52,7 @@ const env = { ...process.env, NFC_ENV: 'local', SERVER_DATA_ENABLED: 'true', DAT
   // 10/09 holds a remote DATABASE_URL and media origin) out of the local app. Empty reads as unset everywhere.
   DATABASE_URL_DIRECT: '', DATABASE_URL_UNPOOLED: '', MEDIA_PUBLIC_ORIGIN: '', STORAGE_ENDPOINT: '',
   R2_ACCOUNT_ID: '', R2_ACCESS_KEY_ID: '', R2_SECRET_ACCESS_KEY: '', R2_BUCKET: '',
-  NFC_GOOGLE_CLIENT_ID: '', NFC_GOOGLE_CLIENT_SECRET: '', ...privateGoogle(), NFC_MAPS_KEY: '', NFC_MAPS_SHOP: '', ...mapsTool() };
+  NFC_GOOGLE_CLIENT_ID: '', NFC_GOOGLE_CLIENT_SECRET: '', ...privateGoogle(), NFC_MAPS_KEY: '', ...mapsTool() };
 // Pictures shops upload go to a small store on this machine (scripts/local/store.ts), as they go to R2 in production. Not with
 // --lan: a phone cannot reach 127.0.0.1, and the app accepts a plain-http store only on this machine.
 const store = { port: 3322, dir: join(homedir(), '.nfc-local', 'media') };
@@ -117,8 +117,8 @@ console.log(`
   Bắt đầu         ${origin}/bat-dau
   Giao diện chính ${origin}/app            ${LOCAL.owner} / ${LOCAL.ownerPassword}
   Quản trị /gov   ${origin}/gov            ${LOCAL.admin} / ${LOCAL.adminPassword} · mã 6 số: node scripts/local.mjs code
-${env.NFC_MAPS_SHOP ? `  Quán (tool)     ${origin}/app/${MAPS_SHOP}/data   đánh giá thật từ tool Google Maps ở ${env.NFC_MAPS_URL}\n`
-  : '  Không có tool Google Maps (~/MAps): chủ quán chưa có quán, /app mở onboarding.\n'}`);
+${env.NFC_MAPS_KEY ? `  Tool Google Maps có khoá: dán link quán ở tab Data, rồi trong ~/MAps chạy
+                  .venv/bin/python review_tracker.py qs-sync --qs ${origin}\n` : '  Không có tool Google Maps (~/MAps): ô dán link Google Maps không hiện.\n'}`);
 if (process.argv.includes('--no-app')) process.exit(0);
 const helpers = lan ? [] : [spawn(process.execPath, ['--experimental-transform-types', '--no-warnings', '--import', './scripts/local/hooks.mjs', 'scripts/local/store.ts'], { stdio: 'inherit', env })];
 const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', lan ? '0.0.0.0' : '127.0.0.1', '--port', '3321'], { stdio: 'inherit', env });

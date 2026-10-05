@@ -164,7 +164,7 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình templat
 | **13** | Hai luật dùng chung mọi template: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi template, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-10-05 (chiều)
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-10-05 (tối)
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên, rồi [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md)
 (logic gốc, đích kiến trúc module, tự chạy được, đội ngũ), rồi khối này. Việc còn lại: [`roadmap-slices.md`](roadmap-slices.md).
@@ -176,10 +176,19 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`
 (thẻ Finder "Cam"); chạy local `node scripts/local.mjs`; test DB `node scripts/test-db.mjs`.
 
+**Tối 05/10 — bỏ trình sửa canvas (Tài: "library riêng phần edit rất nặng và phải bỏ", "cứ đơn giản hoá, chưa tính phí
+riêng").** Khách chọn mẫu → xem mẫu mang tên quán → **Phát hành luôn** hoặc **Nhờ admin sửa** (ghi ý + gửi ảnh/video qua Zalo);
+trang ở trạng thái "Chờ admin sửa", `/gov` có khung "Trang chờ sửa", agent sửa bằng `node scripts/sua-trang.mjs lay|dang <trang>`
+(ảnh/video tự thu nhỏ, tải lên, phát hành, đóng yêu cầu). Kịch bản mục 8–9. Đã xoá: `components/canvas/editor/*`,
+`/app/<slug>/sua/<trang>`, `lib/canvas/edit.ts`, Tải lên/Brand/More trong Library, "Nhờ tạo giúp" (bảng `help_requests` →
+`edit_requests`, mỗi trang một yêu cầu chờ). Ô ảnh của trang phát được video MP4. **Đã đẩy nhánh tối 05/10** (Tài, cho đồng nghiệp cập nhật), test chưa viết lại: trước khi
+lên `main` viết lại phần test còn gọi trình sửa (`owner-dashboard.spec.ts`, `admin-http.spec.ts`, `first-publish`, `impersonation`)
+và chạy 7 bộ. Kế tiếp: làm lại một loạt template đẹp.
+
 **Đợt ① đã commit (`3571676`, đã đẩy nhánh):** database một tệp `db/schema.sql` · Orb bản đầu · 6 tab bản khung ở `/app/<slug>/…`
 · onboarding theo ảnh Jitter · đăng ký dùng ngay · **Place ID dán tay** (Tài 05/10: chưa bật Places API; nút mở trang tìm Place ID
 của Google + một ô dán, ở onboarding và `/gov`) · Google Business (bản giả lập **đã thay** 05/10 bằng tool Google Maps trên máy Tài,
-nguồn `maps`, một quán; local chỉ còn quán của tool; production nhận webhook có chữ ký — `production-launch.md`) · "Nhờ tạo giúp" ở `/gov` · Dashboard
+nguồn `maps`, một quán; local chỉ còn quán của tool; production nhận webhook có chữ ký — `production-launch.md`) · Dashboard
 kiểu YouTube Studio. Nợ của đợt ① đã trả trong đợt ②: `db/migrations`, `db/rollback`, `scripts/migrate.mjs` đã xoá; Docker,
 compose, CI dùng `scripts/apply-schema.mjs` (dựng database **trống** từ `db/schema.sql`, database có dữ liệu mà lược đồ khác thì
 dừng, không tự sửa); `owner-dashboard.spec.ts` và `admin-http.spec.ts` viết lại cho khung mới.
@@ -191,19 +200,16 @@ tạo lại shop template và các quán; branch Neon preview vẫn lược đ�
 `lib/publishing/config.ts`) · 10 template dựng lại từ ảnh Tài (`templates/<khoá>/template.json`, sinh bằng `node scripts/templates.mjs`;
 6 template cũ và lớp da CSS đã xoá) · trang khách, xem trước, ảnh thu nhỏ vẽ từ canvas (`components/canvas/render.tsx`, lõi khách
 `components/guest/core.tsx`) · nút Google luôn dùng `shops.google_url` của quán · Library 10 mẫu bằng ảnh thật, tạo trang từ mẫu tự
-điền và tự co tên quán · **trình sửa canvas** `/app/<slug>/sua/<trang>` (`components/canvas/editor/*`, phép sửa thuần
-`lib/canvas/edit.ts`) · **máy bay giấy góp ý riêng giữ nguyên bản cũ** (Tài 05/10: "đừng code máy bay giấy mới") — nút xanh góc
+điền và tự co tên quán · trình sửa canvas (đã bỏ tối 05/10, xem trên) · **máy bay giấy góp ý riêng giữ nguyên bản cũ** (Tài 05/10: "đừng code máy bay giấy mới") — nút xanh góc
 trái, lời mời sau 2 giây ở cuối trang, thẻ spotlight, chuyển nguyên vào `components/guest/plane.css`; trang luôn cao hơn màn hình
 (A1) và chừa chỗ cho máy bay · **duyệt lần phát hành đầu** của quán tự đăng ký (kịch bản mục 4): lõi phát hành từ chối
-`PUBLISH_REVIEW_REQUIRED`, trình sửa đổi nút thành "Gửi duyệt" (`publish_reviews`, một yêu cầu chờ mỗi quán), `/gov` khung "Trang
+`PUBLISH_REVIEW_REQUIRED`, "Phát hành luôn" thành gửi duyệt (`publish_reviews`, một yêu cầu chờ mỗi quán), `/gov` khung "Trang
 chờ duyệt lần đầu" có ảnh trang + `/gov/xem/<trang>`, duyệt là phát hành đúng bản nháp đang thấy, chưa duyệt thì ghi lý do chủ quán
-đọc trong trình sửa · khung mới có lại những gì dashboard cũ có mà khung bản đầu thiếu: **Đăng xuất** (Cài đặt), **tạm dừng khẩn
-cấp** (Quản lý), **dải "Đang xem thay mặt"** của phiên quản trị trên mọi màn (nổi ở chân màn hình, không che Orb; trong trình
-sửa nằm ở hàng băng) và **lượt quản trị vào + lịch sử
+đọc ở trang đó trong Library/My Card · khung mới có lại những gì dashboard cũ có mà khung bản đầu thiếu: **Đăng xuất** (Cài đặt), **tạm dừng khẩn
+cấp** (Quản lý), **dải "Đang xem thay mặt"** của phiên quản trị trên mọi màn (nổi ở chân màn hình, không che Orb) và **lượt quản trị vào + lịch sử
 mức hỗ trợ** cho chủ quán (Quản lý); phiên hỗ trợ chỉ đọc trong Data. Gỡ cửa duyệt lời cảm ơn M2b. Trang đầu của quán tên
-**"Trang chính"**, như Library đặt (`lib/owner/page-names.ts`). **Tải ảnh quán lên trong trình sửa** (ô Ảnh và
-nền khúc): thu nhỏ trong trình duyệt, gửi thẳng vào kho, nhãn chờ duyệt / đã duyệt / bị từ chối, phát hành bị giữ tới khi duyệt
-ở `/gov`; máy local có kho ảnh riêng (`scripts/local/store.ts`), nên `db/schema.sql` nhận địa chỉ ảnh `http://127.0.0.1` như
+**"Trang chính"**, như Library đặt (`lib/owner/page-names.ts`). Ảnh quán do chủ quán tự tải lên (`/api/owner/v2/<quán>/media`) vẫn chờ duyệt ở `/gov` trước khi phát hành;
+ảnh agent tải bằng `sua-trang` được duyệt sẵn; máy local có kho ảnh riêng (`scripts/local/store.ts`), nên `db/schema.sql` nhận địa chỉ ảnh `http://127.0.0.1` như
 `lib/media/storage-settings.ts` đã nhận. Bảy bộ test viết lại theo canvas và khung mới, **xanh chiều 05/10**:
 repository 163 · contracts 110 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 12 · admin 11, mỗi bộ harness kèm
 bản build production. CI trên `3571676` (đợt ①) đỏ: bốn bộ harness vì seed nhập test fixture (đã sửa, `operations-gotchas.md`),

@@ -14,16 +14,13 @@
 /* Two rules of the original guest page, kept with its paper plane (Tài 23/09, components/guest/plane.css): the page is always
    taller than the phone -- the plane invites feedback only once the guest has scrolled to the end, and a page that fits the
    screen would count as "at the end" on arrival -- and its foot leaves room for the plane, which never covers the page. */
-.cv:not(.cv-editing) .cv-page { min-height: calc(100svh + 128px); }
+.cv .cv-page { min-height: calc(100svh + 128px); }
 .cv-floor { height: 104px; }
 
 .cv-backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .cv-fill-media, .cv-backdrop > .cv-media { position: absolute; inset: 0; width: 100%; height: 100%; }
 .cv-sec { position: relative; z-index: 1; }
 .cv-sec[data-first] { min-height: 100svh; }
-/* In the editor the page is drawn at its designed size: the first section does not stretch to the editor's window. */
-.cv-editing { min-height: 0; }
-.cv-editing .cv-sec[data-first] { min-height: 0; }
 .cv-sec-bg { position: absolute; inset: 0; overflow: hidden; }
 /* A picture behind a section is drawn twice: sharp inside the column, aligned to the design (it scales with the column's width like
    everything else), and blurred to the edges of the screen and below the design, so a tall phone or a wide desktop never shows a seam. */

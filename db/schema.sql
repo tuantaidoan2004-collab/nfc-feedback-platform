@@ -2204,8 +2204,9 @@ ALTER TABLE ONLY visit_sessions
 
 --
 -- Đợt ① (05/10/2026): kết nối Google Business của quán và đánh giá Google đã đồng bộ (rieng/google-api.md).
--- `mode='google'`: Business Profile APIs (khi Google cấp quyền). `mode='maps'`: tool theo dõi đánh giá Google Maps chạy trên
--- máy Tài, cho đúng một quán (NFC_MAPS_SHOP); thay bản giả lập từ 05/10 (lib/google/business.ts).
+-- `mode='google'`: Business Profile APIs (khi Google cấp quyền). `mode='maps'`: quán tự dán link Google Maps của mình
+-- (`maps_url`); tool theo dõi đánh giá chạy trên máy Tài hỏi máy chủ quán nào cần đọc (`requested_at` chủ quán yêu cầu,
+-- `handed_at` đã giao cho tool) rồi gửi đánh giá về. Thay bản giả lập từ 05/10 (lib/google/business.ts).
 --
 
 CREATE TABLE google_business_connections (
@@ -2224,7 +2225,12 @@ CREATE TABLE google_business_connections (
     connected_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
     last_synced_at timestamp with time zone,
     last_error text CHECK (last_error IS NULL OR char_length(last_error) <= 200),
-    CHECK ((mode = 'google'::text) = (refresh_token_sealed IS NOT NULL))
+    maps_url text,
+    requested_at timestamp with time zone,
+    handed_at timestamp with time zone,
+    CHECK ((mode = 'google'::text) = (refresh_token_sealed IS NOT NULL)),
+    CONSTRAINT google_business_connections_maps_url_check CHECK (maps_url IS NULL OR (maps_url ~ '^https://[^[:space:]]+$'::text AND char_length(maps_url) <= 2000)),
+    CONSTRAINT google_business_connections_maps_mode_check CHECK ((mode = 'maps'::text) = (maps_url IS NOT NULL))
 );
 
 CREATE TABLE google_reviews (
@@ -2245,20 +2251,24 @@ CREATE TABLE google_reviews (
 CREATE INDEX google_reviews_recent ON google_reviews (shop_id, created_at DESC);
 
 --
--- Đợt ① (05/10/2026): "Nhờ admin tạo giúp" từ Library → More (kịch bản mục 8). Tài thấy ở /gov.
+-- 05/10/2026 (Tài: bỏ trình sửa canvas): chủ quán chọn mẫu rồi bấm "Nhờ admin sửa" cho một trang. Trang chờ ở /gov; Tài
+-- đưa agent ý của khách và file qua Zalo, agent sửa và phát hành lại (scripts/sua-trang.mjs), yêu cầu xong theo. Một yêu
+-- cầu đang chờ mỗi trang; gửi lại thì thêm ý vào yêu cầu đó.
 --
 
-CREATE TABLE help_requests (
+CREATE TABLE edit_requests (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    page_id uuid NOT NULL,
     requested_by uuid NOT NULL REFERENCES owner_identities_v2(id),
-    kind text NOT NULL CHECK (kind = ANY (ARRAY['build_page'::text])),
-    message text CHECK (message IS NULL OR (char_length(message) <= 1000 AND message !~ '[<>]'::text)),
+    message text CHECK (message IS NULL OR (char_length(message) <= 2000 AND message !~ '[<>]'::text)),
     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
     handled_at timestamp with time zone,
-    handled_by uuid REFERENCES platform_admins(id)
+    handled_by text CHECK (handled_by IS NULL OR handled_by ~ '^(admin:[0-9a-f-]{36}|agent)$'::text),
+    FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id) ON DELETE CASCADE,
+    CHECK ((handled_at IS NULL) = (handled_by IS NULL))
 );
-CREATE UNIQUE INDEX help_requests_one_open ON help_requests (shop_id, kind) WHERE handled_at IS NULL;
+CREATE UNIQUE INDEX edit_requests_one_open ON edit_requests (page_id) WHERE handled_at IS NULL;
 
 --
 -- Đợt ② (05/10/2026): lần phát hành đầu của một quán tự đăng ký chờ Tài duyệt ở /gov (kịch bản mục 4: một trang lừa đảo

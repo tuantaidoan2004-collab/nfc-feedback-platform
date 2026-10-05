@@ -1,0 +1,23 @@
+/* Ô dán link Google Maps (maps-link.tsx): cùng tông thẻ xanh nhạt của banner tab Data, đọc được ở cả giao diện tối. */
+.card { display: grid; gap: 14px; padding: 20px; border-radius: 20px; margin-bottom: 18px; color: var(--qs-ink, #0b0d12);
+  background: linear-gradient(120deg, #e8f1ff, #f4f9ff 55%, #ffffff); border: 1px solid #d8e6ff; }
+:global(.qs[data-theme='dark']) .card { background: linear-gradient(120deg, #0d1a33, #0c1424 60%, #0b0e15); border-color: #1a2a4a; }
+@media (prefers-color-scheme: dark) { :global(.qs[data-theme='system']) .card { background: linear-gradient(120deg, #0d1a33, #0c1424 60%, #0b0e15); border-color: #1a2a4a; } }
+.head { display: flex; gap: 14px; align-items: flex-start; }
+.head h3 { margin: 0; font-size: 17px; line-height: 1.3; }
+.head p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--qs-muted, #5b6474); }
+.badge { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; font-size: 22px;
+  background: var(--qs-card, #fff); box-shadow: 0 6px 18px rgba(31, 91, 255, .14); }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; }
+.steps a { color: var(--qs-blue, #1f5bff); font-weight: 600; text-decoration: none; }
+.input { width: 100%; min-height: 50px; padding: 0 16px; border-radius: 14px; font: inherit; font-size: 16px;
+  border: 1.5px solid var(--qs-line, #d6dbe4); background: var(--qs-card, #fff); color: var(--qs-ink, #0b0d12); }
+.input:focus { outline: none; border-color: var(--qs-blue, #1f5bff); box-shadow: 0 0 0 4px rgba(31, 91, 255, .14); }
+.check { margin: -4px 0 0; font-size: 13px; color: var(--qs-muted, #5b6474); }
+.check[data-ready='true'] { color: #12805c; font-weight: 600; }
+.actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+.actions a { color: var(--qs-blue, #1f5bff); font-weight: 600; text-decoration: none; }
+.save { min-height: 44px; padding: 0 22px; border-radius: 999px; border: 0; font: inherit; font-weight: 700; cursor: pointer;
+  background: var(--qs-ink, #0b0d12); color: var(--qs-bg, #fff); }
+.save[disabled] { opacity: .4; cursor: default; }
+.cancel { border: 0; background: none; font: inherit; color: var(--qs-muted, #5b6474); text-decoration: underline; cursor: pointer; }

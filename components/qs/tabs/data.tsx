@@ -2,13 +2,14 @@
 /**
  * Tab Data (kịch bản mục 7): nơi thành viên tương tác thật với khách. Góp ý riêng và đánh giá Google trong một hộp thư,
  * mới nhất trên cùng; không có ô "lượt truy cập" hay số rườm rà. Bấm một dòng để xử lý: góp ý riêng có trạng thái và ghi
- * chú; đánh giá Google trả lời được khi Google đã cấp quyền API. Trước đó đánh giá Google của quán đến từ tool Google Maps
- * trên máy Tài (nguồn `maps`): ngày đăng là ước đoán, trả lời trên Google Maps.
+ * chú; đánh giá Google trả lời được khi Google đã cấp quyền API. Trước đó chủ quán dán link Google Maps của quán, tool Google
+ * Maps trên máy Tài đọc đánh giá (nguồn `maps`): ngày đăng là ước đoán, trả lời trên Google Maps.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TabProps } from './index';
 import styles from './tabs.module.css';
-import { dayOf, ESTIMATE, useGoogleBusiness } from './google-business';
+import { dayOf, ESTIMATE, GOOGLE_ERRORS, useGoogleBusiness, waitingForTool } from './google-business';
+import MapsLinkCard from './maps-link';
 import Icon from '../icons';
 
 type Experience = { session_id: string; first_rated_at: string; updated_at: string; rating: number | null; experience_revision: string;
@@ -30,7 +31,7 @@ export function Stars({ value }: { value: number | null }) {
 export default function DataTab({ slug, role }: TabProps) {
   const [range, setRange] = useState<keyof typeof RANGES>(30), [filter, setFilter] = useState<'all' | 'private' | 'google'>('all');
   const [rows, setRows] = useState<Experience[] | null>(null), [error, setError] = useState(''), [open, setOpen] = useState<string | null>(null), [since, setSince] = useState(0);
-  const google = useGoogleBusiness(slug);
+  const google = useGoogleBusiness(slug), [editing, setEditing] = useState(false), [notice, setNotice] = useState('');
   const load = useCallback(async () => {
     try {
       const response = await fetch(`/api/owner/v2/${slug}?from=${day(range - 1)}`, { cache: 'no-store' });
@@ -59,23 +60,28 @@ export default function DataTab({ slug, role }: TabProps) {
         {(Object.keys(RANGES).map(Number) as (keyof typeof RANGES)[]).map(key => <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{RANGES[key]}</button>)}
       </div>
     </div>
-    {!connection && google.data && <section className={styles.banner}>
-      <div className={styles.row}><div><h2 style={{ fontSize: 17 }}>Đánh giá Google của quán sẽ hiện ở đây</h2>
-        <p className="qs-muted qs-small">{google.data.maps ? 'Kết nối một lần, đánh giá 1–5 sao trên Google Maps của quán tự về đây mỗi ngày.'
-          : 'Kết nối Google Business một lần, hệ thống tự kéo đánh giá 1–5 sao về và bạn trả lời ngay tại đây.'}</p></div>
-        {google.data.maps ? <button type="button" className="qs-btn small" disabled={google.busy} onClick={() => void google.act('maps')}>
-          <Icon name="google" size={18} /> {google.busy ? 'Đang kết nối…' : 'Kết nối'}</button>
-          : <span className="qs-pill">Đang chờ Google cấp quyền API</span>}
-      </div>
-    </section>}
-    {connection && <div className={styles.row}>
-      <p className="qs-small qs-muted"><Icon name="google" size={16} /> {connection.locationTitle ?? 'Google Business'}
+    {google.data && (!connection || editing) && (google.data.maps
+      ? <MapsLinkCard canManage={google.data.canManage} busy={google.busy} current={connection?.mapsUrl}
+        onSave={async url => { const ok = await google.act('maps-link', url); if (ok) { setEditing(false); setNotice('Đã lưu link. Đánh giá Google của quán sẽ về trong vài phút.'); } return ok; }}
+        onCancel={connection ? () => setEditing(false) : undefined} />
+      : <section className={styles.banner}><div className={styles.row}><div><h2 style={{ fontSize: 17 }}>Đánh giá Google của quán sẽ hiện ở đây</h2>
+        <p className="qs-muted qs-small">Kết nối Google Business một lần, hệ thống tự kéo đánh giá 1–5 sao về và bạn trả lời ngay tại đây.</p></div>
+        <span className="qs-pill">Đang chờ Google cấp quyền API</span></div></section>)}
+    {connection && !editing && <div className={styles.row}>
+      <p className="qs-small qs-muted"><Icon name="google" size={16} /> {connection.locationTitle ?? (connection.mode === 'maps' ? 'Google Maps' : 'Google Business')}
         {connection.averageRating !== null && <> · {connection.averageRating.toFixed(1).replace('.', ',')}★</>}
         {connection.totalReviews !== null && <> · {connection.totalReviews} đánh giá <span className="qs-pill">{ESTIMATE}</span></>}
-        {connection.lastSyncedAt && <> · {connection.mode === 'maps' ? 'Google Maps' : 'đồng bộ'} {when(connection.lastSyncedAt)}</>}</p>
-      {(connection.mode === 'google' || google.data?.maps) && <button type="button" className="qs-btn ghost small" disabled={google.busy} onClick={() => void google.act('sync')}>
-        {google.busy ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}</button>}
+        {connection.lastSyncedAt && <> · {connection.mode === 'maps' ? 'Google Maps' : 'đồng bộ'} {when(connection.lastSyncedAt)}</>}
+        {waitingForTool(connection) && <> · <span className="qs-pill">{connection.lastSyncedAt ? 'đang cập nhật…' : 'đang lấy đánh giá lần đầu, thường vài phút…'}</span></>}</p>
+      <div className={styles.row} style={{ gap: 8 }}>
+        {(connection.mode === 'google' || google.data?.maps) && <button type="button" className="qs-btn ghost small" disabled={google.busy || waitingForTool(connection)}
+          onClick={async () => { if (await google.act('sync') && connection.mode === 'maps') setNotice('Đã gửi yêu cầu. Đánh giá mới về trong vài phút.'); }}>
+          {google.busy ? 'Đang gửi…' : 'Cập nhật ngay'}</button>}
+        {connection.mode === 'maps' && google.data?.canManage && <button type="button" className="qs-btn ghost small" onClick={() => setEditing(true)}>Đổi link</button>}
+      </div>
     </div>}
+    {connection?.lastError === 'MAPS_RUN_FAILED' && !editing && <p className="qs-error">{GOOGLE_ERRORS.MAPS_RUN_FAILED}</p>}
+    {notice && <p className="qs-small" role="status">{notice}</p>}
     {(error || google.error) && <p className="qs-error">{error || google.error}</p>}
     {rows === null ? <p className="qs-muted">Đang tải…</p> : items.length === 0 ? <div className={`${styles.card} ${styles.empty}`}>
       <strong>Chưa có phản hồi nào trong {RANGES[range]}</strong><span>Khi khách chấm sao, gửi góp ý riêng hay đánh giá trên Google, mọi thứ sẽ về đây.</span></div>

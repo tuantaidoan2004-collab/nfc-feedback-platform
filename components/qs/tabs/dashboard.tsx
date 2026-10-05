@@ -122,7 +122,7 @@ export default function DashboardTab({ slug, origin }: TabProps) {
       <section className={styles.card} data-order="2" aria-labelledby="shop-title">
         <h2 id="shop-title">Số liệu của quán</h2>
         <p className={styles.label}>Đánh giá Google hiện tại</p>
-        {!data.google ? <><p className={styles.big}>—</p><Link className={styles.inline} href={`/app/${slug}/data`}>Kết nối Google Business →</Link></>
+        {!data.google ? <><p className={styles.big}>—</p><Link className={styles.inline} href={`/app/${slug}/data`}>Dán link Google Maps của quán →</Link></>
           // Google's figures are the owner's alone (google-policy.md rule 10).
           : !data.google.figures ? <><p className={styles.big}>—</p><p className={styles.quiet}>Chỉ chủ quán xem điểm Google.</p></>
           : <><p className={styles.big}>{data.google.rating?.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'}

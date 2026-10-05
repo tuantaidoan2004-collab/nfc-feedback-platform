@@ -34,17 +34,3 @@ export async function advance(pool: Pool, credential: OwnerCredential, slug: str
     return { ok: true };
   });
 }
-
-/** Library → More → "Nhờ admin tạo giúp": one open request per shop; asking again says it is already on its way. */
-export async function requestHelp(pool: Pool, credential: OwnerCredential, slug: string, body: unknown) {
-  const raw = (body && typeof body === 'object' ? (body as Record<string, unknown>).message : null);
-  const message = typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 1000).replace(/[<>]/g, '') : null;
-  return transaction(pool, async db => {
-    const access = await authorize(db, credential, slug, 'write');
-    if (access.actor.kind !== 'owner') throw new OwnerError(403, 'IMPERSONATION_READ_ONLY');
-    const made = await db.query(`INSERT INTO help_requests(shop_id,requested_by,kind,message)VALUES($1,$2,'build_page',$3)
-      ON CONFLICT (shop_id,kind) WHERE handled_at IS NULL DO NOTHING RETURNING id`, [access.shopId, access.userId, message]);
-    if (made.rowCount) await recordActivity(db, access, 'help.request', null);
-    return { requested: true, already: !made.rowCount };
-  });
-}

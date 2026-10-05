@@ -15,7 +15,7 @@ import SupportBanner, { type SupportSession } from './support-banner';
 const TAB_ICONS: Record<TabKey, Parameters<typeof Icon>[0]['name']> = { dashboard: 'dashboard', data: 'data', library: 'library', 'my-card': 'card', 'quan-ly': 'manage', 'cai-dat': 'settings' };
 
 export default function StudioFrame({ slug, name, theme, support, children }: { slug: string; name: string; theme: 'light' | 'dark' | 'system';
-  /** An administrator's support session: its strip sits above every screen (the editor draws its own, in its banner row). */
+  /** An administrator's support session: its strip sits above every screen. */
   support: SupportSession | null; children: ReactNode }) {
   const router = useRouter(), path = usePathname();
   const current = TAB_KEYS.find(key => path?.startsWith(`/app/${slug}/${key}`)) ?? null;
@@ -33,8 +33,6 @@ export default function StudioFrame({ slug, name, theme, support, children }: { 
   const dark = mode === 'dark' || (mode === 'system' && systemDark);
   const { pulse, mood } = usePulse(slug);
   const tabs: OrbTab[] = TAB_KEYS.map(key => ({ key, label: TAB_LABELS[key], href: `/app/${slug}/${key}`, icon: <Icon name={TAB_ICONS[key]} /> }));
-  // The page editor takes the whole screen, like Canva's: its own bar leads back; the Orb waits outside.
-  if (path?.startsWith(`/app/${slug}/sua/`)) return <div className="qs" data-theme={mode}>{children}</div>;
   return <div className={`qs ${styles.frame}`} data-theme={mode} data-mode={current ? 'dock' : 'home'} data-support={support ? '' : undefined}>
     {support && <SupportBanner slug={slug} session={support} />}
     <Orb tabs={tabs} mode={current ? 'dock' : 'home'} current={current ?? undefined} dark={dark} mood={mood} pulse={pulse}

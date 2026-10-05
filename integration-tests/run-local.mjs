@@ -67,7 +67,7 @@ async function warm(origin) {
     // Sign-up and onboarding (đợt ①), the canvas editor and its API (đợt ②), the templates, and the crawler files.
     '/bat-dau', '/api/start/signup', '/app/one', '/app/one/library', '/app/one/sua/one', '/api/owner/v2/one/design', '/templates', '/templates/basic-1',
     '/app/one/dashboard', '/app/one/data', '/app/one/my-card', '/app/one/quan-ly', '/app/one/cai-dat', '/api/owner/v2/one/overview', '/api/owner/v2/one/pulse',
-    '/api/owner/v2/one/google-business', '/api/owner/v2/one/onboarding', '/api/owner/v2/one/help', '/api/owner/v2/logout', '/owner/setup/' + '0'.repeat(64),
+    '/api/owner/v2/one/google-business', '/api/owner/v2/one/onboarding', '/api/owner/v2/one/edit-requests', '/api/owner/v2/logout', '/owner/setup/' + '0'.repeat(64),
     // A self-signed-up shop's first publish (đợt ②): the draft /gov looks at, and the decision.
     `/gov/xem/${zero}`, `/gov/api/publish-reviews/${zero}`,
     '/robots.txt', '/sitemap.xml',

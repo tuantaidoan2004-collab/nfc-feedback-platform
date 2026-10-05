@@ -5,13 +5,14 @@
  *   1. Place ID, thủ công (Tài 05/10): nút mở sẵn trang tìm Place ID của Google, một ô dán; link đánh giá hiện ra ngay khi
  *      mã hợp lệ (bắt buộc: nút Google trên trang cần link);
  *   2. "Kết nối với Google Business để đồng bộ đánh giá 5 sao" (bỏ qua được, làm lại sau ở tab Data). Trước khi Google cấp
- *      quyền API, chỉ quán mà tool Google Maps trên máy Tài theo dõi mới kết nối được (nguồn `maps`).
+ *      quyền API: chủ quán dán link Google Maps của quán, tool Google Maps trên máy Tài đọc đánh giá (nguồn `maps`).
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './gray.module.css';
 import Icon from '../icons';
 import { ESTIMATE, useGoogleBusiness } from '../tabs/google-business';
+import MapsLinkCard from '../tabs/maps-link';
 import { parsePlaceId, PLACE_ID_FINDER, reviewLink } from '@/lib/google/place-id';
 
 type Saved = { name: string; placeId: string | null; reviewLink: string | null };
@@ -90,7 +91,7 @@ export default function GoogleStep({ slug }: { slug: string }) {
       <div className={styles.badge} aria-hidden="true">⭐</div>
       <h1 className={styles.headline}>Kết nối với Google Business để đồng bộ đánh giá 5 sao</h1>
       <p className={styles.lead} style={{ marginTop: 18 }}>{business.data?.maps || connection?.mode === 'maps'
-        ? 'Bấm Kết nối — đánh giá 1–5 sao trên Google Maps của quán tự về tab Data mỗi ngày.'
+        ? 'Dán link Google Maps của quán — đánh giá 1–5 sao tự về tab Data, lần đầu sau vài phút, rồi mỗi ngày.'
         : 'Đăng nhập Google, bấm Cho phép — đánh giá 1–5 sao của quán tự về tab Data, và bạn trả lời ngay ở đó.'}</p>
     </div>
     <div style={{ display: 'grid', gap: 18 }}>
@@ -100,12 +101,11 @@ export default function GoogleStep({ slug }: { slug: string }) {
           {saved.placeId && <span className={styles.note}>Place ID: {saved.placeId}</span>}
           <a href={saved.reviewLink} target="_blank" rel="noreferrer">Mở thử link đánh giá ↗</a>
         </div>}
-        {connection ? <div className={styles.row}><div><strong>{connection.locationTitle ?? 'Google Business'}</strong>
-          <span>{connection.averageRating?.toFixed(1).replace('.', ',')}★ · {connection.totalReviews} đánh giá ({ESTIMATE}){connection.mode === 'maps' ? ' · từ Google Maps' : ''}</span></div>
+        {connection ? <div className={styles.row}><div><strong>{connection.locationTitle ?? (connection.mode === 'maps' ? 'Google Maps' : 'Google Business')}</strong>
+          <span>{connection.lastSyncedAt ? `${connection.averageRating?.toFixed(1).replace('.', ',')}★ · ${connection.totalReviews} đánh giá (${ESTIMATE})${connection.mode === 'maps' ? ' · từ Google Maps' : ''}`
+            : 'Đã nhận link. Đang lấy đánh giá lần đầu, thường vài phút — bạn cứ đi tiếp.'}</span></div>
           <span className="qs-pill free">Đã kết nối</span></div>
-          : business.data?.maps ? <div className={styles.row}><div><strong>Google Maps</strong><span>Đánh giá thật trên Google Maps của quán, cập nhật mỗi ngày</span></div>
-            <button type="button" className={`${styles.pill} ${styles.small}`} disabled={business.busy} onClick={() => void business.act('maps')}>
-              <Icon name="google" size={18} /> {business.busy ? 'Đang kết nối…' : 'Kết nối'}</button></div>
+          : business.data?.maps ? <MapsLinkCard canManage={business.data.canManage} busy={business.busy} onSave={url => business.act('maps-link', url)} />
           : <p className={styles.note}><span className="qs-pill">Đang chờ Google cấp quyền API cho nền tảng</span> Bạn kết nối sau trong tab Data.</p>}
         {(business.error || error) && <p className={styles.error}>{business.error || error}</p>}
       </div>

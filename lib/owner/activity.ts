@@ -40,7 +40,7 @@ export const ACTIONS: Record<string, string> = {
   'google.connect': 'Kết nối Google Business',
   'google.disconnect': 'Ngắt kết nối Google Business',
   'google.sync': 'Đồng bộ đánh giá Google',
-  'help.request': 'Nhờ admin tạo giúp',
+  'edit.request': 'Nhờ admin sửa trang',
   'onboarding.step': 'Xong một bước bắt đầu',
 };
 export type ActivityRow = { id: string; actor_kind: 'member' | 'admin'; actor_id: string; actor_handle: string; action: string; target: string | null;
