@@ -133,7 +133,8 @@ test('a link is permanent: a page is never deleted, renamed or moved, and its li
 test('the page list: the owner copies a page or takes a template from the library, each a draft at a new permanent link',async({f})=>{
  const shop=await shopOn(f,1),pages=new OwnerPages(f.db),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
  // A shop's first page is "Trang chính" from the start, as Library names it (lib/owner/page-names.ts), never unnamed.
- expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'Trang chính',state:'active',pauseReason:null,template:{key:'nut-don',version:1},createdAt:expect.any(String)}]});
+ expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'Trang chính',state:'active',pauseReason:null,template:{key:'nut-don',version:1},createdAt:expect.any(String),
+  revision:2,unpublished:false,editRequest:null,review:null}]});
  // A copy: the same document, its own link and name, not live until published.
  const before=(await design.read(shop.token,shop.slug)).draft.config;
  const copy=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Phòng VIP'});

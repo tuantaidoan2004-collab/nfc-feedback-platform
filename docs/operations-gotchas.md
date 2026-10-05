@@ -92,7 +92,13 @@ node node_modules/@playwright/test/cli.js test --config=playwright.client.config
 
 **Chạy bốn lệnh harness bằng vòng `for a in "…"; do node … $a` trong zsh thì cả ba đỏ.** zsh **không tách** `$a` thành
 nhiều đối số như bash, nên harness nhận một đối số dài và chẳng chạy test nào. Lỗi của Claude 27/09: tưởng ba bộ đỏ thật.
-Chạy từng lệnh riêng, hoặc `${=a}`.
+Chạy từng lệnh riêng, hoặc `${=a}`. **Lặp lại 05/10** với `P="-h 127.0.0.1 -p 55439 -U nfc_test"` cho `psql`/`dropdb`: lệnh
+nhận cả chuỗi làm tên máy, và `dropdb` thiếu `-w` thì **treo chờ mật khẩu** tới hết giờ. Lệnh nhiều cờ dùng chung: bọc trong
+`bash <<'EOF'`, và luôn thêm `-w` cho công cụ PostgreSQL chạy không người.
+
+**Test "đổi ký tự cuối của chuỗi base64url" đỏ ngẫu nhiên.** `google.spec.ts` sửa ký tự cuối của chuyến đi đã ký để thử chữ ký
+giả; ký tự cuối của base64url có khi chỉ mang bit đệm, giải ra y nguyên byte cũ, nên chữ ký vẫn đúng và test đỏ khoảng 1/6 lần
+(05/10). Muốn làm hỏng một chuỗi đã mã hoá, đổi ký tự **đầu** (hoặc một byte sau khi giải mã), đừng đổi ký tự cuối.
 
 **`main` được bảo vệ từ 27/09 (F5): đẩy thẳng lên `main` bị từ chối `GH013 … required status checks are expected`.**
 Check bắt buộc gắn theo **commit**, không theo nhánh. Cách đẩy: đẩy `feat/local-app-foundation` trước (CI chạy trên

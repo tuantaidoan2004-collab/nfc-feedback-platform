@@ -181,14 +181,20 @@ riêng").** Khách chọn mẫu → xem mẫu mang tên quán → **Phát hành 
 trang ở trạng thái "Chờ admin sửa", `/gov` có khung "Trang chờ sửa", agent sửa bằng `node scripts/sua-trang.mjs lay|dang <trang>`
 (ảnh/video tự thu nhỏ, tải lên, phát hành, đóng yêu cầu). Kịch bản mục 8–9. Đã xoá: `components/canvas/editor/*`,
 `/app/<slug>/sua/<trang>`, `lib/canvas/edit.ts`, Tải lên/Brand/More trong Library, "Nhờ tạo giúp" (bảng `help_requests` →
-`edit_requests`, mỗi trang một yêu cầu chờ). Ô ảnh của trang phát được video MP4. **Đã đẩy nhánh tối 05/10** (Tài, cho đồng nghiệp cập nhật), test chưa viết lại: trước khi
-lên `main` viết lại phần test còn gọi trình sửa (`owner-dashboard.spec.ts`, `admin-http.spec.ts`, `first-publish`, `impersonation`)
-và chạy 7 bộ. Kế tiếp: làm lại một loạt template đẹp.
+`edit_requests`, mỗi trang một yêu cầu chờ). Ô ảnh của trang phát được video MP4. Đã đẩy nhánh tối 05/10 (`78b8fbf`, gộp cả
+phần Google Maps bên dưới); test gọi trình sửa đã viết lại theo luồng mới (Library → Phát hành luôn / Nhờ admin sửa, My Card),
+test tải ảnh trong trình sửa bỏ (ảnh đi qua Zalo; API `media` của quán giờ chưa có giao diện nào gọi). Kế tiếp: làm lại một loạt
+template đẹp.
+
+**Tối 05/10 — Google Maps theo từng quán (Tài: "mỗi quán … tự add thủ công link").** Quán trống link tới khi chủ quán tự dán
+link Google Maps ở tab Data (ô kiểm ngay, tách link khỏi chữ chia sẻ); tool `~/MAps` hỏi production mỗi 5 phút quán nào cần đọc
+rồi gửi đánh giá về, hai chiều ký HMAC bằng `NFC_MAPS_KEY` (biến duy nhất; `NFC_MAPS_SHOP` bỏ). Lệnh nâng lược đồ production và
+phía tool: `production-launch.md` mục "Đánh giá Google từ tool Google Maps".
 
 **Đợt ① đã commit (`3571676`, đã đẩy nhánh):** database một tệp `db/schema.sql` · Orb bản đầu · 6 tab bản khung ở `/app/<slug>/…`
 · onboarding theo ảnh Jitter · đăng ký dùng ngay · **Place ID dán tay** (Tài 05/10: chưa bật Places API; nút mở trang tìm Place ID
 của Google + một ô dán, ở onboarding và `/gov`) · Google Business (bản giả lập **đã thay** 05/10 bằng tool Google Maps trên máy Tài,
-nguồn `maps`, một quán; local chỉ còn quán của tool; production nhận webhook có chữ ký — `production-launch.md`) · Dashboard
+nguồn `maps`, mỗi quán tự dán link; tool hỏi production rồi gửi về — `production-launch.md`) · Dashboard
 kiểu YouTube Studio. Nợ của đợt ① đã trả trong đợt ②: `db/migrations`, `db/rollback`, `scripts/migrate.mjs` đã xoá; Docker,
 compose, CI dùng `scripts/apply-schema.mjs` (dựng database **trống** từ `db/schema.sql`, database có dữ liệu mà lược đồ khác thì
 dừng, không tự sửa); `owner-dashboard.spec.ts` và `admin-http.spec.ts` viết lại cho khung mới.

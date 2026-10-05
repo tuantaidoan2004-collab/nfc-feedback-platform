@@ -22,7 +22,9 @@ test('the trip is this browser\'s own: signed, short-lived, and nothing else ope
   const sealed = sealTrip(trip, secret);
   expect(openTrip(sealed, secret)).toEqual(trip);
   expect(openTrip(sealed, 'j'.repeat(32))).toBeNull();
-  expect(openTrip(sealed.replace(/.$/, c => c === 'A' ? 'B' : 'A'), secret)).toBeNull();
+  // The first character, not the last: a base64url string's last character can carry only padding bits, so changing it
+  // sometimes decodes to the same bytes and the test failed at random (05/10).
+  expect(openTrip(sealed.replace(/^./, c => c === 'A' ? 'B' : 'A'), secret)).toBeNull();
   expect(openTrip(sealed, secret, (trip.expires + 1) * 1000)).toBeNull();
   expect(openTrip(undefined, secret)).toBeNull();
 });

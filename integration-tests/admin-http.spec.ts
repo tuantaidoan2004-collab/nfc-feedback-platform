@@ -157,11 +157,12 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page).toHaveURL(`${origin}/app/${slug}`);await expect(page.locator('[data-orb]')).toBeVisible();
- // Its page is in My Card: the link to open on other phones, and the editor.
+ // Its page is in My Card: running, the link to open on other phones, and the way to ask the admin for changes.
  await page.goto(`/app/${slug}/my-card`);
- const card=page.locator(`[data-my-card="${slug}"]`);await expect(card).toContainText('Đã phát hành');
+ const card=page.locator(`[data-my-card="${slug}"]`);await expect(card.locator('[data-page-state]')).toHaveText('Đang chạy');
  await expect(card.getByRole('link',{name:'Mở trang'})).toHaveAttribute('href',`${origin}/${slug}`);
- await card.getByRole('link',{name:'Sửa trang'}).click();await expect(page.getByLabel('Tên trang')).toHaveValue('Cà Phê Ban Mai');
+ await card.getByRole('button',{name:'Nhờ admin sửa',exact:true}).click();
+ await expect(page.getByRole('dialog').getByRole('button',{name:/Nhờ admin sửa/})).toBeVisible();
 
  // Spent once: the same link is dead now that the password is set.
  await page.goto(setupUrl);
@@ -410,16 +411,17 @@ test('position 2: support edits and publishes the page in a design session, sees
   // No figures and no rows: the session reaches the page and nothing else.
   expect((await page.request.get(`/api/owner/v2/${made.slug}/summary`)).status()).toBe(403);
   await expect(page.getByText('Không cho quản trị thấy')).toHaveCount(0);
-  // The editor, with the strip still above it.
-  await page.setViewportSize({width:1280,height:900});
-  await page.goto(`/app/${made.slug}/sua/${made.slug}`);await expect(page.locator('[data-impersonation="design"]')).toBeVisible();
-  await page.locator('[title][data-id="ten-quan"]').click();
-  await page.getByRole('group',{name:'Chữ',exact:true}).locator('textarea').fill('Quán Đã Sửa Hộ');
-  await expect(page.getByRole('status').first()).toContainText('Đã lưu',{timeout:10_000});
-  await page.getByRole('button',{name:'Phát hành',exact:true}).click();
-  await expect(page.getByRole('status').filter({hasText:'Đã phát hành'})).toBeVisible();
-  expect((await admin.db.query("SELECT count(*)::int n FROM admin_audit WHERE action='impersonation.design.publish'")).rows[0].n).toBe(1);
-  await ownerPage.goto(`/${made.slug}`);await expect(ownerPage.locator('[data-id="ten-quan"]')).toHaveText('Quán Đã Sửa Hộ');
+  // The page itself, through the design API (no editor since 05/10; the admin's edits go the same way): saved, published,
+  // both on the books, and the strip still above the owner's tabs.
+  await page.goto(`/app/${made.slug}/my-card`);await expect(page.locator('[data-impersonation="design"]')).toBeVisible();
+  const designApi=`/api/owner/v2/${made.slug}/design`,headers={Origin:origin};
+  const state=await (await page.request.get(designApi)).json();
+  const saved=await page.request.put(designApi,{headers,data:{expectedRevision:state.draft.revision,config:{...state.draft.config,name:'Quán Đã Sửa Hộ'}}});
+  expect(saved.status()).toBe(200);
+  expect((await page.request.post(designApi,{headers,data:{action:'publish',expectedRevision:(await saved.json()).revision}})).status()).toBe(200);
+  expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'impersonation.design.%' ORDER BY id")).rows.map(r=>r.action))
+   .toEqual(['impersonation.design.save','impersonation.design.publish']);
+  expect((await (await page.request.get(designApi)).json()).live.config.name).toBe('Quán Đã Sửa Hộ');
   // The owner sees the visit and its reason.
   await ownerPage.goto(`/app/${made.slug}/quan-ly`);
   await expect(ownerPage.locator('[data-admin-visit]')).toContainText('Sửa giao diện');
@@ -591,15 +593,16 @@ test('first publish: a signed-up shop\'s page waits in /gov with its picture, is
  expect((await page.request.get(`/gov/xem/${first.pageId}`)).status()).toBe(404);
  const decided=(await admin.db.query('SELECT id FROM publish_reviews ORDER BY requested_at LIMIT 1')).rows[0].id;
  expect((await page.request.post(`/gov/api/publish-reviews/${decided}`,{headers:{Origin:'https://evil.example'},data:{decision:'reject',reason:'x'}})).status()).toBe(403);
- // The owner reads why in the editor, and can ask again.
+ // The owner reads why in My Card, and can ask again.
  await admin.db.query('UPDATE shops SET onboarded_at=clock_timestamp() WHERE slug=$1',[second.slug]);
  const owner=await browser.newContext({baseURL:origin});
  try{
   const o=await owner.newPage();await ownerSignIn(o,'quan-bi-tra-lai','a-long-test-password',second.slug);
-  await o.setViewportSize({width:1280,height:900});await o.goto(`/app/${second.slug}/sua/${second.page}`);
-  await expect(o.getByRole('note')).toContainText('Chưa được duyệt: Trang dùng tên của một thương hiệu khác');
-  await o.getByRole('button',{name:'Gửi duyệt',exact:true}).click();
-  await expect(o.getByRole('note')).toContainText('Đang chờ duyệt');
+  await o.setViewportSize({width:1280,height:900});await o.goto(`/app/${second.slug}/my-card`);
+  const card=o.locator(`[data-my-card="${second.page}"]`);await expect(card.locator('[data-page-state]')).toHaveText('Chưa được duyệt');
+  await card.getByRole('button',{name:'Phát hành / Nhờ sửa',exact:true}).click();
+  const sheet=o.getByRole('dialog');await expect(sheet.getByText('Admin nhắn: “Trang dùng tên của một thương hiệu khác”',{exact:false})).toBeVisible();
+  await sheet.getByRole('button',{name:/Phát hành luôn/}).click();await expect(sheet.locator('[data-done="review"]')).toBeVisible({timeout:20_000});
  }finally{await owner.close();}
 });
 

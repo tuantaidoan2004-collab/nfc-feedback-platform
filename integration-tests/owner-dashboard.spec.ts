@@ -13,8 +13,8 @@ const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({}
 }});
 const origin='http://127.0.0.1:3317';
 /**
- * The giao diện chính (đợt ①–②, kịch bản mục 6–9): the Orb's screen at /app/<shop>, six tabs at /app/<shop>/<tab>, the page
- * editor at /app/<shop>/sua/<page>. A signed-out visit goes to the sign-in page and comes back to the shop after.
+ * The giao diện chính (đợt ①–②, kịch bản mục 6–9): the Orb's screen at /app/<shop>, six tabs at /app/<shop>/<tab>. No page
+ * editor since 05/10: a template is published as it is, or the admin edits it (Nhờ admin sửa). A signed-out visit goes to the sign-in page and comes back to the shop after.
  */
 async function login(page:Page,user:{username:string;password:string},shop='one'){
  await page.goto(`/app/${shop}`);await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
@@ -98,58 +98,53 @@ test('Data: a guest\'s private feedback arrives with its stars, words and number
  expect(errors).toEqual([]);
 });
 
-test('Library → a template → the editor: edits save as a draft, Xem trước shows them, the guest sees them only after Phát hành',async({page,context,f},info)=>{
+test('Library → a template → Phát hành luôn puts a new page live; Nhờ admin sửa leaves another waiting for the admin',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- // next dev reloads every open page the first time it compiles a route; compile the guest page and /preview first.
- const warm=await context.newPage();await warm.goto('/one');await warm.goto('/preview');await warm.goto('/templates/party?anh=1');await warm.close();
+ // next dev reloads every open page the first time it compiles a route; compile the guest page and the templates first.
+ const warm=await context.newPage();await warm.goto('/one');await warm.goto('/templates/party?anh=1');await warm.goto('/templates/basic-1?ten=x');await warm.close();
  await page.setViewportSize({width:1280,height:900});
  await login(page,f.users[0]);await tab(page,'library');
  // Home: the shop's one page, as a picture.
- await expect(page.getByRole('link',{name:/^Sửa /})).toHaveCount(1);
+ await expect(page.locator('[data-page]')).toHaveCount(1);
  await page.getByRole('button',{name:'Template',exact:true}).click();
  await expect(page.locator('[data-template]')).toHaveCount(10);
  await page.getByLabel('Tìm template').fill('party');await expect(page.locator('[data-template]')).toHaveCount(1);
- await page.getByRole('button',{name:'Dùng mẫu Interactive card · Party'}).click();
- await expect(page).toHaveURL(/\/app\/one\/sua\/[2-9a-hjkmnp-z]{5}$/,{timeout:20_000});
- const code=new URL(page.url()).pathname.split('/').pop()!;
- await expect(page.getByLabel('Tên trang')).toHaveValue('Shop one');
- // A draft page has no guest page yet.
+ await page.getByRole('button',{name:'Xem mẫu Interactive card · Party'}).click();
+ // The template in a phone with the shop's name, and the two ways on.
+ const sheet=page.getByRole('dialog',{name:'Mẫu Interactive card · Party'});
+ await expect(sheet.frameLocator('iframe').locator('main.cv')).toBeVisible();
+ await page.screenshot({path:info.outputPath('template-1280.png')});
+ await sheet.getByRole('button',{name:/Phát hành luôn/}).click();
+ await expect(sheet.locator('[data-done="live"]')).toBeVisible({timeout:20_000});
+ const made=async()=>(await f.db.query(`SELECT p.slug,p.state FROM pages p JOIN shops s ON s.id=p.shop_id WHERE s.slug='one' AND p.slug<>'one' ORDER BY p.created_at`)).rows;
+ const [live]=await made();expect(live.state).toBe('active');
+ // Live for guests at once, with the shop's Google button; the template itself never changed.
  const guest=await context.newPage();await guest.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- expect(await (await guest.goto(`/${code}`))!.text()).not.toContain('Quán Thử Nghiệm');
- // Choose the shop's name on the page and rewrite it: saved a moment later, as a draft.
- // The stage's hit boxes carry the element's name as a title; the page drawn beneath them does not.
- await page.locator('[title][data-id="ten-quan"]').click();
- const words=page.getByRole('group',{name:'Chữ',exact:true}).locator('textarea');
- await words.fill('Quán Thử Nghiệm');
- const status=page.getByRole('status').first();
- await expect(status).toHaveText('Đã lưu bản nháp',{timeout:10_000});
- expect((await f.db.query("SELECT d.config->'doc' AS doc FROM page_drafts d JOIN pages p ON p.id=d.page_id WHERE p.slug=$1",[code])).rows[0].doc).toEqual(expect.objectContaining({v:1}));
- // Words that trade a gift for a review never save, and the editor says which element to fix. (A moment apart, so the
- // undo below has a step of its own to go back to: typing in one field within 1.5 s is one step.)
- await page.waitForTimeout(1600);
- await words.fill('Tặng quà khi đánh giá 5 sao');
- await expect(status).toContainText('đổi quà',{timeout:10_000});
- await page.getByRole('button',{name:'Hoàn tác'}).click();
- await expect(status).toHaveText('Đã lưu bản nháp',{timeout:10_000});
- expect(JSON.stringify((await f.db.query('SELECT d.config FROM page_drafts d JOIN pages p ON p.id=d.page_id WHERE p.slug=$1',[code])).rows[0].config)).toContain('Quán Thử Nghiệm');
- // Xem trước: the draft in a new tab, nothing recorded.
- const popup=page.waitForEvent('popup');await page.getByRole('button',{name:'Xem trước'}).click();
- const preview=await popup;await preview.waitForURL('**/preview');await expect(preview.locator('[data-id="ten-quan"]')).toHaveText('Quán Thử Nghiệm');await preview.close();
- await page.screenshot({path:info.outputPath('editor-1280.png')});
- await page.getByRole('button',{name:'Phát hành',exact:true}).click();
- await expect(page.getByRole('status').filter({hasText:'Đã phát hành'})).toBeVisible();
- await guest.goto(`/${code}`);await expect(guest.locator('main[data-ready]')).toBeVisible();
- await expect(guest.locator('[data-id="ten-quan"]')).toHaveText('Quán Thử Nghiệm');
- // The page is a copy: the template itself never changed.
- await guest.goto('/templates/party');await expect(guest.locator('[data-id="ten-quan"]')).not.toHaveText('Quán Thử Nghiệm');
- // My Card lists both pages, the new one published, each with its editor.
- await tab(page,'my-card');await expect(page.locator('[data-my-card]')).toHaveCount(2);
- await expect(page.locator(`[data-my-card="${code}"]`)).toContainText('Đã phát hành');
- await expect(page.locator(`[data-my-card="${code}"]`).getByRole('link',{name:'Sửa trang'})).toHaveAttribute('href',`/app/one/sua/${code}`);
- // The editor on a phone: the page in the middle, the tools in a bar below.
- await page.setViewportSize({width:390,height:844});await page.goto(`/app/one/sua/${code}`);
- await expect(page.getByRole('navigation',{name:'Công cụ'})).toBeVisible();expect(await noSideScroll(page)).toBe(true);
- await page.screenshot({path:info.outputPath('editor-390.png')});
+ await guest.goto(`/${live.slug}`);await expect(guest.locator('main[data-ready]')).toBeVisible();
+ expect(await (await page.request.get(`/${live.slug}`)).text()).toContain('data-google');
+ await sheet.getByRole('button',{name:'Xong',exact:true}).click();await expect(sheet).toHaveCount(0);
+ // Another template, for the admin to edit: a draft with the owner's words, nothing live, until the admin publishes it.
+ await page.getByLabel('Tìm template').fill('basic 1');
+ await page.getByRole('button',{name:'Xem mẫu Basic 1'}).click();
+ const second=page.getByRole('dialog',{name:'Mẫu Basic 1'});
+ await second.getByRole('button',{name:/Nhờ admin sửa/}).click();
+ await second.getByLabel(/Bạn muốn sửa gì/).fill('Thay ảnh bìa bằng ảnh quán');
+ await second.getByRole('button',{name:/Gửi yêu cầu/}).click();
+ await expect(second.locator('[data-done="edit"]')).toBeVisible({timeout:20_000});
+ const [,waiting]=await made();expect(waiting.state).toBe('draft');
+ expect((await f.db.query('SELECT e.message,e.handled_at FROM edit_requests e JOIN pages p ON p.id=e.page_id WHERE p.slug=$1',[waiting.slug])).rows)
+  .toEqual([{message:'Thay ảnh bìa bằng ảnh quán',handled_at:null}]);
+ expect(await (await page.request.get(`/${waiting.slug}`)).text()).not.toContain('data-google');
+ // My Card: the three pages, each with what it is doing now.
+ await tab(page,'my-card');await expect(page.locator('[data-my-card]')).toHaveCount(3);
+ await expect(page.locator(`[data-my-card="${live.slug}"] [data-page-state]`)).toHaveText('Đang chạy');
+ await expect(page.locator(`[data-my-card="${waiting.slug}"] [data-page-state]`)).toHaveText('Chờ admin sửa');
+ // Opened again, the waiting page takes more words for the admin rather than a second request.
+ await page.locator(`[data-my-card="${waiting.slug}"]`).getByRole('button',{name:'Gửi thêm ý cho admin'}).click();
+ await expect(page.getByRole('dialog').getByText('Bạn đã nhắn: “Thay ảnh bìa bằng ảnh quán”')).toBeVisible();
+ // The sheet on a phone.
+ await page.setViewportSize({width:390,height:844});expect(await noSideScroll(page)).toBe(true);
+ await page.screenshot({path:info.outputPath('page-sheet-390.png')});
  expect(errors).toEqual([]);
 });
 
@@ -161,14 +156,16 @@ test('a shop that signed itself up sends its first page to Quite Sensational ins
   await page.setViewportSize({width:1280,height:900});
   await login(page,{username:'tu-dang-ky',password:'a-long-test-password'},made.slug);
   await tab(page,'library',made.slug);await page.getByRole('button',{name:'Template',exact:true}).click();
-  // Creating the page and opening the editor: a few seconds on a CI runner, which ran this suite three times slower than a Mac.
-  await page.getByRole('button',{name:'Dùng mẫu Basic 1'}).click();await expect(page).toHaveURL(new RegExp(`/app/${made.slug}/sua/`),{timeout:20_000});
-  const code=new URL(page.url()).pathname.split('/').pop()!;
-  await expect(page.getByRole('note')).toContainText('Lần phát hành đầu cần duyệt');
-  await page.getByRole('button',{name:'Gửi duyệt',exact:true}).click();
-  await expect(page.getByRole('note')).toContainText('Đang chờ duyệt');
-  expect((await db.query("SELECT r.state,p.slug,p.state page_state FROM publish_reviews r JOIN pages p ON p.id=r.page_id")).rows).toEqual([{state:'pending',slug:code,page_state:'draft'}]);
-  expect(await (await page.request.get(`/${code}`)).text()).not.toContain('data-google');
+  await page.getByRole('button',{name:'Xem mẫu Basic 1'}).click();
+  const sheet=page.getByRole('dialog',{name:'Mẫu Basic 1'});
+  // Creating the page and sending it: a few seconds on a CI runner, which ran this suite three times slower than a Mac.
+  await sheet.getByRole('button',{name:/Phát hành luôn/}).click();
+  await expect(sheet.locator('[data-done="review"]')).toBeVisible({timeout:20_000});
+  const rows=(await db.query("SELECT r.state,p.slug,p.state page_state FROM publish_reviews r JOIN pages p ON p.id=r.page_id")).rows;
+  expect(rows).toEqual([{state:'pending',slug:expect.any(String),page_state:'draft'}]);
+  expect(await (await page.request.get(`/${rows[0].slug}`)).text()).not.toContain('data-google');
+  await tab(page,'my-card',made.slug);
+  await expect(page.locator(`[data-my-card="${rows[0].slug}"] [data-page-state]`)).toHaveText('Chờ duyệt lần đầu');
  }finally{await db.end();}
 });
 
@@ -343,22 +340,6 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
  expect(errors).toEqual([]);
 });
 
-test('a shop picture: uploaded in the editor into the store, waits for review, and the page cannot publish with it until approved',async({page,f})=>{
- await page.setViewportSize({width:1280,height:900});
- await login(page,f.users[0]);await page.goto('/app/one/sua/one');await expect(page.getByLabel('Tên trang')).toBeVisible();
- await page.locator('aside').getByRole('button',{name:'Khúc',exact:true}).first().click();
- await page.locator('[data-upload] input[type=file]').first().setInputFiles('public/media/stem-background.jpg');
- await expect(page.locator('[data-review="pending"]')).toBeVisible({timeout:20_000});
- const row=(await f.db.query("SELECT url,state,content_type FROM media_assets WHERE state='pending'")).rows[0];
- expect(['image/webp','image/jpeg']).toContain(row.content_type);
- // In the store, readable the way guests read pictures once approved; and on the section, in the draft.
- expect((await page.request.get(row.url)).status()).toBe(200);
- await expect(page.locator(`img[src="${row.url}"]`).first()).toBeAttached();
- await expect(page.getByRole('status').first()).toHaveText(/^Đã lưu/,{timeout:10_000});
- await page.getByRole('button',{name:'Phát hành',exact:true}).click();
- await expect(page.getByText('Có ảnh đang chờ duyệt. Phát hành được ngay khi ảnh được duyệt.')).toBeVisible();
-});
-
 test('Cài đặt → Thanh toán shows the two plans, monthly and yearly, while everything is free in the trial',async({page,f})=>{
  await login(page,f.users[0]);await page.goto('/app/one/cai-dat?view=billing');
  await expect(page.getByText('Đang trong giai đoạn trải nghiệm — mọi thứ miễn phí')).toBeVisible();
@@ -367,7 +348,7 @@ test('Cài đặt → Thanh toán shows the two plans, monthly and yearly, while
  await expect(page.getByText('1.000.000đ',{exact:false})).toBeVisible();await expect(page.getByText('1.200.000đ',{exact:false})).toBeVisible();
 });
 
-test('H1: the giao diện chính works under its policy -- every tab, the page pictures, the editor -- and nothing is refused',async({page,f})=>{
+test('H1: the giao diện chính works under its policy -- every tab, the page pictures, a page sheet -- and nothing is refused',async({page,f})=>{
  const refused:string[]=[];page.on('console',m=>{if(/Content.Security.Policy|Refused to/i.test(m.text()))refused.push(m.text());});
  await login(page,f.users[0]);
  const policy=(await page.request.get('/app/one')).headers()['content-security-policy']??'';
@@ -375,7 +356,9 @@ test('H1: the giao diện chính works under its policy -- every tab, the page p
  for(const key of TAB_KEYS)await tab(page,key);
  // The Library frames each page's picture and each template's: framed by this app, so allowed.
  await tab(page,'library');await expect(page.frameLocator('iframe').first().locator('main.cv')).toBeVisible();
- await page.goto('/app/one/sua/one');await expect(page.getByLabel('Tên trang')).toBeVisible();
+ // A page's sheet frames the page as guests see it. (next dev may reload the tab while it compiles a route: click again.)
+ await expect(async()=>{await page.locator('[data-page] button').first().click();await expect(page.getByRole('dialog')).toBeVisible({timeout:2000});}).toPass({timeout:20_000});
+ await expect(page.getByRole('dialog').frameLocator('iframe').locator('main.cv')).toBeVisible();
  expect(refused).toEqual([]);
 });
 

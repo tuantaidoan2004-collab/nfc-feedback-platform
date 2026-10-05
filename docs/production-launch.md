@@ -60,35 +60,64 @@ chưa bật (`NFC_GOOGLE_BUSINESS_ENABLED` để trống) thì bước Google c�
 
 ## Đánh giá Google từ tool Google Maps (05/10)
 
-Tool theo dõi đánh giá của Tài (`~/MAps`) chạy trên máy Tài; production không gọi vào máy đó được, nên **tool gửi lên**: sau mỗi
-lượt quét, webhook `run.completed` mang cả danh sách đánh giá còn trên Google, ký `X-Signature: sha256=HMAC-SHA256(body, api_key)`.
-Đích: **`POST https://quitesensational-review-bio.com/api/google-maps`** (`lib/google/business.ts` `receiveMaps`): sai chữ ký 401,
-bản cũ hơn bản quán đang có thì bỏ qua (chống gửi lại), quán đã nối API Google thật thì bỏ qua, `test` là nút "Gửi thử" của tool.
-Không có biến `NFC_MAPS_KEY` thì địa chỉ trả 404.
+**Mỗi quán tự dán link Google Maps của mình** ở tab Data (hoặc bước Google của onboarding); ô kiểm link ngay khi dán, lấy
+đúng link ra khỏi chữ chia sẻ ("Tên quán\nhttps://maps.app.goo.gl/…"). Tool theo dõi đánh giá của Tài (`~/MAps`) chạy trên
+máy Tài; production không gọi vào máy đó được, nên **tool là bên hỏi** (`lib/google/business.ts`):
 
-Biến Vercel (Production): `NFC_MAPS_KEY` = `api_key` trong `~/MAps/config.json` (Sensitive), `NFC_MAPS_SHOP` = slug của quán mà
-tool theo dõi. **Không** đặt `NFC_MAPS_URL` (chỉ máy local mới hỏi được tool). Lược đồ: `mode` của `google_business_connections`
-từ `google|simulated` thành `google|maps`; production dựng từ lược đồ 05/10 (`312c757a73cace9e`) cần lệnh dưới (đã chạy thử trên
-database dựng từ lược đồ cũ: ràng buộc trùng bản dựng mới, `apply-schema.mjs` nhận `607d263bd56bc02c`). Tài chạy:
+- `GET https://quitesensational-review-bio.com/api/google-maps` mỗi 5 phút (`mapsJobs`), ký
+  `X-Timestamp` + `X-Signature: sha256=HMAC-SHA256("GET /api/google-maps <timestamp>", key)`, lệch quá 5 phút là 401. Trả các
+  quán cần đọc: link mới dán, chủ quán bấm "Cập nhật ngay", hoặc đã quá 20 giờ từ lần giao trước.
+- `POST` cùng địa chỉ (`receiveMaps`) cho từng quán, ký `HMAC-SHA256(body, key)`: cả danh sách đánh giá còn trên Google.
+  Bản cũ hơn bản quán đang có thì bỏ qua; quán đã nối API Google thật thì bỏ qua.
+
+Biến Vercel (Production): chỉ **`NFC_MAPS_KEY`** = `api_key` trong `~/MAps/config.json` (Sensitive; Tài đã thêm 05/10).
+`NFC_MAPS_SHOP` không còn dùng, xoá được. Không có `NFC_MAPS_KEY` thì địa chỉ trả 404.
+
+Lược đồ: production dựng từ lược đồ `607d263bd56bc02c` lên `6ac19fbf412a9a5d` (thêm `maps_url`, `requested_at`, `handed_at`;
+`help_requests` thành `edit_requests` của "Nhờ admin sửa") bằng lệnh dưới. Đã chạy thử 05/10 trên database dựng từ lược đồ cũ:
+`pg_dump -s` trùng bản dựng mới. Kết nối `maps` kiểu cũ (một quán qua `NFC_MAPS_SHOP`, chưa có link) bị xoá; quán dán link lại.
+Chạy **trước** khi đẩy code (code mới không chạy trên lược đồ cũ):
 
 ```bash
 cd ~/Desktop/QuiteSensational
 export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)"
 /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
-DELETE FROM google_reviews WHERE shop_id IN (SELECT shop_id FROM google_business_connections WHERE mode NOT IN ('google','maps'));
-DELETE FROM google_business_connections WHERE mode NOT IN ('google','maps');
-ALTER TABLE google_business_connections DROP CONSTRAINT google_business_connections_mode_check,
-  ADD CONSTRAINT google_business_connections_mode_check CHECK (mode = ANY (ARRAY['google'::text, 'maps'::text]));
-INSERT INTO applied_schema(hash) SELECT '607d263bd56bc02c' WHERE (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1) = '312c757a73cace9e';
+-- Production phải đang ở lược đồ 607d263bd56bc02c (đã chạy lệnh mục trước); khác thì dừng, không đổi gì.
+DO $$ BEGIN IF (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1) IS DISTINCT FROM '607d263bd56bc02c' THEN
+  RAISE EXCEPTION 'production không ở lược đồ 607d263bd56bc02c'; END IF; END $$;
+-- Quán nối tool Google Maps theo cách cũ (một quán qua NFC_MAPS_SHOP) chưa có link: bỏ, chủ quán dán link lại ở tab Data.
+DELETE FROM google_reviews WHERE shop_id IN (SELECT shop_id FROM google_business_connections WHERE mode = 'maps');
+DELETE FROM google_business_connections WHERE mode = 'maps';
+ALTER TABLE google_business_connections ADD COLUMN maps_url text, ADD COLUMN requested_at timestamp with time zone,
+  ADD COLUMN handed_at timestamp with time zone,
+  ADD CONSTRAINT google_business_connections_maps_url_check CHECK (maps_url IS NULL OR (maps_url ~ '^https://[^[:space:]]+$'::text AND char_length(maps_url) <= 2000)),
+  ADD CONSTRAINT google_business_connections_maps_mode_check CHECK ((mode = 'maps'::text) = (maps_url IS NOT NULL));
+-- "Nhờ admin tạo giúp" (help_requests) thành "Nhờ admin sửa" một trang (edit_requests); yêu cầu cũ không gắn trang nào.
+DROP TABLE help_requests;
+CREATE TABLE edit_requests (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    page_id uuid NOT NULL,
+    requested_by uuid NOT NULL REFERENCES owner_identities_v2(id),
+    message text CHECK (message IS NULL OR (char_length(message) <= 2000 AND message !~ '[<>]'::text)),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    handled_at timestamp with time zone,
+    handled_by text CHECK (handled_by IS NULL OR handled_by ~ '^(admin:[0-9a-f-]{36}|agent)$'::text),
+    FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id) ON DELETE CASCADE,
+    CHECK ((handled_at IS NULL) = (handled_by IS NULL))
+);
+CREATE UNIQUE INDEX edit_requests_one_open ON edit_requests (page_id) WHERE handled_at IS NULL;
+INSERT INTO applied_schema(hash) VALUES ('6ac19fbf412a9a5d');
 COMMIT;
 SQL
 unset DATABASE_URL
 ```
 
-Phía tool: `tracker.py` sửa 05/10 để webhook mang `reviews` và `place_name` (bản cũ: `backend/app/tracker.backup-20261005-1730.py`);
-khởi động lại tool để nạp. Trang **Tích hợp** của tool: Webhook URL = địa chỉ trên → Lưu → "Gửi thử" phải báo OK → "Quét ngay".
-Máy Tài tắt hay phiên Google của tool hết hạn thì production giữ bản cuối, ghi giờ Google Maps đọc lần cuối; lượt quét lỗi
+Phía tool: `backend/app/qs_sync.py` (05/10) hỏi và gửi; `qs.json` = `{"qs_url": "https://quitesensational-review-bio.com",
+"enabled": true}`; hẹn giờ 5 phút trong `scheduler.py` khi có `qs.json`; chạy tay `python review_tracker.py qs-sync [--qs URL]`.
+Bản gốc các tệp đã sửa ở `~/MAps/backup-code-20261005/`. Sau khi sửa tool phải khởi động lại `review_tracker.py serve`.
+Máy Tài tắt hay phiên Google của tool hết hạn thì production giữ bản cuối, ghi giờ Google Maps đọc lần cuối; lượt đọc lỗi
 hiện `MAPS_RUN_FAILED` trên kết nối.
 
 ## Đăng nhập bằng Google (D4c, 28/09)
