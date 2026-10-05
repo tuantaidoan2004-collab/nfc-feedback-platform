@@ -16,7 +16,7 @@ const check = async (label, run) => { await run(); console.log(`ok  ${label}`); 
 
 await check('front page, terms and the Google guide render', async () => {
   const home = await fetch(`${origin}/`);
-  assert.equal(home.status, 200); assert.match(await home.text(), /Khách chạm thẻ trên bàn/);
+  assert.equal(home.status, 200); assert.match(await home.text(), /Bắt đầu miễn phí/);
   for (const path of ['/dieu-khoan', '/quyen-rieng-tu', '/huong-dan-google']) assert.equal((await fetch(`${origin}${path}`)).status, 200, path);
 });
 await check('a guest write without the published page\'s proof is refused', async () => {
@@ -27,7 +27,7 @@ await check('a guest write without the published page\'s proof is refused', asyn
 });
 await check('the app reaches its database (a wrong sign-in is refused as wrong, not as unavailable)', async () => {
   const reply = await fetch(`${origin}/api/owner/v2/login`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'nobody-here', password: 'not-a-real-password', next: '/ZZZ/none' }) });
+    body: JSON.stringify({ username: 'nobody-here', password: 'not-a-real-password', next: '/app/none' }) });
   assert.equal(reply.status, 401, `expected 401, got ${reply.status} ${await reply.text()}`);
 });
 await check('an upload signed like the app signs it lands in the store, and guests can read it', async () => {

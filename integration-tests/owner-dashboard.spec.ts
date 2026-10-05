@@ -110,7 +110,7 @@ test('Library → a template → the editor: edits save as a draft, Xem trước
  await expect(page.locator('[data-template]')).toHaveCount(10);
  await page.getByLabel('Tìm template').fill('party');await expect(page.locator('[data-template]')).toHaveCount(1);
  await page.getByRole('button',{name:'Dùng mẫu Interactive card · Party'}).click();
- await expect(page).toHaveURL(/\/app\/one\/sua\/[2-9a-hjkmnp-z]{5}$/);
+ await expect(page).toHaveURL(/\/app\/one\/sua\/[2-9a-hjkmnp-z]{5}$/,{timeout:20_000});
  const code=new URL(page.url()).pathname.split('/').pop()!;
  await expect(page.getByLabel('Tên trang')).toHaveValue('Shop one');
  // A draft page has no guest page yet.
@@ -161,7 +161,8 @@ test('a shop that signed itself up sends its first page to Quite Sensational ins
   await page.setViewportSize({width:1280,height:900});
   await login(page,{username:'tu-dang-ky',password:'a-long-test-password'},made.slug);
   await tab(page,'library',made.slug);await page.getByRole('button',{name:'Template',exact:true}).click();
-  await page.getByRole('button',{name:'Dùng mẫu Basic 1'}).click();await expect(page).toHaveURL(new RegExp(`/app/${made.slug}/sua/`));
+  // Creating the page and opening the editor: a few seconds on a CI runner, which ran this suite three times slower than a Mac.
+  await page.getByRole('button',{name:'Dùng mẫu Basic 1'}).click();await expect(page).toHaveURL(new RegExp(`/app/${made.slug}/sua/`),{timeout:20_000});
   const code=new URL(page.url()).pathname.split('/').pop()!;
   await expect(page.getByRole('note')).toContainText('Lần phát hành đầu cần duyệt');
   await page.getByRole('button',{name:'Gửi duyệt',exact:true}).click();
