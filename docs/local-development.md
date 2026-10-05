@@ -26,6 +26,11 @@ chạy cùng lệnh trên, kiểm chữ ký y như R2. Ảnh chờ duyệt ở `
 hiệu lực tới lúc đó — rà bảo mật C3b-1). Với `--lan` không có kho ảnh: điện thoại không tới được 127.0.0.1. Harness owner/admin
 dùng cùng kho trên cổng 3328.
 
+**Đánh giá Google thật (05/10):** nếu máy có tool theo dõi đánh giá Google Maps của Tài (`~/MAps`, chạy bằng `./start.sh` ở
+`http://127.0.0.1:8000`), `local.mjs` đọc khoá `api_key` trong `~/MAps/config.json` (chỉ đọc) và đưa cho máy chủ app; seed tạo
+quán `quan-google-maps` (tên lấy từ tool, cùng tài khoản chủ quán) và kéo đánh giá về. Tool không chạy thì quán đó được tạo ở lần
+khởi động sau; không có `~/MAps` thì app chạy như cũ, quán khác hiện "Đang chờ Google cấp quyền API". Thư mục khác: `NFC_MAPS_DIR`.
+
 Chưa có: tải ảnh lên (cần kho S3 — `docs/tu-chay.md` có SeaweedFS), đăng nhập Google.
 
 **Bảy bộ test** vẫn là cách biết mọi thứ còn đúng, chạy trước khi đẩy `main`: lệnh ở `docs/operations-gotchas.md`.

@@ -52,6 +52,11 @@ Mỗi mục là **triệu chứng → nguyên nhân → cách xử**. Tất cả
 
 ## Test
 
+**Test "the refresh token is sealed" đỏ ngẫu nhiên khoảng 1 lần trong 256 (đợt ① tới 05/10).** Nó "sửa" bản niêm phong bằng cách
+ghi `AA` đè hai ký tự base64url cuối; khi hai ký tự đó vốn đã giải ra đúng byte ấy thì chẳng có gì bị đổi, `openToken` không ném
+lỗi. Chạy lặp đo được 3/600. Ký tự cuối của base64url có thể chỉ mang bit đệm: muốn chắc đổi một byte thì đổi ký tự **đầu**. Lỗi
+của Claude, sửa 05/10 (1000/1000 lần xanh).
+
 **Đăng nhập báo `LOGIN_FAILED` như thể sai mật khẩu.** `login()` giữ `pg_try_advisory_xact_lock` **phạm vi toàn database**, còn test cô lập bằng **schema**. Hai case đăng nhập cùng lúc — trong một file hay hai file — thì một cái mất lock. **`playwright.repository.config.ts` phải `workers: 1`.** Muốn song song lại thì phải cấp **database riêng cho mỗi file**, không phải schema riêng.
 
 **Mười mấy test repository và admin đỏ với lỗi CHECK trên chữ tiếng Việt** (`reason_check`, `feedback_message_check`). Cluster test tạo bằng `initdb` trong shell không có locale thì ra **`SQL_ASCII`**: `char_length` đếm byte và `[[:cntrl:]]` khớp byte của chữ có dấu. Luôn `initdb … -E UTF8 --locale=en_US.UTF-8`, rồi kiểm `SHOW server_encoding` ra `UTF8`. Lỗi của agent ở lát F1.

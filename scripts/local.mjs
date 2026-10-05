@@ -7,8 +7,9 @@
 //   node scripts/local.mjs --reset  the database from scratch even if the schema did not change
 //   node scripts/local.mjs --no-app the database only
 //   node scripts/local.mjs --lan    reachable from a phone on the same Wi-Fi (prints the address)
-// Nothing here reads the project's .env files. The only private file read is rieng/google.env (Google sign-in keys Tài
-// writes himself — rieng/google-api.md), and only the names listed in GOOGLE_NAMES.
+// Nothing here reads the project's .env files. The only private files read are rieng/google.env (Google sign-in keys Tài
+// writes himself — rieng/google-api.md), only the names listed in GOOGLE_NAMES, and the `api_key` of the Google Maps
+// review tool in its own ~/MAps/config.json (read, never written; see mapsTool).
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir, networkInterfaces } from 'node:os';
@@ -35,6 +36,15 @@ function privateGoogle() {
   const pairs = readFileSync('rieng/google.env', 'utf8').split('\n').map(line => line.match(/^([A-Z_]+)=(.*)$/)).filter(Boolean);
   return Object.fromEntries(pairs.filter(([, name]) => GOOGLE_NAMES.includes(name)).map(([, name, value]) => [name, value.trim()]));
 }
+// The Google Maps review tool on this machine (Tài 05/10: its real reviews replace the sample ones). The app's server asks it
+// at 127.0.0.1:8000 with its key; the seed makes the shop it follows (MAPS_SHOP). Without ~/MAps the app runs as before.
+const MAPS_SHOP = 'quan-google-maps';
+function mapsTool() {
+  const file = join(process.env.NFC_MAPS_DIR ?? join(homedir(), 'MAps'), 'config.json');
+  if (!existsSync(file)) return {};
+  let key; try { key = JSON.parse(readFileSync(file, 'utf8')).api_key; } catch { return {}; }
+  return typeof key === 'string' && key ? { NFC_MAPS_URL: process.env.NFC_MAPS_URL || 'http://127.0.0.1:8000', NFC_MAPS_KEY: key, NFC_MAPS_SHOP: MAPS_SHOP } : {};
+}
 const env = { ...process.env, NFC_ENV: 'local', SERVER_DATA_ENABLED: 'true', DATABASE_URL: url, APP_ORIGIN: origin,
   NFC_VISITS_V2_ENABLED: 'true', NFC_OWNER_V2_ENABLED: 'true', NFC_ADMIN_ENABLED: 'true', NFC_PUBLISHING_ENABLED: 'true',
   NFC_RENDER_SIGNING_KEY: key('render'), NFC_TOTP_KEY: key('totp'), NFC_GOOGLE_TOKEN_KEY: key('google-token'), NEXT_TELEMETRY_DISABLED: '1',
@@ -42,7 +52,7 @@ const env = { ...process.env, NFC_ENV: 'local', SERVER_DATA_ENABLED: 'true', DAT
   // 10/09 holds a remote DATABASE_URL and media origin) out of the local app. Empty reads as unset everywhere.
   DATABASE_URL_DIRECT: '', DATABASE_URL_UNPOOLED: '', MEDIA_PUBLIC_ORIGIN: '', STORAGE_ENDPOINT: '',
   R2_ACCOUNT_ID: '', R2_ACCESS_KEY_ID: '', R2_SECRET_ACCESS_KEY: '', R2_BUCKET: '',
-  NFC_GOOGLE_CLIENT_ID: '', NFC_GOOGLE_CLIENT_SECRET: '', ...privateGoogle() };
+  NFC_GOOGLE_CLIENT_ID: '', NFC_GOOGLE_CLIENT_SECRET: '', ...privateGoogle(), NFC_MAPS_KEY: '', NFC_MAPS_SHOP: '', ...mapsTool() };
 // Pictures shops upload go to a small store on this machine (scripts/local/store.ts), as they go to R2 in production. Not with
 // --lan: a phone cannot reach 127.0.0.1, and the app accepts a plain-http store only on this machine.
 const store = { port: 3322, dir: join(homedir(), '.nfc-local', 'media') };
@@ -108,7 +118,7 @@ console.log(`
   Trang khách     ${origin}/${LOCAL.slug}
   Giao diện chính ${origin}/app            ${LOCAL.owner} / ${LOCAL.ownerPassword}
   Quản trị /gov   ${origin}/gov            ${LOCAL.admin} / ${LOCAL.adminPassword} · mã 6 số: node scripts/local.mjs code
-`);
+${env.NFC_MAPS_SHOP ? `  Quán Google Maps ${origin}/app/${MAPS_SHOP}/data   (cùng tài khoản chủ quán; đánh giá thật từ tool ở ${env.NFC_MAPS_URL})\n` : ''}`);
 if (process.argv.includes('--no-app')) process.exit(0);
 const helpers = lan ? [] : [spawn(process.execPath, ['--experimental-transform-types', '--no-warnings', '--import', './scripts/local/hooks.mjs', 'scripts/local/store.ts'], { stdio: 'inherit', env })];
 const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', lan ? '0.0.0.0' : '127.0.0.1', '--port', '3321'], { stdio: 'inherit', env });

@@ -2,17 +2,19 @@
 /**
  * Tab Data (kịch bản mục 7): nơi thành viên tương tác thật với khách. Góp ý riêng và đánh giá Google trong một hộp thư,
  * mới nhất trên cùng; không có ô "lượt truy cập" hay số rườm rà. Bấm một dòng để xử lý: góp ý riêng có trạng thái và ghi
- * chú; đánh giá Google trả lời được khi Google đã cấp quyền API.
+ * chú; đánh giá Google trả lời được khi Google đã cấp quyền API. Trước đó đánh giá Google của quán đến từ tool Google Maps
+ * trên máy Tài (nguồn `maps`): ngày đăng là ước đoán, trả lời trên Google Maps.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TabProps } from './index';
 import styles from './tabs.module.css';
-import { useGoogleBusiness } from './google-business';
+import { dayOf, ESTIMATE, useGoogleBusiness } from './google-business';
 import Icon from '../icons';
 
 type Experience = { session_id: string; first_rated_at: string; updated_at: string; rating: number | null; experience_revision: string;
   message: string | null; phone: string | null; status: string | null; note: string; case_revision: number; source_label: string; topic: string | null };
-type Item = { key: string; kind: 'private' | 'google'; at: string; name: string; photo: string | null; stars: number | null; text: string | null;
+/** `estimated`: the day is the Google Maps tool's guess, so it is shown without a time. */
+type Item = { key: string; kind: 'private' | 'google'; at: string; estimated: boolean; name: string; photo: string | null; stars: number | null; text: string | null;
   status: string; raw: Experience | null; reply: string | null };
 const RANGES = { 7: '7 ngày', 30: '30 ngày', 90: '90 ngày' } as const;
 const STATUS: Record<string, string> = { new: 'Mới', progress: 'Đang xử lý', resolved: 'Đã xong' };
@@ -39,10 +41,11 @@ export default function DataTab({ slug, role }: TabProps) {
   }, [slug, range]);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   const items = useMemo<Item[]>(() => {
-    const privateItems: Item[] = (rows ?? []).filter(r => r.message || r.rating).map(r => ({ key: `p:${r.session_id}`, kind: 'private', at: r.updated_at,
+    const privateItems: Item[] = (rows ?? []).filter(r => r.message || r.rating).map(r => ({ key: `p:${r.session_id}`, kind: 'private', at: r.updated_at, estimated: false,
       name: 'Khách của quán', photo: null, stars: r.rating, text: r.message, status: r.status ?? 'rated', raw: r, reply: null }));
+    const estimated = google.data?.connection?.mode === 'maps';
     const googleItems: Item[] = (google.data?.reviews ?? []).filter(r => Date.parse(r.createdAt) >= since).map(r => ({ key: `g:${r.reviewId}`, kind: 'google',
-      at: r.createdAt, name: r.reviewerName ?? 'Người dùng Google', photo: r.reviewerPhoto, stars: r.stars, text: r.comment, status: r.reply ? 'replied' : 'unreplied', raw: null, reply: r.reply }));
+      at: r.createdAt, estimated, name: r.reviewerName ?? 'Người dùng Google', photo: r.reviewerPhoto, stars: r.stars, text: r.comment, status: r.reply ? 'replied' : 'unreplied', raw: null, reply: r.reply }));
     return [...privateItems, ...googleItems].filter(item => filter === 'all' || item.kind === filter).sort((a, b) => b.at.localeCompare(a.at));
   }, [rows, google.data, since, filter]);
   const connection = google.data?.connection;
@@ -58,17 +61,20 @@ export default function DataTab({ slug, role }: TabProps) {
     </div>
     {!connection && google.data && <section className={styles.banner}>
       <div className={styles.row}><div><h2 style={{ fontSize: 17 }}>Đánh giá Google của quán sẽ hiện ở đây</h2>
-        <p className="qs-muted qs-small">Kết nối Google Business một lần, hệ thống tự kéo đánh giá 1–5 sao về và bạn trả lời ngay tại đây.</p></div>
-        {google.data.simulation ? <button type="button" className="qs-btn small" disabled={google.busy} onClick={() => void google.act('simulate')}>
-          <Icon name="google" size={18} /> Kết nối (dữ liệu thử)</button>
+        <p className="qs-muted qs-small">{google.data.maps ? 'Kết nối một lần, đánh giá 1–5 sao trên Google Maps của quán tự về đây mỗi ngày.'
+          : 'Kết nối Google Business một lần, hệ thống tự kéo đánh giá 1–5 sao về và bạn trả lời ngay tại đây.'}</p></div>
+        {google.data.maps ? <button type="button" className="qs-btn small" disabled={google.busy} onClick={() => void google.act('maps')}>
+          <Icon name="google" size={18} /> {google.busy ? 'Đang kết nối…' : 'Kết nối'}</button>
           : <span className="qs-pill">Đang chờ Google cấp quyền API</span>}
       </div>
     </section>}
     {connection && <div className={styles.row}>
-      <p className="qs-small qs-muted"><Icon name="google" size={16} /> {connection.locationTitle ?? 'Google Business'} · {connection.averageRating?.toFixed(1).replace('.', ',')}★ · {connection.totalReviews} đánh giá
-        {connection.mode === 'simulated' && <> · <span className="qs-pill">dữ liệu thử</span></>}
-        {connection.lastSyncedAt && <> · đồng bộ {when(connection.lastSyncedAt)}</>}</p>
-      <button type="button" className="qs-btn ghost small" disabled={google.busy} onClick={() => void google.act('sync')}>{google.busy ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}</button>
+      <p className="qs-small qs-muted"><Icon name="google" size={16} /> {connection.locationTitle ?? 'Google Business'}
+        {connection.averageRating !== null && <> · {connection.averageRating.toFixed(1).replace('.', ',')}★</>}
+        {connection.totalReviews !== null && <> · {connection.totalReviews} đánh giá <span className="qs-pill">{ESTIMATE}</span></>}
+        {connection.lastSyncedAt && <> · {connection.mode === 'maps' ? 'Google Maps' : 'đồng bộ'} {when(connection.lastSyncedAt)}</>}</p>
+      {(connection.mode === 'google' || google.data?.maps) && <button type="button" className="qs-btn ghost small" disabled={google.busy} onClick={() => void google.act('sync')}>
+        {google.busy ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}</button>}
     </div>}
     {(error || google.error) && <p className="qs-error">{error || google.error}</p>}
     {rows === null ? <p className="qs-muted">Đang tải…</p> : items.length === 0 ? <div className={`${styles.card} ${styles.empty}`}>
@@ -83,7 +89,7 @@ export default function DataTab({ slug, role }: TabProps) {
             </div>
             <Stars value={item.stars} />
             {item.text && <p className={styles.message}>{item.text}</p>}
-            <p className={styles.meta}>{when(item.at)}{item.raw?.source_label ? ` · ${item.raw.source_label}` : ''}</p>
+            <p className={styles.meta}>{item.estimated ? `${dayOf(item.at)} (${ESTIMATE})` : when(item.at)}{item.raw?.source_label ? ` · ${item.raw.source_label}` : ''}</p>
           </div>
         </button>
         <span className={styles.status} data-status={item.status}>{item.kind === 'google' ? (item.reply ? 'Đã trả lời' : 'Chưa trả lời') : STATUS[item.status] ?? 'Chỉ chấm sao'}</span>
@@ -91,7 +97,7 @@ export default function DataTab({ slug, role }: TabProps) {
         {open === item.key && (item.kind === 'private' && item.raw?.message ? (role === 'support'
           ? <p className={`qs-small qs-muted ${styles.detail}`} data-read-only>Quản trị chỉ đọc góp ý, không đổi trạng thái hay ghi chú.</p>
           : <CaseEditor slug={slug} row={item.raw} onSaved={load} />)
-          : item.kind === 'google' ? <GoogleReply reply={item.reply} simulated={connection?.mode === 'simulated'} /> : null)}
+          : item.kind === 'google' ? <GoogleReply reply={item.reply} fromMaps={connection?.mode === 'maps'} /> : null)}
       </li>)}</ul>}
   </div>;
 }
@@ -114,9 +120,9 @@ function CaseEditor({ slug, row, onSaved }: { slug: string; row: Experience; onS
   </form>;
 }
 
-function GoogleReply({ reply, simulated }: { reply: string | null; simulated: boolean }) {
+function GoogleReply({ reply, fromMaps }: { reply: string | null; fromMaps: boolean }) {
   return <div className={styles.detail}>
     {reply ? <p className="qs-small"><strong>Quán đã trả lời:</strong> {reply}</p> : <p className="qs-small qs-muted">Chưa trả lời đánh giá này.</p>}
-    <p className="qs-small qs-muted">{simulated ? 'Đây là dữ liệu thử. ' : ''}Trả lời đánh giá Google ngay tại đây sẽ mở khi Google cấp quyền API cho nền tảng. Trả lời mọi đánh giá, cả đánh giá chê, một cách lịch sự — đừng hứa quà hay nhờ khách sửa đánh giá.</p>
+    <p className="qs-small qs-muted">{fromMaps ? 'Trả lời đánh giá này trên Google Maps. ' : ''}Trả lời đánh giá Google ngay tại đây sẽ mở khi Google cấp quyền API cho nền tảng. Trả lời mọi đánh giá, cả đánh giá chê, một cách lịch sự — đừng hứa quà hay nhờ khách sửa đánh giá.</p>
   </div>;
 }

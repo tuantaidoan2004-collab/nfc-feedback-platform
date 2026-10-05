@@ -41,7 +41,7 @@ Tài yêu cầu 2026-09-20: một tệp gom mọi thứ Google cấm, để **kh
 7. **Không gợi ý nội dung** cho đánh giá Google (không câu mẫu, không từ khoá, không "hãy nhắc tên…").
 8. Nội dung marketing trên trang khách (sự kiện, trò chơi, ưu đãi — xem `ideas-curiosity.md`) **không được phụ thuộc** vào việc khách có bấm Google hay không, và **không đặt cạnh** nút Google theo kiểu gợi ý trao đổi. Kể cả popup cảm ơn trước khi sang Google và lúc khách quay lại tab cũ (27/09): chỉ lời cảm ơn, không ưu đãi, không nội dung chỉ dành cho người đã bấm.
 9. Không tự động đăng, không đăng hộ, không "giúp khách viết" đánh giá bằng AI.
-10. Không lấy chỉ số "số đánh giá Google tăng" làm mục tiêu hiển thị cho nhân viên. Số liệu Google (khi nối API) chỉ hiển thị cho chủ shop, ghi rõ là **ước đoán**.
+10. Không lấy chỉ số "số đánh giá Google tăng" làm mục tiêu hiển thị cho nhân viên. Số liệu Google (khi nối API) chỉ hiển thị cho chủ shop, ghi rõ là **ước đoán**. Cưỡng chế từ 05/10 (khi có số thật từ tool Google Maps): máy chủ trả điểm và tổng số đánh giá Google **chỉ cho vai chủ quán** (`lib/google/business.ts` `status`, `lib/owner/overview.ts`); thành viên có quyền góp ý vẫn đọc từng đánh giá ở Data. Test trong `repository-tests/onboarding.spec.ts`.
 
 ## 2b. Một sản phẩm thật đang bán đúng thứ mục 2 cấm (22/09/2026)
 

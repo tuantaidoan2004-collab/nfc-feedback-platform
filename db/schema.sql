@@ -2204,12 +2204,13 @@ ALTER TABLE ONLY visit_sessions
 
 --
 -- Đợt ① (05/10/2026): kết nối Google Business của quán và đánh giá Google đã đồng bộ (rieng/google-api.md).
--- `mode='simulated'`: chưa được Google cấp quyền API, dữ liệu là bản giả lập đúng định dạng của Google.
+-- `mode='google'`: Business Profile APIs (khi Google cấp quyền). `mode='maps'`: tool theo dõi đánh giá Google Maps chạy trên
+-- máy Tài, cho đúng một quán (NFC_MAPS_SHOP); thay bản giả lập từ 05/10 (lib/google/business.ts).
 --
 
 CREATE TABLE google_business_connections (
     shop_id uuid PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,
-    mode text NOT NULL CHECK (mode = ANY (ARRAY['google'::text, 'simulated'::text])),
+    mode text NOT NULL CHECK (mode = ANY (ARRAY['google'::text, 'maps'::text])),
     google_email text CHECK (google_email IS NULL OR char_length(google_email) <= 254),
     account_name text CHECK (account_name IS NULL OR account_name ~ '^accounts/[0-9]{1,40}$'::text),
     location_name text CHECK (location_name IS NULL OR location_name ~ '^locations/[0-9]{1,40}$'::text),

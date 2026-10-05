@@ -12,7 +12,8 @@ export type Overview = {
   pages: { published: number; cards: number; activeCards: number };
   summary: { opens: number; opensBefore: number; google: number; googleBefore: number; feedback: number; feedbackBefore: number };
   top: { slug: string; label: string; opens: number }[];
-  google: null | { rating: number | null; total: number | null; simulated: boolean };
+  /** Google's score and count, the owner's alone (google-policy.md rule 10): `figures: false` for everyone else. */
+  google: null | { rating: number | null; total: number | null; source: 'google' | 'maps'; figures: boolean; syncedAt: string | null };
   recent: null | { kind: 'google' | 'private'; name: string | null; stars: number | null; text: string | null; at: string }[];
 };
 
@@ -80,13 +81,14 @@ export async function shopOverview(pool: Pool, credential: OwnerCredential, slug
     const counts = (await db.query(`SELECT (SELECT count(*)::int FROM pages WHERE shop_id=$1 AND state IN ('active','paused')) published,
       (SELECT count(*)::int FROM tags WHERE shop_id=$1 AND state<>'disabled') cards, (SELECT count(*)::int FROM tags WHERE shop_id=$1 AND state='active') active_cards`,
       [access.shopId])).rows[0];
-    const connection = (await db.query('SELECT mode,average_rating,total_reviews FROM google_business_connections WHERE shop_id=$1', [access.shopId])).rows[0];
-    const feedback = readsFeedback(access);
+    const connection = (await db.query('SELECT mode,average_rating,total_reviews,last_synced_at FROM google_business_connections WHERE shop_id=$1', [access.shopId])).rows[0];
+    const feedback = readsFeedback(access), figures = access.role === 'owner';
     const result: Overview = {
       latest: await latestPage(db, access.shopId),
       pages: { published: counts.published, cards: counts.cards, activeCards: counts.active_cards },
       summary: await summary(db, access.shopId), top: await top(db, access.shopId),
-      google: connection ? { rating: connection.average_rating === null ? null : Number(connection.average_rating), total: connection.total_reviews, simulated: connection.mode === 'simulated' } : null,
+      google: connection ? { rating: figures && connection.average_rating !== null ? Number(connection.average_rating) : null, total: figures ? connection.total_reviews : null,
+        source: connection.mode, figures, syncedAt: connection.last_synced_at?.toISOString() ?? null } : null,
       recent: feedback ? await recent(db, access.shopId) : null,
     };
     if (access.actor.kind === 'admin') await recordAdminAction(db, access.actor.adminId, { action: 'impersonation.read', shopId: access.shopId, onBehalfOf: access.userId,

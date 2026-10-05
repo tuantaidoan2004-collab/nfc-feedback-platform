@@ -13,6 +13,7 @@ import { relativeTime } from '@/lib/relative-time';
 import Icon from '../icons';
 import TabActions from '../tab-actions';
 import { FirstCardArt, NewTemplatesArt } from './dashboard-art';
+import { ESTIMATE, momentOf } from './google-business';
 import styles from './dashboard.module.css';
 
 const number = (n: number) => n.toLocaleString('vi-VN');
@@ -121,9 +122,12 @@ export default function DashboardTab({ slug, origin }: TabProps) {
       <section className={styles.card} data-order="2" aria-labelledby="shop-title">
         <h2 id="shop-title">Số liệu của quán</h2>
         <p className={styles.label}>Đánh giá Google hiện tại</p>
-        {data.google?.rating ? <p className={styles.big}>{data.google.rating.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-          <small><b>★</b> {number(data.google.total ?? 0)} đánh giá{data.google.simulated && <em className="qs-pill">dữ liệu thử</em>}</small></p>
-          : <><p className={styles.big}>—</p><Link className={styles.inline} href={`/app/${slug}/data`}>Kết nối Google Business →</Link></>}
+        {!data.google ? <><p className={styles.big}>—</p><Link className={styles.inline} href={`/app/${slug}/data`}>Kết nối Google Business →</Link></>
+          // Google's figures are the owner's alone (google-policy.md rule 10).
+          : !data.google.figures ? <><p className={styles.big}>—</p><p className={styles.quiet}>Chỉ chủ quán xem điểm Google.</p></>
+          : <><p className={styles.big}>{data.google.rating?.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'}
+            <small><b>★</b> {number(data.google.total ?? 0)} đánh giá <em className="qs-pill">{ESTIMATE}</em></small></p>
+            {data.google.source === 'maps' && data.google.syncedAt && <p className={styles.caption}>Google Maps · {momentOf(data.google.syncedAt)}</p>}</>}
         <hr />
         <h3>Tóm tắt</h3>
         <p className={styles.caption}>28 ngày qua</p>

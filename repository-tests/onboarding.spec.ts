@@ -11,8 +11,9 @@ import {parsePlaceId,reviewLink} from '../lib/google/place-id';
 import {GoogleBusiness,openToken,sealToken} from '../lib/google/business';
 import {HelpRequests} from '../lib/admin/help';
 import {readPulse} from '../lib/owner/pulse';
+import {shopOverview} from '../lib/owner/overview';
 
-/** Đợt ① (05/10): đăng ký dùng ngay, tiến trình, Place ID dán tay, Google Business giả lập, nhờ tạo giúp, nhịp Orb. */
+/** Đợt ① (05/10): đăng ký dùng ngay, tiến trình, Place ID dán tay, Google Business (từ tool Google Maps), nhờ tạo giúp, nhịp Orb. */
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const LOCAL={NFC_ENV:'local',NFC_GOOGLE_TOKEN_KEY:'k'.repeat(40)};
@@ -80,21 +81,87 @@ test('a Place ID is found in what people actually paste: the bare ID, the finder
   expect(parsePlaceId(pasted),pasted).toBeNull();
 });
 
-test('Google Business, sample mode: owner connects, reviews arrive in Google\'s shape, members with feedback read them, disconnect clears',async({f})=>{
- const made=await make(f),t=made.session.token,business=new GoogleBusiness(f.db,LOCAL);
- expect((await business.status(t,made.slug)).connection).toBeNull();
- const connected=await business.connectSimulated(t,made.slug);
- expect(connected).toMatchObject({connected:true,mode:'simulated'});
+/** A stand-in for the Google Maps tool's API (~/MAps): GET /api/overview and /api/reviews, for its key only. Invented reviews, never real ones. */
+function mapsTool(key:string){
+ const state={down:false,keys:[] as string[],items:[
+  {id:'tool-review-1',author:'An Nhiên',author_photo:'https://lh3.googleusercontent.com/a/x=w80-h80',rating:5,text:'Trà ngon, quán yên tĩnh.',owner_reply:'Cảm ơn bạn!',est_posted_at:'2026-10-05',first_seen_at:'2026-10-05T16:06:10'},
+  {id:'tool-review-2',author:'Bình',author_photo:'',rating:2,text:'',owner_reply:'',est_posted_at:'2026-09-05',first_seen_at:'2026-10-05T15:07:28'},
+  {id:'tool-review-3',author:'Chi',author_photo:'',rating:4,text:'Ổn.',owner_reply:'',est_posted_at:null,first_seen_at:'2026-08-06T10:00:00'},
+  {id:'tool-review-4',author:'Dũng',author_photo:'',rating:9,text:'Số sao không hợp lệ',owner_reply:'',est_posted_at:'2026-10-01',first_seen_at:'2026-10-01T09:00:00'},
+ ] as Record<string,unknown>[]};
+ const fetcher=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  if(state.down)throw new TypeError('fetch failed');
+  const url=new URL(String(input)),given=new Headers(init?.headers).get('X-API-Key')??'';state.keys.push(given);
+  if(given!==key)return Response.json({detail:'Thiếu hoặc sai khoá'},{status:401});
+  if(url.pathname==='/api/overview')return Response.json({place_name:'Quán Thử Trên Maps',current:{scraped_at:'2026-10-05T16:06:10',avg_rating:4.6,total_reviews:170}});
+  if(url.pathname==='/api/reviews')return Response.json({items:url.searchParams.get('page')==='1'?state.items:[],total:state.items.length});
+  return new Response('not found',{status:404});
+ }) as typeof fetch;
+ return {state,fetcher};
+}
+const toolEnv=(key:string,slug:string)=>({...LOCAL,NFC_MAPS_URL:'http://127.0.0.1:8000/',NFC_MAPS_KEY:key,NFC_MAPS_SHOP:slug});
+
+test('Google Business from the Google Maps tool: only the shop it follows connects, reviews arrive in Google\'s shape and mirror the tool',async({f})=>{
+ const made=await make(f),t=made.session.token,key=`tool-key-${'x'.repeat(24)}`,tool=mapsTool(key),env=toolEnv(key,made.slug.toUpperCase());
+ const business=new GoogleBusiness(f.db,env,tool.fetcher);
+ expect(await business.status(t,made.slug)).toMatchObject({connection:null,maps:true});
+ expect(await business.connectMaps(t,made.slug)).toEqual({connected:true,mode:'maps',synced:3});
  const status=await business.status(t,made.slug);
- expect(status.connection).toMatchObject({mode:'simulated',totalReviews:expect.any(Number)});
- expect(status.reviews.length).toBe(connected.synced);
- expect(status.reviews.every(r=>r.stars>=1&&r.stars<=5)).toBe(true);
- expect((await business.sync(t,made.slug)).synced).toBe(connected.synced);
- // Production never simulates.
- expect(await code(new GoogleBusiness(f.db,{NFC_ENV:'production'}).connectSimulated(t,made.slug))).toBe('NOT_FOUND');
+ // When Google was read is the tool's last look (Vietnam's clock, no offset in the tool), not the moment of the sync.
+ expect(status.connection).toMatchObject({mode:'maps',locationTitle:'Quán Thử Trên Maps',averageRating:4.6,totalReviews:170,lastSyncedAt:'2026-10-05T09:06:10.000Z',lastError:null});
+ // A day is the tool's estimate, kept at noon in Vietnam; without one, the day the tool first saw the review. The 9-star one is refused.
+ expect(status.reviews).toEqual([
+  {reviewId:'tool-review-1',reviewerName:'An Nhiên',reviewerPhoto:'https://lh3.googleusercontent.com/a/x=w80-h80',isAnonymous:false,stars:5,comment:'Trà ngon, quán yên tĩnh.',
+   createdAt:'2026-10-05T05:00:00.000Z',updatedAt:'2026-10-05T05:00:00.000Z',reply:'Cảm ơn bạn!',replyUpdatedAt:null},
+  {reviewId:'tool-review-2',reviewerName:'Bình',reviewerPhoto:null,isAnonymous:false,stars:2,comment:null,createdAt:'2026-09-05T05:00:00.000Z',updatedAt:'2026-09-05T05:00:00.000Z',reply:null,replyUpdatedAt:null},
+  {reviewId:'tool-review-3',reviewerName:'Chi',reviewerPhoto:null,isAnonymous:false,stars:4,comment:'Ổn.',createdAt:'2026-08-06T05:00:00.000Z',updatedAt:'2026-08-06T05:00:00.000Z',reply:null,replyUpdatedAt:null},
+ ]);
+ // The key goes to the tool in its header, and nowhere else.
+ expect(tool.state.keys.length).toBeGreaterThan(0);
+ expect(tool.state.keys.every(k=>k===key)).toBe(true);
+ // The next sync mirrors the tool: a review Google no longer shows goes, a reply written since shows.
+ tool.state.items=[tool.state.items[0],{...tool.state.items[2],owner_reply:'Cảm ơn Chi'}];
+ expect(await business.sync(t,made.slug)).toEqual({synced:2});
+ expect((await business.status(t,made.slug)).reviews.map(r=>[r.reviewId,r.reply])).toEqual([['tool-review-1','Cảm ơn bạn!'],['tool-review-3','Cảm ơn Chi']]);
+ // An empty answer never empties the shop.
+ tool.state.items=[];
+ expect(await business.sync(t,made.slug)).toEqual({synced:0});
+ expect((await business.status(t,made.slug)).reviews.length).toBe(2);
+ // The tool off, or a wrong key: the reviews stay, the error is kept on the connection.
+ tool.state.down=true;
+ expect(await code(business.sync(t,made.slug))).toBe('MAPS_UNREACHABLE');
+ tool.state.down=false;
+ expect(await code(new GoogleBusiness(f.db,{...env,NFC_MAPS_KEY:'wrong-key'},tool.fetcher).sync(t,made.slug))).toBe('MAPS_REFUSED');
+ expect(await business.status(t,made.slug)).toMatchObject({connection:{lastError:'MAPS_REFUSED'},reviews:[{reviewId:'tool-review-1'},{reviewId:'tool-review-3'}]});
+ // Another shop cannot reach the tool; without the tool set up, nobody can.
+ const other=await make(f,'nguoi-khac');
+ expect(await business.status(other.session.token,other.slug)).toMatchObject({connection:null,maps:false});
+ expect(await code(business.connectMaps(other.session.token,other.slug))).toBe('NOT_FOUND');
+ expect(await code(new GoogleBusiness(f.db,LOCAL,tool.fetcher).connectMaps(t,made.slug))).toBe('NOT_FOUND');
+ expect(await code(new GoogleBusiness(f.db,LOCAL,tool.fetcher).sync(t,made.slug))).toBe('MAPS_NOT_SET_UP');
  await business.disconnect(t,made.slug);
  expect((await business.status(t,made.slug)).connection).toBeNull();
  expect((await f.db.query('SELECT count(*)::int n FROM google_reviews')).rows[0].n).toBe(0);
+});
+
+test('Google\'s score and count are the owner\'s alone (google-policy.md rule 10); a manager who reads feedback still reads the reviews',async({f})=>{
+ const made=await make(f),key=`tool-key-${'y'.repeat(24)}`,tool=mapsTool(key),business=new GoogleBusiness(f.db,toolEnv(key,made.slug),tool.fetcher);
+ await business.connectMaps(made.session.token,made.slug);
+ const auth=new OwnerAuth(f.db),shop=(await f.db.query('SELECT id FROM shops WHERE slug=$1',[made.slug])).rows[0].id;
+ const manager=async(name:string,feedback:boolean)=>{
+  const id=await auth.bootstrap(name,`password-of-${name}`,async()=>{});
+  await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role,feedback_override)VALUES($1,$2,'manager',$3)",[id,shop,feedback]);
+  return (await auth.login(name,`password-of-${name}`)).token;
+ };
+ const reader=await manager('quan-ly-doc',true),plain=await manager('quan-ly',false);
+ expect((await business.status(made.session.token,made.slug)).connection).toMatchObject({averageRating:4.6,totalReviews:170});
+ expect(await business.status(reader,made.slug)).toMatchObject({connection:{mode:'maps',averageRating:null,totalReviews:null},canManage:false});
+ expect((await business.status(reader,made.slug)).reviews.length).toBe(3);
+ expect(await business.status(plain,made.slug)).toMatchObject({connection:{averageRating:null,totalReviews:null},reviews:[]});
+ expect((await shopOverview(f.db,made.session.token,made.slug)).google).toEqual({rating:4.6,total:170,source:'maps',figures:true,syncedAt:'2026-10-05T09:06:10.000Z'});
+ expect((await shopOverview(f.db,reader,made.slug)).google).toEqual({rating:null,total:null,source:'maps',figures:false,syncedAt:'2026-10-05T09:06:10.000Z'});
+ // Only the owner connects the tool.
+ expect(await code(business.connectMaps(reader,made.slug))).toBe('OWNER_ROLE_REQUIRED');
 });
 
 test('the refresh token is sealed: it opens only with the same key and any change is refused',async()=>{
@@ -103,7 +170,9 @@ test('the refresh token is sealed: it opens only with the same key and any chang
  expect(openToken(sealed,LOCAL)).toBe('1//refresh-token-value');
  expect(()=>openToken(sealed,{NFC_GOOGLE_TOKEN_KEY:'z'.repeat(40)})).toThrow();
  const [v,iv,body,tag]=sealed.split('.');
- expect(()=>openToken([v,iv,body.slice(0,-2)+'AA',tag].join('.'),LOCAL)).toThrow();
+ // A change for certain: the first character carries six bits of ciphertext. Writing 'AA' over the last two left the
+ // bytes as they were whenever they already decoded to it (about 1 run in 256, red at random until 05/10).
+ expect(()=>openToken([v,iv,(body[0]==='A'?'B':'A')+body.slice(1),tag].join('.'),LOCAL)).toThrow();
  expect(()=>sealToken('x',{})).toThrow('GOOGLE_TOKEN_KEY_MISSING');
 });
 

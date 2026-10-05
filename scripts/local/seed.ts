@@ -10,7 +10,7 @@ import { seal, fromBase32 } from '@/lib/admin/totp';
 import { PublishingResolver } from '@/lib/publishing/repository';
 import { VisitRatingRepository } from '@/lib/repositories/visit-ratings';
 import { publishingVisitPolicy } from '@/lib/publishing/visit-policy';
-import { GoogleBusiness } from '@/lib/google/business';
+import { fetchMaps, GoogleBusiness, mapsSettings } from '@/lib/google/business';
 import { createHash, randomUUID } from 'node:crypto';
 
 export const LOCAL = { admin: 'tai', adminPassword: 'local-admin-password', owner: 'chuquan', ownerPassword: 'local-owner-password',
@@ -33,6 +33,7 @@ try {
     console.log('Seed: shop, page, owner and three experiences created.');
   }
   await history();
+  await mapsShop();
   // The administrator goes in through scripts/bootstrap-admin.mjs (scripts/local.mjs runs it); here only the second
   // factor, with a fixed secret so `node scripts/local.mjs code` can print the current six digits.
   await db.query('UPDATE platform_admins SET totp_secret=$2,totp_enrolled_at=coalesce(totp_enrolled_at,clock_timestamp()) WHERE username=$1 AND totp_secret IS NULL',
@@ -53,8 +54,8 @@ async function experience(score: number | null, words: string | null) {
 
 /**
  * Forty days of a believable shop (05/10, for the Dashboard): a few opens a day, about four in ten tap Google, some leave
- * stars or a private line, and Google Business connected to its sample reviews. Same numbers every time (fixed seed);
- * added once, while the sample shop has fewer than twenty opens.
+ * stars or a private line. Same numbers every time (fixed seed); added once, while the sample shop has fewer than twenty
+ * opens. Its Google reviews are not invented any more (Tài 05/10): real ones come from the Google Maps tool, see mapsShop.
  */
 async function history() {
   const shop = (await db.query('SELECT id FROM shops WHERE slug=$1', [LOCAL.slug])).rows[0].id as string;
@@ -91,7 +92,27 @@ async function history() {
     await client.query("UPDATE page_releases SET created_at=clock_timestamp()-interval '41 days' WHERE shop_id=$1", [shop]);
     await client.query('COMMIT');
   } finally { client.release(); }
+  console.log('Seed: forty days of opens, Google taps and feedback added.');
+}
+
+/**
+ * The shop the Google Maps review tool on this machine follows (scripts/local.mjs sets NFC_MAPS_* when ~/MAps is there):
+ * a shop of its own, named as the tool names it, owned by the sample owner and connected to the tool's real reviews. None
+ * of it is in this repository: the name comes from the tool, the reviews stay in the local database.
+ */
+async function mapsShop() {
+  const tool = mapsSettings(process.env);
+  if (!tool) return;
+  if (!(await db.query('SELECT 1 FROM shops WHERE slug=$1', [tool.shop])).rowCount) {
+    const pulled = await fetchMaps(tool).catch(() => null);
+    if (!pulled) { console.log('Seed: Google Maps tool not answering on', tool.url, '-- its shop is made on the next start.'); return; }
+    const shop = (await db.query("INSERT INTO shops(slug,name,publishing_state)VALUES($1,$2,'active')RETURNING id", [tool.shop, pulled.title ?? 'Quán trên Google Maps'])).rows[0].id;
+    const owner = (await db.query('SELECT id FROM owner_identities_v2 WHERE username=$1', [LOCAL.owner])).rows[0].id;
+    await db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [owner, shop]);
+  }
+  if ((await db.query('SELECT 1 FROM google_business_connections c JOIN shops s ON s.id=c.shop_id WHERE s.slug=$1', [tool.shop])).rowCount) return;
   const login = await new OwnerAuth(db).login(LOCAL.owner, LOCAL.ownerPassword);
-  await new GoogleBusiness(db, process.env).connectSimulated(login.token, LOCAL.slug).catch(error => console.log('Seed: Google Business sample skipped:', error.code ?? error.message));
-  console.log('Seed: forty days of opens, Google taps, feedback and sample Google reviews added.');
+  await new GoogleBusiness(db, process.env).connectMaps(login.token, tool.shop)
+    .then(result => console.log(`Seed: ${result.synced} Google reviews from the Google Maps tool.`))
+    .catch(error => console.log('Seed: Google Maps tool skipped:', error.code ?? error.message));
 }
