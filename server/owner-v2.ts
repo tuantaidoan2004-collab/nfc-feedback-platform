@@ -10,7 +10,7 @@ export async function ownerToken(){return (await cookies()).get(ownerCookie)?.va
 // An administrator standing in for an owner carries a cookie of its own, scoped to that one shop's dashboard and
 // API paths. When both are present the impersonation wins: it is the narrower of the two, read-only and short.
 export const impersonationCookie='nfc_impersonation_v1';
-export const impersonationPaths=(slug:string)=>[`/ZZZ/${slug}`,`/api/owner/v2/${slug}`];
+export const impersonationPaths=(slug:string)=>[`/app/${slug}`,`/api/owner/v2/${slug}`];
 /**
  * Written as raw headers on purpose. `response.cookies.set` keys cookies by name, so a second call for the same
  * name on another path silently replaces the first, and only one of the two paths ever received the cookie.
@@ -53,4 +53,5 @@ export async function ownerInput(request:Request,limit=16384){
   const value=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!value||typeof value!=='object'||Array.isArray(value))throw new OwnerError(400,'INVALID_INPUT');return value as Record<string,unknown>;
  }catch(error){if(error instanceof OwnerError)throw error;throw new OwnerError(400,'INVALID_INPUT');}finally{reader.releaseLock();}
 }
-export const safeDestination=(value:unknown)=>typeof value==='string'&&/^\/ZZZ\/[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(value)?value:null;
+// Where a sign-in may send the browser next: the giao diện chính, a shop's Orb, or one of its tabs. Nothing else.
+export const safeDestination=(value:unknown)=>typeof value==='string'&&/^\/app(\/[A-Za-z0-9][A-Za-z0-9-]{0,62}(\/[a-z-]{2,20})?)?$/.test(value)?value:null;

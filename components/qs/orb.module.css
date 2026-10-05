@@ -1,0 +1,24 @@
+.stage { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+
+.canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.fallback { position: absolute; left: 50%; top: 50%; width: 160px; height: 160px; margin: -80px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, #eef2fb 45%, #c9d7f5 100%); box-shadow: 0 30px 60px rgba(20, 40, 90, .14); }
+.stage[data-mode='dock'] .fallback { left: 38px; top: 38px; width: 46px; height: 46px; margin: -23px; }
+.hub { position: absolute; left: 0; top: 0; border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  pointer-events: auto; min-height: 0; }
+.hub:focus-visible { outline: 2px solid var(--qs-blue); outline-offset: 4px; }
+.kid { position: absolute; left: 0; top: 0; width: 52px; height: 52px; border-radius: 50%; border: 0; padding: 0; background: transparent;
+  display: grid; place-items: center; cursor: pointer; opacity: 0; pointer-events: none; min-height: 0; color: #1b2233; }
+.kid:focus-visible { outline: 2px solid var(--qs-blue); outline-offset: 2px; }
+.kid[data-current='true'] .icon { color: var(--qs-blue); }
+.icon { display: grid; place-items: center; width: 24px; height: 24px; transition: transform .2s ease; }
+.kid:hover .icon { transform: scale(1.12); }
+.label { position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); white-space: nowrap; font-size: 13px; font-weight: 600;
+  padding: 4px 10px; border-radius: 999px; background: var(--qs-ink); color: var(--qs-bg); opacity: 0; pointer-events: none;
+  box-shadow: 0 6px 18px rgba(10, 12, 16, .18); }
+.label[data-side='right'] { left: calc(100% + 10px); top: 50%; transform: translateY(-50%); }
+/* Phones cannot hover: the names show as soon as the fan opens. */
+@media (hover: none) {
+  .stage[data-open='true'] .label { opacity: 1 !important; font-size: 12px; padding: 3px 8px; }
+}
+:global(.qs[data-theme='dark']) .kid { color: #0f1626; }

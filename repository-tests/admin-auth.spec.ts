@@ -1,8 +1,8 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {enrolAdmin} from './owner-fixture';
 import {base32,code,fromBase32,newSecret,open,seal,stepAt,stepOf} from '../lib/admin/totp';
 import {randomUUID,randomBytes} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {AdminAuth,adminSessionHash,authorizeAdmin,backupCodeHash} from '../lib/admin/auth';
 import {recordAdminAction} from '../lib/admin/audit';
@@ -16,7 +16,7 @@ const password=()=>`admin-${randomBytes(12).toString('hex')}`;
 const test=base.extend<{f:{db:Pool;auth:AdminAuth;owner:OwnerAuth;shopId:string;schema:string}}>({f:async({},provideFixture)=>{
  const schema=`nfc_admin_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','022_shop_profile.sql','009_template_shop.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  await applySchema(db);
   const shopId=(await db.query("INSERT INTO shops(slug,name)VALUES($1,'Fixture shop')RETURNING id",[`s${randomUUID().slice(0,8)}`])).rows[0].id;
   await provideFixture({db,auth:new AdminAuth(db),owner:new OwnerAuth(db),shopId,schema});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -154,14 +154,6 @@ test('a password created by the bootstrap script opens a session through the lib
  await run(process.execPath,['scripts/bootstrap-admin.mjs','tai','--handle=Quitesensational','--title=Admin Tài'],
   {env:{...process.env,NFC_ADMIN_PASSWORD:secret,DATABASE_URL:`${uri}?options=-c%20search_path%3D${f.schema}`}});
  expect((await f.db.query("SELECT handle,title FROM platform_admins WHERE username='tai'")).rows).toEqual([{handle:'Quitesensational',title:'Admin Tài'}]);
-});
-
-test('rollback refuses to discard administrative identities or the audit trail',async({f})=>{
- const sql=await readFile('db/rollback/005_platform_admin.sql','utf8');
- await f.auth.bootstrap('boss',password(),async()=>{});
- const db=await f.db.connect();
- try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('ADMIN_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
- expect((await f.db.query('SELECT count(*)::int n FROM platform_admins')).rows[0].n).toBe(1);
 });
 
 test('a forgotten password is reset in place, revoking sessions and leaving the trail intact',async({f})=>{

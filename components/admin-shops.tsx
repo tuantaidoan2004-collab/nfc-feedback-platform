@@ -2,9 +2,8 @@
 import { useState } from 'react';
 import styles from './admin.module.css';
 import { buttonClass } from './platform/ui';
-
-import { vnd } from '@/lib/publishing/pricing';
 import { TEMPLATE_KEYS, TEMPLATE_NAMES } from '@/lib/publishing/templates';
+import { PLACE_ID_FINDER } from '@/lib/google/place-id';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
@@ -12,7 +11,7 @@ export type ShopRow = {
   owner_user_id: string | null; owner_username: string | null; owner_email: string | null; last_seen: string | null;
   support_level: 'off' | 'view' | 'edit' | 'full';
   /** Pages, and what they would cost a month (lát P5, nothing charged yet). */
-  pages: number; monthly: number;
+  pages: number;
 };
 /** The owner's four positions, as the operator sees them (migration 012). */
 /** What each publishing state means to the operator (migration 003); the raw word stays on data-publishing-state. */
@@ -26,7 +25,7 @@ type Handover = { slug: string; name: string; tagCode: string; ownerUsername: st
 
 const failed = (status: number) =>
   status === 409 ? 'Tài khoản hoặc email này đã được dùng cho shop khác.'
-  : status === 400 ? 'Thông tin chưa hợp lệ. Kiểm tra lại tên, tài khoản, email và đường dẫn Google.'
+  : status === 400 ? 'Thông tin chưa hợp lệ. Kiểm tra lại tên, tài khoản, email và Place ID.'
   : status === 401 ? 'Phiên đã hết hạn. Hãy đăng nhập lại.'
   : 'Dịch vụ đang gián đoạn. Vui lòng thử lại.';
 
@@ -143,7 +142,7 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
           const response = await fetch('/gov/api/shops', { method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: form.get('name'), ownerUsername: form.get('ownerUsername'),
-              ownerEmail: form.get('ownerEmail'), googleUrl: form.get('googleUrl'), templateKey: form.get('templateKey') }) });
+              ownerEmail: form.get('ownerEmail'), placeId: form.get('placeId'), templateKey: form.get('templateKey') }) });
           if (!response.ok) { setError(failed(response.status)); return; }
           const { shop } = await response.json();
           setHandover({ ...shop, expiresAt: shop.setupExpiresAt });
@@ -154,7 +153,8 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
         <label>Tên shop<input name="name" required maxLength={100} placeholder="Cà Phê Ban Mai"/></label>
         <label>Tài khoản chủ shop<input name="ownerUsername" required maxLength={64} placeholder="caphe-banmai" pattern="[a-z0-9][a-z0-9_.\-]{2,63}"/></label>
         <label>Email chủ shop<input name="ownerEmail" type="email" required maxLength={254} placeholder="chu@example.com"/></label>
-        <label>Đường dẫn Google (bỏ trống nếu chưa có)<input name="googleUrl" type="url" maxLength={2048} placeholder="https://maps.app.goo.gl/..."/></label>
+        <div className={styles.fieldWithHelp}><label>Place ID (bỏ trống nếu chưa có)<input name="placeId" maxLength={2048} placeholder="ChIJ…" autoComplete="off" spellCheck={false}/></label>
+          <a href={PLACE_ID_FINDER} target="_blank" rel="noreferrer">Mở trang tìm Place ID của Google ↗</a></div>
         <label>Template<select name="templateKey" defaultValue="standard" data-template-choice>
           {TEMPLATE_KEYS.map(key => <option key={key} value={key}>{TEMPLATE_NAMES[key]}</option>)}</select></label>
         <button className={buttonClass('primary')} disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo shop'}</button>
@@ -191,17 +191,17 @@ export default function AdminShops({ initial, origin }: { initial: ShopRow[]; or
         <button type="button" className={buttonClass('secondary')} onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
       <div className={styles.wide}>
         <table className={styles.table}>
-          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang · dự kiến</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
+          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
               <td data-label="Shop" className={styles.shopCell}>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
               <td data-label="Trang khách">{origin ? <a href={`${origin}/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
-              <td data-label="Dashboard">{origin ? <a href={`${origin}/ZZZ/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
+              <td data-label="Dashboard">{origin ? <a href={`${origin}/app/${row.slug}`} target="_blank" rel="noreferrer">mở</a> : '—'}</td>
               <td data-label="Chủ shop">{row.is_template
                 ? row.owner_username ? <>{row.owner_username} <em>(tài khoản test)</em></> : <em>chưa có tài khoản, dùng để nhân bản</em>
                 : row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
               <td data-label="Thẻ">{row.active_tags}/{row.tags} hoạt động</td>
-              <td data-label="Trang · dự kiến" data-shop-monthly={row.monthly}>{row.pages} trang · {row.is_template ? '—' : `${vnd(row.monthly)}/tháng`}</td>
+              <td data-label="Trang">{row.pages} trang</td>
               <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
               <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>

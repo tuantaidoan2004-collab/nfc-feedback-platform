@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ShopProvisioning} from '../lib/admin/provisioning';
 import {AdminAuth} from '../lib/admin/auth';
@@ -17,8 +17,7 @@ if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture requi
 const test=base.extend<{f:{db:Pool;shops:ShopProvisioning;texts:TextReview;actorId:string}}>({f:async({},provide)=>{
  const schema=`nfc_text_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:3});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql','029_shop_signups.sql'])
-   await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  await applySchema(db);
   const actorId=await new AdminAuth(db).bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   await provide({db,shops:new ShopProvisioning(db),texts:new TextReview(db),actorId});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
@@ -34,7 +33,7 @@ async function save(f:{db:Pool;actorId:string},page:{shopId:string;pageId:string
 }
 
 test('new words wait, refuse to publish, keep the live page as it was, and publish once approved',async({f})=>{
- const made=await f.shops.create(f.actorId,{name:'Tiệm Mây',ownerUsername:'tiem-may',ownerEmail:'may@example.com',googleUrl:''});
+ const made=await f.shops.create(f.actorId,{name:'Tiệm Mây',ownerUsername:'tiem-may',ownerEmail:'may@example.com',placeId:''});
  const page={shopId:made.shopId,pageId:made.pageId};
  const {config}=await draftOf(f,page.pageId);
  const {admin,next}=await save(f,page,{...config,thanks:line});
@@ -52,8 +51,8 @@ test('new words wait, refuse to publish, keep the live page as it was, and publi
 });
 
 test('refused words stay refused until they change; another shop\'s approval opens nothing; the default needs none',async({f})=>{
- const one=await f.shops.create(f.actorId,{name:'Quán Một',ownerUsername:'quan-mot',ownerEmail:'mot@example.com',googleUrl:''});
- const two=await f.shops.create(f.actorId,{name:'Quán Hai',ownerUsername:'quan-hai',ownerEmail:'hai@example.com',googleUrl:''});
+ const one=await f.shops.create(f.actorId,{name:'Quán Một',ownerUsername:'quan-mot',ownerEmail:'mot@example.com',placeId:''});
+ const two=await f.shops.create(f.actorId,{name:'Quán Hai',ownerUsername:'quan-hai',ownerEmail:'hai@example.com',placeId:''});
  const pageOne={shopId:one.shopId,pageId:one.pageId},pageTwo={shopId:two.shopId,pageId:two.pageId};
  const base=(await draftOf(f,one.pageId)).config;
  const first=await save(f,pageOne,{...base,thanks:line});
@@ -81,7 +80,7 @@ test('a line approved on the template shop carries to a shop cloned from it, and
  await f.texts.decide(f.actorId,(await f.texts.pending())[0].id,{decision:'approve'});
  await t.admin.publish(tpage,t.next);
  // "Tạo shop mới" clones the template's live page, line included, and publishes it: the template's approval counts.
- const made=await f.shops.create(f.actorId,{name:'Quán Ba',ownerUsername:'quan-ba',ownerEmail:'ba@example.com',googleUrl:''});
+ const made=await f.shops.create(f.actorId,{name:'Quán Ba',ownerUsername:'quan-ba',ownerEmail:'ba@example.com',placeId:''});
  expect((await new PublishingResolver(f.db).live({slug:made.slug})).config.thanks).toEqual(line);
  const page={shopId:made.shopId,pageId:made.pageId};
  const admin=new PublishingAdmin(f.db,async()=>({actorId:`admin:${f.actorId}`}));

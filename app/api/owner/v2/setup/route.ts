@@ -13,6 +13,6 @@ export async function POST(request: Request) {
     const links = new OwnerSetupLinks(database()), userId = await links.consume(data.token, data.password, clientAddress(request));
     // The shop is sent on to its own dashboard's sign-in, not to a login page that asks it to find the address.
     const slug = await links.dashboardSlug(userId);
-    return ownerJson({ ready: true, next: slug ? safeDestination(`/ZZZ/${slug}`) : null });
+    return ownerJson({ ready: true, next: slug ? safeDestination(`/app/${slug}`) : null });
   } catch (error) { return ownerFailure(error); }
 }

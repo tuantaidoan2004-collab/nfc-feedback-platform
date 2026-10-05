@@ -33,8 +33,7 @@ export class OwnerCards {
       const cards = (await db.query(`SELECT t.id,t.public_code code,t.location_label label,t.state,p.slug page FROM tags t JOIN pages p ON p.id=t.page_id
         WHERE t.shop_id=$1 ORDER BY t.state='disabled',t.public_code`, [access.shopId])).rows as Card[];
       const active = cards.filter(card => card.state === 'active').length;
-      // No fee per card (Tài, 26/09): a card only holds a link and is sold on its own. What a shop pays is per page
-      // (lib/publishing/pricing.ts).
+      // No fee per card: a card only holds a link and is sold on its own. A shop pays for a plan (lib/billing/plans.ts).
       return { cards, active, canActivate: access.actor.kind === 'owner' && access.role === 'owner' };
     });
   }

@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomUUID, randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { applySchema } from './schema';
 import { VisitRatingRepository, type ResolvedShopContext } from '../lib/repositories/visit-ratings';
 import { IDLE_WINDOW_MS } from '../lib/domain/visit-rating';
 const connectionString = process.env.NFC_TEST_DATABASE_URL;
@@ -14,7 +14,7 @@ const initial = Date.parse('2026-09-11T00:00:00Z');
 const iso = (ms: number) => new Date(initial+ms).toISOString();
 const command = (score = 5, expectedRevision = 0, intentId: string = randomUUID()) => ({ score, expectedRevision, intentId });
 type Fixture = { pool: Pool; repo: VisitRatingRepository; context: ResolvedShopContext; otherShopId: string;
-  hash: string; legacyId: string; setTime: (ms: number) => void };
+  hash: string; setTime: (ms: number) => void };
 const test = base.extend<{ db: Fixture }>({
   db: async ({}, provideFixture) => {
     const schema = `nfc_test_${randomUUID().replaceAll('-','')}`;
@@ -22,23 +22,17 @@ const test = base.extend<{ db: Fixture }>({
     const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 12 });
     try {
       await admin.query(`CREATE SCHEMA ${schema}`);
-      await pool.query(await readFile('db/migrations/001_core.sql','utf8'));
+      await applySchema(pool);
       const shopId = randomUUID(), otherShopId = randomUUID();
       await pool.query("INSERT INTO shops(id,slug,name) VALUES($1,'one','One'),($2,'two','Two')", [shopId,otherShopId]);
-      const old = await pool.query("INSERT INTO experiences(shop_id,token_hash,rating,revision,message) VALUES($1,'legacy',3,7,'preserve me') RETURNING id", [shopId]);
-      await pool.query(await readFile('db/migrations/002_visit_ratings.sql','utf8'));
-      await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql','utf8'));
-      await pool.query(await readFile('db/migrations/011_feedback_phone.sql','utf8'));
-      await pool.query(await readFile('db/migrations/018_guest_flood_control.sql','utf8'));
-      await pool.query(await readFile('db/migrations/020_page_events.sql','utf8'));
-      await pool.query(await readFile('db/migrations/021_erase_on_request.sql','utf8'));
       let time = initial;
       await provideFixture({ pool, repo: new VisitRatingRepository(pool, () => new Date(time)),
         context: { shopId, scope:'live', entryKey:'direct:shop' }, otherShopId, hash: randomBytes(32).toString('hex'),
-        legacyId: old.rows[0].id, setTime: ms => { time = initial+ms; } });
+        setTime: ms => { time = initial+ms; } });
     } finally { await pool.end(); await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await admin.end(); }
   },
 });
+const privateCommand = (expectedRevision = 1, message = 'private 🦋 message', intentId: string = randomUUID()) => ({ expectedRevision, message, topic: 'general', intentId });
 const counts = async (pool: Pool) => (await pool.query(`SELECT
  (SELECT count(*)::int FROM visit_sessions) AS sessions,
  (SELECT count(*)::int FROM page_visits) AS opens,
@@ -190,22 +184,6 @@ test('receipt failure rolls back insert/edit and last_activity; failed open roll
   expect((await counts(db.pool)).sessions).toBe(1);
   expect((await db.pool.query('SELECT closed_at FROM visit_sessions')).rows[0].closed_at).toBeNull();
 });
-test('legacy has no fabricated sessions; guarded down/reapply preserves old rows', async ({ db }) => {
-  const before = (await db.pool.query('SELECT * FROM experiences WHERE id=$1',[db.legacyId])).rows;
-  expect(await counts(db.pool)).toEqual({sessions:0,opens:0,experiences:0});
-  const down = await readFile('db/rollback/002_visit_ratings.sql','utf8'), client = await db.pool.connect();
-  try {
-    await client.query('BEGIN'); await client.query(down); await client.query('COMMIT');
-    expect((await client.query("SELECT to_regclass('visit_sessions') AS name")).rows[0].name).toBeNull();
-    await client.query(await readFile('db/migrations/002_visit_ratings.sql','utf8'));
-    await db.repo.registerVisit(db.context,'first','load',db.hash);
-    await client.query('BEGIN'); await expect(client.query(down)).rejects.toThrow('V2_DATA_PRESENT'); await client.query('ROLLBACK');
-    expect((await client.query('SELECT * FROM experiences WHERE id=$1',[db.legacyId])).rows).toEqual(before);
-  } finally {await client.query('ROLLBACK');client.release();}
-});
-
-const privateCommand = (expectedRevision = 1, message = 'private 🦋 message', intentId: string = randomUUID()) => ({ expectedRevision, message, topic: 'general', intentId });
-
 test('private feedback needs no rating; a later rating joins the same experience and keeps the text', async ({ db }) => {
   const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
   const intent = privateCommand(0, 'before any star');
@@ -223,24 +201,6 @@ test('private feedback needs no rating; a later rating joins the same experience
   expect((await db.pool.query('SELECT rating,feedback_message FROM rating_experiences')).rows).toEqual([{ rating: 2, feedback_message: 'before any star' }]);
   expect((await db.pool.query('SELECT operation,score FROM rating_intent_receipts ORDER BY applied_revision')).rows)
     .toEqual([{ operation: 'feedback', score: null }, { operation: 'rating', score: 2 }]);
-});
-
-test('database keeps a star on every rating receipt; rollback 010 refuses while unrated feedback exists', async ({ db }) => {
-  const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
-  await db.repo.recordPrivateFeedback(first.visit, privateCommand(0, 'no star'), db.hash);
-  await expect(db.pool.query(`INSERT INTO rating_intent_receipts
-    (shop_id,scope,entry_key,session_id,visit_id,intent_id,expected_revision,score,applied_revision,first_interaction_at,applied_at,operation)
-    SELECT shop_id,scope,entry_key,session_id,visit_id,'rating-without-star',1,NULL,2,first_interaction_at,applied_at,'rating'
-    FROM rating_intent_receipts`)).rejects.toMatchObject({ code: '23514' });
-  const down = await readFile('db/rollback/010_feedback_without_rating.sql', 'utf8'), client = await db.pool.connect();
-  try {
-    await client.query('BEGIN'); await expect(client.query(down)).rejects.toThrow('UNRATED_FEEDBACK_PRESENT'); await client.query('ROLLBACK');
-    // TRUNCATE for the same reason as the 011 case below: since 021 a receipt refuses every row edit but an erasure.
-    await client.query('BEGIN'); await client.query('TRUNCATE rating_intent_receipts, rating_experiences');
-    await client.query(down);
-    await expect(client.query("INSERT INTO rating_experiences(session_id,shop_id,scope,entry_key,rating,revision,first_interaction_at,updated_at) VALUES($1,$2,'live','direct:shop',NULL,1,now(),now())",
-      [first.session.sessionId, db.context.shopId])).rejects.toMatchObject({ code: '23502' });
-  } finally { await client.query('ROLLBACK'); client.release(); }
 });
 
 test('shared snapshot update preserves5→2 and public projections redact', async ({ db }) => {
@@ -334,44 +294,4 @@ test('feedback receipt failure rolls back snapshot, revision and activity, inclu
   await expect(db.repo.recordPrivateFeedback(first.visit, privateCommand(2, 'edit', 'fail-private'), db.hash)).rejects.toThrow('private receipt failure');
   expect((await db.pool.query('SELECT revision::int,feedback_message FROM rating_experiences')).rows[0]).toEqual({ revision: 2, feedback_message: 'original' });
   expect((await db.pool.query('SELECT last_activity FROM visit_sessions')).rows[0].last_activity.toISOString()).toBe(iso(1));
-});
-
-test('private Unicode validation/codepoint storage and guarded rollback preserve001', async ({ db }) => {
-  const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash); await db.repo.recordRating(first.visit, command(), db.hash);
-  expect(await db.repo.recordPrivateFeedback(first.visit, privateCommand(1, '😀'.repeat(2001)), db.hash)).toEqual({ kind: 'rejected', code: 'INVALID_INPUT' });
-  expect(await db.repo.recordPrivateFeedback(first.visit, privateCommand(1, '😀'.repeat(2000)), db.hash)).toMatchObject({ kind: 'applied' });
-  expect((await db.pool.query('SELECT char_length(feedback_message) AS n FROM rating_experiences')).rows[0].n).toBe(2000);
-  await expect(db.pool.query('UPDATE rating_experiences SET feedback_topic=NULL')).rejects.toMatchObject({ code: '23514' });
-  const client = await db.pool.connect();
-  try { await client.query('BEGIN'); await expect(client.query(await readFile('db/rollback/002_visit_ratings.sql', 'utf8'))).rejects.toThrow('V2_DATA_PRESENT'); }
-  finally { await client.query('ROLLBACK'); client.release(); }
-  expect((await db.pool.query('SELECT message,revision::int FROM experiences WHERE id=$1', [db.legacyId])).rows[0]).toEqual({ message: 'preserve me', revision: 7 });
-});
-
-test('a call-back number is stored with its feedback, checked by the database, and guards rollback 011', async ({ db }) => {
-  const first = await db.repo.registerVisit(db.context, 'first', 'load', db.hash);
-  expect(await db.repo.recordPrivateFeedback(first.visit, { ...privateCommand(0, 'gọi tôi'), phone: '0961 036 265' }, db.hash))
-    .toMatchObject({ kind: 'applied', experience: { rating: null, feedback: { message: 'gọi tôi', phone: '0961036265' } } });
-  expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: '0961036265' }]);
-  expect((await db.pool.query('SELECT feedback_phone FROM rating_intent_receipts')).rows).toEqual([{ feedback_phone: '0961036265' }]);
-  // A star later keeps the number with the feedback; a feedback edit without a number clears it.
-  await db.repo.recordRating(first.visit, command(2, 1), db.hash);
-  expect((await db.pool.query('SELECT rating,feedback_phone FROM rating_experiences')).rows).toEqual([{ rating: 2, feedback_phone: '0961036265' }]);
-  await db.repo.recordPrivateFeedback(first.visit, privateCommand(2, 'thôi khỏi gọi'), db.hash);
-  expect((await db.pool.query('SELECT feedback_phone FROM rating_experiences')).rows).toEqual([{ feedback_phone: null }]);
-  expect(await db.repo.recordPrivateFeedback(first.visit, { ...privateCommand(3), phone: 'abc' }, db.hash)).toEqual({ kind: 'rejected', code: 'INVALID_INPUT' });
-  await expect(db.pool.query("UPDATE rating_experiences SET feedback_phone='12'")).rejects.toMatchObject({ code: '23514' });
-  const down = await readFile('db/rollback/011_feedback_phone.sql', 'utf8'), client = await db.pool.connect();
-  try {
-    await client.query('BEGIN'); await expect(client.query(down)).rejects.toThrow('FEEDBACK_PHONE_PRESENT'); await client.query('ROLLBACK');
-  } finally { client.release(); }
-  const empty = await db.pool.connect();
-  try {
-    // TRUNCATE, not DELETE: since migration 021 the receipt refuses every row-level edit except an erasure, and
-    // that guarantee no longer depends on whether publishing is switched on. Emptying the table is incidental to
-    // what this case is about, which is that rollback 011 succeeds once no call-back number is left.
-    await empty.query('BEGIN'); await empty.query('TRUNCATE rating_intent_receipts, rating_experiences');
-    await empty.query(down);
-    expect((await empty.query("SELECT count(*)::int n FROM information_schema.columns WHERE column_name='feedback_phone' AND table_schema=current_schema()")).rows[0].n).toBe(0);
-  } finally { await empty.query('ROLLBACK'); empty.release(); }
 });

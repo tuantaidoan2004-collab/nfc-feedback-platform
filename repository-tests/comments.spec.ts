@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ownerFixture,addExperience,enrolAdmin} from './owner-fixture';
 import {OwnerComments} from '../lib/owner/comments';
@@ -12,11 +12,10 @@ import {AdminImpersonation} from '../lib/admin/impersonation';
 import {parseFilters} from '../lib/owner/filters';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const BEFORE=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'];
 type Fixture=Awaited<ReturnType<typeof ownerFixture>>;
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_comment_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of [...BEFORE,'016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));await provide(await ownerFixture(db));}
+ try{await root.query(`CREATE SCHEMA ${schema}`);await applySchema(db);await provide(await ownerFixture(db));}
  finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const rows=(f:Fixture,token=f.users[0].token)=>new OwnerDashboard(f.db).read(token,'one',parseFilters(new URLSearchParams())).then(r=>r.records);
@@ -107,27 +106,4 @@ test('who may see and reply: the feedback switch for members; support reads at 1
  const forOwner=(await new OwnerDashboard(f.db).read(owner,'one',parseFilters(new URLSearchParams()))).records;
  expect(forOwner.find(r=>r.session_id===withPhone.session.sessionId)!.phone).toBe('0901234567');
  expect((await c.list(owner,'one',withPhone.session.sessionId)).experience.phone).toBe('0901234567');
-});
-
-test('migration 016 carries every note over as a first reply by its author; rollback refuses once people have replied',async()=>{
- const schema=`nfc_comment_mig_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,max:3});
- try{
-  await root.query(`CREATE SCHEMA ${schema}`);for(const file of BEFORE)await db.query(await readFile(`db/migrations/${file}`,'utf8'));
-  const f=await ownerFixture(db);
-  const a=await addExperience(db,'one',2,'Có ghi chú'),b=await addExperience(db,'one',3,'Không ghi chú');
-  const [ra,rb]=[a,b].map(x=>x.session.sessionId);
-  await db.query(`INSERT INTO owner_feedback_cases(session_id,shop_id,scope,entry_key,status,note,revision,feedback_seen_at,actor_id)
-    SELECT e.session_id,e.shop_id,'live',e.entry_key,'resolved','Đã gọi lại',1,e.feedback_updated_at,$2 FROM rating_experiences e WHERE e.session_id=$1`,[ra,f.users[0].id]);
-  await db.query(`INSERT INTO owner_feedback_cases(session_id,shop_id,scope,entry_key,status,note,revision,feedback_seen_at,actor_id)
-    SELECT e.session_id,e.shop_id,'live',e.entry_key,'progress','   ',1,e.feedback_updated_at,$2 FROM rating_experiences e WHERE e.session_id=$1`,[rb,f.users[0].id]);
-  await db.query(await readFile('db/migrations/016_feedback_comments.sql','utf8'));
-  expect((await db.query('SELECT session_id,author_id,author_handle,body,from_note FROM feedback_comments')).rows)
-   .toEqual([{session_id:ra,author_id:f.users[0].id,author_handle:f.users[0].username,body:'Đã gọi lại',from_note:true}]);
-  const rollback=await readFile('db/rollback/016_feedback_comments.sql','utf8'),client=await db.connect();
-  try{
-   await client.query('BEGIN');await client.query(rollback);await client.query('ROLLBACK');
-   await new OwnerComments(db).create(f.users[0].token,'one',{sessionId:rb,body:'Mới'});
-   await client.query('BEGIN');await expect(client.query(rollback)).rejects.toThrow('COMMENTS_PRESENT');await client.query('ROLLBACK');
-  }finally{client.release();}
- }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 });

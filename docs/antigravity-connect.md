@@ -4,7 +4,7 @@ Lát này **chỉ chuẩn bị kết nối và khảo sát**. Không sửa sourc
 
 ## 1. Đã làm
 
-- Xác nhận worktree `/Users/doantai/.codex/worktrees/1b35/Branded page through NFC card`, branch `feat/local-app-foundation`, HEAD `172af2f`.
+- Xác nhận worktree `/Users/doantai/Desktop/QuiteSensational`, branch `feat/local-app-foundation`, HEAD `172af2f`.
 - `python3 scripts/verify-handoff.py` → **MATCH**, 178 file khớp inventory. Không ai ghi đè sau mốc Astra.
 - Tạo `.agents/mcp_config.json` (workspace scope của Antigravity) với 3 remote MCP server.
 

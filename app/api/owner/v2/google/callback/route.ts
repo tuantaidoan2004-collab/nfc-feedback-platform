@@ -1,13 +1,10 @@
 import { cookies } from 'next/headers';
 import { GoogleAccounts, googleAccount, googleSettings, openTrip, TRIP_COOKIE, type GoogleTrip } from '@/lib/owner/google';
-import { OwnerError, openSession, transaction } from '@/lib/owner/auth';
-import { OwnerSetupLinks } from '@/lib/owner/setup-link';
-import { ShopSignups } from '@/lib/start/signup';
-import { DraftError } from '@/lib/start/draft';
+import { OwnerError } from '@/lib/owner/auth';
+import { AccountSignup } from '@/lib/account/signup';
 import { database } from '@/server/db';
 import { clientAddress } from '@/server/guest-limits';
 import { ownerEnabled, ownerToken } from '@/server/owner-v2';
-import { openStartDraft } from '@/server/start';
 import { hop, tripSecret } from '@/server/google';
 
 /**
@@ -37,18 +34,15 @@ export async function GET(request: Request) {
     const intent = trip.intent;
     if (intent.kind === 'login') {
       const session = await google.signIn(account.sub, previous);
-      const home = intent.next ?? ((slug: string | null) => slug ? `/ZZZ/${slug}` : '/owner/cho-duyet')(await new OwnerSetupLinks(pool).dashboardSlug(session.userId));
+      const home = intent.next ?? '/app';
       return hop(request, home, session);
     }
     if (intent.kind === 'link') { await google.link(intent.userId, account.sub); return hop(request, `${intent.next}?view=profile&google=LINKED`); }
-    // Saving a page: the draft is read from its signature again, now, and the account is Google's.
-    const draft = openStartDraft(intent.draft);
-    const saved = await new ShopSignups(pool).create({ draft, username: intent.username, zalo: intent.zalo, google: account }, clientAddress(request));
-    const session = await transaction(pool, db => openSession(db, saved.userId, previous));
-    return hop(request, '/owner/cho-duyet', session);
+    // Onboarding step 1 with Google: the account and its shop at once, then the progress screen.
+    const made = await new AccountSignup(pool).create({ username: intent.username, displayName: intent.displayName, kind: intent.business, google: account }, clientAddress(request), previous);
+    return hop(request, '/bat-dau/tien-trinh', made.session);
   } catch (error) {
     if (error instanceof OwnerError) return hop(request, where(trip, error.code));
-    if (error instanceof DraftError) return hop(request, where(trip, error.code === 'DRAFT_EXPIRED' ? 'DRAFT_EXPIRED' : 'INVALID_DRAFT'));
     console.error('GOOGLE_CALLBACK', error instanceof Error ? `${error.name}: ${error.message}` : String(error));
     return hop(request, where(trip, 'SERVICE_UNAVAILABLE'));
   }

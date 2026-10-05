@@ -9,20 +9,20 @@ Viết lại 27/09 (lát S0). Bản cũ chỉ tới trang demo và dữ liệu t
 - **PostgreSQL** cho các bộ test có database. Trên máy Tài: Postgres.app, binary ở
   `/Applications/Postgres.app/Contents/Versions/latest/bin` (không có trong `PATH`).
 
-## Ba cách chạy, tuỳ việc
+## Một lệnh (05/10)
 
-**1. Bảy bộ test** — cách chính để biết mọi thứ còn đúng. Lệnh đủ ở `docs/operations-gotchas.md` ("Có 7 bộ test").
-Bốn bộ integration dựng sẵn app, database riêng và dữ liệu thử mỗi lần chạy (`integration-tests/run-local.mjs`).
-Cluster test: cổng **55439**, `initdb … -E UTF8 --locale=en_US.UTF-8` — dựng cluster ở một đường dẫn ngắn (vd `/tmp/nfcpg`)
-vì socket Unix không chịu đường dẫn dài.
+```bash
+node scripts/local.mjs
+```
 
-**2. Xem giao diện có dữ liệu** (dashboard, `/gov`): viết một spec tạm trong `integration-tests/` dùng fixture sẵn có
-(`repository-tests/owner-fixture.ts`), chạy bằng `node integration-tests/run-local.mjs --admin <tên spec>`, chụp ảnh, rồi
-**xoá spec** — không commit. Tài khoản trong đó là tài khoản thử sinh ra cho lần chạy.
+Bật PostgreSQL riêng của máy (`~/.nfc-local/pg`, cổng **55460**, tách khỏi cluster test 55439), chạy mọi migration, gieo dữ
+liệu mẫu **một lần** (quán `quan-mau` có trang đã phát hành, chủ quán, admin, ba lượt góp ý), rồi mở app ở
+`http://127.0.0.1:3321` với mọi cờ bật. Đăng nhập in ra khi khởi động; mã 6 số của `/gov`: `node scripts/local.mjs code`.
+`--reset` làm lại database từ đầu; `--no-app` chỉ dựng database. Mật khẩu trong `scripts/local.mjs` chỉ dùng cho máy này.
 
-**3. Dev server trần** (`.claude/launch.json`, cổng 3321, `next dev --webpack`): đủ cho trang tĩnh và trang pháp lý.
-Không có database thì trang khách, dashboard và `/gov` trả 404 — đúng thiết kế: route chỉ mở khi `NFC_ENV` và cờ tính năng
-được khai (`.env.example`).
+Chưa có: tải ảnh lên (cần kho S3 — `docs/tu-chay.md` có SeaweedFS), đăng nhập Google.
+
+**Bảy bộ test** vẫn là cách biết mọi thứ còn đúng, chạy trước khi đẩy `main`: lệnh ở `docs/operations-gotchas.md`.
 
 ## Chạy như production trên một máy
 

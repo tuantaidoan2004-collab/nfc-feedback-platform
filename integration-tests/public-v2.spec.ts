@@ -2,6 +2,7 @@ import { test as base, expect, type Page } from '@playwright/test';
 import { Pool } from 'pg';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { publishedShops } from './published-shops';
+import { openEndedPost } from './open-ended-post';
 const uri = process.env.NFC_TEST_DATABASE_URL;
 const schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
@@ -345,6 +346,9 @@ test('H1: every page carries its protective headers, its scripts carry that resp
   const report = { 'csp-report': { 'effective-directive': 'script-src-elem', 'blocked-uri': 'https://evil.test/x.js?q=1', 'document-uri': 'http://127.0.0.1:3317/one?secret=1' } };
   expect((await request.post('/api/csp-report', { headers: { 'content-type': 'application/csp-report' }, data: JSON.stringify(report) })).status()).toBe(204);
   expect((await request.post('/api/csp-report', { headers: { 'content-type': 'text/plain' }, data: 'x' })).status()).toBe(415);
+  // Rà bảo mật 29/09, U1: a body past the limit is refused as it arrives. Before, the whole body was read first, so a body
+  // that never ends -- or a gigabyte -- held the request open and the memory with it.
+  expect(await openEndedPost('/api/csp-report', 'application/csp-report', 20_000)).toBe(413);
   // The health check (roadmap B3): the database answered; nothing else is said, and nothing of it is cached.
   const health = await request.get('/api/health');
   expect([health.status(), await health.json()]).toEqual([200, { status: 'ok' }]);

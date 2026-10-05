@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const data = await adminInput(request);
     // templateKey is optional so a caller from before the six templates still gets template 1.
     const fields = Object.keys(data).filter(key => key !== 'templateKey').sort().join();
-    if (fields !== 'googleUrl,name,ownerEmail,ownerUsername') throw new AdminError(400, 'INVALID_INPUT');
+    if (fields !== 'name,ownerEmail,ownerUsername,placeId') throw new AdminError(400, 'INVALID_INPUT');
     const shop = await new ShopProvisioning(database()).create(principal.adminId, data);
     // The link is shown once, in a no-store response, because only its hash is kept. Losing it means issuing
     // a replacement rather than looking the old one up.

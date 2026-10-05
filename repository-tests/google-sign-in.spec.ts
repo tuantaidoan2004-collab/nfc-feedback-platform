@@ -1,34 +1,31 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {OwnerAuth} from '../lib/owner/auth';
 import {GoogleAccounts,unlinkGoogle} from '../lib/owner/google';
-import {ShopSignups} from '../lib/start/signup';
-import {readDraftInput} from '../lib/start/draft';
-/** Lát D4c (migration 032): a Google account opens only the account it is linked to, and is linked only on purpose. */
+import {AccountSignup} from '../lib/account/signup';
+/** Lát D4c: a Google account opens only the account it is linked to, and is linked only on purpose. */
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const test=base.extend<{f:{db:Pool;auth:OwnerAuth;google:GoogleAccounts;signups:ShopSignups}}>({f:async({},provide)=>{
+const test=base.extend<{f:{db:Pool;auth:OwnerAuth;google:GoogleAccounts;signups:AccountSignup}}>({f:async({},provide)=>{
  const schema=`nfc_google_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:3});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql','029_shop_signups.sql','032_google_sign_in.sql'])
-   await db.query(await readFile(`db/migrations/${file}`,'utf8'));
-  await provide({db,auth:new OwnerAuth(db),google:new GoogleAccounts(db),signups:new ShopSignups(db)});
+  await applySchema(db);
+  await provide({db,auth:new OwnerAuth(db),google:new GoogleAccounts(db),signups:new AccountSignup(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const failure=async(run:Promise<unknown>)=>run.then(()=>'ok',(error:{code?:string})=>error.code);
-const draft=readDraftInput({name:'Quán Google',template:'standard'});
 
-test('saving with Google makes an account with Google\'s email and no password, and Google opens it',async({f})=>{
- const saved=await f.signups.create({draft,username:'quan-google',zalo:null,google:{sub:'111',email:'chu@gmail.com'}},null);
+test('signing up with Google makes an account and its shop with Google\'s email and no password, and Google opens it',async({f})=>{
+ const saved=await f.signups.create({username:'quan-google',google:{sub:'111',email:'chu@gmail.com'}},null);
  const row=(await f.db.query('SELECT email,google_sub FROM owner_identities_v2 WHERE id=$1',[saved.userId])).rows[0];
  expect(row).toEqual({email:'chu@gmail.com',google_sub:'111'});
  // No password was ever chosen: nothing typed opens it.
  await expect(f.auth.login('quan-google','any-password-at-all')).rejects.toThrow('LOGIN_FAILED');
  expect((await f.google.signIn('111')).userId).toBe(saved.userId);
  // The same Google account cannot make a second one; an unknown one opens nothing.
- expect(await failure(f.signups.create({draft,username:'quan-google-2',zalo:null,google:{sub:'111',email:'other@gmail.com'}},null))).toBe('GOOGLE_ALREADY_LINKED');
+ expect(await failure(f.signups.create({username:'quan-google-2',google:{sub:'111',email:'other@gmail.com'}},null))).toBe('GOOGLE_ALREADY_LINKED');
  expect(await failure(f.google.signIn('999'))).toBe('GOOGLE_NOT_LINKED');
  // A closed account stays closed to Google too.
  await f.db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1',[saved.userId]);
@@ -82,7 +79,7 @@ test('linking or unlinking Google needs the account\'s password, and unlinking s
  // This session stays signed in; unlinking again says there is nothing linked.
  expect(await failure(unlink(token,'a-long-owner-password'))).toBe('GOOGLE_NOT_LINKED');
  // An account made with Google has no password anyone knows, so it cannot unlink the only way in it has.
- const saved=await f.signups.create({draft,username:'chi-google',zalo:null,google:{sub:'666',email:'g@gmail.com'}},null);
+ const saved=await f.signups.create({username:'chi-google',google:{sub:'666',email:'g@gmail.com'}},null);
  const google=await f.google.signIn('666');
  expect(await failure(unlink(google.token,'any-password-at-all'))).toBe('WRONG_PASSWORD');
  expect((await f.db.query('SELECT google_sub FROM owner_identities_v2 WHERE id=$1',[saved.userId])).rows[0].google_sub).toBe('666');

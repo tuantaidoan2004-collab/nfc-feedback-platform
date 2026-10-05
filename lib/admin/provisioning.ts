@@ -2,9 +2,8 @@ import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { PublishingAdmin } from '../publishing/repository';
 import { PublishingError, validateConfig } from '../publishing/config';
-
-import { priceSheet } from '../publishing/pricing';
 import { googleUrlProblem } from '../publishing/policy';
+import { parsePlaceId, reviewLink } from '../google/place-id';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, transaction, username } from '../owner/auth';
 import { recordAdminAction } from './audit';
@@ -25,7 +24,7 @@ export type ProvisionedShop = {
   setupToken: string; setupExpiresAt: Date;
 };
 
-export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; googleUrl?: unknown; templateKey?: unknown };
+export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; placeId?: unknown; templateKey?: unknown };
 
 /** Absent means template 1, so callers from before the six templates keep working. */
 const chosenTemplate = (value: unknown): TemplateKey | null => value === undefined ? 'standard' : isTemplateKey(value) ? value : null;
@@ -34,11 +33,15 @@ const printable = (value: string) => ![...value].some(character => (character.co
 const shopName = (value: unknown) =>
   typeof value === 'string' && value.trim() && value.trim().length <= 100 && printable(value) ? value.trim() : null;
 
-const googleLink = (value: unknown) => {
-  if (value === undefined || value === null || value === '') return 'https://maps.google.com/';
-  if (typeof value !== 'string') return null;
+/**
+ * The shop's Place ID (Tài 05/10: pasted by hand, like the owner does in onboarding) and the review link built from it.
+ * Absent: the generic link every page starts with, until the shop supplies its own.
+ */
+const placeOf = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return { placeId: null, url: 'https://maps.google.com/' };
+  const placeId = parsePlaceId(value);
   // The same rule the page editor applies (policy.ts): the Google button leads to Google and nowhere else (A7).
-  try { const url = new URL(value); return googleUrlProblem(url.href) ? null : url.href; } catch { return null; }
+  return placeId && !googleUrlProblem(reviewLink(placeId)) ? { placeId, url: reviewLink(placeId) } : null;
 };
 
 export class ShopProvisioning {
@@ -155,12 +158,12 @@ export class ShopProvisioning {
    */
   async create(actorId: string, input: ProvisionInput): Promise<ProvisionedShop> {
     const name = shopName(input.name), owner = username(input.ownerUsername);
-    const email = ownerEmail(input.ownerEmail), google = googleLink(input.googleUrl), key = chosenTemplate(input.templateKey);
-    if (!name || !owner || !email || !google || !key) throw new AdminError(400, 'INVALID_INPUT');
+    const email = ownerEmail(input.ownerEmail), place = placeOf(input.placeId), key = chosenTemplate(input.templateKey);
+    if (!name || !owner || !email || !place || !key) throw new AdminError(400, 'INVALID_INPUT');
     if ((await this.pool.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1 OR email=$2', [owner, email])).rowCount)
       throw new AdminError(409, 'OWNER_ALREADY_EXISTS');
     let provisioned!: Awaited<ReturnType<OwnerSetupLinks['provision']>>;
-    const shop = await this.build(actorId, name, google, key, async shopId => {
+    const shop = await this.build(actorId, name, place, key, async shopId => {
       provisioned = await new OwnerSetupLinks(this.pool).provision(owner, email, async () => {});
       await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [provisioned.userId, shopId]);
     });
@@ -178,15 +181,15 @@ export class ShopProvisioning {
    * it, and a failure anywhere above leaves a dark row rather than a live page nobody owns. `owner` attaches the owner
    * to the new shop before it goes live.
    */
-  private async build(actorId: string, name: string, google: string, key: TemplateKey, owner: (shopId: string) => Promise<void>) {
+  private async build(actorId: string, name: string, place: { placeId: string | null; url: string }, key: TemplateKey, owner: (shopId: string) => Promise<void>) {
     // Read before the shop row exists, so a missing or broken template stops the run with nothing written for this shop.
-    const config = key === 'standard' ? await this.fromTemplate(actorId, name, google) : validateConfig({ ...templateConfig(key), name, googleUrl: google });
+    const config = key === 'standard' ? await this.fromTemplate(actorId, name, place.url) : validateConfig({ ...templateConfig(key), name, googleUrl: place.url });
     const admin = new PublishingAdmin(this.pool, async () => ({ actorId }));
     // The shop's first page shares the shop's code, so its link is the one the shop is known by. A code already taken
     // by any page counts as taken: links are never reissued (migration 024).
     const { slug, shopId } = await withShortCode(async slug => {
       if ((await this.pool.query('SELECT 1 FROM pages WHERE lower(slug)=lower($1)', [slug])).rowCount) throw Object.assign(new Error('PAGE_SLUG_TAKEN'), { code: '23505' });
-      return { slug, shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url)VALUES($1,$2,$3)RETURNING id', [slug, name, google])).rows[0].id as string };
+      return { slug, shopId: (await this.pool.query('INSERT INTO shops(slug,name,google_url,place_id)VALUES($1,$2,$3,$4)RETURNING id', [slug, name, place.url, place.placeId])).rows[0].id as string };
     });
     const template = await this.template(admin, key);
     const page = await admin.createPage(shopId, template, config, slug);
@@ -195,44 +198,6 @@ export class ShopProvisioning {
     await owner(shopId);
     await admin.publish(page, 1);
     return { shopId, pageId: page.pageId, slug, tagCode };
-  }
-
-  /**
-   * Approves a page an owner built and saved before having a shop (lát D4b, migration 029): the shop is made from the
-   * saved name and template, exactly as "Tạo shop mới" makes one, and the owner -- who chose a password when saving --
-   * can sign in at once. The request is claimed first, so a second click cannot make a second shop; if building stops
-   * half way, the request stays approved without a shop, and approving it again once that claim is two minutes old
-   * finishes it. Two minutes, because a build still running is also "approved without a shop" (it takes seconds).
-   */
-  async approveSignup(actorId: string, signupId: unknown) {
-    if (typeof signupId !== 'string' || !/^[0-9a-f-]{36}$/.test(signupId)) throw new AdminError(404, 'SIGNUP_NOT_FOUND');
-    const row = (await this.pool.query(`UPDATE shop_signups SET decision='approved',decided_at=clock_timestamp(),decided_by=$2
-      WHERE id=$1 AND decision IS NULL RETURNING owner_user_id,shop_name,template_key`, [signupId, actorId])).rows[0]
-      ?? (await this.pool.query(`SELECT owner_user_id,shop_name,template_key FROM shop_signups s JOIN owner_identities_v2 i ON i.id=s.owner_user_id
-        WHERE s.id=$1 AND s.decision='approved' AND s.shop_id IS NULL AND s.decided_at<clock_timestamp()-interval '2 minutes' AND i.active`, [signupId])).rows[0];
-    if (!row) throw new AdminError(409, 'SIGNUP_DECIDED');
-    if (!isTemplateKey(row.template_key)) throw new AdminError(409, 'INVALID_TEMPLATE');
-    const shop = await this.build(actorId, row.shop_name, 'https://maps.google.com/', row.template_key, async shopId => {
-      await this.pool.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [row.owner_user_id, shopId]);
-      await this.pool.query('UPDATE shop_signups SET shop_id=$2 WHERE id=$1 AND shop_id IS NULL', [signupId, shopId]);
-    });
-    await recordAdminAction(this.pool, actorId, { action: 'signup.approve', shopId: shop.shopId, onBehalfOf: row.owner_user_id,
-      detail: { slug: shop.slug, tagCode: shop.tagCode, templateKey: row.template_key } });
-    return { slug: shop.slug, tagCode: shop.tagCode };
-  }
-
-  /** Refuses a saved page: nothing was built, and the account made when saving is closed, with its sessions. */
-  async rejectSignup(actorId: string, signupId: unknown) {
-    if (typeof signupId !== 'string' || !/^[0-9a-f-]{36}$/.test(signupId)) throw new AdminError(404, 'SIGNUP_NOT_FOUND');
-    return transaction(this.pool, async db => {
-      const row = (await db.query(`UPDATE shop_signups SET decision='rejected',decided_at=clock_timestamp(),decided_by=$2
-        WHERE id=$1 AND decision IS NULL RETURNING owner_user_id,shop_name`, [signupId, actorId])).rows[0];
-      if (!row) throw new AdminError(409, 'SIGNUP_DECIDED');
-      await db.query('UPDATE owner_identities_v2 SET active=false WHERE id=$1', [row.owner_user_id]);
-      await db.query('UPDATE owner_auth_sessions_v2 SET revoked_at=clock_timestamp() WHERE user_id=$1 AND revoked_at IS NULL', [row.owner_user_id]);
-      await recordAdminAction(db, actorId, { action: 'signup.reject', onBehalfOf: row.owner_user_id, detail: { name: row.shop_name } });
-      return { rejected: true };
-    });
   }
 
   /**
@@ -251,14 +216,8 @@ export class ShopProvisioning {
   /** What the administrative table shows: one row per shop, with what is needed to act on it. */
   async list() {
     const shops = await this.shopRows();
-    // What each shop would pay each month (lát P5; nothing is charged yet): its pages, priced by the template guests see.
-    const pages = (await this.pool.query(`SELECT p.shop_id,p.slug,p.state,p.created_at,COALESCE(lt.template_key,tv.template_key) template_key FROM pages p
-      JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id
-      LEFT JOIN page_releases r ON r.id=p.active_release_id LEFT JOIN template_versions lt ON lt.id=r.template_version_id`)).rows;
-    return shops.map(shop => {
-      const own = pages.filter(page => page.shop_id === shop.id);
-      return { ...shop, pages: own.length, monthly: priceSheet(own.map(page => ({ slug: page.slug, state: page.state, templateKey: page.template_key, createdAt: page.created_at }))).monthly };
-    });
+    const pages = (await this.pool.query('SELECT shop_id,count(*)::int n FROM pages GROUP BY shop_id')).rows as { shop_id: string; n: number }[];
+    return shops.map(shop => ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0 }));
   }
   private async shopRows() {
     return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,s.is_template,

@@ -1,7 +1,7 @@
+import { applySchema } from './schema';
 import { test as base, expect } from '@playwright/test';
 import { Pool } from 'pg';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { VisitAccessDenied, VisitRatingRepository } from '../lib/repositories/visit-ratings';
 import { createVisitV2Api } from '../server/visit-v2-api';
 
@@ -40,13 +40,7 @@ const test = base.extend<{ db: Fixture }>({
     const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 8 });
     try {
       await admin.query(`CREATE SCHEMA ${schema}`);
-      await pool.query(await readFile('db/migrations/001_core.sql', 'utf8'));
-      await pool.query(await readFile('db/migrations/002_visit_ratings.sql', 'utf8'));
-      await pool.query(await readFile('db/migrations/010_feedback_without_rating.sql', 'utf8'));
-      await pool.query(await readFile('db/migrations/011_feedback_phone.sql', 'utf8'));
-      await pool.query(await readFile('db/migrations/018_guest_flood_control.sql', 'utf8'));
-      await pool.query(await readFile('db/migrations/020_page_events.sql', 'utf8'));
-      await pool.query(await readFile('db/migrations/021_erase_on_request.sql', 'utf8'));
+      await applySchema(pool);
       const shopId = randomUUID();
       await pool.query(`INSERT INTO shops(id,slug,name) VALUES($1,'one','PRIVATE_SHOP_NAME'),($2,'two','Two')`, [shopId, randomUUID()]);
       await provideFixture({ pool, shopId, api: (request, { shop, ...context }, operation) => bySlug(pool, shop)(request, context, operation) });

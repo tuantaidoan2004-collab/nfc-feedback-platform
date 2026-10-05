@@ -36,6 +36,13 @@ export const ACTIONS: Record<string, string> = {
   'comment.edit': 'Sửa phản hồi',
   'comment.delete': 'Xoá phản hồi',
   'comment.pin': 'Ghim phản hồi',
+  'google.place': 'Chọn quán trên Google',
+  'google.link': 'Dán link đánh giá Google',
+  'google.connect': 'Kết nối Google Business',
+  'google.disconnect': 'Ngắt kết nối Google Business',
+  'google.sync': 'Đồng bộ đánh giá Google',
+  'help.request': 'Nhờ admin tạo giúp',
+  'onboarding.step': 'Xong một bước bắt đầu',
 };
 export type ActivityRow = { id: string; actor_kind: 'member' | 'admin'; actor_id: string; actor_handle: string; action: string; target: string | null;
   detail: Record<string, unknown>; at: string };

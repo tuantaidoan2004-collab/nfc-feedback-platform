@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const data = await adminInput(request);
     if (Object.keys(data).sort().join() !== 'ownerUserId,reason,scope,shopId') throw new AdminError(400, 'INVALID_INPUT');
     const opened = await new AdminImpersonation(database()).start(await adminSessionToken(), data);
-    const response = adminJson({ url: `/ZZZ/${opened.slug}`, scope: opened.scope, expiresAt: opened.expiresAt });
+    const response = adminJson({ url: `/app/${opened.slug}`, scope: opened.scope, expiresAt: opened.expiresAt });
     setImpersonationCookies(response, request, opened.slug, opened.token, opened.expiresAt);
     return response;
   } catch (error) { return adminFailure(error); }

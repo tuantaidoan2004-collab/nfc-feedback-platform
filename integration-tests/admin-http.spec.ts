@@ -7,6 +7,7 @@ import {code,fromBase32,newSecret,seal,stepAt} from '../lib/admin/totp';
 import {ShopProvisioning} from '../lib/admin/provisioning';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {addExperience} from '../repository-tests/owner-fixture';
+import {openEndedPost} from './open-ended-post';
 const uri=process.env.NFC_TEST_DATABASE_URL,schema=process.env.NFC_TEST_SCHEMA;
 if(uri!=='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test'||!/^nfc_ui_test_[a-f0-9]{32}$/.test(schema??''))throw Error('Isolated harness required');
 const secret='a-sufficiently-long-admin-secret';
@@ -121,7 +122,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tên shop',{exact:true}).fill('Cà Phê Ban Mai');
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
- await page.getByLabel('Đường dẫn Google (bỏ trống nếu chưa có)',{exact:true}).fill('https://maps.google.com/?cid=7');
+ await page.getByLabel('Place ID (bỏ trống nếu chưa có)',{exact:true}).fill('ChIJN1t_tDeuEmsRUsoyG83frY4');
  // Six templates to choose from (A33); template 1 is preselected so a hurried operator still gets the original page.
  const choice=page.locator('select[data-template-choice]');
  await expect(choice.locator('option')).toHaveText(['1 · Bản gốc','2 · Tối giản','3 · Kính','4 · Chồng thẻ','5 · Ánh sáng tụ','6 · Nút lớn']);
@@ -226,8 +227,8 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
 
 test('a reissued link is only issued for the owner of the named shop, and always with its audit row',async({page,admin})=>{
  const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,shops=new ShopProvisioning(admin.db);
- const one=await shops.create(actor,{name:'Quán Một',ownerUsername:'quan-mot',ownerEmail:'mot@example.com',googleUrl:''});
- const two=await shops.create(actor,{name:'Quán Hai',ownerUsername:'quan-hai',ownerEmail:'hai@example.com',googleUrl:''});
+ const one=await shops.create(actor,{name:'Quán Một',ownerUsername:'quan-mot',ownerEmail:'mot@example.com',placeId:''});
+ const two=await shops.create(actor,{name:'Quán Hai',ownerUsername:'quan-hai',ownerEmail:'hai@example.com',placeId:''});
  await signIn(page,admin.username,admin.app);
  const post=(data:unknown)=>page.request.post(`${origin}/gov/api/setup-links`,{headers:{origin},data});
  const trail=async()=>(await admin.db.query("SELECT shop_id,on_behalf_of FROM admin_audit WHERE action='owner.link.reissue'")).rows;
@@ -267,7 +268,7 @@ async function standIn(page:Page,shop:string,scope:'overview'|'feedback',reason:
 test('impersonation: cookie stays on one shop, support never exports, feedback only while the owner allows it',async({page,context,browser,admin},info)=>{
  const shopName='Quán Hỗ Trợ',ownerPassword='chosen-by-the-shop';
  const made=await new ShopProvisioning(admin.db).create((await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,
-  {name:shopName,ownerUsername:'quan-hotro',ownerEmail:'hotro@example.com',googleUrl:'https://maps.google.com/?cid=9'});
+  {name:shopName,ownerUsername:'quan-hotro',ownerEmail:'hotro@example.com',placeId:'ChIJN1t_tDeuEmsRUsoyG83frY4'});
  await new OwnerSetupLinks(admin.db).consume(made.setupToken,ownerPassword);
  const x=await addExperience(admin.db,made.slug,2,'Góp ý kín của khách');
  const api=`/api/owner/v2/${made.slug}`;
@@ -392,7 +393,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
 test('position 2: support edits and publishes the page in a design session, sees no figures, and the owner sees the visit',async({page,browser,admin})=>{
  const shopName='Quán Sửa Hộ',ownerPassword='chosen-by-the-shop';
  const made=await new ShopProvisioning(admin.db).create((await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,
-  {name:shopName,ownerUsername:'quan-suaho',ownerEmail:'suaho@example.com',googleUrl:'https://maps.google.com/?cid=11'});
+  {name:shopName,ownerUsername:'quan-suaho',ownerEmail:'suaho@example.com',placeId:'ChIJN1t_tDeuEmsRUsoyG83frY4'});
  await new OwnerSetupLinks(admin.db).consume(made.setupToken,ownerPassword);
  await addExperience(admin.db,made.slug,2,'Không cho quản trị thấy');
  const owner=await browser.newContext({baseURL:origin});
@@ -482,7 +483,7 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
  expect((await page.request.get('/gov/api/media')).status()).toBe(401);
  const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id;
  await admin.db.query('TRUNCATE media_assets');
- const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Chờ Ảnh',ownerUsername:'quan-cho-anh',ownerEmail:'cho@example.com',googleUrl:''});
+ const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Chờ Ảnh',ownerUsername:'quan-cho-anh',ownerEmail:'cho@example.com',placeId:''});
  // Uploads whose signed link expired long ago, so they can be decided at once.
  const queue=(url:string,age='1 hour')=>admin.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,created_at)
   VALUES($1,$2,'image','image/jpeg',204800,'owner:x',clock_timestamp()-$3::interval)RETURNING id`,[shop.shopId,url,age]).then(r=>r.rows[0].id as string);
@@ -533,7 +534,7 @@ test('image gate: waiting uploads are approved or refused from /gov, each decisi
 // Lát P4: an owner's emergency stop reaches /gov; the operator starts the page again and records how it was handled.
 test('page incidents: an emergency stop waits in /gov, is lifted, handled and recorded; the guest sees the page paused meanwhile',async({page,admin})=>{
  const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id;
- const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Tạm Dừng',ownerUsername:'quan-tam-dung',ownerEmail:'dung@example.com',googleUrl:''});
+ const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Tạm Dừng',ownerUsername:'quan-tam-dung',ownerEmail:'dung@example.com',placeId:''});
  const {PublishingAdmin}=await import('../lib/publishing/repository');
  await new PublishingAdmin(admin.db,async()=>({actorId:'owner:fixture'})).pausePage({shopId:shop.shopId,pageId:shop.pageId},'emergency');
  const incident=(await admin.db.query("INSERT INTO page_incidents(shop_id,page_id,reported_by,reason)VALUES($1,$2,$3,'Nút Google mở sai link')RETURNING id",
@@ -759,7 +760,7 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  await googleLogin();await expect(o).toHaveURL(/\/owner\/cho-duyet$/);
  // A Google account no account is linked to opens nothing and says what to do -- even when its email matches an account.
  const actor=(await admin.db.query('SELECT id FROM platform_admins LIMIT 1')).rows[0].id;
- const owner=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Có Mật Khẩu',ownerUsername:`co-mat-khau-${run}`,ownerEmail:`cu.${run}@gmail.com`,googleUrl:''});
+ const owner=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Có Mật Khẩu',ownerUsername:`co-mat-khau-${run}`,ownerEmail:`cu.${run}@gmail.com`,placeId:''});
  await new OwnerSetupLinks(admin.db).consume(owner.setupToken,'old-owner-password');
  google.who={sub:sub(2),email:`cu.${run}@gmail.com`,email_verified:true};
  await googleLogin();
@@ -807,5 +808,7 @@ test('D4c: an owner saves with Google, signs in with Google, and an older accoun
  expect(await stray.text()).toContain('google=TRIP_INVALID');expect(stray.headers()['set-cookie']??'').not.toContain('nfc_owner_v2=');
  // The door to Google itself: only this site's own pages may open it.
  expect((await o.request.post('/api/owner/v2/google/start',{headers:{origin:'https://evil.test','content-type':'application/x-www-form-urlencoded'},data:'intent=login'})).status()).toBe(403);
+ // Rà bảo mật 29/09, U1: and a script that sends this site's headers still cannot make it hold a body without end.
+ expect(await openEndedPost('/api/owner/v2/google/start','application/x-www-form-urlencoded',20_000)).toBe(413);
  await context.close();
 });

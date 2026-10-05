@@ -1,0 +1,74 @@
+/*
+ * Quite Sensational — giao diện mới (kịch bản 05/10). Mọi lớp nằm dưới .qs nên không đụng trang khách, /gov hay phần cũ
+ * còn lại trong lúc dựng lại. Trắng tuyệt đối, chữ đen, nút đen; xanh dương chỉ cho nút bắt đầu; onboarding tông sky.
+ */
+.qs {
+  --qs-bg: #ffffff; --qs-ink: #0b0b0c; --qs-muted: #6b6f76; --qs-faint: #a3a7ae; --qs-line: #ececef; --qs-soft: #f6f7f9;
+  --qs-card: #ffffff; --qs-blue: #1f5bff; --qs-blue-deep: #1846cc; --qs-red: #e5484d; --qs-green: #30a46c; --qs-amber: #f5a524;
+  --qs-radius: 18px; --qs-shadow: 0 1px 2px rgba(10, 12, 16, .05), 0 10px 32px rgba(10, 12, 16, .07);
+  --qs-shadow-lg: 0 2px 6px rgba(10, 12, 16, .06), 0 24px 64px rgba(10, 12, 16, .12);
+  font-family: var(--font-qs), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--qs-ink); background: var(--qs-bg); min-height: 100dvh; font-size: 15px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+.qs[data-theme='dark'] {
+  --qs-bg: #07080b; --qs-ink: #f3f5fa; --qs-muted: #9aa1ad; --qs-faint: #5d636e; --qs-line: #1c2029; --qs-soft: #0f1218;
+  --qs-card: #0d1016; --qs-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 32px rgba(0, 0, 0, .35); color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  .qs[data-theme='system'] {
+    --qs-bg: #07080b; --qs-ink: #f3f5fa; --qs-muted: #9aa1ad; --qs-faint: #5d636e; --qs-line: #1c2029; --qs-soft: #0f1218;
+    --qs-card: #0d1016; --qs-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 32px rgba(0, 0, 0, .35); color-scheme: dark;
+  }
+}
+.qs *, .qs *::before, .qs *::after { box-sizing: border-box; }
+.qs h1, .qs h2, .qs h3, .qs p { margin: 0; }
+.qs h1 { font-size: clamp(26px, 6vw, 40px); line-height: 1.12; letter-spacing: -.03em; font-weight: 700; }
+.qs h2 { font-size: 20px; letter-spacing: -.02em; font-weight: 650; }
+.qs h3 { font-size: 16px; letter-spacing: -.01em; font-weight: 650; }
+.qs a { color: inherit; }
+.qs button { font: inherit; color: inherit; }
+.qs :focus-visible { outline: 2px solid var(--qs-blue); outline-offset: 3px; }
+.qs .qs-muted { color: var(--qs-muted); }
+.qs .qs-small { font-size: 13px; }
+.qs .qs-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Nút: đen là mặc định; xanh dương chỉ cho "Bắt đầu". */
+.qs .qs-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 20px;
+  border-radius: 999px; border: 1px solid var(--qs-ink); background: var(--qs-ink); color: var(--qs-bg); font-weight: 600;
+  text-decoration: none; cursor: pointer; transition: transform .15s ease, opacity .15s ease, background .15s ease; }
+.qs .qs-btn:hover { transform: translateY(-1px); }
+.qs .qs-btn:active { transform: translateY(0) scale(.98); }
+.qs .qs-btn[disabled] { opacity: .45; cursor: default; transform: none; }
+.qs .qs-btn.ghost { background: transparent; color: var(--qs-ink); border-color: var(--qs-line); }
+.qs .qs-btn.blue { background: var(--qs-blue); border-color: var(--qs-blue); color: #fff; box-shadow: 0 8px 24px rgba(31, 91, 255, .28); }
+.qs .qs-btn.blue:hover { background: var(--qs-blue-deep); }
+.qs .qs-btn.small { min-height: 36px; padding: 0 14px; font-size: 14px; }
+.qs .qs-link { background: none; border: 0; padding: 4px 0; color: var(--qs-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 13px; }
+
+.qs .qs-card { background: var(--qs-card); border: 1px solid var(--qs-line); border-radius: var(--qs-radius); box-shadow: var(--qs-shadow); }
+.qs .qs-input { width: 100%; min-height: 48px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--qs-line);
+  background: var(--qs-card); color: var(--qs-ink); font: inherit; font-size: 16px; }
+.qs .qs-input:focus { outline: none; border-color: var(--qs-ink); }
+.qs label.qs-field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.qs label.qs-field small { font-weight: 400; color: var(--qs-muted); }
+.qs .qs-error { color: var(--qs-red); font-size: 13px; }
+.qs .qs-pill { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px;
+  background: var(--qs-soft); color: var(--qs-muted); border: 1px solid var(--qs-line); }
+.qs .qs-pill.free { background: #e9fbf1; color: #137a48; border-color: #c8f0da; font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qs *, .qs *::before, .qs *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Cầu nối cho các panel cũ còn dùng tạm trong tab (Quản lý, Cài đặt…): token cũ trỏ sang màu mới, tới khi panel được dựng lại. */
+.qs {
+  --p-bg: var(--qs-bg); --p-surface: var(--qs-card); --p-surface-2: var(--qs-soft); --p-sunken: var(--qs-soft); --p-line: var(--qs-line);
+  --p-line-strong: color-mix(in srgb, var(--qs-ink) 16%, transparent); --p-ink: var(--qs-ink); --p-ink-2: color-mix(in srgb, var(--qs-ink) 78%, transparent);
+  --p-muted: var(--qs-muted); --p-accent: var(--qs-ink); --p-accent-2: var(--qs-ink); --p-accent-ink: var(--qs-bg); --p-accent-text: var(--qs-blue);
+  --p-accent-soft: rgba(31, 91, 255, .10); --p-danger: var(--qs-red); --p-danger-ink: #fff; --p-danger-text: var(--qs-red);
+  --p-success-text: var(--qs-green); --p-warn-text: #b7791f; --p-warn-soft: rgba(245, 165, 36, .14); --p-hover: color-mix(in srgb, var(--qs-ink) 5%, transparent);
+  --p-focus: var(--qs-blue); --p-backdrop: color-mix(in srgb, var(--qs-bg) 70%, transparent); --p-shadow: var(--qs-shadow);
+  --p-radius-lg: 20px; --p-radius: 14px; --p-radius-sm: 10px; --p-font: inherit; --p-chart-1: #9bb6ff; --p-chart-2: var(--qs-blue);
+  --ink: var(--qs-ink); --muted: var(--qs-muted); --line: var(--qs-line); --paper: var(--qs-card); --mist: var(--qs-soft);
+}

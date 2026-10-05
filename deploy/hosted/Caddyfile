@@ -1,6 +1,11 @@
 # The site, by name (SITE_ADDRESS in docker-compose.yml). Caddy fetches and renews its certificate itself.
 {$SITE_ADDRESS} {
 	encode zstd gzip
+	# No request this app takes is larger (the payment QR in /gov is the largest, about 720 KB); pictures go straight to the
+	# store. Caddy refuses the rest before it reaches the app (rà bảo mật 29/09, U1).
+	request_body {
+		max_size 1MB
+	}
 	reverse_proxy app:3000 {
 		# The visitor's own address, overwritten on every request: the app trusts this header and no other.
 		header_up X-Real-IP {remote_host}

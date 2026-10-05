@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { authorizationUrl, googleSettings, newTrip, sealTrip, type GoogleIntent } from '@/lib/owner/google';
 import { OwnerAuth, OwnerError, username } from '@/lib/owner/auth';
-import { zaloNumber } from '@/lib/start/signup';
+import { businessKind, displayName } from '@/lib/account/signup';
 import { ownerEnabled, ownerToken, safeDestination } from '@/server/owner-v2';
 import { database } from '@/server/db';
 import { clientAddress } from '@/server/guest-limits';
 import { fromThisSite } from '@/server/same-origin';
-import { openStartDraft } from '@/server/start';
+import { boundedText, HttpError } from '@/server/http';
 import { tripCookie, tripSecret } from '@/server/google';
 
 /**
@@ -22,9 +22,11 @@ export async function POST(request: Request) {
   const settings = googleSettings(), origin = process.env.APP_ORIGIN;
   if (!ownerEnabled() || !settings || !origin) return new Response(null, { status: 404 });
   if (!fromThisSite(request, origin)) return new Response(null, { status: 403 });
-  let form: FormData;
-  try { if (!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) throw Error(); form = await request.formData(); }
-  catch { return new Response(null, { status: 400 }); }
+  // Read only up to 8 KB (rà bảo mật 29/09, U1): the Origin check above is no proof against a script, and formData() would
+  // hold the whole body in memory whatever its size. Every field here is short.
+  let form: URLSearchParams;
+  try { if (!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) throw Error(); form = new URLSearchParams(await boundedText(request, 8192)); }
+  catch (error) { return new Response(null, { status: error instanceof HttpError ? error.status : 400 }); }
   const field = (name: string) => { const value = form.get(name); return typeof value === 'string' && value.length <= 1500 ? value : null; };
   let intent: GoogleIntent;
   const kind = field('intent');
@@ -40,12 +42,10 @@ export async function POST(request: Request) {
     catch (error) { return back(origin, `${next}?view=profile`, (error instanceof OwnerError && LINK_REFUSED[error.code]) || 'SERVICE_UNAVAILABLE'); }
     intent = { kind, next, userId };
   } else if (kind === 'signup') {
-    // The builder's own checks, repeated: a trip for a draft that will not save is not worth sending to Google.
-    const draft = field('token') ?? '', name = username((field('username') ?? '').replace(/^@/, '')), zalo = zaloNumber(field('zalo') ?? '');
-    try { openStartDraft(draft); } catch { return back(origin, '/bat-dau', 'DRAFT_EXPIRED'); }
+    // Onboarding step 1 with Google: the handle is checked now, so a trip that cannot make an account is not sent.
+    const name = username((field('username') ?? '').replace(/^@/, ''));
     if (!name) return back(origin, '/bat-dau', 'INVALID_USERNAME');
-    if (zalo === undefined) return back(origin, '/bat-dau', 'INVALID_ZALO');
-    intent = { kind, draft, username: name, zalo };
+    intent = { kind, username: name, displayName: displayName(field('displayName')), business: businessKind(field('kind')) };
   } else return new Response(null, { status: 400 });
   const trip = newTrip(intent);
   const response = NextResponse.redirect(authorizationUrl(settings, origin, trip), 303);

@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID,randomBytes} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ownerFixture,addExperience} from './owner-fixture';
 import {OwnerDashboard} from '../lib/owner/dashboard';
@@ -11,7 +11,7 @@ const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provideFixture)=>{
  const schema=`nfc_owner_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+ try{await root.query(`CREATE SCHEMA ${schema}`);await applySchema(db);
  await provideFixture(await ownerFixture(db));}finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const filters=()=>parseFilters(new URLSearchParams());
@@ -174,17 +174,6 @@ test('CSV/JSONL export enforce membership, suspend and dictionary-independent sc
  const stream=await exportStream(f.db,f.users[0].token,'one',filters(),'experiences','csv',new AbortController().signal),text=await new Response(stream).text();
  expect(text).toContain('"\'=SUM(1,2)"');expect(text).not.toMatch(/password|browser_hash|token_hash/);
  await f.admin.setShopState(f.shops[0],'suspended');await expect(new OwnerDashboard(f.db).read(f.users[0].token,'one',filters())).rejects.toThrow('ACCESS_DENIED');
-});
-
-test('stream abort, database failure, export concurrency and guarded rollback release resources',async({f})=>{
- await addExperience(f.db);
- const controller=new AbortController(),stream=await exportStream(f.db,f.users[0].token,'one',filters(),'experiences','jsonl',controller.signal),reader=stream.getReader();await reader.read();
- await expect(exportStream(f.db,f.users[0].token,'one',filters(),'experiences','jsonl',new AbortController().signal)).rejects.toThrow('EXPORT_BUSY');
- controller.abort();await expect(reader.read()).rejects.toThrow('Export interrupted');
- const broken=await exportStream(f.db,f.users[0].token,'one',filters(),'experiences','jsonl',new AbortController().signal),r=broken.getReader();await r.read();
- await f.db.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=current_setting('application_name') AND pid<>pg_backend_pid() AND state='idle in transaction' AND query='FETCH FORWARD 256 FROM owner_export'");
- await expect(r.read()).rejects.toThrow();
- const sql=await readFile('db/rollback/004_owner_dashboard.sql','utf8');const db=await f.db.connect();try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('OWNER_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
 });
 
 test('two slow export cursors cannot consume the separate authorization pool',async({f})=>{

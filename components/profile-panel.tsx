@@ -176,7 +176,7 @@ export default function ProfilePanel({ slug, profile, setProfile, password }: { 
         ? <><p className={styles.hint}>Đã kết nối Google: bấm <strong>Đăng nhập bằng Google</strong> ở trang đăng nhập là vào thẳng.</p>
           <GoogleUnlink onDone={message => { setProfile({ ...profile, google: { ...profile.google, linked: false } }); setGoogleNotice(message); }} /></>
         : <><p className={styles.hint}>Kết nối tài khoản Google để lần sau đăng nhập một chạm, không cần mật khẩu.</p>
-          <GoogleForm fields={{ intent: 'link', next: `/ZZZ/${slug}` }} className={styles.googleForm} data-google-connect=""
+          <GoogleForm fields={{ intent: 'link', next: `/app/${slug}/cai-dat` }} className={styles.googleForm} data-google-connect=""
             extra={<label>Mật khẩu hiện tại (để chắc đây là bạn)<input type="password" name="password" autoComplete="current-password" required maxLength={256} /></label>}>
             Kết nối Google</GoogleForm></>}
     </section>}

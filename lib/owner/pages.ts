@@ -5,7 +5,6 @@ import { PublishingAdmin, PublishingError, templateVersionRow, type PageRef, typ
 
 import { settingsOf } from '../publishing/versions';
 import { convertSettings } from '../publishing/settings';
-import { priceSheet, type Price } from '../publishing/pricing';
 import { withShortCode } from '../short-code';
 import { isTemplateKey, templateConfig, TEMPLATE_RELEASES } from '../publishing/templates';
 
@@ -24,7 +23,7 @@ export async function pageOf(db: PoolClient | Pool, shopId: string, slug?: strin
 }
 
 export type PageSummary = { slug: string; label: string; state: 'draft' | 'active' | 'paused' | 'closed'; pauseReason: PauseReason | null;
-  template: { key: string; version: number }; createdAt: string; price: Price };
+  template: { key: string; version: number }; createdAt: string };
 const label = (value: unknown) => {
   if (typeof value !== 'string' || value.trim().length > 60 || /[\u0000-\u001f<>]/.test(value)) throw new OwnerError(400, 'INVALID_PAGE');
   return value.trim();
@@ -49,15 +48,13 @@ export class OwnerPages {
   async list(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'design');
-      // The price follows the template guests see (the live release's); a page never published is priced by its draft.
-      const rows = (await db.query(`SELECT p.slug,p.label,p.state,p.pause_reason,tv.template_key,tv.version,p.created_at,lt.template_key live_key FROM pages p
+      const rows = (await db.query(`SELECT p.slug,p.label,p.state,p.pause_reason,tv.template_key,tv.version,p.created_at FROM pages p
         JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id
-        LEFT JOIN page_releases r ON r.id=p.active_release_id LEFT JOIN template_versions lt ON lt.id=r.template_version_id
         WHERE p.shop_id=$1 ORDER BY p.created_at,p.id`, [access.shopId])).rows;
-      const sheet = priceSheet(rows.map(row => ({ slug: row.slug, state: row.state, templateKey: row.live_key ?? row.template_key, createdAt: row.created_at })));
-      const pages = rows.map((row, i) => ({ slug: row.slug, label: row.label, state: row.state, pauseReason: row.pause_reason,
-        template: { key: row.template_key, version: Number(row.version) }, createdAt: new Date(row.created_at).toISOString(), price: sheet.pages[i] })) as PageSummary[];
-      return { pages, monthly: sheet.monthly, canManage: access.actor.kind === 'owner' && access.role === 'owner' };
+      // No price per page any more (Tài 05/10): a shop pays for a plan (lib/billing/plans.ts), not for each page.
+      const pages = rows.map(row => ({ slug: row.slug, label: row.label, state: row.state, pauseReason: row.pause_reason,
+        template: { key: row.template_key, version: Number(row.version) }, createdAt: new Date(row.created_at).toISOString() })) as PageSummary[];
+      return { pages, canManage: access.actor.kind === 'owner' && access.role === 'owner' };
     });
   }
 

@@ -1,8 +1,10 @@
+import { boundedText, HttpError } from '@/server/http';
+
 /**
  * Where browsers report what the Content-Security-Policy blocked (lát H1): one log line per report, so a policy that breaks
  * something on a real phone shows up in the server log instead of silently. Never the page's query or anything a guest
  * typed: the directive, the blocked thing's origin (or "inline"/"eval"), the page's path. At most 60 lines a minute per
- * instance, so it cannot be used to flood the log.
+ * instance, so it cannot be used to flood the log; and the body is read only up to its 16 KB (U1), since anyone may post.
  */
 let budget = { start: 0, lines: 0 };
 const originOrKind = (value: unknown) => {
@@ -15,8 +17,9 @@ const pathOf = (value: unknown) => { try { return new URL(String(value)).pathnam
 export async function POST(request: Request) {
   const type = request.headers.get('content-type') ?? '';
   if (!/^application\/(csp-report|reports\+json|json)/.test(type)) return new Response(null, { status: 415 });
-  const text = await request.text().catch(() => '');
-  if (text.length > 16384) return new Response(null, { status: 413 });
+  let text: string;
+  try { text = await boundedText(request, 16384); }
+  catch (error) { return new Response(null, { status: error instanceof HttpError ? error.status : 400 }); }
   let reports: Record<string, unknown>[] = [];
   try {
     const parsed = JSON.parse(text);

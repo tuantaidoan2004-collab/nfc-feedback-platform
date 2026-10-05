@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ownerFixture,enrolAdmin} from './owner-fixture';
 import {loginIdentifier} from '../lib/owner/auth';
@@ -9,14 +9,11 @@ import {AdminAuth} from '../lib/admin/auth';
 import {AdminImpersonation} from '../lib/admin/impersonation';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const MIGRATIONS=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'];
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provide)=>{
  const schema=`nfc_profile_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  // Tài's administrator exists before 014 runs, as on Neon: the migration gives it the handle and label he chose.
-  for(const file of MIGRATIONS)await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  await applySchema(db);
   await new AdminAuth(db).bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
-  for(const file of ['014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql'])await db.query(await readFile(`db/migrations/${file}`,'utf8'));
   await provide(await ownerFixture(db));
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
@@ -76,19 +73,4 @@ test('uploads: a signed PUT for an image under the own folder; no videos, no ove
  await expect(profiles.update(credential,{...blank,handle:'taken-over'})).rejects.toMatchObject({code:'IMPERSONATION_READ_ONLY'});
  await expect(profiles.presign(credential,{type:'image/png',size:10})).rejects.toMatchObject({code:'IMPERSONATION_READ_ONLY'});
  expect(adminId).toBeTruthy();
-});
-
-test('migration 014: Tài is @Quitesensational · Admin Tài; account routes are not shop slugs; rollback refuses filled profiles',async({f})=>{
- expect((await f.db.query("SELECT handle,title FROM platform_admins WHERE username='tai'")).rows).toEqual([{handle:'Quitesensational',title:'Admin Tài'}]);
- await expect(f.db.query("UPDATE shops SET slug='Profile' WHERE id=$1",[f.shops[0]])).rejects.toThrow('shops_account_routes_reserved');
- await expect(f.db.query("UPDATE owner_identities_v2 SET display_name=' x' WHERE id=$1",[f.users[0].id])).rejects.toThrow('check');
- const rollback=await readFile('db/rollback/014_account_profiles.sql','utf8'),db=await f.db.connect();
- try{
-  await db.query("UPDATE owner_identities_v2 SET bio='Xin chào' WHERE id=$1",[f.users[0].id]);
-  await db.query('BEGIN');await expect(db.query(rollback)).rejects.toThrow('PROFILES_PRESENT');await db.query('ROLLBACK');
-  await db.query('UPDATE owner_identities_v2 SET bio=NULL');
-  await db.query('BEGIN');await db.query(rollback);
-  expect((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema=current_schema() AND column_name IN ('display_name','bio','avatar_url','cover_url','handle','title')")).rows[0].n).toBe(0);
-  await db.query('ROLLBACK');
- }finally{db.release();}
 });

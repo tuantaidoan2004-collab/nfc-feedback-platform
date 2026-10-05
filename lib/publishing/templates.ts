@@ -38,3 +38,14 @@ export function templateConfig(key: TemplateKey = 'standard'): PageConfig {
  * rules it keeps (the Google button's words, its place in the first screen), is in template-manifest.ts.
  */
 export const effectsOf = (key: string | undefined): TemplateEffects => (key && byKey.get(key)?.effects) || {};
+
+/**
+ * How each template appears as a card in the Library (kịch bản mục 8). Temporary: the templates themselves are being
+ * rebuilt from Tài's PNG/PDF (05/10), and the Library will then read the new packages.
+ */
+export const templateCards = () => TEMPLATE_MANIFESTS.map(manifest => {
+  const background = manifest.page.background as { kind: string; colors?: string[]; color?: string; angle?: number };
+  const colors = background.colors ?? (background.color ? [background.color, background.color] : ['#f3f4f6', '#e5e7eb']);
+  return { key: manifest.key, name: manifest.name, number: manifest.number, colors, angle: background.angle ?? 160, glass: !!manifest.effects?.glass };
+});
+export type TemplateCard = ReturnType<typeof templateCards>[number];

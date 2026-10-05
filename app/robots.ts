@@ -10,6 +10,6 @@ export const dynamic = 'force-dynamic';
  */
 export default function robots(): MetadataRoute.Robots {
   const origin = process.env.APP_ORIGIN;
-  return { rules: { userAgent: '*', allow: '/', disallow: ['/ZZZ/', '/gov', '/owner/', '/api/', '/thu/', '/preview', '/t/'] },
+  return { rules: { userAgent: '*', allow: '/', disallow: ['/ZZZ/', '/app', '/gov', '/owner/', '/api/', '/thu/', '/preview', '/t/'] },
     ...(origin ? { sitemap: `${origin}/sitemap.xml` } : {}) };
 }

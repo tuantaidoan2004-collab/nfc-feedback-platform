@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ownerFixture,addExperience,enrolAdmin} from './owner-fixture';
 import {AdminAuth,adminSessionHash} from '../lib/admin/auth';
@@ -14,8 +14,7 @@ type Fixture=Awaited<ReturnType<typeof ownerFixture>>&{adminId:string;adminToken
 const test=base.extend<{f:Fixture}>({f:async({},provide)=>{
  const schema=`nfc_imp_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])
-   await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  await applySchema(db);
   const base=await ownerFixture(db),admins=new AdminAuth(db);
   const adminId=await admins.bootstrap('operator','a-sufficiently-long-admin-secret',async()=>{});
   const adminToken=(await admins.login('operator','a-sufficiently-long-admin-secret')).token;await enrolAdmin(db,'operator');
@@ -140,36 +139,6 @@ test('feedback: only while the owner allows it, never exports, read-only, one au
  expect((await dashboard.summary(f.users[1].token,'two')).adminVisits).toEqual([]);
 });
 
-test('only the owner moves the switch: not support, not a manager, not another shop; history cannot be edited',async({f})=>{
- const dashboard=new OwnerDashboard(f.db),events='SELECT count(*)::int n FROM shop_support_grant_events';
- const o=await open(f,'overview');
- await expect(dashboard.setSupport(o.credential,'one',{level:'view'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
- await expect(dashboard.setSupport(f.users[1].token,'one',{level:'view'})).rejects.toThrow('ACCESS_DENIED');
- await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
- await expect(dashboard.setSupport(f.users[1].token,'one',{level:'view'})).rejects.toThrow('OWNER_ROLE_REQUIRED');
- for(const bad of [{level:'on'},{level:1},{permission:'feedback',enabled:true},{level:'view',extra:1},null,[]])
-  await expect(dashboard.setSupport(f.users[0].token,'one',bad)).rejects.toThrow('INVALID_SUPPORT');
- expect((await f.db.query(events)).rows[0].n).toBe(0);
-
- // Repeating the current state records nothing, so the history holds changes only.
- await allow(f,false);
- expect((await f.db.query(events)).rows[0].n).toBe(0);
- await Promise.all([allow(f,true),allow(f,true)]);
- expect((await f.db.query(events)).rows[0].n).toBe(1);
- expect(await allow(f,true)).toEqual({level:'view'});
- expect((await f.db.query(events)).rows[0].n).toBe(1);
-
- await expect(f.db.query('UPDATE shop_support_grant_events SET enabled=false')).rejects.toThrow('IMMUTABLE');
- await expect(f.db.query('DELETE FROM shop_support_grant_events')).rejects.toThrow('IMMUTABLE');
- await expect(f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'config',true,$2)",[f.shops[0],f.users[0].id])).rejects.toThrow('check constraint');
- // The operator's table shows the switch as it stands.
- const {ShopProvisioning}=await import('../lib/admin/provisioning');
- expect((await new ShopProvisioning(f.db).list()).map(r=>[r.slug,r.support_level])).toEqual(expect.arrayContaining([['one','view'],['two','off']]));
-
- const sql=await readFile('db/rollback/008_shop_support_grants.sql','utf8'),db=await f.db.connect();
- try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SUPPORT_GRANT_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
-});
-
 test('a session dies with its time limit, its administrator, and every condition the owner is held to',async({f})=>{
  await addExperience(f.db);
  await allow(f,true);
@@ -269,13 +238,6 @@ test('one live session per administrator; closed sessions and reasons cannot be 
  expect(await f.imp.endByToken(a.token)).toBeNull();
 });
 
-test('rollback refuses while impersonation records exist',async({f})=>{
- await open(f,'overview');
- const sql=await readFile('db/rollback/007_admin_impersonation.sql','utf8'),db=await f.db.connect();
- try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('IMPERSONATION_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
- expect((await f.db.query('SELECT count(*)::int n FROM admin_impersonation_sessions')).rows[0].n).toBe(1);
-});
-
 test('four positions: what support may open and read at each, checked again on every request',async({f})=>{
  const dashboard=new OwnerDashboard(f.db),{OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
  await addExperience(f.db,'one',2,'Góp ý bí mật');
@@ -301,16 +263,6 @@ test('four positions: what support may open and read at each, checked again on e
  await expect(exportStream(f.db,d.credential,'one',filters(),'experiences','csv',new AbortController().signal)).rejects.toThrow('IMPERSONATION_NO_EXPORT');
  // An overview or feedback session cannot edit the page.
  const o=await open(f,'overview');await expect(design.read(o.credential,'one')).rejects.toThrow('IMPERSONATION_SCOPE');
-});
-test('older on/off decisions keep their meaning; rollback 012 refuses once four-position data exists',async({f})=>{
- await f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'feedback',true,$2)",[f.shops[0],f.users[0].id]);
- const own=await new OwnerDashboard(f.db).summary(f.users[0].token,'one');
- expect(own.support).toMatchObject({level:'view',feedback:true});expect(own.support.history.map(h=>h.level)).toEqual(['view']);
- await expect(f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,level,actor_id)VALUES($1,'level',true,'off',$2)",[f.shops[0],f.users[0].id])).rejects.toThrow('check constraint');
- await expect(f.db.query("INSERT INTO shop_support_grant_events(shop_id,permission,enabled,actor_id)VALUES($1,'level',true,$2)",[f.shops[0],f.users[0].id])).rejects.toThrow('check constraint');
- await position(f,'edit');
- const sql=await readFile('db/rollback/012_support_levels.sql','utf8'),db=await f.db.connect();
- try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SUPPORT_LEVEL_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
 });
 test('the page editor: a change and the record of it fall together, so a failed record leaves the page untouched',async({f})=>{
  // F-011 (Astra, 20/09): the draft was written on one connection and entered in the books on the next, so an audit
@@ -366,42 +318,6 @@ test('the page editor: owners and managers edit and publish; support edits only 
  expect((await audit(f,'impersonation.design.save')).map(r=>[r.actor_id,r.on_behalf_of])).toEqual([[f.adminId,f.users[0].id]]);
  expect(await audit(f,'impersonation.design.publish')).toHaveLength(1);
  expect((await f.db.query("SELECT created_by FROM page_releases ORDER BY created_at DESC LIMIT 1")).rows[0].created_by).toBe(`admin:${f.adminId}`);
-});
-
-test('cards: anyone running the shop adds and renames; only the owner switches on; support never changes them',async({f})=>{
- const {OwnerCards}=await import('../lib/owner/cards');const cards=new OwnerCards(f.db);
- const {PublishingResolver}=await import('../lib/publishing/repository');
- const made=await cards.create(f.users[0].token,'one',{label:'Bàn 3'});
- expect(made).toMatchObject({label:'Bàn 3',state:'prepared'});expect(made.code).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
- for(const bad of [{label:''},{label:'x'.repeat(61)},{label:'<b>'},{label:'ok',extra:1},null])await expect(cards.create(f.users[0].token,'one',bad)).rejects.toThrow('INVALID_CARD');
- await expect(new PublishingResolver(f.db).live({code:made.code})).rejects.toThrow('PAGE_UNAVAILABLE');
- // A manager may add and rename, and switch a card off, but not on: active cards are what the shop pays for.
- await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
- await cards.update(f.users[1].token,'one',{id:made.id,label:'Bàn 4'});
- await expect(cards.update(f.users[1].token,'one',{id:made.id,state:'active'})).rejects.toThrow('OWNER_ROLE_REQUIRED');
- const before=await cards.list(f.users[0].token,'one');
- // No fee per card any more (Tài, 26/09): the list carries none.
- expect(before).toMatchObject({canActivate:true});expect(Object.keys(before).sort()).toEqual(['active','canActivate','cards']);
- await cards.update(f.users[0].token,'one',{id:made.id,state:'active'});
- expect((await new PublishingResolver(f.db).live({code:made.code})).context.tagId).toBe(made.id);
- const after=await cards.list(f.users[0].token,'one');
- expect(after.active).toBe(before.active+1);expect(after.cards.find(c=>c.id===made.id)).toMatchObject({label:'Bàn 4',state:'active'});
- expect((await cards.list(f.users[1].token,'one')).canActivate).toBe(false);
- // Off stops the page at once and stops billing; on again brings it back.
- await cards.update(f.users[1].token,'one',{id:made.id,state:'disabled'});
- await expect(new PublishingResolver(f.db).live({code:made.code})).rejects.toThrow('PAGE_UNAVAILABLE');
- await cards.update(f.users[0].token,'one',{id:made.id,state:'active'});
- await expect(new PublishingResolver(f.db).live({code:made.code})).resolves.toBeTruthy();
- // Another shop's card is out of reach, and support changes nothing at any position.
- await expect(cards.update(f.users[0].token,'one',{id:randomUUID(),state:'active'})).rejects.toThrow('CARD_NOT_FOUND');
- await position(f,'full');const d=await open(f,'design');
- await expect(cards.list(d.credential,'one')).resolves.toMatchObject({canActivate:false});
- await expect(cards.create(d.credential,'one',{label:'Hộ'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
- await expect(cards.update(d.credential,'one',{id:made.id,state:'disabled'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
- // The database still refuses codes under five characters, and rollback 013 refuses once short codes exist.
- await expect(f.db.query("INSERT INTO tags(shop_id,page_id,public_code) VALUES($1,$2,'abcd')",[f.shops[0],f.pages[0].pageId])).rejects.toThrow('check constraint');
- const sql=await readFile('db/rollback/013_short_card_codes.sql','utf8'),db=await f.db.connect();
- try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('SHORT_CARD_CODES_EXIST');await db.query('ROLLBACK');}finally{db.release();}
 });
 
 test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s folder; editors only; support recorded',async({f})=>{

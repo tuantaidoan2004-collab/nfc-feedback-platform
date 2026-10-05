@@ -164,13 +164,30 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình templat
 | **13** | Hai luật dùng chung mọi template: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi template, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-27
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-09-29
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên, rồi [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md)
 (logic gốc, đích kiến trúc module, tự chạy được, đội ngũ), rồi khối này. Việc còn lại: [`roadmap-slices.md`](roadmap-slices.md).
 Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-archive.md).
 
 ### Đang ở đâu
+
+**05/10 — đổi hướng lớn, đang dựng lại (đợt ① gần xong, chưa commit).** Nguồn chính: `rieng/kich-ban.md` (kịch bản),
+`rieng/thiet-ke-goc.md` (nguyên văn + 12 câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai).
+Dự án ở `~/Desktop/QuiteSensational` (thẻ Finder "Cam"); chạy local `node scripts/local.mjs`; test DB `node scripts/test-db.mjs`.
+
+Đã xong trong đợt ①: database một tệp `db/schema.sql` (local tự làm lại khi tệp đổi) · Orb bản đầu (WebGL, tách 6 tab cánh quạt,
+núp góc trái trong tab, nảy theo `/api/owner/v2/<shop>/pulse`) · 6 tab bản khung ở `/app/<slug>/…` (Data gộp góp ý riêng + đánh giá
+Google; Library kiểu Canva; My Card; Quản lý; Cài đặt với bảng giá mới) · onboarding theo ảnh Jitter (pha trời xanh: chào → tên →
+loại quán → tài khoản; pha xám: thẻ Template/Dashboard, bước Google hai cột) · đăng ký dùng ngay (`lib/account/signup.ts`) ·
+tìm quán bằng Places API (mẫu khi chưa có key) và Google Business giả lập đúng định dạng Google (`lib/google/*`) · "Nhờ tạo giúp"
+ở `/gov` · khung landing, `/pricing`, `/templates` · đã gỡ trình dựng cũ, `/thu`, chờ duyệt cũ, dashboard cũ, tính tiền theo trang.
+Kiểm 05/10: tsc sạch; eslint 0 lỗi; repository **171 qua**; contracts **123 qua**. Chưa chạy: client và bốn lệnh harness.
+
+**Còn lại của đợt ①:** xoá `db/migrations`, `db/rollback`; thay `scripts/migrate.mjs` bằng lệnh áp `db/schema.sql` và sửa
+`Dockerfile`, `deploy/docker-compose.yml`, `docs/tu-chay.md`, `README.md`; `integration-tests/run-local.mjs` còn áp danh sách
+migration → đổi sang `db/schema.sql`; viết lại các spec integration của UI đã gỡ (`owner-dashboard.spec.ts`, phần signups/billing
+của `admin-http.spec.ts`, editor cũ trong `publishing.spec.ts`); chạy đủ 7 bộ. Rồi đợt ② (Library + canvas + trang khách).
 
 **Phiên mới bắt đầu từ đây (29/09 — ngày cuối Vercel Pro và Claude Pro; Tài dành một tuần lập kế hoạch, thẻ NFC về thì làm
 tiếp):** đợt cải tổ đã xong S0 → S1 → M2 → M3 → D4a → D4b → M2b → P5b-lite → D4c. **Production = `main` = `9225e50`** (Vercel,
@@ -182,6 +199,15 @@ thương mại — Tài chọn: dựng VPS ngay, trả Pro thêm, hay tạm ở 
 (ở Testing chỉ email trong Test users đăng nhập được) · phần cuộn của trang khách trên iPhone (M4, Tài thử máy thật) · ghi thẻ
 đầu tiên bằng link `.com` · F4 xoay mật khẩu đã lộ · luật sư xem trang pháp lý (C2). **Dời** (Tài 28/09): dashboard "thời tiết
 của quán" — chưa có quán thật thì chưa có gì để báo; AI (D3) còn sau nữa.
+
+**Rà bảo mật 29/09 (Claude; Tài: "anh quyết định hết") — [`security-review-20260929.md`](security-review-20260929.md).** Trên
+nhánh, **chưa lên `main`**, không migration nào: **H1** mọi trang có CSP với nonce riêng + header bảo vệ (thay A17) · **C3b-1**
+ảnh chỉ duyệt được sau khi link tải lên hết hạn · **C3b-2** tệp bị từ chối bị xoá khỏi kho · **C3b-3** tối đa 20 tệp chờ duyệt mỗi
+quán · **L1** một máy lạ không còn khoá được đăng nhập mật khẩu của mọi người hay `/gov` · **T1** băng "Bản xem thử" chỉ mất trong
+khung của trình dựng · **G1** nối/ngắt Google đòi mật khẩu, ngắt thì đăng xuất phiên khác · **B3 phần đầu** `/api/health`. Mỗi lỗ
+có test tái hiện đỏ trước khi vá (G1 là lỗ thiết kế, ghi rõ trong tài liệu). Người rà là người viết mã: đề nghị Tài chạy
+`/code-review ultra` trên nhánh. **Còn mở:** dịch vụ gọi `/api/health` và báo (Tài chọn, ưu tiên miễn phí) · RT hạn giữ dữ liệu
+(hạn chót 9/2027; Tài quyết số sao có xoá theo không, và lịch chạy ở đâu) · PH cột `purpose` cho số điện thoại.
 
 **D4c (28/09, migration 032):** đăng nhập bằng Google cho chủ quán, OAuth 2.0 mã một lần + PKCE + state + nonce, không thư viện
 (`lib/owner/google.ts`). Ba việc, không hơn: **lưu trang ở `/bat-dau` bằng Google** ("Tiếp tục với Google", đứng trước phần mật

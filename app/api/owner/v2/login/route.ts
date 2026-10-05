@@ -10,6 +10,6 @@ export async function POST(request:Request){try{
  if(Object.keys(data).sort().join()!=='next,password,username'||(data.next!==null&&!safeDestination(data.next)))throw new OwnerError(400,'INVALID_INPUT');
  const session=await new OwnerAuth(database()).login(data.username,data.password,await ownerToken(),clientAddress(request));
  const home=data.next===null?await new OwnerSetupLinks(database()).dashboardSlug(session.userId):null;
- const response=ownerJson({next:safeDestination(data.next)??(home?`/ZZZ/${home}`:'/owner/cho-duyet')});
+ const response=ownerJson({next:safeDestination(data.next)??(home?`/app/${home}`:'/bat-dau')});
  response.cookies.set(ownerCookie,session.token,{httpOnly:true,sameSite:'strict',secure:new URL(request.url).protocol==='https:',path:'/',expires:session.expiresAt});return response;
 }catch(error){return ownerFailure(error);}}

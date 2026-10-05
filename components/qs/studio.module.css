@@ -1,0 +1,38 @@
+.frame { min-height: 100dvh; position: relative; overflow-x: hidden; }
+.tabArea { padding: 18px 20px 48px 96px; max-width: 1180px; margin: 0 auto; }
+.tabHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 64px; margin-bottom: 20px; }
+.titles { display: grid; gap: 2px; min-width: 0; }
+.tabActions { display: flex; gap: 10px; align-items: center; }
+.tabActions:empty { display: none; }
+.tabHeader h1 { font-size: clamp(24px, 4vw, 32px); }
+.homeLink { justify-self: start; border: 0; background: none; padding: 0; color: var(--qs-muted); font-size: 13px; font-weight: 600; cursor: pointer; min-height: 0; }
+.homeLink:hover { color: var(--qs-ink); }
+.tabMain { position: relative; z-index: 1; }
+
+/* Trang chủ: trang trắng, chỉ có Orb và vài dòng chữ rất nhẹ. */
+.home { position: relative; min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; padding: 18px 22px; pointer-events: none; }
+.homeTop { position: relative; z-index: 30; display: flex; justify-content: space-between; align-items: center; gap: 12px; pointer-events: auto; }
+.brand { font-weight: 700; letter-spacing: -.02em; font-size: 15px; }
+.shopName { color: var(--qs-muted); font-size: 13px; }
+.hint { justify-self: center; align-self: end; color: var(--qs-faint); font-size: 13px; padding-bottom: 10px; transition: opacity .6s ease; }
+.hint kbd { font: inherit; font-size: 12px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--qs-line); background: var(--qs-soft); color: var(--qs-muted); }
+
+/* Popup chào mừng lần đầu. */
+.welcomeBack { position: fixed; inset: 0; z-index: 60; pointer-events: auto; display: grid; place-items: center; padding: 20px; background: rgba(250, 251, 255, .55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: fadeIn .35s ease; }
+:global(.qs[data-theme='dark']) .welcomeBack { background: rgba(5, 6, 9, .6); }
+.welcome { width: min(440px, 100%); padding: 32px 28px 26px; text-align: center; border-radius: 28px; background: var(--qs-card);
+  border: 1px solid var(--qs-line); box-shadow: var(--qs-shadow-lg); animation: rise .5s cubic-bezier(.2, .9, .3, 1.2); display: grid; gap: 12px; justify-items: center; }
+.welcome .seal { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 32px;
+  background: radial-gradient(circle at 35% 30%, #fff, #e8eefc 60%, #c9d7f5); box-shadow: 0 12px 30px rgba(31, 91, 255, .18); }
+.welcome p { color: var(--qs-muted); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* Điện thoại: chỉ hàng tiêu đề chừa chỗ cho Orb ở góc; nội dung dùng hết bề ngang. */
+@media (max-width: 720px) {
+  .tabArea { padding: 14px 14px 40px; }
+  .tabHeader { padding-left: 62px; min-height: 56px; margin-bottom: 14px; gap: 10px; }
+  .tabHeader h1 { font-size: 24px; }
+  .tabActions { gap: 6px; }
+}

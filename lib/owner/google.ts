@@ -10,7 +10,7 @@ import { openSession, OwnerError, sessionHash, transaction } from './auth';
  * Three things a Google account can do here, never more:
  *   - `login`  : open the dashboard of the account already linked to it;
  *   - `link`   : link it to the account signed in right now ("Kết nối Google" in Hồ sơ), with that account's password;
- *   - `signup` : save a page built at /bat-dau, making the account (lib/start/signup.ts).
+ *   - `signup` : step 1 of onboarding, making the account and its shop at once (lib/account/signup.ts).
  * It is never matched to an account by email: an account's email was typed by someone and never proven, so matching on it
  * would let a stranger prepare an account in someone else's name and share it with them.
  */
@@ -18,7 +18,7 @@ export type GoogleSettings = { clientId: string; clientSecret: string; authUrl: 
 export type GoogleIntent =
   | { kind: 'login'; next: string | null }
   | { kind: 'link'; next: string; userId: string }
-  | { kind: 'signup'; draft: string; username: string; zalo: string | null };
+  | { kind: 'signup'; username: string; displayName: string | null; business: string | null };
 /** What travels in the short-lived cookie between leaving for Google and coming back. */
 export type GoogleTrip = { state: string; verifier: string; nonce: string; intent: GoogleIntent; expires: number };
 
@@ -38,7 +38,7 @@ export function googleSettings(env: Record<string, string | undefined> = process
 }
 export const redirectUri = (origin: string) => `${origin}/api/owner/v2/google/callback`;
 
-// The trip is signed with a key of its own, derived from the render key like draft links are (lib/start/draft-sign.ts).
+// The trip is signed with a key of its own, derived from the render key.
 const tripKey = (secret: string) => createHmac('sha256', secret).update('nfc-google-trip-v1').digest();
 const b64 = (value: Buffer | string) => Buffer.from(value).toString('base64url');
 

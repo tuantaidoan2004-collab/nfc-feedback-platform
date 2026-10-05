@@ -23,6 +23,8 @@
 .form input, .form select { width: 100%; min-width: 0; min-height: 46px; padding: 10px 14px; border: 1px solid var(--p-line-strong);
   border-radius: var(--p-radius); background: var(--p-sunken); color: var(--p-ink); font: inherit; font-size: 16px; font-weight: 400; }
 .form input::placeholder { color: var(--p-muted); }
+.fieldWithHelp { display: grid; gap: 6px; }
+.fieldWithHelp a { font-size: 13px; color: var(--p-accent-text); }
 .form input:focus, .form select:focus { outline: none; border-color: var(--p-accent-text); box-shadow: 0 0 0 4px var(--p-accent-soft); }
 .form > button { justify-self: start; }
 .mediaItem { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; align-items: start; }

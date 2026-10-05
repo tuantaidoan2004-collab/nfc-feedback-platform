@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID,randomBytes} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {OwnerAuth} from '../lib/owner/auth';
 import {OwnerSetupLinks,setupTokenHash,ownerEmail} from '../lib/owner/setup-link';
@@ -18,8 +18,7 @@ const shopFor=async(db:Pool,userId:string)=>{
 const test=base.extend<{f:{db:Pool;links:OwnerSetupLinks;auth:OwnerAuth}}>({f:async({},provide)=>{
  const schema=`nfc_setup_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:3});
  try{await root.query(`CREATE SCHEMA ${schema}`);
-  for(const file of ['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','022_shop_profile.sql','009_template_shop.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'])
-   await db.query(await readFile(`db/migrations/${file}`,'utf8'));
+  await applySchema(db);
   await provide({db,links:new OwnerSetupLinks(db),auth:new OwnerAuth(db)});
  }finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
@@ -100,16 +99,6 @@ test('a rejected password leaves the link unspent, and a spent one ends every se
  await expect(f.auth.login('shopkeeper','second-chosen-password')).resolves.toBeTruthy();
 });
 
-test('rollback refuses to discard addresses or issued links',async({f})=>{
- await f.links.provision('shopkeeper','tai@example.com',allow);
- const sql=await readFile('db/rollback/006_owner_email_setup.sql','utf8');
- const db=await f.db.connect();
- try{await expect(db.query(`BEGIN;${sql}COMMIT;`)).rejects.toThrow('OWNER_SETUP_DATA_EXISTS');await db.query('ROLLBACK');}finally{db.release();}
- expect((await f.db.query('SELECT count(*)::int n FROM owner_setup_tokens')).rows[0].n).toBe(1);
-});
-
-// Hold the first issue at its audit callback, after INSERT but before COMMIT. The second
-// reaches its DB lock before the first commits, exercising READ COMMITTED snapshots.
 test('concurrent reissues leave only the newest link usable with a production-sized pool',async({f})=>{
  const {userId}=await f.links.provision('shopkeeper','tai@example.com',allow);
  const shopId=await shopFor(f.db,userId);

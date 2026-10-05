@@ -23,3 +23,6 @@ node_modules
 
 # Production variables for the VPS (deploy/hosted, 29/09): secrets, never committed or baked into an image.
 deploy/hosted/hosted.env
+
+# Tài 05/10: repo công khai, nên bản thiết kế, kịch bản, ảnh tham khảo và khoá API chỉ nằm trên máy.
+rieng/

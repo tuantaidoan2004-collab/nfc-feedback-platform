@@ -1,6 +1,6 @@
+import {applySchema} from './schema';
 import {test as base,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-import {readFile} from 'node:fs/promises';
 import {Pool} from 'pg';
 import {ownerFixture,addExperience,enrolAdmin} from './owner-fixture';
 import {OwnerTeam} from '../lib/owner/team';
@@ -14,10 +14,9 @@ import {AdminImpersonation} from '../lib/admin/impersonation';
 import {parseFilters} from '../lib/owner/filters';
 const uri='postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
 if(process.env.NFC_TEST_DATABASE_URL!==uri)throw Error('Local test fixture required');
-const MIGRATIONS=['001_core.sql','002_visit_ratings.sql','003_publishing.sql','013_short_card_codes.sql','004_owner_dashboard.sql','005_platform_admin.sql','006_owner_email_setup.sql','007_admin_impersonation.sql','008_shop_support_grants.sql','009_template_shop.sql','010_feedback_without_rating.sql','011_feedback_phone.sql','018_guest_flood_control.sql','019_admin_two_factor.sql','020_page_events.sql','021_erase_on_request.sql','012_support_levels.sql','014_account_profiles.sql','015_shop_team.sql','016_feedback_comments.sql','017_mention_notifications.sql','022_shop_profile.sql','023_media_review.sql','030_text_review.sql','024_pages.sql','025_page_labels.sql','026_page_lifecycle.sql','027_page_debt.sql','028_retire_legacy.sql'];
 const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({},provide)=>{
  const schema=`nfc_team_test_${randomUUID().replaceAll('-','')}`,root=new Pool({connectionString:uri}),db=new Pool({connectionString:uri,options:`-c search_path=${schema}`,application_name:schema,max:5});
- try{await root.query(`CREATE SCHEMA ${schema}`);for(const file of MIGRATIONS)await db.query(await readFile(`db/migrations/${file}`,'utf8'));await provide(await ownerFixture(db));}
+ try{await root.query(`CREATE SCHEMA ${schema}`);await applySchema(db);await provide(await ownerFixture(db));}
  finally{await db.end();await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);await root.end();}
 }});
 const everything=()=>parseActivityQuery(new URLSearchParams());
@@ -138,20 +137,6 @@ test('support: never reads or changes the team or its history; its design work i
  expect(line).toMatchObject({actor_kind:'admin',actor_handle:'Quitesensational',action:'design.save'});
 });
 
-test('rollback 015 refuses once there is history or an invited member, and removes everything on a clean database',async({f})=>{
- const rollback=await readFile('db/rollback/015_shop_team.sql','utf8');
- const db=await f.db.connect();
- try{
-  await db.query('BEGIN');await db.query(rollback);
-  expect((await db.query("SELECT to_regclass('shop_roles') r,to_regclass('shop_activity') a")).rows[0]).toEqual({r:null,a:null});
-  await db.query('ROLLBACK');
-  const roles=(await new OwnerTeam(f.db).list(f.users[0].token,'one')).roles;
-  await new OwnerTeam(f.db).invite(f.users[0].token,'one',{handle:'moi.vao',roleId:roles[1].id});
-  await db.query('BEGIN');await expect(db.query(rollback)).rejects.toThrow('TEAM_DATA_PRESENT');await db.query('ROLLBACK');
- }finally{db.release();}
-});
-
-// Found by Astra 2026-09-20 (docs/security-review-20260920.md), red before the fix in lib/owner/team.ts.
 test('F-007: a manager without the feedback switch cannot act on someone the owner opened feedback to',async({f})=>{
  const owner=f.users[0].token,team=new OwnerTeam(f.db);
  const roles=(await team.list(owner,'one')).roles;

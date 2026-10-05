@@ -697,3 +697,21 @@ cổng cố định. **Có lượt 7 bộ nào đang chạy thì không chạy t
 `tsc --noEmit 2>&1 | tail -5; echo "tsc exit=$?"` in `tsc exit=0` ngay dưới một lỗi TS2345: số 0 là của `tail`. Thấy nhờ lỗi có in
 ra; các lần trước kết luận vẫn đúng vì không in dòng lỗi nào. Lấy mã thoát thật: ghi ra tệp rồi mới xem
 (`tsc --noEmit > log 2>&1; echo $?`), như `/tmp/nfc-d4-logs/run.sh` vẫn làm.
+
+**Bản preview trên Vercel báo vi phạm CSP từ `vercel.live` — đó là thanh công cụ của Vercel, không phải lỗi (29/09, H1).**
+Vercel tự chèn script thanh công cụ (góp ý, chia sẻ) vào **bản preview**; CSP của H1 chỉ cho script mang nonce của trang, nên
+chặn nó: console và `/api/csp-report` sẽ có dòng `script-src-elem https://vercel.live`. Production không có thanh công cụ.
+Không muốn thấy các dòng đó thì tắt thanh công cụ trong cài đặt dự án Vercel; **đừng** nới CSP cho `vercel.live`.
+
+**Thẻ màu Finder theo tên tiếng Việt — lỗi của Claude, 05/10.** macOS của Tài chạy tiếng Việt: thẻ cam tên là **"Cam"**, không
+phải "Orange". Gắn `Orange` bằng `NSURLTagNamesKey` thì Finder coi là một thẻ mới không màu. Đúng: ghi `_kMDItemUserTags`
+là `Cam\n7` (7 = cam), kiểm bằng `mdls -name kMDItemUserTags <thư mục>`. Tên các thẻ: `defaults read com.apple.finder FavoriteTagNames`.
+
+**Chuyển thư mục dự án (05/10): preview của phiên cũ vẫn chạy ở thư mục cũ.** Sau `change_directory`, `preview_start` vẫn đọc
+`.claude/launch.json` và chạy app trong thư mục phiên bắt đầu (worktree Codex `1b35`), nên sửa ở `~/Desktop/QuiteSensational`
+không hiện lên. `scripts/local.mjs` giờ tự `chdir` về thư mục chứa nó; phiên cũ trỏ `launch.json` tới đường tuyệt đối của
+script. Phiên mới mở thẳng ở `~/Desktop/QuiteSensational` thì không gặp. Kiểm app chạy ở đâu: `lsof -a -p <pid next> -d cwd`.
+
+**Regex trong PostgreSQL không cho số lặp quá 255 — lỗi của Claude, 05/10.** Ràng buộc `place_id ~ '^[A-Za-z0-9_-]{10,300}$'` tạo bảng
+được, nhưng lần ghi đầu tiên vào cột đó báo `invalid regular expression: invalid repetition count(s)` và API trả 503. Giới hạn
+độ dài bằng `char_length(...) BETWEEN a AND b`, còn regex chỉ kiểm ký tự (`^[...]+$`).

@@ -83,7 +83,7 @@ Tab **Actions** → **Nightly backup** → **Run workflow**. Log bước cuối 
 
 Trên máy, tạo một database trống rồi khôi phục bản vừa lên R2 vào đó. Lệnh cho zsh; bí mật đọc bằng `read -rs`:
 ```bash
-cd "/Users/doantai/.codex/worktrees/1b35/Branded page through NFC card" && export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && B=/Applications/Postgres.app/Contents/Versions/latest/bin
+cd "/Users/doantai/Desktop/QuiteSensational" && export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && B=/Applications/Postgres.app/Contents/Versions/latest/bin
 ```
 Sau đó Claude đưa lệnh khôi phục cụ thể (cần database Postgres chạy trên máy và tên tệp trên R2 lấy từ log bước 5).
 Kết quả: danh sách bảng + số dòng + "Restored in …s", đối chiếu với số dòng trên Neon.

@@ -168,6 +168,23 @@ mở ở nơi khác, giữ phiên đang hỏi; ngắt lần hai báo không còn
 ca D4c (sai mật khẩu thì không sang Google; đúng thì nối; ngắt từ phiên mật khẩu → phiên Google bị đăng xuất, Google không mở
 được nữa).
 
+### U1 · Trung bình trên VPS, thấp trên Vercel · Hai route công khai đọc hết body rồi mới kiểm cỡ — **đã vá**
+
+**Bằng chứng:** `/api/csp-report` (H1 — lỗi của chính người rà) đọc bằng `request.text()` rồi mới so với 16 KB;
+`/api/owner/v2/google/start` (D4c) đọc bằng `request.formData()` không giới hạn. Cả hai nhận request của người lạ (route
+báo cáo cố ý không kiểm origin; route Google kiểm `Sec-Fetch-Site`/`Origin`, mà một script ngoài trình duyệt gửi được cả
+hai). Trên Vercel nền tảng tự chặn body ở 4,5 MB; trên **VPS** không có gì đứng giữa: vài request một gigabyte là container
+hết bộ nhớ. Mọi route khác đọc theo luồng và dừng ở giới hạn (`ownerInput`, `body`, `readInput`). Test tái hiện đỏ trên
+`9c77996`: một body chunked không bao giờ kết thúc — code cũ **không trả lời** (chờ hết body), test hết giờ.
+
+**Vá:** `boundedText` (`server/http.ts`) đọc theo luồng và bỏ ngay khi vượt giới hạn (413); `body()` dùng lại nó. Route báo
+cáo: 16 KB; route Google: 8 KB (mọi trường đều ngắn). Và **Caddy chặn mọi body trên 1 MB** trước khi tới app
+(`deploy/hosted/Caddyfile`; body lớn nhất hợp lệ là ảnh QR ở `/gov`, ~720 KB; ảnh của quán đi thẳng lên kho). Đã chạy thử
+`caddy:2.10` thật: 500 KB → 200; 2 MB có `Content-Length` → 413; 2 MB chunked → Caddy cắt ở 1 MB (502), app không nhận quá.
+
+**Test:** `integration-tests/open-ended-post.ts` (gửi 20 KB của một body không kết thúc, đợi câu trả lời tối đa 5 giây);
+`public-v2.spec.ts` ca H1 (`/api/csp-report` → 413 khi body còn mở); `admin-http.spec.ts` ca D4c (`google/start` → 413).
+
 ### Mặt trận 3 của C3 (media/R2): bốn điểm Astra nêu 20/09
 
 | Điểm | Giờ |
@@ -196,3 +213,15 @@ ca D4c (sai mật khẩu thì không sang Google; đúng thì nối; ngắt từ
 
 **Yếu còn lại, ghi để biết:** hạn mức đăng nhập toàn nền tảng vẫn tiêu được bằng **nhiều** máy cùng lúc (L1 chỉ chặn một
 máy); đăng nhập Google (D4c) không đi qua hạn mức này.
+
+## 4. Bằng chứng chạy — 7 bộ trên từng đỉnh (29/09)
+
+Mỗi dòng là một lượt `run.sh` trọn vẹn trên một worktree tạm tách riêng (tsc, eslint, contracts, client, repository, rồi bốn
+harness: public, publishing, owner, admin; mỗi harness chạy bản dev rồi "production gate" trên bản build).
+
+| Đỉnh | Gồm | tsc · eslint | contracts | client | repository | public | publishing | owner | admin |
+|---|---|---|---|---|---|---|---|---|---|
+| `379e61c` | H1 | 0 · 0 | 130 | 84 | 184 | 22 + 1 bỏ qua + 2 | 34 + 2 | 17 + 2 | 13 + 2 |
+| `e769e73` | C3b-1 (cây `1384f39`, chạy khi commit còn tên `f547bd3`) | 0 · 0 | 130 | 84 | 185 | 22 + 1 + 2 | 34 + 2 | 17 + 2 | 13 + 2 |
+| `3c34cef` | C3b-3, C3b-2 | 0 · 0 | 132 | 84 | 187 | 22 + 1 + 2 | 34 + 2 | 17 + 2 | 13 + 2 |
+| `48c364f` | L1, T1, B3 | 0 · 0 | 133 | 84 | 190 | 22 + 1 + 2 | 34 + 2 | 17 + 2 | 13 + 2 |

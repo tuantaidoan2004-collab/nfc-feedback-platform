@@ -1,0 +1,68 @@
+/*
+ * Pha trời xanh của onboarding — theo ảnh Jitter Tài gửi 05/10 (rieng/kich-ban.md mục 4): nền xanh trời đậm ở trên nhạt dần
+ * xuống dưới, chữ trắng thật to, mỗi màn một câu hỏi, dưới cùng là đường cong trắng mảnh có các nút emoji.
+ */
+.sky { position: relative; min-height: 100dvh; overflow: hidden; color: #fff;
+  background: linear-gradient(180deg, #2aa6ff 0%, #33aaff 38%, #74c3ff 72%, #b9e1ff 100%); }
+.glow { position: absolute; left: 50%; top: 72%; width: 70vmax; height: 50vmax; transform: translate(-50%, -50%); pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .35), rgba(255, 255, 255, 0)); filter: blur(10px); animation: breathe 8s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: .75; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 1; transform: translate(-50%, -52%) scale(1.06); } }
+.top { position: absolute; z-index: 3; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: clamp(18px, 4vw, 52px) clamp(18px, 5.5vw, 110px); }
+.brand { font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); letter-spacing: -.04em; color: #fff; text-decoration: none; }
+.dots { display: flex; gap: 10px; }
+.dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, .45); transition: background .3s ease, transform .3s ease; }
+.dots span[data-on='true'] { background: #fff; transform: scale(1.15); }
+.stage { position: relative; z-index: 2; min-height: 100dvh; display: grid; place-items: center; padding: 120px 18px 260px; }
+.screen { width: min(980px, 100%); display: grid; justify-items: center; gap: clamp(22px, 3vw, 36px); text-align: center; animation: enter .55s cubic-bezier(.2, .8, .2, 1); }
+@keyframes enter { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.screen .title { font-size: clamp(42px, 9vw, 120px); line-height: .98; font-weight: 700; letter-spacing: -.055em; text-wrap: balance; margin: 0;
+  text-shadow: 0 10px 40px rgba(0, 70, 160, .12); }
+.screen .title.mid { font-size: clamp(38px, 7vw, 92px); }
+.lead { font-size: clamp(16px, 1.6vw, 19px); color: rgba(255, 255, 255, .88); max-width: 560px; }
+.form { width: min(560px, 100%); display: grid; gap: 14px; }
+.input { width: 100%; min-height: 64px; padding: 0 24px; border: 0; border-radius: 4px; background: rgba(255, 255, 255, .2); color: #fff;
+  font: inherit; font-size: clamp(17px, 1.8vw, 20px); outline: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); transition: box-shadow .2s ease, background .2s ease; }
+.input::placeholder { color: rgba(255, 255, 255, .72); }
+.input:focus { background: rgba(255, 255, 255, .26); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85); }
+.handle { position: relative; }
+.handle span { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); font-weight: 600; color: rgba(255, 255, 255, .8); font-size: 19px; }
+.handle .input { padding-left: 44px; }
+.form .go { min-height: 64px; border: 0; border-radius: 4px; background: #eef6ff; color: #101418; font: inherit; font-size: clamp(17px, 1.8vw, 20px); font-weight: 600;
+  cursor: pointer; transition: transform .15s ease, background .15s ease; }
+.form .go:hover { background: #fff; transform: translateY(-1px); }
+.form .go:disabled { opacity: .55; cursor: default; transform: none; }
+.google { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.choices { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(940px, 100%); }
+.choices .choice { min-height: 84px; border: 0; border-radius: 2px; background: rgba(255, 255, 255, .18); color: #fff; font: inherit; font-size: clamp(16px, 1.7vw, 20px);
+  cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); transition: background .2s ease, box-shadow .2s ease; display: grid; place-items: center; gap: 2px; padding: 10px; }
+.choice:hover { background: rgba(255, 255, 255, .26); }
+.choice[aria-pressed='true'] { box-shadow: inset 0 0 0 2px #fff; background: rgba(255, 255, 255, .24); }
+.choice small { font-size: 13px; color: rgba(255, 255, 255, .78); }
+.or { display: flex; align-items: center; gap: 14px; color: rgba(255, 255, 255, .8); font-size: 13px; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: rgba(255, 255, 255, .35); }
+.error { color: #fff; background: rgba(200, 30, 50, .35); padding: 10px 14px; border-radius: 4px; font-size: 14px; }
+.small { font-size: 14px; color: rgba(255, 255, 255, .85); }
+.small a, .small button { color: #fff; font-weight: 600; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font: inherit; }
+.back { position: absolute; z-index: 3; left: clamp(18px, 5.5vw, 110px); bottom: 34px; background: none; border: 0; color: rgba(255, 255, 255, .85); font: inherit; font-size: 14px; cursor: pointer; }
+
+/* Đường cong và các nút emoji. */
+.journey { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 300px; pointer-events: none; }
+.journey svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.journey path { fill: none; stroke: url(#qs-line); stroke-width: 2.2; }
+.node { position: absolute; left: 0; top: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .22);
+  will-change: transform; transition: width .6s cubic-bezier(.2, .8, .2, 1), height .6s cubic-bezier(.2, .8, .2, 1), box-shadow .6s ease, background .6s ease; }
+.node[data-current='true'] { box-shadow: 0 0 0 3px #fff, 0 20px 60px rgba(0, 80, 180, .18); background: rgba(255, 255, 255, .28); }
+.node span { line-height: 1; transition: font-size .6s cubic-bezier(.2, .8, .2, 1); }
+.spark { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; opacity: 0; animation: twinkle 2.6s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.4); } 45% { opacity: .95; transform: scale(1); } }
+.help { position: absolute; z-index: 4; right: clamp(16px, 2.4vw, 32px); bottom: clamp(16px, 2.4vw, 32px); width: 60px; height: 60px; border-radius: 50%; border: 0;
+  background: #0b0b0c; color: #fff; font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.helpCard { position: absolute; z-index: 4; right: clamp(16px, 2.4vw, 32px); bottom: calc(clamp(16px, 2.4vw, 32px) + 72px); width: min(300px, calc(100vw - 32px));
+  background: #fff; color: #0b0b0c; border-radius: 16px; padding: 16px; box-shadow: 0 20px 50px rgba(0, 40, 100, .25); font-size: 14px; display: grid; gap: 6px; text-align: left; }
+@media (max-width: 720px) {
+  .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stage { padding: 104px 16px 210px; }
+  .journey { height: 220px; }
+  .input, .form .go { min-height: 56px; }
+}
+@media (prefers-reduced-motion: reduce) { .glow, .spark { animation: none; } .screen { animation: none; } }
