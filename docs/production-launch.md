@@ -155,6 +155,99 @@ cũng có vài đánh giá xem trước mang `data-review-id`, nên tool tưởn
 Máy Tài tắt hay phiên Google của tool hết hạn thì production giữ bản cuối, ghi giờ Google Maps đọc lần cuối; lượt đọc lỗi
 hiện `MAPS_RUN_FAILED` trên kết nối.
 
+**Mô hình kinh doanh và chọn mẫu (06/10: chọn mẫu → Admin Tài dựng, G1 gói, G2 kích hoạt và thanh toán, G3 nhân viên xin vào quán,
+G3b địa chỉ quán):** lược đồ `262a0c65daf33d7d` lên `e762b0dfdcec12ad` (commit `0c217c2`). Bỏ `publish_reviews` và
+`shops.publish_approved_at`; `shops` thêm `profile`, `plan`, `paid_until`, `activated_at`, `main_shop_id`; `edit_requests` thêm
+`template_key`, `contact`, `contacted_at`, `outcome`; ba bảng mới `payment_settings`, `payments`, `join_requests`. Dữ liệu:
+**yêu cầu "Nhờ admin sửa" cũ bị xoá** (không có số Zalo, cột này nay bắt buộc; lệnh in ra số đã xoá); **quán tự đăng ký đang có
+được coi là đã kích hoạt**, nên vẫn "chưa tính phí" thay vì bị khoá vì quá 3 ngày dùng thử. Chạy **sau** bước "Trạng thái, ghi chú,
+đã bị xoá" ở trên (production phải đang ở `262a0c65`; còn ở `6ac19fbf` thì chạy bước đó trước) và **trước** khi đẩy code. Đã chạy
+thử 06/10 trên database dựng từ `6ac19fbf` có dữ liệu (qua bước `262a0c65` rồi bước này): `pg_dump -s` trùng bản dựng mới, chỉ khác
+thứ tự cột (cột thêm nằm cuối bảng; code không đọc cột theo vị trí); chạy lần hai thì dừng. Không cần biến Vercel mới; sau khi đẩy
+code, Tài nhập tài khoản nhận tiền ở `/gov` → Thanh toán chờ xác nhận.
+
+```bash
+cd ~/Desktop/QuiteSensational && export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)" && awk '/^\*\*Mô hình kinh doanh và chọn mẫu \(06\/10/{f=1} f&&/<<.SQL.$/{p=1;next} p&&/^SQL$/{exit} p' docs/production-launch.md | /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1; unset DATABASE_URL
+```
+
+```sql
+-- <<'SQL'
+BEGIN;
+-- Production phải đang ở lược đồ 262a0c65daf33d7d (sau bước "Trạng thái, ghi chú, đã bị xoá"); khác thì dừng, không đổi gì.
+DO $$ DECLARE h text := (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1); BEGIN
+  IF h IS DISTINCT FROM '262a0c65daf33d7d' THEN RAISE EXCEPTION 'production đang ở lược đồ %', h; END IF; END $$;
+-- Chọn mẫu → Admin Tài dựng (06/10): mọi trang qua tay Tài, bỏ bước duyệt lần phát hành đầu; thông tin quán gắn vào mẫu.
+DROP TABLE publish_reviews;
+ALTER TABLE shops DROP COLUMN publish_approved_at,
+  ADD COLUMN profile jsonb DEFAULT '{}'::jsonb NOT NULL,
+  ADD CONSTRAINT shops_profile_check CHECK (((jsonb_typeof(profile) = 'object'::text) AND (octet_length((profile)::text) <= 8192)));
+-- Yêu cầu "Nhờ admin sửa" cũ không có số Zalo, mà từ nay số Zalo là bắt buộc: xoá (in ra bao nhiêu), quán gửi lại khi cần.
+DO $$ BEGIN RAISE NOTICE 'xoá % yêu cầu nhờ sửa cũ', (SELECT count(*) FROM edit_requests); END $$;
+DELETE FROM edit_requests;
+ALTER TABLE edit_requests
+  ADD COLUMN template_key text CHECK (template_key IS NULL OR template_key ~ '^[a-z0-9][a-z0-9-]{0,39}$'::text),
+  ADD COLUMN contact text NOT NULL CHECK (contact ~ '^0[0-9]{9}$'::text),
+  ADD COLUMN contacted_at timestamp with time zone,
+  ADD COLUMN outcome text CHECK (outcome IS NULL OR outcome = ANY (ARRAY['published'::text, 'closed'::text])),
+  ADD CHECK ((handled_at IS NULL) = (outcome IS NULL));
+-- G1–G3b: gói và hạn, kích hoạt 10k, địa chỉ quán dưới gói VIP.
+ALTER TABLE shops ADD COLUMN plan text, ADD COLUMN paid_until date, ADD COLUMN activated_at timestamp with time zone,
+  ADD COLUMN main_shop_id uuid REFERENCES shops(id),
+  ADD CONSTRAINT shops_main_not_self CHECK (((main_shop_id IS NULL) OR (main_shop_id <> id))),
+  ADD CONSTRAINT shops_branch_has_no_plan CHECK (((main_shop_id IS NULL) OR ((plan IS NULL) AND (paid_until IS NULL) AND (activated_at IS NULL) AND (NOT self_signup)))),
+  ADD CONSTRAINT shops_plan_check CHECK (((plan IS NULL) OR (plan = ANY (ARRAY['basic'::text, 'events'::text, 'vip'::text])))),
+  ADD CONSTRAINT shops_paid_until_needs_plan CHECK (((paid_until IS NULL) OR (plan IS NOT NULL)));
+CREATE INDEX shops_main_shop ON shops USING btree (main_shop_id) WHERE (main_shop_id IS NOT NULL);
+-- Quán tự đăng ký trước khi có thu tiền: coi như đã kích hoạt, nên vẫn "chưa tính phí" (mọi thứ mở) thay vì bị khoá vì đã quá
+-- 3 ngày dùng thử. Muốn tính phí quán nào thì đặt gói ở /gov.
+UPDATE shops SET activated_at=created_at WHERE self_signup AND activated_at IS NULL;
+CREATE TABLE payment_settings (
+    id boolean DEFAULT true PRIMARY KEY CHECK (id),
+    bank_bin text NOT NULL CHECK (bank_bin ~ '^[0-9]{6}$'::text),
+    account_number text NOT NULL CHECK (account_number ~ '^[0-9A-Za-z]{4,19}$'::text),
+    account_name text NOT NULL CHECK (account_name ~ '^[A-Z0-9 ]{2,50}$'::text),
+    updated_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    updated_by uuid NOT NULL REFERENCES platform_admins(id)
+);
+CREATE TABLE payments (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    kind text NOT NULL CHECK (kind = ANY (ARRAY['activation'::text, 'plan'::text])),
+    plan text NOT NULL CHECK (plan = ANY (ARRAY['basic'::text, 'events'::text, 'vip'::text])),
+    months integer NOT NULL CHECK (months = ANY (ARRAY[0, 1, 12])),
+    amount integer NOT NULL CHECK (amount > 0 AND amount <= 100000000),
+    settles_first_month boolean DEFAULT false NOT NULL,
+    code text NOT NULL UNIQUE CHECK (code ~ '^[2-9A-HJKMNP-Z]{6}$'::text),
+    status text DEFAULT 'pending'::text NOT NULL CHECK (status = ANY (ARRAY['pending'::text, 'received'::text, 'cancelled'::text])),
+    requested_by uuid REFERENCES owner_identities_v2(id),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid REFERENCES platform_admins(id),
+    paid_until_after date,
+    CHECK (kind = 'plan' OR (amount = 10000 AND months = 1 AND NOT settles_first_month)),
+    CHECK ((status = 'pending') = (decided_at IS NULL)),
+    CHECK ((status = 'received') = (paid_until_after IS NOT NULL))
+);
+CREATE UNIQUE INDEX payments_one_pending ON payments (shop_id) WHERE status = 'pending';
+CREATE INDEX payments_shop ON payments (shop_id, created_at DESC);
+CREATE TABLE join_requests (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES owner_identities_v2(id) ON DELETE CASCADE,
+    message text CHECK (message IS NULL OR (char_length(message) BETWEEN 1 AND 200 AND message !~ '[<>[:cntrl:]]'::text)),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid REFERENCES owner_identities_v2(id),
+    outcome text CHECK (outcome IS NULL OR outcome = ANY (ARRAY['approved'::text, 'declined'::text, 'withdrawn'::text])),
+    CHECK ((decided_at IS NULL) = (outcome IS NULL))
+);
+CREATE UNIQUE INDEX join_requests_one_open ON join_requests (shop_id, user_id) WHERE decided_at IS NULL;
+CREATE INDEX join_requests_shop_open ON join_requests (shop_id, created_at) WHERE decided_at IS NULL;
+INSERT INTO applied_schema(hash) VALUES ('e762b0dfdcec12ad');
+COMMIT;
+SQL
+```
+
 ## Đăng nhập bằng Google (D4c, 28/09)
 
 OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:

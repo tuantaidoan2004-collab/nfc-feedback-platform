@@ -71,6 +71,13 @@ Astra đồng ý cơ chế một bên tích hợp. Không sửa code trong check
 - Đã chứng minh bằng fixture membership hợp lệ (seed SQL; chưa chứng minh đường UI tạo membership thứ hai). Cần tách lời mời chưa kích hoạt khỏi khôi phục tài khoản đã hoạt động; không trao quyền reset identity toàn hệ thống theo quyền shop. **Claude sửa:** `op:'link'` chỉ cho người **chưa từng kích hoạt** (chưa dùng link nào, chưa có phiên), **chỉ thuộc shop này**, và được shop này mời; còn lại `409 MEMBER_ALREADY_ACTIVE`, khôi phục qua quản trị NFC. Nguồn gốc lỗi: lát F3 của Claude cho `link` dùng được với mọi thành viên. Test F-008 đỏ khi gỡ bản sửa.
 - Hai test tái hiện và hướng chạy: `docs/security-repros/team-reset-tests.txt`, `docs/security-review-20260920.md` trên nhánh Astra. Test đỏ được giữ ngoài bộ mặc định để bàn giao lát sửa tiếp.
 
+### F-014 · Cao (nếu chạy theo) · Bước lược đồ Bàn dựng chờ sai mã lược đồ gốc — Claude (phiên G-line), 06/10
+- `docs/production-launch.md` mục "Bàn dựng": `IF h IS DISTINCT FROM '4fcb852dedbeca37'`. Lược đồ đã commit sau G3b (`0c217c2`) là
+  **`e762b0dfdcec12ad`**, và bước "Mô hình kinh doanh và chọn mẫu" (viết 06/10, ngay trên mục Bàn dựng) đưa production tới đúng mã đó.
+  Chạy theo thứ tự thì bước Bàn dựng tự dừng (an toàn, không đổi gì) nhưng không đi tiếp được.
+- Đề xuất: phiên Bàn dựng đổi `4fcb852dedbeca37` thành `e762b0dfdcec12ad` (hai chỗ: dòng mô tả và `IF`), chạy thử lại từ lược đồ đó.
+  Phiên G-line không sửa mục của phiên kia.
+
 ## Tài đã quyết (2026-09-20)
 
 - **F-003: phương án (b) — đã làm** (`0c65a4a`) theo đúng cách hai bên đồng thuận ở Q1: lọc ở server trong hai response đã có, không thêm truy vấn hay bảng. Admin nhận `phone:null` ở mọi khấc, trong cả bảng Dữ liệu lẫn luồng bình luận; người của shop có quyền vẫn thấy. Câu trên trang khách đổi thành "Chỉ người của quán được cấp quyền mới thấy số này". **Chấp nhận giới hạn Astra nêu:** số khách tự gõ trong lời nhắn không bị che; sẽ ghi rõ trong chính sách quyền riêng tư (A5). Lọc `ownerFailure` trước khi gắn Sentry: ghép vào B3.

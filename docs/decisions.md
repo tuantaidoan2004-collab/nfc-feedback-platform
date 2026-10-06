@@ -189,7 +189,7 @@ phí: mở hết) · `active` · `grace` (≤ 14 ngày sau hạn) · `off`. Cổ
 Cài đặt → Thanh toán theo ba gói; dải nhắc nổi ở chân màn khi `grace`. Sửa kèm: bảng `/gov` từng lặp một quán theo mỗi nhân viên
 (chỉ nối chủ quán). Test `repository-tests/billing.spec.ts`. Bảy bộ xanh tại máy 06/10 (chưa commit): repository 170 · contracts 111 ·
 client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 · admin 11, mỗi lệnh harness thêm 2 ca production gate. **Lên production cần thêm hai cột `shops.plan`, `shops.paid_until`**
-vào bước lược đồ còn chờ viết (cùng đợt chọn mẫu và Google Maps). Đã commit `5792e71`.
+vào bước lược đồ (đã viết 06/10, xem dưới). Đã commit `5792e71`.
 
 **06/10 — G2 kích hoạt và thu tiền (Tài duyệt, đã commit).** Tài chọn: 10k **mở ngay tháng đầu**, trong tháng trả nốt
 giá − 10k; khách tự đến **dùng thử một thời gian rồi khoá** (agent chọn 3 ngày, `TRY_DAYS`); gia hạn làm luôn. Trạng thái mới
@@ -200,7 +200,7 @@ dựng (`lib/billing/vietqr.ts`, CRC đã kiểm bằng cách khác và đọc l
 Thanh toán (`/api/owner/v2/<quán>/billing`), cũng nằm trong màn khoá và màn trang đã tắt; nhân viên không trả được. `/gov`:
 "Thanh toán chờ xác nhận" + "Tài khoản nhận tiền" (`/gov/api/payments`, sổ admin `payment.*`); "Trang chờ dựng" ghi "Chưa kích
 hoạt". Onboarding: màn **"Bạn là…"** ba lối. Test `repository-tests/payments.spec.ts` (lặp 5 lần xanh). **Lên production cần
-thêm** `shops.activated_at`, `payment_settings`, `payments` vào bước lược đồ còn chờ viết; **Tài tự nhập tài khoản nhận tiền** ở
+thêm** `shops.activated_at`, `payment_settings`, `payments` vào bước lược đồ (đã viết 06/10); **Tài tự nhập tài khoản nhận tiền** ở
 `/gov` rồi quét thử mã 2.000đ (Tài đã quét thử trên local 06/10: app Vietcombank đọc đúng tài khoản và nội dung). Cuối ngày Tài
 đổi gói: Cơ bản có nhân viên, VIP 120k = mọi địa chỉ quán (`vip` thay `team`, bỏ cổng nhân viên). Sửa kèm: lần đọc đồng hồ đôi ở
 sự kiện mở trang (`operations-gotchas.md`). Bảy bộ xanh tại máy 06/10 sau các sửa đó: repository 174 · contracts 111 · client 84 ·
@@ -213,10 +213,16 @@ quán. Đăng ký nhân viên `AccountSignup.createStaff` (tìm quán **trước
 chống spam vẫn ghi) → tài khoản không quán + yêu cầu → `/bat-dau/cho-duyet`; người đã có tài khoản xin qua `/api/start/join`.
 Chủ: `OwnerTeam.list` trả `requests` cho ai có quyền Thành viên; `change({op:'join'})` duyệt với vai (cùng luật như mời) hoặc từ
 chối, người bị gỡ trước đó vào lại trên cùng dòng thành viên. `/gov` cột Trang ghi "dựng/sửa N lần" (`edit_requests` đã phát
-hành). Test `repository-tests/join.spec.ts`. **Lên production cần thêm** bảng `join_requests` vào bước lược đồ còn chờ viết. Bảy bộ tại máy 06/10:
+hành). Test `repository-tests/join.spec.ts`. **Lên production cần thêm** bảng `join_requests` vào bước lược đồ (đã viết 06/10). Bảy bộ tại máy 06/10:
 repository 178 · contracts 111 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 xanh; admin 10/11 — ca D4c (đăng
 ký Google) đỏ "not stable", **đỏ cả trên commit G2**, nghi do Chrome tự cập nhật (`operations-gotchas.md`); ca "/gov cột Trang"
 đã sửa theo cột mới, ca mạo danh đỏ một lần rồi xanh khi chạy lại.
+
+**06/10 — bước lược đồ production cho chọn mẫu + G1–G3b đã viết (chưa chạy).** `production-launch.md` mục "Mô hình kinh doanh
+và chọn mẫu": `262a0c65` → `e762b0df`, chạy sau bước `262a0c65` (chưa rõ đã chạy trên production chưa — lệnh tự dừng và in lược
+đồ đang có), trước khi đẩy code. Xoá yêu cầu "Nhờ admin sửa" cũ (thiếu số Zalo bắt buộc); quán tự đăng ký đang có coi như đã kích
+hoạt (không bị khoá). Đã chạy thử trên database dựng từ `6ac19fbf`: chỉ khác thứ tự cột. Bước Bàn dựng của phiên template chờ
+`4fcb852…`, phải là `e762b0df…` (đã ghi ở bảng điều phối). Trước khi đẩy `main` vẫn cần đủ bảy bộ.
 
 **06/10 — G5 khúc "Vì sao có Quite Sensational" (Tài duyệt, đã commit; ký "Admin Tài", không nêu tên đối tác collab).** Tài 06/10: một
 phiên khác đang làm template (Bàn dựng + mẫu có núm), nên G4 collab — đụng `slot` của mẫu — để sau, G5 làm trước. Chữ ở
@@ -237,7 +243,7 @@ nhỏ cạnh tên quán ở màn Orb và đầu mỗi tab → "Các quán của 
 cột Gói ghi "Địa chỉ của …", không có nút "Đặt gói". Nhật ký `shop.branch`. **Sửa kèm (lỗi của agent ở G2):** bảng `/gov` bỏ mất
 `billing_activate_by` nên chưa bao giờ hiện "Tự đăng ký · chưa kích hoạt". Test `repository-tests/branches.spec.ts`. Tại máy 06/10:
 repository 181 · contracts 111 xanh (năm bộ còn lại chạy trước khi đẩy `main`). **Lên production cần thêm** cột `shops.main_shop_id`
-(+ hai CHECK, chỉ mục, khoá ngoại) vào bước lược đồ còn chờ viết. Chưa làm: gỡ/tách một địa chỉ (nhắn Admin Tài).
+(+ hai CHECK, chỉ mục, khoá ngoại) vào bước lược đồ (đã viết 06/10). Chưa làm: gỡ/tách một địa chỉ (nhắn Admin Tài).
 
 **05/10 — đổi hướng lớn, đang dựng lại.** Nguồn chính: `rieng/kich-ban.md` (kịch bản), `rieng/thiet-ke-goc.md` (nguyên văn
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`
@@ -255,7 +261,7 @@ còn link mẫu** (`PAGE_NOT_SYNCED`) và kiểm luật Google trên trang đã 
 `lib/owner/design.ts`), tạo/nhân bản trang trực tiếp, **duyệt lần phát hành đầu** (`publish_reviews`, `publish_approved_at`,
 khung /gov) — mọi trang đều qua tay Tài. Agent: `scripts/sua-trang.mjs ds|lay|kiem|dang` (lưu thông tin quán, từ chối nếu làm
 hỏng trang đang chạy). Lược đồ đổi: `shops.profile`, `edit_requests` thêm `template_key`, `contact`, `contacted_at`, `outcome`;
-**lên production cần thêm bước lược đồ** (viết lúc gộp với đợt Google Maps). Bảy bộ xanh tại máy 06/10: repository 166 ·
+**lên production cần thêm bước lược đồ** (đã viết 06/10, gộp với G1–G3b). Bảy bộ xanh tại máy 06/10: repository 166 ·
 contracts 111 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 · admin 11. Tài duyệt ảnh (`rieng/anh/xem-0610-admin-tai-dung/`),
 đã commit 06/10 chung với đợt Data dưới đây; chưa đẩy nhánh.
 
