@@ -52,7 +52,7 @@ bây giờ, khi chưa ghi thẻ NFC nào và chưa có khách thật.
 
 ## 4. Tính tiền
 
-**Đã thay 06/10:** ba gói mỗi quán (Cơ bản 50k · Sự kiện 70k · Đội ngũ 120k · Chuỗi thoả thuận), collab 100k một lần,
+**Đã thay 06/10:** ba gói (Cơ bản 50k có nhân viên · Sự kiện 70k · VIP 120k mọi địa chỉ quán · Chuỗi lớn thoả thuận), collab 100k một lần,
 không giới hạn số trang — `rieng/kich-ban.md` mục 3, 3b và `commercial-model.md` mục 2–3. Giá theo template, hai suất
 miễn phí của 25/09 bỏ.
 

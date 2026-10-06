@@ -75,13 +75,16 @@ export function createDocumentFeedbackRegistry(resolvePorts: (win: Window) => Po
       const visitId = queue.state().coordinator.current?.snapshot?.visit.id;
       if (!visitId || silenced) return;
       // The visit is claimed before the first await, or two events arriving together each build their own sink
-      // and the first one's queue is lost. The moment is taken here too, for the same reason: later is wrong.
+      // and the first one's queue is lost. The moment is taken here too, for the same reason: later is wrong. One reading
+      // of the clock serves both: the sink starts synchronously, and a millisecond ticking over between two readings made
+      // the opening event 1 ms after itself (publishing suite, 06/10).
+      const now = Date.now();
       if (sinkVisit !== visitId) {
-        sinkVisit = visitId; openedAt = Date.now();
+        sinkVisit = visitId; openedAt = now;
         sink = (async () => createEventSink(visitId, (await ports.identity()).secret, config.render, { fetch: ports.fetch }))()
           .catch(() => NO_EVENTS);
       }
-      const at = sinceOpen(openedAt, Date.now());
+      const at = sinceOpen(openedAt, now);
       // One promise, so `then` runs the sends in the order they were called. Never awaited by the caller.
       void sink.then(ready => ready.send(name, at, eventDetail)).catch(() => {});
     }

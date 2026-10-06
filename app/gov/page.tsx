@@ -11,6 +11,7 @@ import { MediaReview, type MediaForReview } from '@/lib/admin/media-review';
 import AdminTwoFactor from '@/components/admin-two-factor';
 import AdminIncidents from '@/components/admin-incidents';
 import AdminEditRequests from '@/components/admin-edit-requests';
+import AdminPayments from '@/components/admin-payments';
 import { EditRequests, type EditRequestRow } from '@/lib/admin/edit-requests';
 import { PageIncidents, type IncidentForReview } from '@/lib/admin/page-incidents';
 import styles from '@/components/admin.module.css';
@@ -49,6 +50,7 @@ export default async function Page() {
       <div className={styles.topTools}><ThemeToggle initial={await themeFromCookie()}/><AdminSignOut/></div>
     </header>
     <AdminEditRequests initial={edits}/>
+    <AdminPayments/>
     <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
     <AdminMedia initial={media}/>
     <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}

@@ -11,6 +11,7 @@ import ActivityPanel from '../../activity-panel';
 import ProfilePanel, { useProfile } from '../../profile-panel';
 import { PLANS, yearly, viDate, COLLAB_PRICE, type Billing } from '@/lib/billing/plans';
 import { ZALO } from '@/lib/contact';
+import PaymentPanel from '../payment-panel';
 
 type View = 'activity' | 'billing' | 'profile';
 const VIEWS: [View, string][] = [['activity', 'Hoạt động'], ['billing', 'Thanh toán'], ['profile', 'Hồ sơ']];
@@ -36,7 +37,7 @@ export default function SettingsTab({ slug, query, role, billing }: TabProps) {
     <div>
       {view === 'activity' && <section className={styles.card}><h2>Hoạt động</h2><p>Ai đã làm gì trong quán, mới nhất trên cùng.</p>
         <div className={styles.legacy}><ActivityPanel endpoint={`/api/owner/v2/${slug}`} /></div></section>}
-      {view === 'billing' && <BillingView billing={billing} />}
+      {view === 'billing' && <BillingView slug={slug} billing={billing} />}
       {view === 'profile' && <section className={styles.card} style={{ display: 'grid', gap: 18 }}><h2>Hồ sơ</h2>
         {role === 'support' ? <p>Quản trị đang xem thay mặt quán: không xem được hồ sơ cá nhân.</p>
           : <div className={styles.legacy}><ProfilePanel slug={slug} profile={profile} setProfile={setProfile} password={<PasswordForm />} /></div>}
@@ -48,21 +49,24 @@ export default function SettingsTab({ slug, query, role, billing }: TabProps) {
 /** What the shop is on now, in one sentence (kịch bản mục 3b). */
 function current(billing: Billing) {
   const name = PLANS.find(plan => plan.key === billing.plan)?.name;
+  if (billing.activateBy) return { title: `Đang dùng thử tới hết ngày ${viDate(billing.activateBy)}`,
+    text: 'Kích hoạt bằng 10.000đ để mở ngay tháng đầu của gói bạn chọn; trong tháng đó chuyển nốt phần còn lại.' };
   if (billing.state === 'trial') return { title: 'Đang trong giai đoạn trải nghiệm — mọi thứ miễn phí',
     text: 'Mọi tính năng đều mở, mọi template đều Free. Khi bắt đầu tính phí cho quán, Admin Tài sẽ báo trước.' };
   if (billing.state === 'active') return { title: `Gói ${name} — dùng tới hết ngày ${viDate(billing.paidUntil!)}`,
-    text: 'Gia hạn bằng chuyển khoản; nhắn Admin Tài để nhận mã chuyển khoản.' };
+    text: 'Gia hạn bằng chuyển khoản: chọn gói và kỳ bên dưới, quét mã bằng app ngân hàng.' };
   return { title: `Gói ${name} đã hết hạn ngày ${viDate(billing.paidUntil!)}`,
     text: `Trang của quán sẽ tắt từ ngày ${viDate(billing.offFrom!)} nếu chưa gia hạn. Khi đó thẻ vẫn đưa khách thẳng tới trang đánh giá Google của quán.` };
 }
 
-function BillingView({ billing }: { billing: Billing }) {
+function BillingView({ slug, billing }: { slug: string; billing: Billing }) {
   const [cycle, setCycle] = useState<'month' | 'year'>('month');
   const now = current(billing);
   return <section className={styles.grid}>
     <div className={styles.banner} data-billing-state={billing.state}><h2 style={{ fontSize: 17 }}>{now.title}</h2>
       <p className="qs-small qs-muted">{now.text}</p>
-      {billing.state !== 'trial' && <a className="qs-btn small" href={ZALO.url} target="_blank" rel="noopener noreferrer" style={{ justifySelf: 'start' }}>Nhắn Admin Tài · Zalo {ZALO.number}</a>}</div>
+      <a className="qs-small" href={ZALO.url} target="_blank" rel="noopener noreferrer" style={{ justifySelf: 'start' }}>Cần hỏi? Zalo Admin Tài {ZALO.number}</a></div>
+    {(billing.state !== 'trial' || billing.activateBy) && <PaymentPanel slug={slug} />}
     <div className={styles.row}><h2>Gói dịch vụ</h2>
       <div className={styles.segmented} role="group" aria-label="Chu kỳ trả">
         <button type="button" aria-pressed={cycle === 'month'} onClick={() => setCycle('month')}>Theo tháng</button>
@@ -73,7 +77,7 @@ function BillingView({ billing }: { billing: Billing }) {
       <div className={styles.price}>{(cycle === 'month' ? plan.monthly : yearly(plan)).toLocaleString('vi-VN')}đ<small>/{cycle === 'month' ? 'tháng' : 'năm'}</small></div>
       <ul>{plan.features.map(feature => <li key={feature}>{feature}</li>)}</ul>
     </article>)}</div>
-    <p className="qs-small qs-muted">Không giới hạn số trang. Collab {COLLAB_PRICE.toLocaleString('vi-VN')}đ trả một lần cho mỗi collab, cần gói Sự kiện. Thẻ NFC vật lý bán riêng, ngoài gói. Chuỗi nhiều chi nhánh: nhắn Admin Tài.</p>
+    <p className="qs-small qs-muted">Không giới hạn số trang. Collab {COLLAB_PRICE.toLocaleString('vi-VN')}đ trả một lần cho mỗi collab, cần gói Sự kiện. Thẻ NFC vật lý bán riêng, ngoài gói. Chuỗi lớn: nhắn Admin Tài.</p>
   </section>;
 }
 

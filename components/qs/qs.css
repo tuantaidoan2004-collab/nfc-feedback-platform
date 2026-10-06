@@ -99,6 +99,6 @@
   background: color-mix(in srgb, var(--qs-amber) 14%, var(--qs-card)); color: var(--qs-warn-text); border: 1px solid color-mix(in srgb, var(--qs-amber) 35%, var(--qs-line));
   box-shadow: 0 12px 40px rgba(0, 0, 0, .12); }
 .qs-billing-strip .qs-btn { margin-left: auto; }
-.qs[data-billing='grace'] { padding-bottom: 130px; }
+.qs[data-billing='strip'] { padding-bottom: 130px; }
 /* An administrator's strip already holds the foot of the screen. */
 .qs[data-support] .qs-billing-strip { bottom: auto; top: 14px; }

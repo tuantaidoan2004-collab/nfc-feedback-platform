@@ -1,7 +1,9 @@
 'use client';
 /**
- * Bước đầu của onboarding, pha trời xanh (kịch bản mục 4, mẫu Jitter): chào mừng → bạn tên gì → quán của bạn là gì → tạo
- * tài khoản. Mỗi màn một câu hỏi; tài khoản chỉ được tạo ở màn cuối, cùng lúc với quán (lib/account/signup.ts).
+ * Bước đầu của onboarding, pha trời xanh (kịch bản mục 1 bước 5 và mục 4, mẫu Jitter): chào mừng → **bạn là…** → (chủ quán
+ * lần đầu) bạn tên gì → quán của bạn là gì → tạo tài khoản. Mỗi màn một câu hỏi; tài khoản chỉ được tạo ở màn cuối, cùng lúc
+ * với quán (lib/account/signup.ts). Quán Admin Tài đã tạo sẵn: nhắn Zalo nhận link đặt mật khẩu dùng một lần. Nhân viên: nhờ
+ * chủ quán gửi link mời.
  */
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -9,10 +11,14 @@ import { useRouter } from 'next/navigation';
 import styles from './sky.module.css';
 import Journey from './journey';
 import Icon from '../icons';
+import { ZALO } from '@/lib/contact';
 
 const KINDS: [string, string, string][] = [['cafe', 'Cà phê', '☕'], ['restaurant', 'Nhà hàng', '🍜'], ['tea', 'Trà sữa & bánh', '🧋'],
   ['beauty', 'Spa & làm đẹp', '💅'], ['retail', 'Cửa hàng', '🛍️'], ['other', 'Khác', '✨']];
-const EMOJIS = ['👋', '🧑‍💼', '🏪', '🔐', '🎉'];
+type Who = 'new' | 'prepared' | 'staff';
+const WHO: [Who, string, string, string][] = [['new', 'Chủ quán, lần đầu', 'Tạo tài khoản và quán ngay', '🏪'],
+  ['prepared', 'Chủ quán, Admin Tài đã tạo sẵn', 'Nhận link đặt mật khẩu qua Zalo', '💬'], ['staff', 'Nhân viên của quán', 'Vào quán nơi bạn làm', '🤝']];
+const EMOJIS: Record<Who, string[]> = { new: ['👋', '👀', '🧑‍💼', '🏪', '🔐'], prepared: ['👋', '👀', '💬'], staff: ['👋', '👀', '🤝'] };
 const ERRORS: Record<string, string> = {
   INVALID_USERNAME: 'Tên đăng nhập 3–64 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.', INVALID_EMAIL: 'Email chưa đúng.',
   WEAK_PASSWORD: 'Mật khẩu cần ít nhất 12 ký tự.', OWNER_ALREADY_EXISTS: 'Tên đăng nhập hoặc email này đã có tài khoản. Hãy đăng nhập.',
@@ -24,13 +30,14 @@ const handleFrom = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '
 
 export default function SkySignup({ google, notice }: { google: boolean; notice: string | null }) {
   const router = useRouter();
-  const [step, setStep] = useState(notice ? 3 : 0), [name, setName] = useState(''), [kind, setKind] = useState<string | null>(null);
+  const [step, setStep] = useState(notice ? 4 : 0), [who, setWho] = useState<Who | null>(notice ? 'new' : null), [name, setName] = useState(''), [kind, setKind] = useState<string | null>(null);
+  const path = who ?? 'new', last = path === 'new' ? 4 : 2;
   const [handle, setHandle] = useState(''), [handleTouched, setHandleTouched] = useState(false);
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [error, setError] = useState(notice ? ERRORS[notice] ?? '' : ''), [busy, setBusy] = useState(false), [help, setHelp] = useState(false);
   const suggested = useMemo(() => { const h = handleFrom(name); return h.length >= 3 ? h : ''; }, [name]);
   const at = handleTouched ? handle : suggested;
   useEffect(() => { if (step !== 0) return; const timer = window.setTimeout(() => setStep(1), 2600); return () => window.clearTimeout(timer); }, [step]);
-  const next = () => { setError(''); setStep(s => Math.min(3, s + 1)); };
+  const next = () => { setError(''); setStep(s => Math.min(last, s + 1)); };
   const submit = async () => {
     setBusy(true); setError('');
     try {
@@ -45,7 +52,7 @@ export default function SkySignup({ google, notice }: { google: boolean; notice:
     <div className={styles.glow} />
     <header className={styles.top}>
       <Link href="/" className={styles.brand}>Quite Sensational</Link>
-      <div className={styles.dots} aria-label={`Bước ${step + 1} trên 4`}>{[0, 1, 2, 3].map(i => <span key={i} data-on={i === step} />)}</div>
+      <div className={styles.dots} aria-label={`Bước ${step + 1} trên ${last + 1}`}>{EMOJIS[path].map((_, i) => <span key={i} data-on={i === step} />)}</div>
     </header>
     <div className={styles.stage}>
       {step === 0 && <section className={styles.screen} key="0">
@@ -53,21 +60,43 @@ export default function SkySignup({ google, notice }: { google: boolean; notice:
         <p className={styles.lead}>Trang của quán, mở ra từ một lần chạm thẻ.</p>
       </section>}
       {step === 1 && <section className={styles.screen} key="1">
+        <h1 className={`${styles.title} ${styles.mid}`}>Bạn là…</h1>
+        <div className={styles.choices} role="group" aria-label="Bạn là">{WHO.map(([value, label, hint, emoji]) =>
+          <button key={value} type="button" className={styles.choice} aria-pressed={who === value} data-who={value}
+            onClick={() => { setWho(value); setError(''); window.setTimeout(() => setStep(2), 320); }}>
+            <span style={{ fontSize: 26 }}>{emoji}</span>{label}<small>{hint}</small></button>)}</div>
+      </section>}
+      {step === 2 && who === 'prepared' && <section className={styles.screen} key="prepared" data-who-screen="prepared">
+        <h1 className={`${styles.title} ${styles.mid}`}>Quán của bạn đã sẵn sàng</h1>
+        <p className={styles.lead}>Admin Tài đã tạo sẵn tài khoản và trang cho quán. Nhắn Zalo cho Admin Tài: bạn nhận một link để tự đặt mật khẩu
+          (chỉ bạn biết), bấm vào là vào thẳng quán của mình.</p>
+        <div className={styles.form}>
+          <a className={styles.go} href={ZALO.url} target="_blank" rel="noopener noreferrer" style={{ display: 'grid', placeItems: 'center', textDecoration: 'none' }}>Nhắn Admin Tài qua Zalo</a>
+          <p className={styles.small}>Zalo {ZALO.number} · Đã đặt mật khẩu rồi? <Link href="/owner/login">Đăng nhập</Link></p>
+        </div>
+      </section>}
+      {step === 2 && who === 'staff' && <section className={styles.screen} key="staff" data-who-screen="staff">
+        <h1 className={`${styles.title} ${styles.mid}`}>Vào quán nơi bạn làm</h1>
+        <p className={styles.lead}>Nhờ chủ quán mời bạn ở <strong>Quản lý → Thành viên</strong>: bạn nhận một link để tự đặt mật khẩu và vào thẳng
+          quán.</p>
+        <div className={styles.form}><p className={styles.small}>Đã có tài khoản? <Link href="/owner/login">Đăng nhập</Link></p></div>
+      </section>}
+      {step === 2 && who === 'new' && <section className={styles.screen} key="2">
         <h1 className={`${styles.title} ${styles.mid}`}>Bạn tên gì?</h1>
         <form className={styles.form} onSubmit={event => { event.preventDefault(); if (name.trim()) next(); }}>
           <input className={styles.input} autoFocus maxLength={60} placeholder="Tên của bạn" value={name} onChange={event => setName(event.target.value)} aria-label="Tên của bạn" />
           <button className={styles.go} disabled={!name.trim()}>Tiếp tục</button>
         </form>
       </section>}
-      {step === 2 && <section className={styles.screen} key="2">
+      {step === 3 && who === 'new' && <section className={styles.screen} key="3">
         <h1 className={`${styles.title} ${styles.mid}`}>Quán của bạn là…</h1>
         <div className={styles.choices} role="group" aria-label="Loại quán">{KINDS.map(([value, label, emoji]) =>
           <button key={value} type="button" className={styles.choice} aria-pressed={kind === value}
             onClick={() => { setKind(value); window.setTimeout(next, 320); }}><span style={{ fontSize: 26 }}>{emoji}</span>{label}</button>)}</div>
       </section>}
-      {step === 3 && <section className={styles.screen} key="3">
+      {step === 4 && who === 'new' && <section className={styles.screen} key="4">
         <h1 className={`${styles.title} ${styles.mid}`}>Tạo tài khoản</h1>
-        <p className={styles.lead}>Chỉ cần vài bước là bạn có thể sử dụng được rồi.</p>
+        <p className={styles.lead}>Chỉ cần vài bước là bạn có thể sử dụng được rồi. Dùng thử miễn phí, sau đó kích hoạt bằng 10.000đ.</p>
         <div className={styles.form}>
           {google && <form method="post" action="/api/owner/v2/google/start" className={styles.form}>
             <input type="hidden" name="intent" value="signup" /><input type="hidden" name="username" value={at} />
@@ -89,11 +118,11 @@ export default function SkySignup({ google, notice }: { google: boolean; notice:
       </section>}
     </div>
     {step > 0 && <button type="button" className={styles.back} onClick={event => { event.stopPropagation(); setError(''); setStep(s => Math.max(0, s - 1)); }}>← Quay lại</button>}
-    <Journey emojis={EMOJIS} current={step} />
+    <Journey emojis={EMOJIS[path]} current={step} />
     <button type="button" className={styles.help} aria-label="Trợ giúp" aria-expanded={help} onClick={event => { event.stopPropagation(); setHelp(h => !h); }}>?</button>
     {help && <div className={styles.helpCard} role="dialog" aria-label="Trợ giúp" onClick={event => event.stopPropagation()}>
       <strong>Cần giúp?</strong>
-      <span>Bước nào chưa chắc thì cứ đi tiếp — mọi thứ sửa lại được trong giao diện chính. Đội ngũ Quite Sensational cũng có thể dựng trang giúp bạn (Library → More).</span>
+      <span>Bước nào chưa chắc thì cứ đi tiếp — mọi thứ sửa lại được trong giao diện chính. Trang của quán do Admin Tài dựng sau khi bạn chọn mẫu; cần hỏi gì cứ nhắn Zalo {ZALO.number}.</span>
       <Link href="/owner/login">Đã có tài khoản? Đăng nhập</Link>
     </div>}
   </div>;

@@ -1,6 +1,6 @@
 import { randomBytes, createHash, scrypt, timingSafeEqual } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-import { BILLING_COLUMNS, billingRow, entitled, type Billing } from '@/lib/billing/plans';
+import { BILLING_COLUMNS, billingRow, closed, type Billing } from '@/lib/billing/plans';
 export class OwnerError extends Error { constructor(public status: number, public code: string) { super(code); } }
 export const sessionHash = (token: string) => createHash('sha256').update(`nfc-owner-session-v2\0${token}`).digest('hex');
 /** The sign-in throttle bucket for a username; resetting the template test account clears its rows (`${bucket}:%` too). */
@@ -113,12 +113,11 @@ export async function ownerShop(db: PoolClient, userId: string, shop: { slug: st
 
 /**
  * What the shop's plan allows, asked on every request like the membership (kịch bản mục 3b): past 14 days unpaid only the
- * frame opens, and it shows nothing but how to point the cards back at the shop's own Google page; a member other than the
- * owner gets in only on the Đội ngũ plan. A shop not yet billed (`trial`) is open, as in the trial period.
+ * frame opens, and it shows nothing but how to pay or point the cards back at the shop's own Google page (a self-signed-up
+ * shop past its days without the 10k: only how to pay). Staff are in every plan (Tài 06/10), so the plan never shuts one out.
  */
-function planGate(shop: { role: 'owner' | 'manager'; billing: Billing }, need: OwnerNeed) {
-  if (shop.role !== 'owner' && !entitled(shop.billing, 'team') && shop.billing.state !== 'off') throw new OwnerError(403, 'TEAM_PLAN_REQUIRED');
-  if (shop.billing.state === 'off' && need !== 'shell') throw new OwnerError(402, 'SHOP_UNPAID');
+function planGate(shop: { billing: Billing }, need: OwnerNeed) {
+  if (closed(shop.billing) && need !== 'shell') throw new OwnerError(402, shop.billing.state === 'locked' ? 'ACTIVATION_REQUIRED' : 'SHOP_UNPAID');
 }
 
 /**

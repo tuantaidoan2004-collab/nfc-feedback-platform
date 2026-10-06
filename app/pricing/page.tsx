@@ -4,7 +4,7 @@ import { PLANS, yearly, YEAR_MONTHS, COLLAB_PRICE, CHAIN_NOTE } from '@/lib/bill
 import '@/components/qs/qs.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Bảng giá', description: 'Ba gói cho mỗi quán: Cơ bản 50.000đ, Sự kiện 70.000đ, Đội ngũ 120.000đ mỗi tháng. Không giới hạn số trang. Trả theo năm chỉ tính 10 tháng.' };
+export const metadata: Metadata = { title: 'Bảng giá', description: 'Cơ bản 50.000đ, Sự kiện 70.000đ, VIP 120.000đ cho mọi địa chỉ quán, mỗi tháng. Mọi gói có tài khoản nhân viên, không giới hạn số trang. Trả theo năm chỉ tính 10 tháng.' };
 
 /** Pricing — một "dimension" riêng (kịch bản mục 2–3). Ba gói (Tài 06/10); quán chưa tính phí thì vẫn miễn phí hết. */
 export default function Page() {
@@ -15,7 +15,7 @@ export default function Page() {
     </header>
     <div style={{ textAlign: 'center', display: 'grid', gap: 12, maxWidth: 720 }}>
       <h1 style={{ fontSize: 'clamp(36px, 6vw, 72px)', letterSpacing: '-.05em' }}>Trả cho thứ quán cần</h1>
-      <p className="qs-muted">Mỗi quán một gói, không giới hạn số trang. Đang trong giai đoạn trải nghiệm: mọi tính năng mở miễn phí, mọi template đều Free.</p>
+      <p className="qs-muted">Mọi gói có tài khoản nhân viên và phân quyền, không giới hạn số trang. VIP gồm mọi địa chỉ quán của bạn. Đang trong giai đoạn trải nghiệm: mọi tính năng mở miễn phí, mọi template đều Free.</p>
     </div>
     <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', width: 'min(1100px, 100%)' }}>
       {PLANS.map(plan => <article key={plan.key} className="qs-card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -27,7 +27,7 @@ export default function Page() {
       </article>)}
     </div>
     <div className="qs-card" style={{ padding: 22, width: 'min(1100px, 100%)', display: 'grid', gap: 6 }}>
-      <h2 style={{ fontSize: 18 }}>Chuỗi</h2><p className="qs-muted">{CHAIN_NOTE} Nhắn Admin Tài để bàn.</p></div>
+      <h2 style={{ fontSize: 18 }}>Chuỗi lớn</h2><p className="qs-muted">{CHAIN_NOTE} Nhắn Admin Tài để bàn.</p></div>
     <p className="qs-small qs-muted" style={{ maxWidth: 720, textAlign: 'center' }}>Collab: {COLLAB_PRICE.toLocaleString('vi-VN')}đ trả một lần cho mỗi collab, cần gói Sự kiện. Thẻ NFC vật lý bán riêng, ngoài gói.</p>
   </div>;
 }

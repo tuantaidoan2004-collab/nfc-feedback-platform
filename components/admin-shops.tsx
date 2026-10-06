@@ -17,7 +17,8 @@ export type ShopRow = {
 };
 const PLAN_NAMES = Object.fromEntries(PLANS.map(plan => [plan.key, plan.name])) as Record<string, string>;
 /** One line for the operator: which plan, until when, and what the shop's guests see now. */
-const billingText = (b: Billing) => b.state === 'trial' ? `Chưa tính phí${b.plan ? ` · ${PLAN_NAMES[b.plan]}` : ''}`
+const billingText = (b: Billing) => b.activateBy ? `Tự đăng ký · chưa kích hoạt · ${b.state === 'locked' ? 'đã khoá, chờ 10k' : `thử tới ${viDate(b.activateBy)}`}`
+  : b.state === 'trial' ? `Chưa tính phí${b.plan ? ` · ${PLAN_NAMES[b.plan]}` : ''}`
   : `${PLAN_NAMES[b.plan!]} · ${b.state === 'active' ? 'tới' : 'hết hạn'} ${viDate(b.paidUntil!)}${b.state === 'grace' ? ` · tắt trang từ ${viDate(b.offFrom!)}` : b.state === 'off' ? ' · trang đã tắt' : ''}`;
 /** The owner's four positions, as the operator sees them (migration 012). */
 /** What each publishing state means to the operator (migration 003); the raw word stays on data-publishing-state. */

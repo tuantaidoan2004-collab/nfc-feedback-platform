@@ -173,7 +173,7 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 ### Đang ở đâu
 
 **06/10 tối — mô hình kinh doanh mới (Lát 0, chỉ tài liệu).** Sau buổi phản biện "góc nhìn người ngoài", Tài chốt: ba gói
-**Cơ bản 50k · Sự kiện 70k · Đội ngũ 120k** (+ Chuỗi thoả thuận), collab 100k một lần, không giới hạn số trang; quán Tài đi chào
+**Cơ bản 50k (có nhân viên, phân quyền) · Sự kiện 70k · VIP 120k (mọi địa chỉ quán, một giá)** (+ Chuỗi lớn thoả thuận), collab 100k một lần, không giới hạn số trang; quán Tài đi chào
 được "tặng đến ngày…", vào bằng link đặt mật khẩu một lần qua Zalo; khách tự đến quét **10k** kích hoạt (trừ tháng đầu), **Tài
 bấm "Đã nhận"**; quá hạn **14 ngày** thì tắt trang, thẻ chuyển thẳng tới Google của quán (thay "khoá giữa" 16/09); onboarding "Bạn
 là…" ba lối; nhân viên xin vào quán, chủ luôn duyệt; collab = chỗ báo hiệu ở khúc A + khối khúc B theo `slot`; giữ **Vercel Pro**
@@ -182,15 +182,29 @@ là…" ba lối; nhân viên xin vào quán, chủ luôn duyệt; collab = ch�
 `rieng/thiet-ke-goc.md` mục 06/10. **Việc kế: G1–G5** ở đầu `roadmap-slices.md`, trước loạt template đẹp.
 
 **06/10 — G1 gói và hạn dùng (chưa commit, chờ Tài xem ảnh).** Trạng thái tiền của quán chỉ là `shops.plan` (`basic`/`events`/
-`team`) + `shops.paid_until` (ngày, giờ Việt Nam); một hàm thuần `billingOf` (`lib/billing/plans.ts`) cho ra `trial` (chưa tính
-phí: mở hết) · `active` · `grace` (≤ 14 ngày sau hạn) · `off`. Cổng: trang khách và thẻ (`PublishingResolver.live` →
+`vip`) + `shops.paid_until` (ngày, giờ Việt Nam); một hàm thuần `billingOf` (`lib/billing/plans.ts`) cho ra `trial` (chưa tính
+phí: mở hết) · `active` · `grace` (≤ 14 ngày sau hạn) · `off`. Cổng (nhân viên có ở mọi gói nên gói không chặn nhân viên): trang khách và thẻ (`PublishingResolver.live` →
 `ShopUnpaid` → chuyển 307 tới `shops.google_url`, không có link thì trang "Quán tạm dừng") · dashboard (`authorize` → 402
-`SHOP_UNPAID` trừ `shell`; layout chỉ hiện màn ghi lại thẻ bằng NFC Tools) · nhân viên (`TEAM_PLAN_REQUIRED` khi gói không có
-`team`, cả đăng nhập lẫn lời mời). `/gov` cột **Gói** + "Đặt gói" (`/gov/api/shops/plan`, sổ admin `shop.plan`); Pricing và
+`SHOP_UNPAID` trừ `shell`; layout chỉ hiện màn ghi lại thẻ bằng NFC Tools). `/gov` cột **Gói** + "Đặt gói" (`/gov/api/shops/plan`, sổ admin `shop.plan`); Pricing và
 Cài đặt → Thanh toán theo ba gói; dải nhắc nổi ở chân màn khi `grace`. Sửa kèm: bảng `/gov` từng lặp một quán theo mỗi nhân viên
 (chỉ nối chủ quán). Test `repository-tests/billing.spec.ts`. Bảy bộ xanh tại máy 06/10 (chưa commit): repository 170 · contracts 111 ·
 client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 · admin 11, mỗi lệnh harness thêm 2 ca production gate. **Lên production cần thêm hai cột `shops.plan`, `shops.paid_until`**
-vào bước lược đồ còn chờ viết (cùng đợt chọn mẫu và Google Maps).
+vào bước lược đồ còn chờ viết (cùng đợt chọn mẫu và Google Maps). Đã commit `5792e71`.
+
+**06/10 — G2 kích hoạt và thu tiền (Tài duyệt, đã commit).** Tài chọn: 10k **mở ngay tháng đầu**, trong tháng trả nốt
+giá − 10k; khách tự đến **dùng thử một thời gian rồi khoá** (agent chọn 3 ngày, `TRY_DAYS`); gia hạn làm luôn. Trạng thái mới
+`locked` (quán tự đăng ký, chưa `activated_at`, chưa `paid_until`, quá `created_at` + 3 ngày giờ VN): chỉ khung, layout hiện màn
+quét 10k, API 402 `ACTIVATION_REQUIRED`. Bảng `payments` (kind `activation` 10k/1 tháng · `plan` 0/1/12 tháng, `settles_first_month`,
+mã 6 ký tự, một yêu cầu chờ mỗi quán) và `payment_settings` (một tài khoản nhận tiền); `lib/billing/payments.ts`, VietQR EMVCo tự
+dựng (`lib/billing/vietqr.ts`, CRC đã kiểm bằng cách khác và đọc lại bằng BarcodeDetector của Chrome). Chủ quán: Cài đặt →
+Thanh toán (`/api/owner/v2/<quán>/billing`), cũng nằm trong màn khoá và màn trang đã tắt; nhân viên không trả được. `/gov`:
+"Thanh toán chờ xác nhận" + "Tài khoản nhận tiền" (`/gov/api/payments`, sổ admin `payment.*`); "Trang chờ dựng" ghi "Chưa kích
+hoạt". Onboarding: màn **"Bạn là…"** ba lối. Test `repository-tests/payments.spec.ts` (lặp 5 lần xanh). **Lên production cần
+thêm** `shops.activated_at`, `payment_settings`, `payments` vào bước lược đồ còn chờ viết; **Tài tự nhập tài khoản nhận tiền** ở
+`/gov` rồi quét thử mã 2.000đ (Tài đã quét thử trên local 06/10: app Vietcombank đọc đúng tài khoản và nội dung). Cuối ngày Tài
+đổi gói: Cơ bản có nhân viên, VIP 120k = mọi địa chỉ quán (`vip` thay `team`, bỏ cổng nhân viên). Sửa kèm: lần đọc đồng hồ đôi ở
+sự kiện mở trang (`operations-gotchas.md`). Bảy bộ xanh tại máy 06/10 sau các sửa đó: repository 174 · contracts 111 · client 84 ·
+public 20 (+1 bỏ qua sẵn có) · publishing 19 (hai lần liền) · owner 13 · admin 11, mỗi lệnh harness thêm 2 ca production gate.
 
 **05/10 — đổi hướng lớn, đang dựng lại.** Nguồn chính: `rieng/kich-ban.md` (kịch bản), `rieng/thiet-ke-goc.md` (nguyên văn
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`

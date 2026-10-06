@@ -40,6 +40,7 @@ export default function AdminEditRequests({ initial }: { initial: EditRequestRow
         style={{ position: 'relative', display: 'block', width: 120, aspectRatio: '390 / 700', borderRadius: 12, overflow: 'hidden', background: 'var(--p-sunken)' }}>
         <PageThumb src={`/gov/xem/${item.page_id}?anh=1`} title={`Trang /${item.page_slug}`} /></a>
       <div>
+        {item.awaiting_activation && <p data-awaiting-activation><strong>Chưa kích hoạt</strong> — quán tự đăng ký chưa quét 10.000đ; dựng trang sau khi quán kích hoạt.</p>}
         <p><strong>{item.shop_name}</strong> · {item.page_label || 'Trang'} /{item.page_slug} · {item.template_name ? `mẫu ${item.template_name}` : 'chỉnh trang đang có'}
           {' · '}{item.page_state === 'active' ? 'trang cũ đang chạy' : 'chưa phát hành'}</p>
         <p data-edit-contact>Zalo <strong>{spaced(item.contact)}</strong> · @{item.owner_handle}{item.owner_email ? ` · ${item.owner_email}` : ''}</p>

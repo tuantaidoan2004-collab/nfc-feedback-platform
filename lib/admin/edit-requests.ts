@@ -12,14 +12,17 @@ import { AdminError } from './auth';
  */
 export type EditRequestRow = { id: string; shop_slug: string; shop_name: string; page_id: string; page_slug: string; page_label: string | null; page_state: string;
   template_key: string | null; template_name: string | null; contact: string; message: string | null; created_at: string; contacted_at: string | null;
-  owner_handle: string; owner_email: string | null };
+  owner_handle: string; owner_email: string | null;
+  /** A shop that signed itself up and has not paid the 10k (kịch bản mục 3b): Admin Tài builds its page once it has. */
+  awaiting_activation: boolean };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class EditRequests {
   constructor(private pool: Pool) {}
   async open(): Promise<EditRequestRow[]> {
     const rows = (await this.pool.query(`SELECT e.id,s.slug shop_slug,s.name shop_name,p.id page_id,p.slug page_slug,p.label page_label,p.state page_state,
-        e.template_key,e.contact,e.message,e.created_at,e.contacted_at,i.username owner_handle,i.email owner_email
+        e.template_key,e.contact,e.message,e.created_at,e.contacted_at,i.username owner_handle,i.email owner_email,
+        (s.self_signup AND s.activated_at IS NULL AND s.paid_until IS NULL) awaiting_activation
       FROM edit_requests e JOIN shops s ON s.id=e.shop_id JOIN pages p ON p.shop_id=e.shop_id AND p.id=e.page_id JOIN owner_identities_v2 i ON i.id=e.requested_by
       WHERE e.handled_at IS NULL ORDER BY e.created_at,e.id`)).rows;
     return rows.map(row => ({ ...row, template_name: row.template_key ? canvasTemplate(row.template_key)?.name ?? row.template_key : null }));

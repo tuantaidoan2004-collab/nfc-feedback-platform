@@ -60,8 +60,9 @@ Kỷ luật bắt buộc: `paid_until` chỉ được là một ngày. Mọi cá
 
 ## 3. Bảng giá
 
-> **Đã thay (06/10):** giá nay là **ba gói mỗi quán** — Cơ bản 50k · Sự kiện 70k · Đội ngũ 120k (gồm Sự kiện) · Chuỗi thoả
-> thuận; collab 100k trả một lần, cần gói Sự kiện; không giới hạn số trang; thẻ NFC bán riêng. Nguồn: `rieng/kich-ban.md`
+> **Đã thay (06/10):** giá nay là **ba gói** — Cơ bản 50k (có nhân viên, phân quyền) · Sự kiện 70k · VIP 120k (gồm Sự kiện, mọi
+> địa chỉ quán của tài khoản, một giá) · Chuỗi lớn thoả thuận; collab 100k trả một lần, cần gói Sự kiện; không giới hạn số
+> trang; thẻ NFC bán riêng. Nguồn: `rieng/kich-ban.md`
 > mục 3. Bảng giá bên dưới (theo chi nhánh, theo số thẻ) và bảng theo template của 25/09 đều không còn dùng; giữ làm lịch sử.
 
 Đơn vị tính là **chi nhánh**, không phải dashboard.
@@ -140,7 +141,7 @@ Thẻ là **hàng hoá bán một lần**; thuê bao là **dịch vụ tháng**.
 
 ## 7. Thanh toán
 
-Giai đoạn đầu: **chuyển khoản + VietQR**, **Tài bấm "Đã nhận" ở `/gov`** (Tài 06/10: chưa nối dịch vụ báo số dư; kiến trúc dưới đây vẫn giữ để nối sau). Không dùng cổng thẻ — phí ~2–3% trên 100k không đáng, thường yêu cầu đăng ký kinh doanh mà Tài chưa có, và thêm một bề mặt bảo mật. Tính lại khi đã đăng ký kinh doanh và đủ lượng khách.
+Giai đoạn đầu: **chuyển khoản + VietQR**, **Tài bấm "Đã nhận" ở `/gov`** (Tài 06/10: chưa nối dịch vụ báo số dư; kiến trúc dưới đây vẫn giữ để nối sau). Đã dựng ở G2 (06/10): bản ghi là bảng `payments` (mã + số tiền), `paid_until` chỉ đổi khi một bản ghi được nhận; `lib/billing/payments.ts`. Không dùng cổng thẻ — phí ~2–3% trên 100k không đáng, thường yêu cầu đăng ký kinh doanh mà Tài chưa có, và thêm một bề mặt bảo mật. Tính lại khi đã đăng ký kinh doanh và đủ lượng khách.
 
 **Kiến trúc bắt buộc — nguồn thanh toán phải cắm rời:**
 

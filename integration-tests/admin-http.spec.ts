@@ -634,6 +634,8 @@ test('D4c: an owner signs up with Google, signs in with Google, and an older acc
  // the onboarding goes on.
  google.who={sub:sub(1),email:`chu.moi.${run}@gmail.com`,email_verified:true};
  await o.goto('/bat-dau');
+ // "Bạn là…" (G2, kịch bản mục 1 bước 5): an owner new to the platform goes on to the questions and the account.
+ await o.getByRole('button',{name:/Chủ quán, lần đầu/}).click();
  await o.getByLabel('Tên của bạn').fill('Chủ Mới');await o.getByRole('button',{name:'Tiếp tục',exact:true}).click();
  await o.getByRole('button',{name:/Cà phê/}).click();
  await o.getByLabel('Tên đăng nhập').fill(`google-${run}`);

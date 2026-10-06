@@ -902,7 +902,8 @@ CREATE TABLE shops (
     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
     plan text,
     paid_until date,
-    CONSTRAINT shops_plan_check CHECK (((plan IS NULL) OR (plan = ANY (ARRAY['basic'::text, 'events'::text, 'team'::text])))),
+    activated_at timestamp with time zone,
+    CONSTRAINT shops_plan_check CHECK (((plan IS NULL) OR (plan = ANY (ARRAY['basic'::text, 'events'::text, 'vip'::text])))),
     CONSTRAINT shops_paid_until_needs_plan CHECK (((paid_until IS NULL) OR (plan IS NOT NULL))),
     CONSTRAINT shops_profile_check CHECK (((jsonb_typeof(profile) = 'object'::text) AND (octet_length((profile)::text) <= 8192))),
     CONSTRAINT shops_business_kind_check CHECK (((business_kind IS NULL) OR (business_kind = ANY (ARRAY['cafe'::text, 'restaurant'::text, 'tea'::text, 'beauty'::text, 'retail'::text, 'other'::text])))),
@@ -2289,3 +2290,41 @@ CREATE TABLE edit_requests (
     CHECK ((handled_at IS NULL) = (outcome IS NULL))
 );
 CREATE UNIQUE INDEX edit_requests_one_open ON edit_requests (page_id) WHERE handled_at IS NULL;
+
+--
+-- Thanh toán (Tài 06/10, kịch bản mục 3b). Một tài khoản nhận tiền cho cả nền tảng (Admin Tài nhập ở /gov); mỗi lần quán muốn
+-- trả thì có một yêu cầu với mã riêng làm nội dung chuyển khoản; Admin Tài thấy tiền vào thì bấm "Đã nhận" và hạn tự cộng.
+-- kind: activation = 10k của quán tự đăng ký, mở tháng đầu (`months` = 1) · plan = trả gói (`months` 1 hay 12; 0 = chỉ trả
+-- nốt tháng đầu). `settles_first_month`: số tiền gồm phần còn lại của tháng đầu (giá gói − 10k). Một yêu cầu chờ mỗi quán.
+--
+
+CREATE TABLE payment_settings (
+    id boolean DEFAULT true PRIMARY KEY CHECK (id),
+    bank_bin text NOT NULL CHECK (bank_bin ~ '^[0-9]{6}$'::text),
+    account_number text NOT NULL CHECK (account_number ~ '^[0-9A-Za-z]{4,19}$'::text),
+    account_name text NOT NULL CHECK (account_name ~ '^[A-Z0-9 ]{2,50}$'::text),
+    updated_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    updated_by uuid NOT NULL REFERENCES platform_admins(id)
+);
+
+CREATE TABLE payments (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    kind text NOT NULL CHECK (kind = ANY (ARRAY['activation'::text, 'plan'::text])),
+    plan text NOT NULL CHECK (plan = ANY (ARRAY['basic'::text, 'events'::text, 'vip'::text])),
+    months integer NOT NULL CHECK (months = ANY (ARRAY[0, 1, 12])),
+    amount integer NOT NULL CHECK (amount > 0 AND amount <= 100000000),
+    settles_first_month boolean DEFAULT false NOT NULL,
+    code text NOT NULL UNIQUE CHECK (code ~ '^[2-9A-HJKMNP-Z]{6}$'::text),
+    status text DEFAULT 'pending'::text NOT NULL CHECK (status = ANY (ARRAY['pending'::text, 'received'::text, 'cancelled'::text])),
+    requested_by uuid REFERENCES owner_identities_v2(id),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid REFERENCES platform_admins(id),
+    paid_until_after date,
+    CHECK (kind = 'plan' OR (amount = 10000 AND months = 1 AND NOT settles_first_month)),
+    CHECK ((status = 'pending') = (decided_at IS NULL)),
+    CHECK ((status = 'received') = (paid_until_after IS NOT NULL))
+);
+CREATE UNIQUE INDEX payments_one_pending ON payments (shop_id) WHERE status = 'pending';
+CREATE INDEX payments_shop ON payments (shop_id, created_at DESC);

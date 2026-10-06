@@ -812,3 +812,9 @@ thì sao".
 giữ hộp sticky trong phần nội dung (trừ padding 28px). Sửa: nút nằm trên một dải nền `.ctaBar` kéo ra tới mép khung bằng margin
 âm bằng đúng padding, và `bottom` âm bằng padding (`components/qs/tabs/pages.module.css`). Đo bằng `getBoundingClientRect` của
 khung và dải: hai đáy phải trùng nhau.
+
+**Hai lần đọc đồng hồ cho cùng một khoảnh khắc thì có lúc lệch 1 ms — 06/10.** Bộ publishing đỏ một lần ở ca "what the customer
+did reaches the log": `page_opened` ghi `since_open_ms` = 1 thay vì 0. `lib/client/document-feedback-service.ts` gọi `Date.now()`
+một lần cho `openedAt`, rồi chạy đồng bộ phần đầu của việc dựng sink, rồi gọi `Date.now()` lần nữa cho `at`; mili-giây nhảy giữa
+hai lần là lệch. Lỗi có từ trước (G2 không đụng tới), lộ ra khi máy bận. Sửa: đọc đồng hồ một lần, dùng cho cả hai. Khi một mốc
+thời gian phải bằng một mốc khác, lấy cùng một biến, đừng đọc lại.

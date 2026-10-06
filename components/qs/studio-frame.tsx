@@ -38,8 +38,8 @@ export default function StudioFrame({ slug, name, theme, support, billing, child
   const { pulse, mood } = usePulse(slug);
   const tabs: OrbTab[] = TAB_KEYS.map(key => ({ key, label: TAB_LABELS[key], href: `/app/${slug}/${key}`, icon: <Icon name={TAB_ICONS[key]} /> }));
   return <div className={`qs ${styles.frame}`} data-theme={mode} data-mode={current ? 'dock' : 'home'} data-support={support ? '' : undefined}
-    data-billing={billing.state === 'grace' ? 'grace' : undefined}>
-    <BillingStrip billing={billing} />
+    data-billing={billing.state === 'grace' || billing.activateBy ? 'strip' : undefined}>
+    <BillingStrip slug={slug} billing={billing} />
     {support && <SupportBanner slug={slug} session={support} />}
     <Orb tabs={tabs} mode={current ? 'dock' : 'home'} current={current ?? undefined} dark={dark} mood={mood} pulse={pulse}
       onNavigate={tab => router.push(tab.href)} />
