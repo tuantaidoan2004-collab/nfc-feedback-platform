@@ -38,6 +38,19 @@ Quite Sensational) phải nằm trong một `slot`: lõi phát hành từ chối
 chỗ đều được điền). Chữ chủ đề của mẫu (vd "HAIR SALON", danh sách dịch vụ nha khoa) không phải chỗ của quán; admin sửa thẳng
 khi quán muốn khác.
 
+## Núm (`knobs`) — mọi mẫu mới
+
+Những gì khách hay muốn đổi, để Bàn dựng đổi mà không vẽ lại (kịch bản 9b, `lib/canvas/knobs.ts`, sổ tay
+`docs/khach-chinh-mau.md`):
+
+| Trường | Ý nghĩa |
+|---|---|
+| `palettes` | 3–5 bảng màu có tên, cùng số màu (`#rrggbb`). Bảng đầu là màu tài liệu đang dùng; đổi bảng là thay từng màu theo vị trí ở mọi chỗ (giữ độ trong `#rrggbbaa`). Vì vậy mọi màu đổi theo bảng phải viết đúng bằng một màu của bảng đầu; màu không đổi (trắng, máy bay giấy) thì dùng màu ngoài bảng. |
+| `photos` | `[{ id, name }]`: các phần tử ảnh nhận ảnh của quán. |
+| `texts` | `[{ id, name }]`: chữ của quán ngoài tên (câu chào). |
+
+Khách xem mọi bảng màu ở `/templates/<khoá>/mau?ten=<Tên quán>`, một mẫu với bảng thứ n ở `/templates/<khoá>?mau=n`.
+
 ## Luật mà mọi template phải qua
 
 - **Nút Google** (`"t": "google"`): nhiều nhất một; nằm trọn trong khúc đầu, **trên vạch 560 đơn vị** (màn hình đầu của

@@ -2308,6 +2308,42 @@ CREATE TABLE edit_requests (
 CREATE UNIQUE INDEX edit_requests_one_open ON edit_requests (page_id) WHERE handled_at IS NULL;
 
 --
+-- Bàn dựng (Tài 06/10, kịch bản 9b): chỗ Admin Tài khớp mẫu với quán cho một yêu cầu. Lời khách dán từ Zalo (và ghi chú của
+-- Tài, đề xuất của Claude) là nhật ký chỉ thêm; tệp là ảnh/logo/video của quán (`media_assets`, Tài thả nên đã duyệt); `edit_desks`
+-- giữ núm đang vặn, thông tin quán chờ lưu (lưu cùng lúc phát hành, vì thông tin quán hiện ngay trên mọi trang đang chạy), lần
+-- "Nhờ Claude" gần nhất và link xem thử gửi khách (chỉ giữ băm; trang hiện bản nháp, hết hạn sau 7 ngày, chết khi yêu cầu đóng).
+--
+
+CREATE TABLE edit_request_notes (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    request_id uuid NOT NULL REFERENCES edit_requests(id) ON DELETE CASCADE,
+    who text NOT NULL CHECK (who = ANY (ARRAY['khach'::text, 'tai'::text, 'claude'::text])),
+    body text NOT NULL CHECK (char_length(body) BETWEEN 1 AND 6000 AND body !~ '[<>]'::text),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL
+);
+CREATE INDEX edit_request_notes_request ON edit_request_notes (request_id, created_at);
+
+CREATE TABLE edit_request_files (
+    request_id uuid NOT NULL REFERENCES edit_requests(id) ON DELETE CASCADE,
+    media_id uuid NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    role text NOT NULL CHECK (role = ANY (ARRAY['logo'::text, 'anh'::text, 'video'::text])),
+    name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120 AND name !~ '[<>]'::text),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    PRIMARY KEY (request_id, media_id)
+);
+
+CREATE TABLE edit_desks (
+    request_id uuid PRIMARY KEY REFERENCES edit_requests(id) ON DELETE CASCADE,
+    knobs jsonb DEFAULT '{}'::jsonb NOT NULL,
+    details jsonb,
+    claude jsonb,
+    preview_hash text UNIQUE CHECK (preview_hash IS NULL OR preview_hash ~ '^[0-9a-f]{64}$'::text),
+    preview_expires_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    CHECK ((preview_hash IS NULL) = (preview_expires_at IS NULL))
+);
+
+--
 -- Thanh toán (Tài 06/10, kịch bản mục 3b). Một tài khoản nhận tiền cho cả nền tảng (Admin Tài nhập ở /gov); mỗi lần quán muốn
 -- trả thì có một yêu cầu với mã riêng làm nội dung chuyển khoản; Admin Tài thấy tiền vào thì bấm "Đã nhận" và hạn tự cộng.
 -- kind: activation = 10k của quán tự đăng ký, mở tháng đầu (`months` = 1) · plan = trả gói (`months` 1 hay 12; 0 = chỉ trả

@@ -115,10 +115,10 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Place ID (bỏ trống nếu chưa có)',{exact:true}).fill('ChIJN1t_tDeuEmsRUsoyG83frY4');
- // The ten canvas templates (đợt ②); the plainest is preselected, so a hurried operator still gets a clean page.
+ // The canvas templates (đợt ②, Tấm thiệp 06/10); the plainest is preselected, so a hurried operator still gets a clean page.
  const choice=page.locator('select[data-template-choice]');
  await expect(choice.locator('option')).toHaveText(['Basic 1','Không gian thật','Hiện đại','Nút đơn','Interactive card · Party','Illustrate · Nha khoa','Khách sạn',
-  'Dynamic movement','Nền cà phê đơn giản','Hair styling']);
+  'Dynamic movement','Nền cà phê đơn giản','Hair styling','Tấm thiệp']);
  await expect(choice).toHaveValue('basic-1');
  await choice.selectOption('party');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
@@ -475,7 +475,8 @@ test('enrolment: administration is unreachable until the second factor is on, an
 test('image gate: waiting uploads are approved or refused from /gov, each decision on the record',async({page,admin})=>{
  expect((await page.request.get('/gov/api/media')).status()).toBe(401);
  const actor=(await admin.db.query('SELECT id FROM platform_admins')).rows[0].id;
- await admin.db.query('TRUNCATE media_assets');
+ // CASCADE: Bàn dựng's files point at uploads (edit_request_files).
+ await admin.db.query('TRUNCATE media_assets CASCADE');
  const shop=await new ShopProvisioning(admin.db).create(actor,{name:'Quán Chờ Ảnh',ownerUsername:'quan-cho-anh',ownerEmail:'cho@example.com',placeId:''});
  // Uploads whose signed link expired long ago, so they can be decided at once.
  const queue=(url:string,age='1 hour')=>admin.db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,created_at)
@@ -567,7 +568,7 @@ test('trang chờ dựng: a shop\'s chosen template waits in /gov with its Zalo;
  const item=page.locator(`[data-edit-request="${asked.page}"]`);
  await expect(item).toContainText('Quán của @quan-cho-dung');await expect(item).toContainText('mẫu Hiện đại');
  await expect(item.locator('[data-edit-contact]')).toContainText('0912 345 678');
- await expect(item).toContainText('“Quán trà sữa, màu xanh lá”');await expect(item).toContainText(`node scripts/sua-trang.mjs lay ${asked.page}`);
+ await expect(item).toContainText('“Quán trà sữa, màu xanh lá”');await expect(item.getByRole('link',{name:'Mở Bàn dựng'})).toHaveAttribute('href',/^\/gov\/ban-dung\/[0-9a-f-]{36}$/);
  await expect(item.getByRole('link',{name:'Nhắn Zalo'})).toHaveAttribute('href','https://zalo.me/0912345678');
  // The template the shop picked, with its name in, drawn small here and full size behind the link.
  await expect(item.frameLocator('iframe').locator('main.cv')).toBeVisible();

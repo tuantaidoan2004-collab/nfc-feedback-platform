@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
+import { knobsProblem, turnKnobs } from '../../lib/canvas/knobs';
 import { CANVAS_TEMPLATES, DEFAULT_TEMPLATE, TEMPLATE_GROUPS, canvasTemplate, pageFromTemplate, templateCards } from '../../lib/canvas/templates';
 import { validateDoc, walk } from '../../lib/canvas/validate';
 import { bindShop, placeholderLinks, slotReport } from '../../lib/canvas/slots';
@@ -85,4 +86,38 @@ test('every template keeps its samples in the shop\'s places: shown for a shop w
     }
     expect(slotReport(template.doc, { name: 'Nhẹ Tênh Tea', profile: full }).filter(item => !item.filled), template.key).toEqual([]);
   }
+});
+
+test('a template\'s knobs (kịch bản 9b) match its document, and every turn of them stays a page the platform accepts', () => {
+  const withKnobs = CANVAS_TEMPLATES.filter(t => t.knobs);
+  expect(withKnobs.length).toBeGreaterThan(0);
+  for (const template of withKnobs) {
+    const knobs = template.knobs!;
+    expect(knobsProblem(knobs, template.doc), template.key).toBeNull();
+    for (let palette = 0; palette < knobs.palettes.length; palette++) {
+      const doc = turnKnobs(template.doc, knobs, {}, { palette });
+      expect(() => validateDoc(doc), `${template.key} · ${palette}`).not.toThrow();
+      expect(googleProblems(doc), `${template.key} · ${palette}`).toBeNull();
+      expect(() => assertPublishable({ schemaVersion: 4, name: 'Nhẹ Tênh Tea', doc }), `${template.key} · ${palette}`).not.toThrow();
+      // Turning back gives the page it started from: a palette change never loses a colour.
+      expect(turnKnobs(doc, knobs, { palette }, {}), `${template.key} · ${palette} back`).toEqual(template.doc);
+    }
+  }
+});
+
+test('turning a knob changes only what it names, and keeps what was edited by hand', () => {
+  const template = CANVAS_TEMPLATES.find(t => t.knobs)!, knobs = template.knobs!;
+  const photo = knobs.photos[0].id, words = knobs.texts[0].id;
+  const edited = structuredClone(template.doc);
+  const name = [...walk(edited)].find(el => el.t === 'text' && el.slot === 'name')!;
+  if (name.t === 'text') name.size = 30;
+  const turned = turnKnobs(edited, knobs, {}, { palette: 2, photos: { [photo]: { src: 'https://media.example/a.webp', focus: [40, 60] } }, texts: { [words]: { vi: 'Chào bạn' } } });
+  const after = new Map([...walk(turned)].map(el => [el.id, el]));
+  expect(after.get(photo)).toMatchObject({ src: 'https://media.example/a.webp', focus: [40, 60] });
+  expect(after.get(words)).toMatchObject({ words: { vi: 'Chào bạn' } });
+  expect(after.get(name.id)).toMatchObject({ size: 30 });
+  expect(() => turnKnobs(edited, knobs, {}, { photos: { [photo]: { src: 'javascript:alert(1)' } } })).toThrow('KNOB_PHOTO');
+  // A knob never reaches an element it does not name.
+  const other = [...walk(template.doc)].find(el => el.t === 'text' && el.id !== words)!;
+  expect(after.get(other.id)).toMatchObject({ words: (other as { words: unknown }).words });
 });

@@ -32,8 +32,8 @@ export default function AdminEditRequests({ initial }: { initial: EditRequestRow
   };
   return <section className={styles.panel} data-edit-requests>
     <h2>Trang chờ dựng {items.length > 0 && <span>({items.length})</span>}</h2>
-    <p className={styles.muted}>Quán chọn mẫu và để lại số Zalo. Nhắn quán lấy thông tin (link, giờ mở cửa, wifi, ảnh, logo…) và điều muốn sửa, rồi
-      đưa agent cùng dòng <code>sua-trang</code> bên dưới; agent dựng, phát hành, yêu cầu tự đóng.</p>
+    <p className={styles.muted}>Quán chọn mẫu và để lại số Zalo. Mở <strong>Bàn dựng</strong>: dán lời khách, thả ảnh và logo, bấm “Nhờ Claude” hoặc tự vặn
+      núm, gửi khách link xem thử, rồi phát hành — yêu cầu tự đóng.</p>
     {items.length === 0 ? <p className={styles.muted}>Không có trang nào chờ dựng.</p> : <ul className={styles.items}>{items.map(item => <li key={item.id}
       data-edit-request={item.page_slug} className={styles.mediaItem}>
       <a href={`/gov/xem/${item.page_id}`} target="_blank" rel="noreferrer" aria-label={`Mở trang /${item.page_slug}`}
@@ -46,9 +46,9 @@ export default function AdminEditRequests({ initial }: { initial: EditRequestRow
         <p data-edit-contact>Zalo <strong>{spaced(item.contact)}</strong> · @{item.owner_handle}{item.owner_email ? ` · ${item.owner_email}` : ''}</p>
         <p className={styles.muted}>Gửi {when(item.created_at)} · chờ {waited(item.created_at)} · {item.contacted_at ? `đã nhắn ${when(item.contacted_at)}` : 'chưa nhắn'}</p>
         <p>{item.message ? `“${item.message}”` : <em>Quán không ghi gì — hỏi qua Zalo.</em>}</p>
-        <p><code>node scripts/sua-trang.mjs lay {item.page_slug}</code></p>
         <div className={styles.actions}>
-          <a className={buttonClass('primary')} href={`https://zalo.me/${item.contact}`} target="_blank" rel="noreferrer">Nhắn Zalo</a>
+          <a className={buttonClass('primary')} href={`/gov/ban-dung/${item.id}`} data-open-desk>Mở Bàn dựng</a>
+          <a className={buttonClass('secondary')} href={`https://zalo.me/${item.contact}`} target="_blank" rel="noreferrer">Nhắn Zalo</a>
           {!item.contacted_at && <button className={buttonClass('secondary')} disabled={busy === item.id} onClick={() => void act(item, 'contacted')}>Đã nhắn Zalo</button>}
           <a className={buttonClass('secondary')} href={`/gov/xem/${item.page_id}`} target="_blank" rel="noreferrer">Xem mẫu khách chọn</a>
           <button className={buttonClass('secondary')} disabled={busy === item.id} onClick={() => void act(item, 'done')}>Đóng</button>

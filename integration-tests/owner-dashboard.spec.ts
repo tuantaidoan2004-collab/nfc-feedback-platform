@@ -121,7 +121,7 @@ test('Library → a template → the shop leaves its Zalo for Tài: a draft wait
  await page.getByRole('button',{name:'Template',exact:true}).click();
  // What picking a template leads to, before anything is picked.
  await expect(page.locator('[data-how-it-works]')).toContainText('Admin Tài nhắn Zalo, khớp mẫu với quán');
- await expect(page.locator('[data-template]')).toHaveCount(10);
+ await expect(page.locator('[data-template]')).toHaveCount(11);
  await page.getByLabel('Tìm template').fill('party');await expect(page.locator('[data-template]')).toHaveCount(1);
  await page.getByRole('button',{name:'Xem mẫu Interactive card · Party'}).click();
  // The template in a phone with the shop's name, why Tài makes it the shop's, and one way on.

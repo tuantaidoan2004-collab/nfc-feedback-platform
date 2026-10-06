@@ -3311,5 +3311,440 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
     }
    ]
   }
+ },
+ {
+  "key": "tam-thiep",
+  "number": 11,
+  "name": "Tấm thiệp",
+  "groups": [
+   "Simple",
+   "Tối giản"
+  ],
+  "about": "Ảnh quán trong khung vòm, chữ cái đầu trong vòng tròn, tên quán chữ có chân và câu chào viết tay; bốn bảng màu.",
+  "knobs": {
+   "palettes": [
+    {
+     "name": "Kem sữa",
+     "colors": [
+      "#f4ede3",
+      "#2b211c",
+      "#b5653d",
+      "#8a7b70",
+      "#fffaf3"
+     ]
+    },
+    {
+     "name": "Rêu",
+     "colors": [
+      "#e8ede2",
+      "#1f3329",
+      "#5f7f4f",
+      "#6c7a6f",
+      "#f8fbf4"
+     ]
+    },
+    {
+     "name": "Đêm",
+     "colors": [
+      "#17181d",
+      "#f3e9d8",
+      "#d4a65a",
+      "#9a958c",
+      "#23252c"
+     ]
+    },
+    {
+     "name": "Hồng đất",
+     "colors": [
+      "#f5e6e1",
+      "#4a2a2a",
+      "#c0636f",
+      "#94706c",
+      "#fff6f3"
+     ]
+    }
+   ],
+   "photos": [
+    {
+     "id": "anh-quan",
+     "name": "Ảnh quán (khung vòm)"
+    }
+   ],
+   "texts": [
+    {
+     "id": "cau-chao",
+     "name": "Câu chào"
+    }
+   ]
+  },
+  "doc": {
+   "v": 1,
+   "sections": [
+    {
+     "id": "a",
+     "name": "Khúc A",
+     "h": 880,
+     "bg": {
+      "fill": {
+       "kind": "radial",
+       "x": 50,
+       "y": 22,
+       "stops": [
+        [
+         "#fffaf3",
+         0
+        ],
+        [
+         "#f4ede3",
+         62
+        ]
+       ]
+      }
+     },
+     "els": [
+      {
+       "id": "ngon-ngu",
+       "t": "lang",
+       "look": "chip",
+       "color": "#2b211c",
+       "bg": "#fffaf3",
+       "x": 286,
+       "y": 18,
+       "w": 88,
+       "h": 30
+      },
+      {
+       "id": "sao-1",
+       "t": "shape",
+       "shape": "sparkle",
+       "x": 62,
+       "y": 96,
+       "w": 22,
+       "h": 22,
+       "fill": "#b5653d",
+       "motion": {
+        "in": "pop",
+        "at": 600,
+        "loop": "twinkle"
+       }
+      },
+      {
+       "id": "sao-2",
+       "t": "shape",
+       "shape": "sparkle",
+       "x": 312,
+       "y": 236,
+       "w": 16,
+       "h": 16,
+       "fill": "#b5653d",
+       "motion": {
+        "in": "pop",
+        "at": 750,
+        "loop": "twinkle"
+       }
+      },
+      {
+       "id": "sao-3",
+       "t": "shape",
+       "shape": "sparkle",
+       "x": 322,
+       "y": 84,
+       "w": 11,
+       "h": 11,
+       "fill": "#8a7b70",
+       "motion": {
+        "in": "pop",
+        "at": 900,
+        "loop": "twinkle"
+       }
+      },
+      {
+       "id": "anh-quan",
+       "t": "image",
+       "src": "art:latte",
+       "x": 80,
+       "y": 58,
+       "w": 230,
+       "h": 292,
+       "mask": "arch",
+       "edge": {
+        "w": 6,
+        "color": "#fffaf3"
+       },
+       "shadow": {
+        "x": 0,
+        "y": 14,
+        "blur": 34,
+        "color": "#2b211c33"
+       },
+       "motion": {
+        "in": "rise",
+        "at": 80
+       },
+       "focus": [
+        50,
+        22
+       ]
+      },
+      {
+       "id": "chu-cai",
+       "t": "text",
+       "x": 167,
+       "y": 322,
+       "w": 56,
+       "h": 56,
+       "words": {
+        "vi": "T"
+       },
+       "font": "serif",
+       "size": 26,
+       "weight": 600,
+       "color": "#fffaf3",
+       "disc": {
+        "fill": "#b5653d",
+        "edge": {
+         "w": 4,
+         "color": "#fffaf3"
+        }
+       },
+       "slot": "initial",
+       "motion": {
+        "in": "pop",
+        "at": 420
+       }
+      },
+      {
+       "id": "ten-quan",
+       "t": "text",
+       "x": 20,
+       "y": 390,
+       "w": 350,
+       "h": 46,
+       "words": {
+        "vi": "Tên Quán"
+       },
+       "font": "serif",
+       "size": 36,
+       "weight": 600,
+       "color": "#2b211c",
+       "slot": "name",
+       "motion": {
+        "in": "rise",
+        "at": 260
+       }
+      },
+      {
+       "id": "cau-chao",
+       "t": "text",
+       "x": 30,
+       "y": 434,
+       "w": 330,
+       "h": 36,
+       "words": {
+        "vi": "Ghé một lần, nhớ hoài",
+        "en": "Come once, remember always"
+       },
+       "font": "script",
+       "size": 27,
+       "color": "#b5653d",
+       "motion": {
+        "in": "fade",
+        "at": 480
+       }
+      },
+      {
+       "id": "google",
+       "t": "google",
+       "look": "g",
+       "x": 45,
+       "y": 484,
+       "w": 300,
+       "h": 54,
+       "bg": "#2b211c",
+       "fg": "#f4ede3",
+       "shadow": "soft",
+       "motion": {
+        "in": "rise",
+        "at": 620
+       }
+      },
+      {
+       "id": "cam-on",
+       "t": "text",
+       "x": 22,
+       "y": 548,
+       "w": 346,
+       "h": 34,
+       "words": {
+        "vi": "Cảm ơn bạn đã ghé — mỗi lời chia sẻ đều quý với quán.",
+        "en": "Thank you for stopping by — every word you share means a lot to us."
+       },
+       "font": "sans",
+       "size": 12,
+       "color": "#8a7b70",
+       "line": 1.4,
+       "motion": {
+        "in": "fade",
+        "at": 760
+       }
+      },
+      {
+       "id": "gach",
+       "t": "shape",
+       "shape": "squiggle",
+       "x": 160,
+       "y": 592,
+       "w": 70,
+       "h": 12,
+       "fill": "#b5653d",
+       "motion": {
+        "in": "fade",
+        "at": 820
+       }
+      },
+      {
+       "id": "duoi",
+       "t": "stack",
+       "x": 35,
+       "y": 620,
+       "w": 320,
+       "h": 220,
+       "gap": 12,
+       "align": "center",
+       "motion": {
+        "in": "rise",
+        "at": 860
+       },
+       "kids": [
+        {
+         "id": "hang-nut",
+         "t": "row",
+         "h": 46,
+         "gap": 7,
+         "kids": [
+          {
+           "id": "instagram",
+           "t": "button",
+           "look": "soft",
+           "icon": "instagram",
+           "label": {
+            "vi": "Instagram"
+           },
+           "link": "https://www.instagram.com/",
+           "w": 102,
+           "h": 46,
+           "size": 12,
+           "bg": "#fffaf3",
+           "fg": "#2b211c",
+           "slot": "instagram"
+          },
+          {
+           "id": "zalo",
+           "t": "button",
+           "look": "soft",
+           "icon": "zalo",
+           "label": {
+            "vi": "Zalo"
+           },
+           "link": "https://zalo.me/",
+           "w": 102,
+           "h": 46,
+           "size": 12,
+           "bg": "#fffaf3",
+           "fg": "#2b211c",
+           "slot": "zalo"
+          },
+          {
+           "id": "tiktok",
+           "t": "button",
+           "look": "soft",
+           "icon": "tiktok",
+           "label": {
+            "vi": "TikTok"
+           },
+           "link": "https://www.tiktok.com/",
+           "w": 102,
+           "h": 46,
+           "size": 12,
+           "bg": "#fffaf3",
+           "fg": "#2b211c",
+           "slot": "tiktok"
+          }
+         ]
+        },
+        {
+         "id": "wifi",
+         "t": "button",
+         "look": "outline",
+         "icon": "wifi",
+         "label": {
+          "vi": "Wifi của quán",
+          "en": "Our wifi"
+         },
+         "wifi": {
+          "name": "Ten-Quan-Wifi",
+          "pass": "matkhauwifi"
+         },
+         "w": 200,
+         "h": 42,
+         "size": 13,
+         "bg": "#f4ede3",
+         "fg": "#2b211c",
+         "edge": {
+          "w": 1.5,
+          "color": "#b5653d"
+         },
+         "slot": "wifi"
+        },
+        {
+         "id": "gio-mo",
+         "t": "text",
+         "h": 18,
+         "words": {
+          "vi": "Mở cửa 7:00 – 22:00"
+         },
+         "font": "sans",
+         "size": 12.5,
+         "weight": 600,
+         "color": "#2b211c",
+         "slot": "hours"
+        },
+        {
+         "id": "dia-chi",
+         "t": "text",
+         "h": 34,
+         "words": {
+          "vi": "12 Đường Hoa Sữa, Quận 1"
+         },
+         "font": "sans",
+         "size": 12,
+         "color": "#8a7b70",
+         "line": 1.4,
+         "slot": "address"
+        },
+        {
+         "id": "phap-ly",
+         "t": "legal",
+         "h": 40,
+         "color": "#8a7b70",
+         "size": 11
+        }
+       ]
+      },
+      {
+       "id": "gop-y",
+       "t": "feedback",
+       "x": 14,
+       "y": 800,
+       "w": 60,
+       "h": 60,
+       "icon": "plane",
+       "color": "#229ED9",
+       "edge": "#FFFFFF"
+      }
+     ]
+    }
+   ]
+  }
  }
 ];

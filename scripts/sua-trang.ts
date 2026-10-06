@@ -1,6 +1,6 @@
 // "Nhờ Admin Tài dựng" — the agent's side (Tài 06/10). Run through scripts/sua-trang.mjs, which sets the database and the store.
 //   ds                     the pages waiting, oldest first: the shop, the template it picked, its Zalo, what it wrote
-//   lay <trang> [mẫu]      the page and its shop's details into rieng/sua/<trang>.json, with a checklist of the shop's places
+//   lay <trang> [mẫu]      the page, its shop's details and what Bàn dựng holds (messages, files) into rieng/sua/<trang>.json, with a checklist of the shop's places
 //                          (slots) and of every other word and link on the page; [mẫu] starts the page from another template.
 //                          Marks the request "Admin Tài đang chỉnh" for the owner.
 //   kiem <trang>           every check `dang` makes, nothing written (local files count as pictures)
@@ -29,7 +29,9 @@ const [command, page, extra] = process.argv.slice(2);
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
 const folder = resolve('rieng/sua');
 const fail = (message: string): never => { console.error(message); process.exit(1); };
-type Saved = { quan: string; trang: string; banNhap: number; mau: string; ten: string; placeId: string | null; thongTin: unknown; config: PageConfig };
+type Saved = { quan: string; trang: string; banNhap: number; mau: string; ten: string; placeId: string | null; thongTin: unknown; config: PageConfig;
+  /** From Bàn dựng, to read: the log of the request and the files dropped there (their URLs go straight into "src"). */
+  loiKhach?: string[]; tep?: { role: string; name: string; url: string }[] };
 
 /** What each refusal of the publishing core asks the agent to fix. */
 const WHY: Record<string, string> = {
@@ -87,13 +89,21 @@ async function take(slug: string, template?: string) {
   const wanted = template ?? (row.request_template && row.request_template !== key ? row.request_template : undefined);
   if (wanted) { if (!canvasTemplate(wanted)) fail(`Không có mẫu "${wanted}".`); config = pageFromTemplate(wanted, row.shop_name); key = wanted; }
   mkdirSync(join(folder, 'files'), { recursive: true });
-  const file = join(folder, `${row.slug}.json`), saved: Saved = { quan: row.shop_slug, trang: row.slug, banNhap: Number(row.revision), mau: key, ten: row.shop_name,
-    placeId: row.place_id, thongTin: readProfile(row.profile), config };
+  // What Bàn dựng holds for this request (kịch bản 9b): the shop's messages and Tài's notes, the files he dropped (approved, usable as
+  // "src" as they are), and the details waiting to be saved -- these win over the saved ones, as they will on "Phát hành".
+  const desk = row.request_id ? (await pool.query('SELECT details FROM edit_desks WHERE request_id=$1', [row.request_id])).rows[0]?.details ?? null : null;
+  const notes = row.request_id ? (await pool.query('SELECT who,body,created_at FROM edit_request_notes WHERE request_id=$1 ORDER BY created_at', [row.request_id])).rows : [];
+  const files = row.request_id ? (await pool.query(`SELECT f.role,f.name,m.url FROM edit_request_files f JOIN media_assets m ON m.id=f.media_id
+    WHERE f.request_id=$1 AND m.state='approved' ORDER BY f.created_at`, [row.request_id])).rows : [];
+  const file = join(folder, `${row.slug}.json`), saved: Saved = { quan: row.shop_slug, trang: row.slug, banNhap: Number(row.revision), mau: key,
+    ten: desk?.name ?? row.shop_name, placeId: desk?.placeId ?? row.place_id, thongTin: desk?.profile ?? readProfile(row.profile),
+    loiKhach: notes.map(n => `[${n.who} · ${new Date(n.created_at).toLocaleString('vi-VN')}] ${n.body}`), tep: files, config };
   writeFileSync(file, JSON.stringify(saved, null, 2) + '\n');
   // The shop now has someone on it: the owner reads "Admin Tài đang chỉnh".
   if (row.request_id) await pool.query('UPDATE edit_requests SET contacted_at=COALESCE(contacted_at,clock_timestamp()) WHERE id=$1', [row.request_id]);
   console.log(`${row.shop_name} · /${row.slug} · mẫu ${canvasTemplate(key)?.name ?? key} · bản nháp ${row.revision}${row.request_id ? ` · Zalo ${row.contact}` : ' · (không có yêu cầu đang chờ)'}`);
   if (row.message) console.log(`Quán nhắn: “${row.message}”`);
+  if (notes.length) console.log(`Bàn dựng: ${notes.length} mục lời khách/ghi chú, ${files.length} tệp${desk ? ', thông tin quán chờ lưu' : ''} — trong tệp, "loiKhach" và "tep".`);
   console.log(`Link Google: ${row.google_url && row.google_url !== 'https://maps.google.com/' ? 'có' : 'CHƯA CÓ — ghi "placeId" (chủ quán chưa làm bước Dashboard)'}`);
   console.log(`Tệp: ${file}\nẢnh/video của quán: để trong ${join(folder, 'files')}, ghi đường dẫn vào src (vd "files/anh-bia.jpg").\n${checklist(config.doc, { name: row.shop_name, profile: row.profile })}`);
 }

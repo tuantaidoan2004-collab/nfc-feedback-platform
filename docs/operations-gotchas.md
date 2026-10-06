@@ -825,3 +825,18 @@ worktree tạm** — nên không do code G3. Chrome cài trên máy đã tự c�
 khởi động), nghi là nguyên nhân. Thử tái hiện bằng script Playwright riêng (390×844, Chrome .98) với nút email và một nút chèn giống
 nút Google: cả hai đứng yên, nên chưa tái hiện được ngoài harness. Chưa sửa code sản phẩm (chưa có bằng chứng). Lượt sau: chạy lại
 ca này sau khi Chrome khởi động lại hẳn, rồi bật `--trace on` nếu còn đỏ.
+
+## Cấp quán bằng script: `ShopProvisioning.create` không gói trong một giao dịch (06/10)
+Claude gọi `create()` với `actorId` sai dạng (`admin:<uuid>` thay vì `<uuid>`): quán, chủ, trang đã ghi xong rồi mới hỏng ở
+bước ghi nhật ký `admin_audit`, nên còn lại một quán thiếu dòng nhật ký, và gọi lại thì `OWNER_ALREADY_EXISTS`. Route `/gov` truyền
+đúng id nên production chưa gặp. Khi gọi từ script: `actorId` là id thô của `platform_admins`; quán dở thì dùng tiếp, đừng tạo lại.
+
+## Khoá Claude API phải nằm trong một workspace (06/10)
+Khoá đầu tiên Tài tạo không thuộc workspace nào: mọi lệnh gọi trả 400 "This API key is not scoped to a workspace…", Bàn dựng chỉ
+hiện `CLAUDE_400`. Tạo khoá trong workspace **Default** của Console thì chạy. Giờ Bàn dựng báo rõ `CLAUDE_KEY_NO_WORKSPACE`.
+Khoá ở máy nằm trong `.env.local` (gitignore, Tài tự ghi bằng lệnh `read -s`); trên Vercel là `ANTHROPIC_API_KEY`.
+
+## D4c (đăng nhập Google, bộ admin) đỏ cả trên commit chưa có Bàn dựng (06/10 tối)
+Nút "Tiếp tục với Google" trên màn đăng ký "không đứng yên" (hiệu ứng) tới hết 60 giây. Chạy lại bộ admin trên worktree tạm ở `ceb4e82`
+(trước Bàn dựng) cũng đỏ đúng ca này, nên không do Bàn dựng; cùng họ với ca chập chờn ghi ở trên (Chrome tự cập nhật). Đợt Bàn dựng
+đẩy lên với ca này đỏ, ghi rõ ở đây; chưa sửa code sản phẩm.

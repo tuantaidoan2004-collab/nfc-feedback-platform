@@ -248,6 +248,51 @@ COMMIT;
 SQL
 ```
 
+**Bàn dựng (06/10, kịch bản 9b):** ba bảng mới `edit_request_notes`, `edit_request_files`, `edit_desks`; lược đồ
+`e762b0dfdcec12ad` lên `addf0479f510d1d7`. Chạy **sau** bước lược đồ của đợt mô hình kinh doanh (G1–G3b) và **trước** khi đẩy code.
+Thêm biến **`ANTHROPIC_API_KEY`** (Production, Sensitive; Tài đã thêm 06/10) — thiếu thì nút "Nhờ Claude" báo chưa có khoá, mọi
+thứ khác của Bàn dựng vẫn chạy. Hàm "Nhờ Claude" chạy tới 5 phút (`maxDuration = 300`).
+
+```bash
+cd ~/Desktop/QuiteSensational && export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)" && awk '/^\*\*Bàn dựng \(06\/10/{f=1} f&&/<<.SQL.$/{p=1;next} p&&/^SQL$/{exit} p' docs/production-launch.md | /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1; unset DATABASE_URL
+```
+
+```sql
+-- <<'SQL'
+BEGIN;
+DO $$ DECLARE h text := (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1); BEGIN
+  IF h IS DISTINCT FROM 'e762b0dfdcec12ad' THEN RAISE EXCEPTION 'production đang ở lược đồ %', h; END IF; END $$;
+CREATE TABLE edit_request_notes (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    request_id uuid NOT NULL REFERENCES edit_requests(id) ON DELETE CASCADE,
+    who text NOT NULL CHECK (who = ANY (ARRAY['khach'::text, 'tai'::text, 'claude'::text])),
+    body text NOT NULL CHECK (char_length(body) BETWEEN 1 AND 6000 AND body !~ '[<>]'::text),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL
+);
+CREATE INDEX edit_request_notes_request ON edit_request_notes (request_id, created_at);
+CREATE TABLE edit_request_files (
+    request_id uuid NOT NULL REFERENCES edit_requests(id) ON DELETE CASCADE,
+    media_id uuid NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    role text NOT NULL CHECK (role = ANY (ARRAY['logo'::text, 'anh'::text, 'video'::text])),
+    name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120 AND name !~ '[<>]'::text),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    PRIMARY KEY (request_id, media_id)
+);
+CREATE TABLE edit_desks (
+    request_id uuid PRIMARY KEY REFERENCES edit_requests(id) ON DELETE CASCADE,
+    knobs jsonb DEFAULT '{}'::jsonb NOT NULL,
+    details jsonb,
+    claude jsonb,
+    preview_hash text UNIQUE CHECK (preview_hash IS NULL OR preview_hash ~ '^[0-9a-f]{64}$'::text),
+    preview_expires_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    CHECK ((preview_hash IS NULL) = (preview_expires_at IS NULL))
+);
+INSERT INTO applied_schema(hash) VALUES ('addf0479f510d1d7');
+COMMIT;
+SQL
+```
+
 ## Đăng nhập bằng Google (D4c, 28/09)
 
 OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:
