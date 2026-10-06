@@ -206,7 +206,7 @@ thêm** `shops.activated_at`, `payment_settings`, `payments` vào bước lượ
 sự kiện mở trang (`operations-gotchas.md`). Bảy bộ xanh tại máy 06/10 sau các sửa đó: repository 174 · contracts 111 · client 84 ·
 public 20 (+1 bỏ qua sẵn có) · publishing 19 (hai lần liền) · owner 13 · admin 11, mỗi lệnh harness thêm 2 ca production gate.
 
-**06/10 — G3 nhân viên tự xin vào quán (Tài chọn commit dù ca D4c còn đỏ vì môi trường; kiểm lại trước khi đẩy `main`).** **Việc kế: G3b** (thêm địa chỉ quán cho VIP, `rieng/kich-ban.md` mục 13), Tài làm ở phiên mới. Bảng `join_requests` (một yêu cầu mở mỗi người mỗi quán,
+**06/10 — G3 nhân viên tự xin vào quán (Tài chọn commit dù ca D4c còn đỏ vì môi trường; kiểm lại trước khi đẩy `main`).** Bảng `join_requests` (một yêu cầu mở mỗi người mỗi quán,
 outcome approved/declined/withdrawn). `lib/account/join.ts`: `findShop` nhận @chủ quán (chủ nhiều quán → `SHOP_AMBIGUOUS`, phải
 dán link), link trang, link thẻ `/t/<mã>`, mã quán; bỏ qua quán mẫu và quán không chạy; giới hạn 5 yêu cầu mở mỗi người, 30 mỗi
 quán. Đăng ký nhân viên `AccountSignup.createStaff` (tìm quán **trước** khi tạo tài khoản, lỗi trả về chứ không ném để bộ đếm
@@ -217,6 +217,27 @@ hành). Test `repository-tests/join.spec.ts`. **Lên production cần thêm** b�
 repository 178 · contracts 111 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 xanh; admin 10/11 — ca D4c (đăng
 ký Google) đỏ "not stable", **đỏ cả trên commit G2**, nghi do Chrome tự cập nhật (`operations-gotchas.md`); ca "/gov cột Trang"
 đã sửa theo cột mới, ca mạo danh đỏ một lần rồi xanh khi chạy lại.
+
+**06/10 — G5 khúc "Vì sao có Quite Sensational" (Tài duyệt, đã commit; ký "Admin Tài", không nêu tên đối tác collab).** Tài 06/10: một
+phiên khác đang làm template (Bàn dựng + mẫu có núm), nên G4 collab — đụng `slot` của mẫu — để sau, G5 làm trước. Chữ ở
+`components/qs/landing/why.tsx` (ba phần, nhãn bám trên máy tính, giá lấy từ `PLANS`), sau các khúc tính năng, link ở footer; đã
+lọc theo `google-policy.md` (câu nhân viên bản trung lập, không ghi công đánh giá, không đổi quà, không hứa số sao). Nháp đã xoá. **Sửa kèm (lỗi của agent):** bảng Pricing trong menu landing còn giá 100k/120k theo số thẻ
+từ trước G1 (G1 sửa Pricing và Cài đặt nhưng sót landing) → lấy từ `PLANS`; khúc Library còn "kéo thả như Canva" từ trước khi bỏ
+trình sửa (05/10) → "Chọn mẫu, Admin Tài dựng"; thanh trên landing cắt mất nút "Bắt đầu miễn phí" trên điện thoại.
+
+**06/10 — G3b nhiều địa chỉ quán (VIP) (Tài duyệt ảnh, đã commit cùng G5).** Việc kế sau G3b: G4 (collab), chờ phiên template xong. Mỗi
+địa chỉ là một quán riêng (trang, thẻ, link Google, đội ngũ riêng); tiền là của quán chính: một cột `shops.main_shop_id`, địa chỉ
+không có `plan`/`paid_until` của mình (CHECK trong lược đồ), `BILLING_COLUMNS` đọc mọi cột tiền từ quán chính nên trả ở đó là mọi
+địa chỉ mở, quá hạn là mọi địa chỉ tắt (thẻ chuyển tới Google **của địa chỉ**). `lib/account/branches.ts`: `addBranch` (chủ quán,
+gói VIP hoặc chưa tính phí; tên + Place ID tuỳ chọn; thêm từ một địa chỉ thì vẫn thuộc quán chính — một tầng; chặn 200 địa chỉ
+chỉ để ngừa vòng lặp lỗi, "không giới hạn" theo gói vẫn đúng), `accountShops` (danh sách quán của người đăng nhập). Giao diện: nút
+nhỏ cạnh tên quán ở màn Orb và đầu mỗi tab → "Các quán của bạn" (Quán chính / Địa chỉ / Nhân viên), bấm là sang quán đó ở đúng tab;
+"+ Thêm địa chỉ quán"; chủ quán gói thấp hơn thấy dòng chỉ sang gói VIP. Thanh toán của địa chỉ chỉ sang quán chính (API 409
+`PAID_BY_MAIN`); quán chính còn địa chỉ không hạ dưới VIP (`BRANCHES_NEED_VIP` ở yêu cầu trả, "Đã nhận" và `/gov` "Đặt gói"); `/gov`
+cột Gói ghi "Địa chỉ của …", không có nút "Đặt gói". Nhật ký `shop.branch`. **Sửa kèm (lỗi của agent ở G2):** bảng `/gov` bỏ mất
+`billing_activate_by` nên chưa bao giờ hiện "Tự đăng ký · chưa kích hoạt". Test `repository-tests/branches.spec.ts`. Tại máy 06/10:
+repository 181 · contracts 111 xanh (năm bộ còn lại chạy trước khi đẩy `main`). **Lên production cần thêm** cột `shops.main_shop_id`
+(+ hai CHECK, chỉ mục, khoá ngoại) vào bước lược đồ còn chờ viết. Chưa làm: gỡ/tách một địa chỉ (nhắn Admin Tài).
 
 **05/10 — đổi hướng lớn, đang dựng lại.** Nguồn chính: `rieng/kich-ban.md` (kịch bản), `rieng/thiet-ke-goc.md` (nguyên văn
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { burstConfetti } from '../confetti';
 import ThemeButton from './theme-button';
+import ShopSwitcher from './shop-switcher';
 import styles from './studio.module.css';
 
 export default function Home({ name, welcome }: { name: string; welcome: boolean }) {
@@ -27,7 +28,7 @@ export default function Home({ name, welcome }: { name: string; welcome: boolean
   const close = () => { setGreet(false); router.replace(window.location.pathname); };
   return <div className={styles.home} ref={host}>
     <div className={styles.homeTop}>
-      <div><div className={styles.brand}>Quite Sensational</div><div className={styles.shopName}>{name}</div></div>
+      <div><div className={styles.brand}>Quite Sensational</div><div className={styles.shopLine}><span className={styles.shopName}>{name}</span><ShopSwitcher /></div></div>
       <ThemeButton />
     </div>
     <div />

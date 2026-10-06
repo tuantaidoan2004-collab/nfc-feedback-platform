@@ -19,7 +19,7 @@ export type ShopRow = {
 };
 const PLAN_NAMES = Object.fromEntries(PLANS.map(plan => [plan.key, plan.name])) as Record<string, string>;
 /** One line for the operator: which plan, until when, and what the shop's guests see now. */
-const billingText = (b: Billing) => b.activateBy ? `Tự đăng ký · chưa kích hoạt · ${b.state === 'locked' ? 'đã khoá, chờ 10k' : `thử tới ${viDate(b.activateBy)}`}`
+const billingText = (b: Billing): string => b.main ? `Địa chỉ của ${b.main.name} · ${billingText({ ...b, main: null })}` : b.activateBy ? `Tự đăng ký · chưa kích hoạt · ${b.state === 'locked' ? 'đã khoá, chờ 10k' : `thử tới ${viDate(b.activateBy)}`}`
   : b.state === 'trial' ? `Chưa tính phí${b.plan ? ` · ${PLAN_NAMES[b.plan]}` : ''}`
   : `${PLAN_NAMES[b.plan!]} · ${b.state === 'active' ? 'tới' : 'hết hạn'} ${viDate(b.paidUntil!)}${b.state === 'grace' ? ` · tắt trang từ ${viDate(b.offFrom!)}` : b.state === 'off' ? ' · trang đã tắt' : ''}`;
 /** The owner's four positions, as the operator sees them (migration 012). */
@@ -52,6 +52,8 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
     try {
       const response = await fetch('/gov/api/shops/plan', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shopId: row.id, plan: plan || null, paidUntil: plan ? until || null : null }) });
+      const body = response.ok ? null : await response.json().catch(() => ({}));
+      if (body?.error === 'BRANCHES_NEED_VIP') { setError(`${row.name} có địa chỉ quán dưới gói VIP: chỉ đặt được VIP, hoặc bỏ gói.`); return; }
       if (!response.ok) { setError(response.status === 400 ? 'Chọn gói và một ngày hợp lệ (bỏ gói thì để trống ngày).' : failed(response.status)); return; }
       setPlanFor(null); setError(`Đã lưu gói cho ${row.name}.`); await refresh();
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
@@ -242,7 +244,7 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
               <td data-label="Gói" data-billing-state={row.billing.state}>{row.is_template ? '—' : billingText(row.billing)}</td>
               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
               <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
-              <td className={styles.rowActions}><div>{!row.is_template &&
+              <td className={styles.rowActions}><div>{!row.is_template && !row.billing.main &&
                 <button className={buttonClass('secondary')} disabled={busy} onClick={() => { setError(''); setPlanFor(row); setTimeout(() => document.querySelector('[data-plan-form]')?.scrollIntoView({ block: 'start' }), 0); }}>Đặt gói</button>}
                 {row.owner_user_id && !row.is_template && <>
                 <button className={buttonClass('secondary')} disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>

@@ -41,6 +41,10 @@ async function owedOf(db: PoolClient, shopId: string) {
     ORDER BY a.decided_at DESC LIMIT 1`, [shopId])).rows[0];
   return row ? Math.max(0, planOf(row.plan).monthly - ACTIVATION_FEE) : 0;
 }
+/** A shop with addresses under it (G3b) pays VIP: a lower plan would leave them unpaid for. */
+export async function hasBranches(db: PoolClient, shopId: string) {
+  return !!(await db.query('SELECT 1 FROM shops WHERE main_shop_id=$1 LIMIT 1', [shopId])).rowCount;
+}
 async function shopBilling(db: PoolClient, shopId: string) {
   return billingRow((await db.query(`SELECT ${BILLING_COLUMNS('s')} FROM shops s WHERE s.id=$1`, [shopId])).rows[0]);
 }
@@ -73,8 +77,10 @@ export class Payments {
     await transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'shell');
       if (access.actor.kind !== 'owner' || access.role !== 'owner') throw new OwnerError(403, 'OWNER_ROLE_REQUIRED');
+      if (access.billing.main) throw new OwnerError(409, 'PAID_BY_MAIN');
       if (!(await readPayee(db))) throw new OwnerError(409, 'PAYEE_NOT_SET');
       await db.query('SELECT 1 FROM shops WHERE id=$1 FOR UPDATE', [access.shopId]);
+      if (plan !== 'vip' && await hasBranches(db, access.shopId)) throw new OwnerError(409, 'BRANCHES_NEED_VIP');
       const billing = await shopBilling(db, access.shopId), owed = await owedOf(db, access.shopId);
       let months: number, amount: number;
       if (kind === 'activation') {
@@ -121,6 +127,7 @@ export class Payments {
       const payment = (await db.query('SELECT id,shop_id,kind,plan,months,amount,code,status FROM payments WHERE id=$1 FOR UPDATE', [id])).rows[0];
       if (!payment) throw new AdminError(404, 'PAYMENT_NOT_FOUND');
       if (payment.status !== 'pending') throw new AdminError(409, 'PAYMENT_DECIDED');
+      if (input.action === 'received' && payment.plan !== 'vip' && await hasBranches(db, payment.shop_id)) throw new AdminError(409, 'BRANCHES_NEED_VIP');
       if (input.action === 'cancelled') {
         await db.query("UPDATE payments SET status='cancelled',decided_at=clock_timestamp(),decided_by=$2 WHERE id=$1", [id, adminId]);
         await recordAdminAction(db, adminId, { action: 'payment.cancelled', shopId: payment.shop_id, detail: { code: payment.code, amount: payment.amount } });

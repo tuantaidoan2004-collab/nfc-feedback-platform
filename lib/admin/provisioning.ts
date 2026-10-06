@@ -32,7 +32,7 @@ export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEma
 const chosenTemplate = (value: unknown): string | null => value === undefined ? DEFAULT_TEMPLATE : canvasTemplate(value)?.key ?? null;
 
 const printable = (value: string) => ![...value].some(character => (character.codePointAt(0) ?? 0) < 32 || '<>'.includes(character));
-const shopName = (value: unknown) =>
+export const shopName = (value: unknown) =>
   typeof value === 'string' && value.trim() && value.trim().length <= 100 && printable(value) ? value.trim() : null;
 
 /**
@@ -207,8 +207,9 @@ export class ShopProvisioning {
   async list() {
     const shops = await this.shopRows();
     const pages = (await this.pool.query('SELECT shop_id,count(*)::int n FROM pages GROUP BY shop_id')).rows as { shop_id: string; n: number }[];
-    return shops.map(({ billing_plan, billing_paid_until, billing_today, ...shop }) =>
-      ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0, billing: billingRow({ billing_plan, billing_paid_until, billing_today }) }));
+    return shops.map(({ billing_plan, billing_paid_until, billing_today, billing_activate_by, billing_main_slug, billing_main_name, ...shop }) =>
+      ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0,
+        billing: billingRow({ billing_plan, billing_paid_until, billing_today, billing_activate_by, billing_main_slug, billing_main_name }) }));
   }
   private async shopRows() {
     return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,s.is_template,${BILLING_COLUMNS('s')},

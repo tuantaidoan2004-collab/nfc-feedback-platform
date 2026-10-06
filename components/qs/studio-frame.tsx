@@ -13,10 +13,13 @@ import { TAB_KEYS, TAB_LABELS, type TabKey } from './tabs-config';
 import SupportBanner, { type SupportSession } from './support-banner';
 import { BillingStrip } from './billing-notice';
 import type { Billing } from '@/lib/billing/plans';
+import ShopSwitcher, { ShopsContext, type Shops } from './shop-switcher';
 
 const TAB_ICONS: Record<TabKey, Parameters<typeof Icon>[0]['name']> = { dashboard: 'dashboard', data: 'data', library: 'library', 'my-card': 'card', 'quan-ly': 'manage', 'cai-dat': 'settings' };
 
-export default function StudioFrame({ slug, name, theme, support, billing, children }: { slug: string; name: string; theme: 'light' | 'dark' | 'system';
+export default function StudioFrame({ slug, name, theme, support, billing, shops, children }: { slug: string; name: string; theme: 'light' | 'dark' | 'system';
+  /** The shops this person can switch between, and whether they may add an address (G3b). */
+  shops: Shops;
   /** The shop's plan: past its paid date, a strip says when the page goes off. */
   billing: Billing;
   /** An administrator's support session: its strip sits above every screen. */
@@ -37,7 +40,7 @@ export default function StudioFrame({ slug, name, theme, support, billing, child
   const dark = mode === 'dark' || (mode === 'system' && systemDark);
   const { pulse, mood } = usePulse(slug);
   const tabs: OrbTab[] = TAB_KEYS.map(key => ({ key, label: TAB_LABELS[key], href: `/app/${slug}/${key}`, icon: <Icon name={TAB_ICONS[key]} /> }));
-  return <div className={`qs ${styles.frame}`} data-theme={mode} data-mode={current ? 'dock' : 'home'} data-support={support ? '' : undefined}
+  return <ShopsContext.Provider value={{ slug, shops }}><div className={`qs ${styles.frame}`} data-theme={mode} data-mode={current ? 'dock' : 'home'} data-support={support ? '' : undefined}
     data-billing={billing.state === 'grace' || billing.activateBy ? 'strip' : undefined}>
     <BillingStrip slug={slug} billing={billing} />
     {support && <SupportBanner slug={slug} session={support} />}
@@ -46,12 +49,13 @@ export default function StudioFrame({ slug, name, theme, support, billing, child
     {current ? <div className={styles.tabArea}>
       <header className={styles.tabHeader}>
         <div className={styles.titles}>
-          <button type="button" className={styles.homeLink} onClick={() => router.push(`/app/${slug}`)} aria-label="Về Orb">{name}</button>
+          <div className={styles.shopLine}><button type="button" className={styles.homeLink} onClick={() => router.push(`/app/${slug}`)} aria-label="Về Orb">{name}</button>
+            <ShopSwitcher /></div>
           <h1>{TAB_LABELS[current]}</h1>
         </div>
         <div id="qs-tab-actions" className={styles.tabActions} />
       </header>
       <main className={styles.tabMain}>{children}</main>
     </div> : children}
-  </div>;
+  </div></ShopsContext.Provider>;
 }

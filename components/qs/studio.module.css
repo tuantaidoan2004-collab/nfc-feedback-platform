@@ -7,6 +7,7 @@
 .tabHeader h1 { font-size: clamp(24px, 4vw, 32px); }
 .homeLink { justify-self: start; border: 0; background: none; padding: 0; color: var(--qs-muted); font-size: 13px; font-weight: 600; cursor: pointer; min-height: 0; }
 .homeLink:hover { color: var(--qs-ink); }
+.shopLine { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .tabMain { position: relative; z-index: 1; }
 
 /* Trang chủ: trang trắng, chỉ có Orb và vài dòng chữ rất nhẹ. */

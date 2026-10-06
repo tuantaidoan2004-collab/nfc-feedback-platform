@@ -10,7 +10,7 @@
 export type PlanKey = 'basic' | 'events' | 'vip';
 /**
  * Tính năng một gói mở khoá. Gói Cơ bản không mở gì thêm ngoài phần lõi (trang, nút Google, góp ý riêng, Dashboard, Data,
- * nhân viên và phân quyền). `branches`: thêm địa chỉ quán, chuyển qua lại giữa các quán (lát sau G3).
+ * nhân viên và phân quyền). `branches`: thêm địa chỉ quán dưới cùng một gói VIP (G3b, lib/account/branches.ts).
  */
 export type Feature = 'events' | 'branches';
 export type Plan = { key: PlanKey; name: string; monthly: number; unlocks: Feature[]; features: string[] };
@@ -52,7 +52,9 @@ export const cyclePrice = (plan: PlanKey, cycle: Cycle) => planOf(plan).monthly 
 export type BillingState = 'trial' | 'active' | 'grace' | 'off' | 'locked';
 export type Billing = { state: BillingState; plan: PlanKey | null; paidUntil: string | null; offFrom: string | null;
   /** A shop that signed itself up and has not paid the 10k: the last day it may look around without paying. */
-  activateBy: string | null };
+  activateBy: string | null;
+  /** An address added under a VIP shop (G3b, kịch bản mục 13): the shop that pays for it, whose state this is. */
+  main?: { slug: string; name: string } | null };
 
 const DAY = 86400000;
 const day = (text: string) => Date.parse(`${text}T00:00:00Z`);
@@ -77,12 +79,24 @@ export function entitled(billing: Billing, feature: Feature) {
   if (closed(billing) || !billing.plan) return false;
   return planOf(billing.plan).unlocks.includes(feature);
 }
-/** The SQL fragment both gates select, so the day is always Viet Nam's and never the server's. */
-export const BILLING_COLUMNS = (shop: string) =>
-  `${shop}.plan billing_plan,to_char(${shop}.paid_until,'YYYY-MM-DD') billing_paid_until,to_char(timezone('Asia/Ho_Chi_Minh',clock_timestamp())::date,'YYYY-MM-DD') billing_today,
-  CASE WHEN ${shop}.self_signup AND ${shop}.activated_at IS NULL AND ${shop}.paid_until IS NULL
-    THEN to_char(timezone('Asia/Ho_Chi_Minh',${shop}.created_at)::date+${TRY_DAYS},'YYYY-MM-DD') END billing_activate_by`;
-export type BillingRow = { billing_plan: unknown; billing_paid_until: string | null; billing_today: string; billing_activate_by?: string | null };
-export const billingRow = (row: BillingRow) => billingOf(row.billing_plan, row.billing_paid_until, row.billing_today, row.billing_activate_by ?? null);
+/**
+ * The SQL fragment every gate selects, so the day is always Viet Nam's and never the server's. An address added under a VIP
+ * shop (`main_shop_id`, G3b) has no plan of its own: every column comes from the shop that pays for it, so paying there opens
+ * every address and letting it lapse closes every address.
+ */
+export const BILLING_COLUMNS = (shop: string) => {
+  const paying = (columns: (alias: string) => string) =>
+    `CASE WHEN ${shop}.main_shop_id IS NULL THEN ${columns(shop)} ELSE (SELECT ${columns('pay')} FROM shops pay WHERE pay.id=${shop}.main_shop_id) END`;
+  return `${paying(s => `${s}.plan`)} billing_plan,${paying(s => `to_char(${s}.paid_until,'YYYY-MM-DD')`)} billing_paid_until,
+  to_char(timezone('Asia/Ho_Chi_Minh',clock_timestamp())::date,'YYYY-MM-DD') billing_today,
+  ${paying(s => `CASE WHEN ${s}.self_signup AND ${s}.activated_at IS NULL AND ${s}.paid_until IS NULL
+    THEN to_char(timezone('Asia/Ho_Chi_Minh',${s}.created_at)::date+${TRY_DAYS},'YYYY-MM-DD') END`)} billing_activate_by,
+  (SELECT main.slug FROM shops main WHERE main.id=${shop}.main_shop_id) billing_main_slug,
+  (SELECT main.name FROM shops main WHERE main.id=${shop}.main_shop_id) billing_main_name`;
+};
+export type BillingRow = { billing_plan: unknown; billing_paid_until: string | null; billing_today: string; billing_activate_by?: string | null;
+  billing_main_slug?: string | null; billing_main_name?: string | null };
+export const billingRow = (row: BillingRow): Billing => ({ ...billingOf(row.billing_plan, row.billing_paid_until, row.billing_today, row.billing_activate_by ?? null),
+  main: row.billing_main_slug ? { slug: row.billing_main_slug, name: row.billing_main_name ?? row.billing_main_slug } : null });
 /** "31/10/2026" from "2026-10-31". */
 export const viDate = (text: string) => text.split('-').reverse().join('/');

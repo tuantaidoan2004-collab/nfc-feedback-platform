@@ -37,6 +37,8 @@ export default function AdminPayments() {
       const response = await fetch('/gov/api/payments', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: row.id, action }) });
       if (!response.ok && response.status !== 409) { setError('Chưa lưu được. Thử lại.'); return; }
+      if ((response.status === 409 && (await response.json().catch(() => ({}))).error === 'BRANCHES_NEED_VIP'))
+        setError(`${row.shop.name} có địa chỉ quán dưới gói VIP: yêu cầu này là gói thấp hơn. Bấm "Huỷ" rồi nhắn chủ quán chọn VIP.`);
       await load();
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(''); }
   };

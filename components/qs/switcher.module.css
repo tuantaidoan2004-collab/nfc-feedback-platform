@@ -1,0 +1,34 @@
+/* Chuyển quán và thêm địa chỉ (G3b): một nút nhỏ cạnh tên quán, danh sách nổi, hộp thoại thêm địa chỉ. */
+.switcher { position: relative; display: inline-flex; vertical-align: middle; pointer-events: auto; }
+.trigger { display: inline-grid; place-items: center; width: 24px; height: 24px; min-height: 0; padding: 0; border: 1px solid var(--qs-line); border-radius: 8px;
+  background: var(--qs-card); color: var(--qs-muted); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.trigger:hover, .trigger[aria-expanded='true'] { color: var(--qs-ink); border-color: var(--qs-faint); }
+.menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 70; width: min(300px, calc(100vw - 32px)); padding: 8px; border-radius: 16px;
+  border: 1px solid var(--qs-line); background: var(--qs-card); box-shadow: var(--qs-shadow-lg); animation: drop .16s ease; }
+.menu ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 50vh; overflow: auto; }
+.heading { margin: 4px 10px 6px; font-size: 12px; font-weight: 600; color: var(--qs-faint); }
+.item { width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'name check' 'meta check'; align-items: center; gap: 0 10px;
+  padding: 9px 10px; min-height: 0; border: 0; border-radius: 10px; background: none; color: var(--qs-ink); text-align: left; cursor: pointer; }
+.item:hover { background: var(--qs-hover); }
+.item[aria-current] { background: var(--qs-soft); }
+.item[data-branch] { padding-left: 22px; }
+.name { grid-area: name; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta { grid-area: meta; font-size: 12px; color: var(--qs-muted); }
+.meta:empty { display: none; }
+.check { grid-area: check; color: var(--qs-blue); }
+.add { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 10px; min-height: 0; border: 0; border-top: 1px solid var(--qs-line);
+  border-radius: 0 0 10px 10px; background: none; color: var(--qs-accent-text); font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.add span { font-size: 18px; line-height: 1; }
+.add:hover { background: var(--qs-hover); }
+.note { margin: 6px 0 0; padding: 10px 10px 4px; border-top: 1px solid var(--qs-line); font-size: 12px; color: var(--qs-muted); }
+.back { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(250, 251, 255, .6);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+:global(.qs[data-theme='dark']) .back { background: rgba(5, 6, 9, .6); }
+.dialog { width: min(440px, 100%); display: grid; gap: 12px; padding: 24px; border-radius: 24px; border: 1px solid var(--qs-line); background: var(--qs-card);
+  box-shadow: var(--qs-shadow-lg); text-align: left; }
+.dialog h2 { font-size: 20px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+@keyframes drop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* Điện thoại: tên quán có thể dài, nên danh sách bám hai mép màn thay vì bám nút. */
+@media (max-width: 640px) { .menu { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; } }
+@media (prefers-reduced-motion: reduce) { .menu { animation: none; } }

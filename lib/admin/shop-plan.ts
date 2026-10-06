@@ -3,6 +3,7 @@ import { transaction } from '../owner/auth';
 import { BILLING_COLUMNS, billingRow, isPlanKey } from '../billing/plans';
 import { AdminError } from './error';
 import { recordAdminAction } from './audit';
+import { hasBranches } from '../billing/payments';
 
 /**
  * Gói của một quán, Admin Tài đặt ở `/gov` (kịch bản mục 3b): gói nào, trả hoặc tặng tới ngày nào (giờ Việt Nam, tính
@@ -20,9 +21,12 @@ export async function setShopPlan(pool: Pool, adminId: string, input: { shopId?:
   const paidUntil = input.paidUntil === null || input.paidUntil === '' ? null : typeof input.paidUntil === 'string' && realDate(input.paidUntil) ? input.paidUntil : undefined;
   if (paidUntil === undefined || (paidUntil && !plan)) throw new AdminError(400, 'INVALID_PAID_UNTIL');
   return transaction(pool, async db => {
-    const before = (await db.query(`SELECT s.is_template,s.plan,to_char(s.paid_until,'YYYY-MM-DD') paid_until FROM shops s WHERE s.id=$1 FOR UPDATE`, [shopId])).rows[0];
+    const before = (await db.query(`SELECT s.is_template,s.main_shop_id,s.plan,to_char(s.paid_until,'YYYY-MM-DD') paid_until FROM shops s WHERE s.id=$1 FOR UPDATE`, [shopId])).rows[0];
     if (!before) throw new AdminError(404, 'SHOP_NOT_FOUND');
     if (before.is_template) throw new AdminError(400, 'TEMPLATE_HAS_NO_PLAN');
+    // An address under a VIP shop is paid there (G3b); the paying shop keeps VIP while it has addresses.
+    if (before.main_shop_id) throw new AdminError(409, 'PAID_BY_MAIN');
+    if (plan && plan !== 'vip' && await hasBranches(db, shopId)) throw new AdminError(409, 'BRANCHES_NEED_VIP');
     const row = (await db.query(`UPDATE shops s SET plan=$2,paid_until=$3::date WHERE s.id=$1 RETURNING ${BILLING_COLUMNS('s')}`, [shopId, plan, paidUntil])).rows[0];
     await recordAdminAction(db, adminId, { action: 'shop.plan', shopId,
       detail: { from: { plan: before.plan, paidUntil: before.paid_until }, to: { plan, paidUntil } } });

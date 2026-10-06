@@ -47,8 +47,12 @@ export default function SettingsTab({ slug, query, role, billing }: TabProps) {
 }
 
 /** What the shop is on now, in one sentence (kịch bản mục 3b). */
-function current(billing: Billing) {
+function current(billing: Billing): { title: string; text: string } {
   const name = PLANS.find(plan => plan.key === billing.plan)?.name;
+  if (billing.main) {
+    const main = current({ ...billing, main: null });
+    return { title: `Địa chỉ này dùng chung gói của ${billing.main.name}`, text: `${main.title}. Thanh toán ở quán chính: mọi địa chỉ theo cùng một hạn, không tính thêm tiền.` };
+  }
   if (billing.activateBy) return { title: `Đang dùng thử tới hết ngày ${viDate(billing.activateBy)}`,
     text: 'Kích hoạt bằng 10.000đ để mở ngay tháng đầu của gói bạn chọn; trong tháng đó chuyển nốt phần còn lại.' };
   if (billing.state === 'trial') return { title: 'Đang trong giai đoạn trải nghiệm — mọi thứ miễn phí',
@@ -66,7 +70,8 @@ function BillingView({ slug, billing }: { slug: string; billing: Billing }) {
     <div className={styles.banner} data-billing-state={billing.state}><h2 style={{ fontSize: 17 }}>{now.title}</h2>
       <p className="qs-small qs-muted">{now.text}</p>
       <a className="qs-small" href={ZALO.url} target="_blank" rel="noopener noreferrer" style={{ justifySelf: 'start' }}>Cần hỏi? Zalo Admin Tài {ZALO.number}</a></div>
-    {(billing.state !== 'trial' || billing.activateBy) && <PaymentPanel slug={slug} />}
+    {billing.main ? <a className="qs-btn ghost" style={{ justifySelf: 'start' }} href={`/app/${billing.main.slug}/cai-dat?view=billing`}>Mở Thanh toán của {billing.main.name}</a>
+      : (billing.state !== 'trial' || billing.activateBy) && <PaymentPanel slug={slug} />}
     <div className={styles.row}><h2>Gói dịch vụ</h2>
       <div className={styles.segmented} role="group" aria-label="Chu kỳ trả">
         <button type="button" aria-pressed={cycle === 'month'} onClick={() => setCycle('month')}>Theo tháng</button>

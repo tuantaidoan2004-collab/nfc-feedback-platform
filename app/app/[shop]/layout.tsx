@@ -8,6 +8,8 @@ import { cookies } from 'next/headers';
 import { THEME_COOKIE } from '@/components/platform/theme-cookie';
 import StudioFrame from '@/components/qs/studio-frame';
 import { BillingOff, BillingLocked } from '@/components/qs/billing-notice';
+import { accountShops } from '@/lib/account/branches';
+import { entitled } from '@/lib/billing/plans';
 import '@/components/qs/qs.css';
 
 export const dynamic = 'force-dynamic';
@@ -40,5 +42,10 @@ export default async function Layout({ children, params }: { children: ReactNode
   const chosen = (await cookies()).get(THEME_COOKIE)?.value;
   const actor = access.actor;
   const support = actor.kind === 'admin' ? { admin: actor.adminHandle ?? actor.adminUsername, adminTitle: actor.adminTitle, scope: actor.scope, reason: actor.reason, expiresAt: actor.expiresAt } : null;
-  return <StudioFrame slug={access.slug} name={access.name} theme={chosen === 'dark' || chosen === 'system' ? chosen : 'light'} support={support} billing={access.billing}>{children}</StudioFrame>;
+  // The shops this person can switch between, and whether they may add an address (G3b). Never for an administrator standing in.
+  const owner = actor.kind === 'owner';
+  const shops = { list: owner ? await accountShops(database(), access.userId) : [], canAdd: owner && access.role === 'owner' && entitled(access.billing, 'branches'),
+    owner: owner && access.role === 'owner' };
+  return <StudioFrame slug={access.slug} name={access.name} theme={chosen === 'dark' || chosen === 'system' ? chosen : 'light'} support={support} billing={access.billing}
+    shops={shops}>{children}</StudioFrame>;
 }

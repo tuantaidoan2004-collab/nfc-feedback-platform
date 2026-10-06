@@ -45,6 +45,7 @@ export const ACTIONS: Record<string, string> = {
   'google.review': 'Xử lý đánh giá Google',
   'edit.request': 'Nhờ Admin Tài dựng trang',
   'onboarding.step': 'Xong một bước bắt đầu',
+  'shop.branch': 'Thêm địa chỉ quán',
 };
 export type ActivityRow = { id: string; actor_kind: 'member' | 'admin'; actor_id: string; actor_handle: string; action: string; target: string | null;
   detail: Record<string, unknown>; at: string };

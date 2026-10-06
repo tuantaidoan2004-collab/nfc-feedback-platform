@@ -12,7 +12,8 @@ import PaymentPanel from './payment-panel';
 const planName = (billing: Billing) => PLANS.find(plan => plan.key === billing.plan)?.name ?? '';
 
 export function BillingStrip({ slug, billing }: { slug: string; billing: Billing }) {
-  const pay = <Link className="qs-btn small" href={`/app/${slug}/cai-dat?view=billing`}>{billing.activateBy ? 'Kích hoạt 10.000đ' : 'Gia hạn'}</Link>;
+  // An address added under a VIP shop is paid at that shop (G3b).
+  const pay = <Link className="qs-btn small" href={`/app/${billing.main?.slug ?? slug}/cai-dat?view=billing`}>{billing.activateBy ? 'Kích hoạt 10.000đ' : 'Gia hạn'}{billing.main ? ` ở ${billing.main.name}` : ''}</Link>;
   if (billing.state === 'trial' && billing.activateBy) return <aside className="qs-billing-strip" role="note" data-billing="activate">
     <span>Bạn đang dùng thử tới hết ngày <strong>{viDate(billing.activateBy)}</strong>. Kích hoạt bằng 10.000đ để mở tháng đầu và dùng tiếp.</span>{pay}
   </aside>;
@@ -21,6 +22,13 @@ export function BillingStrip({ slug, billing }: { slug: string; billing: Billing
     <span>Gói <strong>{planName(billing)}</strong> đã hết hạn ngày {viDate(billing.paidUntil)}. Trang của quán sẽ tắt từ ngày <strong>{viDate(billing.offFrom)}</strong> nếu chưa gia hạn.</span>{pay}
   </aside>;
 }
+
+/** Where to pay: here, or at the shop whose VIP plan covers this address (G3b). */
+const Pay = ({ slug, billing }: { slug: string; billing: Billing }) => billing.main
+  ? <section className="qs-card" style={{ padding: 24, display: 'grid', gap: 8 }} data-paid-by-main>
+    <p>Địa chỉ này dùng chung gói của <strong>{billing.main.name}</strong>. Thanh toán ở quán chính là mọi địa chỉ mở lại cùng lúc.</p>
+    <Link className="qs-btn" href={`/app/${billing.main.slug}/cai-dat?view=billing`}>Mở Thanh toán của {billing.main.name}</Link></section>
+  : <PaymentPanel slug={slug} />;
 
 const Frame = ({ children, kind }: { children: React.ReactNode; kind: string }) =>
   <div className="qs" style={{ display: 'grid', placeItems: 'center', padding: 16, minHeight: '100dvh' }}>
@@ -36,7 +44,7 @@ export function BillingLocked({ slug, name, billing }: { slug: string; name: str
       <p className="qs-muted">Thời gian dùng thử đã hết ngày {billing.activateBy ? viDate(billing.activateBy) : '—'}. Quét 10.000đ là mở ngay tháng đầu; mọi thứ
         bạn đã làm vẫn còn nguyên.</p>
     </section>
-    <PaymentPanel slug={slug} />
+    <Pay slug={slug} billing={billing} />
   </Frame>;
 }
 
@@ -53,7 +61,7 @@ export function BillingOff({ slug, name, billing, googleUrl }: { slug: string; n
       <p className="qs-muted">Gói {planName(billing)} hết hạn ngày {billing.paidUntil ? viDate(billing.paidUntil) : '—'}. Khách chạm thẻ hay mở link của quán
         vẫn được đưa thẳng tới trang đánh giá Google của quán, nên không ai thấy trang lỗi. Gia hạn là trang bật lại.</p>
     </section>
-    <PaymentPanel slug={slug} />
+    <Pay slug={slug} billing={billing} />
     <section className="qs-card" style={{ padding: 24, display: 'grid', gap: 8 }}>
       <h2 style={{ fontSize: 17 }}>Không dùng trang nữa? Ghi link của quán vào lại thẻ</h2>
       <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 4 }}>

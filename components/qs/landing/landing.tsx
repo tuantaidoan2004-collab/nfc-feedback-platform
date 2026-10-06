@@ -10,16 +10,21 @@ import Link from 'next/link';
 import styles from './landing.module.css';
 import type { TemplateCard } from '@/lib/canvas/templates';
 import PageThumb from '@/components/canvas/thumb';
+import { PLANS, YEAR_MONTHS, type PlanKey } from '@/lib/billing/plans';
+import Why from './why';
 
 type Panel = 'product' | 'customer' | 'template' | 'pricing';
 const PANELS: [Panel, string][] = [['product', 'Product'], ['customer', 'Customer'], ['template', 'Template'], ['pricing', 'Pricing']];
 const FEATURES: [string, string, string, string][] = [
   ['card', 'Card', 'Một chạm thẻ, mở trang của quán', 'Khách chạm thẻ NFC trên bàn hay quét QR: trang mang tên quán mở ra ngay, nhẹ trên 4G.'],
   ['data', 'Data', 'Mọi phản hồi về một hộp thư', 'Góp ý riêng của khách và đánh giá Google của quán nằm chung một chỗ, trả lời ngay tại đó.'],
-  ['library', 'Library', 'Dựng trang như Canva', 'Chọn template, kéo thả, dán link — hoặc nhờ đội ngũ dựng giúp.'],
+  ['library', 'Library', 'Chọn mẫu, Admin Tài dựng', 'Chọn một mẫu trong thư viện, để lại số Zalo: Admin Tài dựng trang khớp với quán. Ảnh, logo, màu của quán cứ gửi qua Zalo.'],
   ['orb', 'Orb', 'Nơi làm việc biết thở', 'Orb nảy lên mỗi khi khách bấm trên trang của quán, đổi màu khi có phản hồi cần chú ý.'],
   ['khong-loc', 'Đúng luật Google', 'Không lọc đánh giá', 'Mọi khách thấy cùng một lời mời đánh giá Google. Không hỏi sao trước, không đổi quà lấy đánh giá — hồ sơ của quán luôn an toàn.'],
 ];
+
+/** One line per plan in the Pricing panel; prices come from the plans themselves (lib/billing/plans.ts). */
+const PLAN_LINES: Record<PlanKey, string> = { basic: 'Trang của quán, nhân viên', events: 'Thêm khúc sự kiện, collab', vip: 'Thêm mọi địa chỉ của quán' };
 
 export default function Landing({ templates }: { templates: TemplateCard[] }) {
   const [hidden, setHidden] = useState(true), [open, setOpen] = useState<Panel | null>(null);
@@ -61,9 +66,9 @@ export default function Landing({ templates }: { templates: TemplateCard[] }) {
             <PageThumb src={`/templates/${card.key}?anh=1`} title={`Mẫu ${card.name}`} /><span>{card.name}</span></Link>)}</div>
         <Link href="/templates" className={styles.start} style={{ justifySelf: 'center', background: '#0b0b0c', boxShadow: 'none' }}>Khám phá</Link></div>}
       {open === 'pricing' && <div className={styles.megaGrid}>
-        <Link href="/pricing" className={styles.tile}><div><strong>Đầy đủ</strong><br /><small>100.000đ/tháng · tối đa 4 thẻ public</small></div><span>Xem bảng giá →</span></Link>
-        <Link href="/pricing" className={styles.tile}><div><strong>VIP</strong><br /><small>120.000đ/tháng · không giới hạn thẻ</small></div><span>Xem bảng giá →</span></Link>
-        <Link href="/pricing" className={styles.tile}><div><strong>Theo năm</strong><br /><small>Trả 10 tháng, dùng 12 tháng</small></div><span>Xem bảng giá →</span></Link></div>}
+        {PLANS.map(plan => <Link key={plan.key} href="/pricing" className={styles.tile}><div><strong>{plan.name}</strong><br />
+          <small>{plan.monthly.toLocaleString('vi-VN')}đ/tháng · {PLAN_LINES[plan.key]}</small></div><span>Xem bảng giá →</span></Link>)}
+        <Link href="/pricing" className={styles.tile}><div><strong>Theo năm</strong><br /><small>Trả {YEAR_MONTHS} tháng, dùng 12 tháng</small></div><span>Xem bảng giá →</span></Link></div>}
     </div>}
     <main>
       <section ref={video} className={styles.video} aria-label="Video giới thiệu">
@@ -80,10 +85,11 @@ export default function Landing({ templates }: { templates: TemplateCard[] }) {
         <div className={styles.copy}><span className={styles.eyebrow}>{name}</span><h3>{title}</h3><p>{text}</p></div>
         <div className={styles.phone}><div className={styles.screen}>Video minh hoạ tính năng — làm theo ảnh tham khảo</div></div>
       </section>)}
+      <Why />
     </main>
     <footer className={styles.footer}>
       <strong className={styles.brand}>QuiteSensational</strong>
-      <nav><Link href="/pricing">Bảng giá</Link><Link href="/templates">Template</Link><Link href="/huong-dan-google">Mời đánh giá Google đúng luật</Link>
+      <nav><a href="#vi-sao">Vì sao có Quite Sensational</a><Link href="/pricing">Bảng giá</Link><Link href="/templates">Template</Link><Link href="/huong-dan-google">Mời đánh giá Google đúng luật</Link>
         <Link href="/quyen-rieng-tu">Quyền riêng tư</Link><Link href="/dieu-khoan">Điều khoản</Link><Link href="/owner/login">Đăng nhập</Link></nav>
       <small>© {new Date().getFullYear()} Quite Sensational</small>
     </footer>

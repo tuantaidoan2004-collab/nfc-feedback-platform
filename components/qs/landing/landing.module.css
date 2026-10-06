@@ -75,6 +75,11 @@
   .mega { width: calc(100vw - 24px); top: 76px; }
   .menu { display: none; }
   .signin { display: none; }
+  /* The brand, the menu button and "Bắt đầu miễn phí" share one 351px bar on a phone: smaller, or the button is cut off. */
+  .nav { padding: 8px 8px 8px 16px; gap: 8px; }
+  .page .nav .brand { font-size: 16px; }
+  .page .nav .start { min-height: 40px; padding: 0 14px; font-size: 14px; }
+  .burger { width: 40px; height: 40px; }
   .feature { grid-template-columns: 1fr; min-height: auto; }
   .feature:nth-of-type(even) .copy { order: 0; }
 }

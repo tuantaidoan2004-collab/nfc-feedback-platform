@@ -903,6 +903,9 @@ CREATE TABLE shops (
     plan text,
     paid_until date,
     activated_at timestamp with time zone,
+    main_shop_id uuid,
+    CONSTRAINT shops_main_not_self CHECK (((main_shop_id IS NULL) OR (main_shop_id <> id))),
+    CONSTRAINT shops_branch_has_no_plan CHECK (((main_shop_id IS NULL) OR ((plan IS NULL) AND (paid_until IS NULL) AND (activated_at IS NULL) AND (NOT self_signup)))),
     CONSTRAINT shops_plan_check CHECK (((plan IS NULL) OR (plan = ANY (ARRAY['basic'::text, 'events'::text, 'vip'::text])))),
     CONSTRAINT shops_paid_until_needs_plan CHECK (((paid_until IS NULL) OR (plan IS NOT NULL))),
     CONSTRAINT shops_profile_check CHECK (((jsonb_typeof(profile) = 'object'::text) AND (octet_length((profile)::text) <= 8192))),
@@ -1645,6 +1648,12 @@ CREATE INDEX shop_support_grant_latest ON shop_support_grant_events USING btree 
 CREATE UNIQUE INDEX shops_one_template ON shops USING btree (is_template) WHERE is_template;
 
 --
+-- Name: shops_main_shop; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shops_main_shop ON shops USING btree (main_shop_id) WHERE (main_shop_id IS NOT NULL);
+
+--
 -- Name: shops_slug_folded; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1944,6 +1953,13 @@ ALTER TABLE ONLY owner_memberships_v2
 
 ALTER TABLE ONLY owner_memberships_v2
     ADD CONSTRAINT owner_memberships_v2_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES shops(id);
+
+--
+-- Name: shops shops_main_shop_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY shops
+    ADD CONSTRAINT shops_main_shop_id_fkey FOREIGN KEY (main_shop_id) REFERENCES shops(id);
 
 --
 -- Name: owner_memberships_v2 owner_memberships_v2_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
