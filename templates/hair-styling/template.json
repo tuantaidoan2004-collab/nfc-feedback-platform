@@ -60,7 +60,8 @@
             "motion": {
               "in": "fade",
               "at": 250
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "google",
@@ -135,7 +136,8 @@
                 "link": "https://www.instagram.com/",
                 "h": 28,
                 "w": 136,
-                "size": 15
+                "size": 15,
+                "slot": "instagram"
               },
               {
                 "id": "tiktok",
@@ -148,7 +150,8 @@
                 "link": "https://www.tiktok.com/",
                 "h": 28,
                 "w": 136,
-                "size": 15
+                "size": 15,
+                "slot": "tiktok"
               },
               {
                 "id": "facebook",
@@ -161,7 +164,8 @@
                 "link": "https://www.facebook.com/",
                 "h": 28,
                 "w": 136,
-                "size": 15
+                "size": 15,
+                "slot": "facebook"
               },
               {
                 "id": "dat-lich",
@@ -177,7 +181,8 @@
                 "w": 190,
                 "size": 15,
                 "weight": 500,
-                "fg": "#1a1a1a"
+                "fg": "#1a1a1a",
+                "slot": "booking"
               }
             ],
             "motion": {
@@ -207,7 +212,8 @@
             },
             "font": "sans",
             "size": 14,
-            "color": "#ffffff"
+            "color": "#ffffff",
+            "slot": "handle"
           },
           {
             "id": "gop-y",
@@ -431,7 +437,8 @@
             },
             "font": "sans",
             "size": 14,
-            "color": "#ffffff"
+            "color": "#ffffff",
+            "slot": "handle"
           },
           {
             "id": "gach-2",

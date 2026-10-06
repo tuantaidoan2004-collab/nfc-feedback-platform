@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Pool, PoolClient } from 'pg';
 import { authorize, OwnerError, requirePermission, transaction, type OwnerAccess, type OwnerCredential } from '../owner/auth';
 import { recordActivity } from '../owner/activity';
+import { recordAdminAction } from '../admin/audit';
 import { googleSettings, type GoogleSettings } from '../owner/google';
 import { mapsLink } from './maps-link';
 export { mapsLink };
@@ -18,6 +19,13 @@ export { mapsLink };
  */
 export type ReviewRow = { reviewId: string; reviewerName: string | null; reviewerPhoto: string | null; isAnonymous: boolean; stars: number;
   comment: string | null; createdAt: string; updatedAt: string; reply: string | null; replyUpdatedAt: string | null };
+/**
+ * A review as Data lists it (the tool's "Đánh giá" page, Tài 05/10): how the shop is handling it, its internal note, when it
+ * first arrived, and `removedAt` once Google Maps stops showing it.
+ */
+export type ReviewStatus = 'new' | 'seen' | 'handled';
+export const REVIEW_STATUSES: ReviewStatus[] = ['new', 'seen', 'handled'];
+export type ReviewItem = ReviewRow & { status: ReviewStatus; note: string | null; firstSeenAt: string; removedAt: string | null };
 /** averageRating and totalReviews are Google's figures: null for everyone but the owner (google-policy.md rule 10). */
 export type Connection = { mode: 'google' | 'maps'; googleEmail: string | null; locationTitle: string | null; placeId: string | null;
   newReviewUri: string | null; averageRating: number | null; totalReviews: number | null; connectedAt: string; lastSyncedAt: string | null; lastError: string | null;
@@ -208,8 +216,10 @@ export async function fetchReviews(token: string, account: string, location: str
 
 // ── Storage ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 /**
- * `complete`: the list is everything Google still shows (the tool's), so a review missing from it has left Google and
- * leaves here too. `syncedAt`: when Google itself was read -- the tool's last look, not the moment we asked the tool.
+ * `complete`: the list is everything Google still shows (the tool's), so a review missing from it has left Google: it is
+ * marked removed (Data shows it under "Đã bị xoá / ẩn"), and a review that shows again loses the mark. `syncedAt`: when
+ * Google itself was read -- the tool's last look, not the moment we asked the tool. The first reading of a connection is the
+ * starting point, filed as seen; reviews that arrive after it are new (the tool's baseline, Tài 05/10).
  */
 async function store(db: PoolClient, shopId: string, reviews: GoogleReview[], average: number | null, total: number | null,
   { complete = false, syncedAt = null }: { complete?: boolean; syncedAt?: string | null } = {}) {
@@ -217,15 +227,17 @@ async function store(db: PoolClient, shopId: string, reviews: GoogleReview[], av
   // One statement for the whole list: on Neon each round trip costs, and the tool's webhook waits ten seconds at most.
   // A review listed twice keeps its last copy (one INSERT … ON CONFLICT cannot touch a row twice).
   const unique = [...new Map(rows.map(r => [r.reviewId, r])).values()];
-  if (unique.length) await db.query(`INSERT INTO google_reviews(shop_id,review_id,reviewer_name,reviewer_photo,is_anonymous,stars,comment,created_at,updated_at,reply_comment,reply_updated_at)
-    SELECT $1,* FROM unnest($2::text[],$3::text[],$4::text[],$5::boolean[],$6::smallint[],$7::text[],$8::timestamptz[],$9::timestamptz[],$10::text[],$11::timestamptz[])
+  const first = !(await db.query('SELECT last_synced_at FROM google_business_connections WHERE shop_id=$1', [shopId])).rows[0]?.last_synced_at;
+  if (unique.length) await db.query(`INSERT INTO google_reviews(status,shop_id,review_id,reviewer_name,reviewer_photo,is_anonymous,stars,comment,created_at,updated_at,reply_comment,reply_updated_at)
+    SELECT $12,$1,* FROM unnest($2::text[],$3::text[],$4::text[],$5::boolean[],$6::smallint[],$7::text[],$8::timestamptz[],$9::timestamptz[],$10::text[],$11::timestamptz[])
     ON CONFLICT(shop_id,review_id) DO UPDATE SET reviewer_name=EXCLUDED.reviewer_name,reviewer_photo=EXCLUDED.reviewer_photo,
     is_anonymous=EXCLUDED.is_anonymous,stars=EXCLUDED.stars,comment=EXCLUDED.comment,updated_at=EXCLUDED.updated_at,reply_comment=EXCLUDED.reply_comment,
-    reply_updated_at=EXCLUDED.reply_updated_at,synced_at=clock_timestamp()`,
+    reply_updated_at=EXCLUDED.reply_updated_at,synced_at=clock_timestamp(),removed_at=NULL`,
     [shopId, ...(['reviewId', 'reviewerName', 'reviewerPhoto', 'isAnonymous', 'stars', 'comment', 'createdAt', 'updatedAt', 'reply', 'replyUpdatedAt'] as const)
-      .map(key => unique.map(r => r[key]))]);
+      .map(key => unique.map(r => r[key])), first ? 'seen' : 'new']);
   // An empty list is never taken as "Google removed everything".
-  if (complete && rows.length) await db.query('DELETE FROM google_reviews WHERE shop_id=$1 AND NOT (review_id = ANY($2::text[]))', [shopId, rows.map(r => r.reviewId)]);
+  if (complete && rows.length) await db.query(`UPDATE google_reviews SET removed_at=clock_timestamp()
+    WHERE shop_id=$1 AND removed_at IS NULL AND NOT (review_id = ANY($2::text[]))`, [shopId, rows.map(r => r.reviewId)]);
   await db.query('UPDATE google_business_connections SET average_rating=$2,total_reviews=$3,last_synced_at=coalesce($4::timestamptz,clock_timestamp()),last_error=NULL WHERE shop_id=$1',
     [shopId, average, total, syncedAt]);
   return rows.length;
@@ -237,8 +249,8 @@ export class GoogleBusiness {
   constructor(private pool: Pool, private env: Env = process.env, private fetcher: typeof fetch = fetch) {}
 
   /**
-   * The connection and the latest reviews, for Data and Dashboard. Reading reviews needs the feedback permission; Google's
-   * score and count are the owner's alone (google-policy.md rule 10). `maps`: the tool is set up, so shops may paste a link.
+   * The connection, for Data, Dashboard and the Google step of the start. Google's score and count are the owner's alone
+   * (google-policy.md rule 10). `maps`: the tool is set up, so shops may paste a link. The reviews themselves: `reviews`.
    */
   async status(credential: OwnerCredential, slug: string) {
     return transaction(this.pool, async db => {
@@ -249,13 +261,53 @@ export class GoogleBusiness {
         newReviewUri: row.new_review_uri, averageRating: figures && row.average_rating !== null ? Number(row.average_rating) : null, totalReviews: figures ? row.total_reviews : null,
         connectedAt: row.connected_at.toISOString(), lastSyncedAt: row.last_synced_at?.toISOString() ?? null, lastError: row.last_error,
         mapsUrl: row.maps_url, requestedAt: row.requested_at?.toISOString() ?? null } : null;
-      const canRead = access.actor.kind === 'owner' ? access.permissions.includes('feedback') : access.actor.scope === 'feedback';
-      const reviews = connection && canRead ? (await db.query(`SELECT review_id,reviewer_name,reviewer_photo,is_anonymous,stars,comment,created_at,updated_at,reply_comment,reply_updated_at
-        FROM google_reviews WHERE shop_id=$1 ORDER BY created_at DESC LIMIT 50`, [access.shopId])).rows.map(r => ({ reviewId: r.review_id, reviewerName: r.reviewer_name,
-        reviewerPhoto: r.reviewer_photo, isAnonymous: r.is_anonymous, stars: r.stars, comment: r.comment, createdAt: r.created_at.toISOString(),
-        updatedAt: r.updated_at.toISOString(), reply: r.reply_comment, replyUpdatedAt: r.reply_updated_at?.toISOString() ?? null })) as ReviewRow[] : [];
-      return { connection, reviews, real: businessEnabled(this.env), maps: !!mapsKey(this.env),
+      return { connection, real: businessEnabled(this.env), maps: !!mapsKey(this.env),
         canManage: access.actor.kind === 'owner' && access.role === 'owner' };
+    });
+  }
+
+  /**
+   * Every review of the shop, the removed ones too, for Data's inbox (filtered, sorted and paged in the browser, like the
+   * tool's "Đánh giá" page). Needs the feedback permission; a support session in feedback scope reads, on the record.
+   * `canHandle`: whether this person may change a review's status or note (support never does).
+   */
+  async reviews(credential: OwnerCredential, slug: string) {
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'overview');
+      if (!(access.actor.kind === 'owner' ? access.permissions.includes('feedback') : access.actor.scope === 'feedback')) throw new OwnerError(403, 'PERMISSION_REQUIRED');
+      const rows = (await db.query(`SELECT review_id,reviewer_name,reviewer_photo,is_anonymous,stars,comment,created_at,updated_at,reply_comment,reply_updated_at,
+          status,note,first_seen_at,removed_at FROM google_reviews WHERE shop_id=$1 ORDER BY created_at DESC,review_id LIMIT 5000`, [access.shopId])).rows;
+      const reviews: ReviewItem[] = rows.map(r => ({ reviewId: r.review_id, reviewerName: r.reviewer_name, reviewerPhoto: r.reviewer_photo, isAnonymous: r.is_anonymous,
+        stars: r.stars, comment: r.comment, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(), reply: r.reply_comment,
+        replyUpdatedAt: r.reply_updated_at?.toISOString() ?? null, status: r.status, note: r.note, firstSeenAt: r.first_seen_at.toISOString(),
+        removedAt: r.removed_at?.toISOString() ?? null }));
+      const link = (await db.query('SELECT maps_url,new_review_uri FROM google_business_connections WHERE shop_id=$1', [access.shopId])).rows[0];
+      if (access.actor.kind === 'admin') await recordAdminAction(db, access.actor.adminId, { action: 'impersonation.read', shopId: access.shopId, onBehalfOf: access.userId,
+        detail: { session: access.actor.sessionId, scope: access.actor.scope, view: 'google-reviews', rows: reviews.length, feedbackShown: true } });
+      return { reviews, placeUrl: (link?.maps_url ?? null) as string | null,
+        canHandle: access.actor.kind === 'owner' && access.permissions.includes('feedback') };
+    });
+  }
+
+  /**
+   * "Đã xem", "Đã xử lý", "Mở lại" and the internal note, on one review or (status only) on several at once. Writes need the
+   * feedback permission; support sessions are refused by authorize. The history line names how many, never the words.
+   */
+  async mark(credential: OwnerCredential, slug: string, input: unknown) {
+    const data = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : null;
+    const ids = Array.isArray(data?.reviewIds) ? data.reviewIds : null, status = data?.status, note = data?.note;
+    if (!data || Object.keys(data).some(key => !['reviewIds', 'status', 'note'].includes(key)) || !ids || !ids.length || ids.length > 200
+      || ids.some(id => typeof id !== 'string' || !id || id.length > 300) || (status === undefined && note === undefined)
+      || (status !== undefined && !REVIEW_STATUSES.includes(status as ReviewStatus))
+      || (note !== undefined && (note !== null && (typeof note !== 'string' || [...note].length > 2000 || /\u0000/.test(note)) || ids.length !== 1))) throw new OwnerError(400, 'INVALID_INPUT');
+    return transaction(this.pool, async db => {
+      const access = await authorize(db, credential, slug, 'write'); requirePermission(access, 'feedback');
+      const text = typeof note === 'string' ? note.trim() || null : null;
+      const changed = (await db.query(`UPDATE google_reviews SET status=COALESCE($3,status),note=CASE WHEN $4 THEN $5 ELSE note END
+        WHERE shop_id=$1 AND review_id = ANY($2::text[]) RETURNING review_id`, [access.shopId, ids, status ?? null, note !== undefined, text])).rowCount ?? 0;
+      if (!changed) throw new OwnerError(404, 'NOT_FOUND');
+      await recordActivity(db, access, 'google.review', `${changed} đánh giá Google`, status ? { status: status as string } : { note: 'ghi chú' });
+      return { changed };
     });
   }
 
@@ -318,7 +370,8 @@ export class GoogleBusiness {
     if (!row) throw new OwnerError(404, 'GOOGLE_NOT_CONNECTED');
     if (row.mode === 'maps') {
       if (!mapsKey(this.env)) throw new OwnerError(503, 'MAPS_NOT_SET_UP');
-      await this.pool.query('UPDATE google_business_connections SET requested_at=clock_timestamp() WHERE shop_id=$1', [shopId]);
+      // Asked again: the last failure is old news until the tool answers (else Data shows the error beside "Đã gửi yêu cầu").
+      await this.pool.query('UPDATE google_business_connections SET requested_at=clock_timestamp(),last_error=NULL WHERE shop_id=$1', [shopId]);
       return { requested: true };
     }
     let pulled: { reviews: GoogleReview[]; averageRating: number | null; totalReviewCount: number | null };

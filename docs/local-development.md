@@ -34,17 +34,24 @@ khởi động sau; không có `~/MAps` thì chủ quán chưa có quán và `/a
 
 Chưa có: tải ảnh lên (cần kho S3 — `docs/tu-chay.md` có SeaweedFS), đăng nhập Google.
 
-**Sửa trang khi quán bấm "Nhờ admin sửa" (Tài 05/10):** Tài đưa agent ý của quán và các file quán gửi qua Zalo. Agent:
+**Dựng trang khi quán chọn mẫu và để lại Zalo (Tài 06/10):** Tài nhắn quán qua Zalo, lấy thông tin quán (link, @tên, giờ mở
+cửa, wifi, Place ID nếu quán chưa làm bước Dashboard), ảnh/video và điều quán muốn sửa, rồi đưa agent. Agent:
 
 ```bash
 node scripts/sua-trang.mjs ds
 node scripts/sua-trang.mjs lay <mã trang>
+node scripts/sua-trang.mjs kiem <mã trang>
 node scripts/sua-trang.mjs dang <mã trang>
 ```
 
-`ds` liệt kê trang chờ sửa · `lay` ghi bản nháp vào `rieng/sua/<mã>.json` và in mọi chỗ thay được (ảnh, chữ, nút) · agent sửa tệp
-đó, chép file của quán vào `rieng/sua/files/` và ghi đường dẫn vào `src` (vd `"files/anh-bia.jpg"`) · `dang` thu nhỏ ảnh (`sips`,
-HEIC/JPG/PNG, tối đa 1600 px), đổi video sang MP4 720p (`avconvert`), tải lên kho (duyệt sẵn), lưu, phát hành, đóng yêu cầu.
+`ds` liệt kê trang chờ dựng (mẫu, số Zalo, ghi chú) · `lay <mã> [mẫu]` ghi `rieng/sua/<mã>.json` — `ten`, `placeId`, `thongTin`
+(thông tin quán, `lib/shop/profile.ts`), `config` (trang) — và in danh sách **chỗ của quán** ✓/— cùng mọi chữ, nút, ảnh còn lại;
+khách thấy trạng thái chuyển "Admin đang chỉnh" · agent điền `thongTin` (link viết tắt được: `"zalo": "0912345678"`,
+`"instagram": "@ten"`, `"website": "ten.vn"`), sửa `config` nếu quán muốn khác, chép file vào `rieng/sua/files/` và ghi đường dẫn vào
+`src` (vd `"files/anh-bia.jpg"`) · `kiem` chạy mọi bước kiểm mà không ghi · `dang` thu nhỏ ảnh (`sips`, HEIC/JPG/PNG, tối đa
+1600 px), đổi video sang MP4 720p (`avconvert`), tải lên kho (duyệt sẵn), lưu thông tin quán (từ chối nếu làm hỏng một trang đang
+chạy của quán), phát hành, đóng yêu cầu. Thông tin quán gắn vào trang lúc trang hiện ra: đổi số Zalo về sau chỉ cần `lay` + `dang`
+lại (hoặc sửa `thongTin` của bất kỳ trang nào của quán), mọi trang của quán đúng ngay.
 Mặc định là database và kho ảnh local; production dùng `--env <tệp>` (DATABASE_URL và các biến R2 do Tài tự ghi, ngày Tài cần).
 
 **Bảy bộ test** vẫn là cách biết mọi thứ còn đúng, chạy trước khi đẩy `main`: lệnh ở `docs/operations-gotchas.md`.

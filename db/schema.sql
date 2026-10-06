@@ -898,8 +898,9 @@ CREATE TABLE shops (
     onboarding_template text,
     onboarding_dashboard_at timestamp with time zone,
     onboarded_at timestamp with time zone,
-    publish_approved_at timestamp with time zone,
+    profile jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    CONSTRAINT shops_profile_check CHECK (((jsonb_typeof(profile) = 'object'::text) AND (octet_length((profile)::text) <= 8192))),
     CONSTRAINT shops_business_kind_check CHECK (((business_kind IS NULL) OR (business_kind = ANY (ARRAY['cafe'::text, 'restaurant'::text, 'tea'::text, 'beauty'::text, 'retail'::text, 'other'::text])))),
     CONSTRAINT shops_place_id_check CHECK (((place_id IS NULL) OR ((char_length(place_id) >= 10) AND (char_length(place_id) <= 300) AND (place_id ~ '^[A-Za-z0-9_-]+$'::text)))),
     CONSTRAINT shops_google_address_check CHECK (((google_address IS NULL) OR ((char_length(google_address) <= 300) AND (google_address !~ '[[:cntrl:]<>]'::text)))),
@@ -2233,6 +2234,9 @@ CREATE TABLE google_business_connections (
     CONSTRAINT google_business_connections_maps_mode_check CHECK ((mode = 'maps'::text) = (maps_url IS NOT NULL))
 );
 
+-- Từng đánh giá Google, cùng cách xử lý của quán (05/10 tối, như trang "Đánh giá" của tool): `status` Mới/Đã xem/Đã xử lý
+-- (lần đọc đầu của một kết nối vào thẳng "Đã xem", sau đó đánh giá mới vào "Mới"), `note` ghi chú nội bộ, `removed_at` khi
+-- Google Maps không còn hiện đánh giá đó (hiện lại thì xoá dấu), `first_seen_at` lần đầu hệ thống thấy nó.
 CREATE TABLE google_reviews (
     shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
     review_id text NOT NULL CHECK (char_length(review_id) BETWEEN 1 AND 300),
@@ -2246,14 +2250,21 @@ CREATE TABLE google_reviews (
     reply_comment text CHECK (reply_comment IS NULL OR char_length(reply_comment) <= 4096),
     reply_updated_at timestamp with time zone,
     synced_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    removed_at timestamp with time zone,
+    status text DEFAULT 'new'::text NOT NULL CHECK (status = ANY (ARRAY['new'::text, 'seen'::text, 'handled'::text])),
+    note text CHECK (note IS NULL OR char_length(note) <= 2000),
     PRIMARY KEY (shop_id, review_id)
 );
 CREATE INDEX google_reviews_recent ON google_reviews (shop_id, created_at DESC);
 
 --
--- 05/10/2026 (Tài: bỏ trình sửa canvas): chủ quán chọn mẫu rồi bấm "Nhờ admin sửa" cho một trang. Trang chờ ở /gov; Tài
--- đưa agent ý của khách và file qua Zalo, agent sửa và phát hành lại (scripts/sua-trang.mjs), yêu cầu xong theo. Một yêu
--- cầu đang chờ mỗi trang; gửi lại thì thêm ý vào yêu cầu đó.
+-- 06/10/2026 (Tài: "shop chọn template… mọi thứ như link, chữ trên hitbox phải đồng bộ với shop"): chủ quán chọn mẫu và để
+-- lại số Zalo; Tài nhắn Zalo lấy thông tin quán và điều muốn sửa, agent dựng và phát hành (scripts/sua-trang.mjs), yêu cầu
+-- đóng theo. Mọi trang đều qua tay admin, nên không còn bước duyệt lần phát hành đầu (bảng publish_reviews đã bỏ).
+-- `template_key`: mẫu khách chọn (trống khi chỉ nhờ chỉnh trang đang có) · `contact`: số Zalo của chủ quán, chỉ admin đọc ·
+-- `contacted_at`: Tài đã nhắn (hoặc agent đã lấy trang ra sửa) · `outcome`: phát hành, hay đóng tay ở /gov.
+-- Một yêu cầu đang chờ mỗi trang; gửi lại thì cập nhật mẫu, số Zalo và nối thêm ghi chú.
 --
 
 CREATE TABLE edit_requests (
@@ -2261,32 +2272,16 @@ CREATE TABLE edit_requests (
     shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
     page_id uuid NOT NULL,
     requested_by uuid NOT NULL REFERENCES owner_identities_v2(id),
+    template_key text CHECK (template_key IS NULL OR template_key ~ '^[a-z0-9][a-z0-9-]{0,39}$'::text),
+    contact text NOT NULL CHECK (contact ~ '^0[0-9]{9}$'::text),
     message text CHECK (message IS NULL OR (char_length(message) <= 2000 AND message !~ '[<>]'::text)),
     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    contacted_at timestamp with time zone,
     handled_at timestamp with time zone,
     handled_by text CHECK (handled_by IS NULL OR handled_by ~ '^(admin:[0-9a-f-]{36}|agent)$'::text),
+    outcome text CHECK (outcome IS NULL OR outcome = ANY (ARRAY['published'::text, 'closed'::text])),
     FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id) ON DELETE CASCADE,
-    CHECK ((handled_at IS NULL) = (handled_by IS NULL))
+    CHECK ((handled_at IS NULL) = (handled_by IS NULL)),
+    CHECK ((handled_at IS NULL) = (outcome IS NULL))
 );
 CREATE UNIQUE INDEX edit_requests_one_open ON edit_requests (page_id) WHERE handled_at IS NULL;
-
---
--- Đợt ② (05/10/2026): lần phát hành đầu của một quán tự đăng ký chờ Tài duyệt ở /gov (kịch bản mục 4: một trang lừa đảo
--- trên tên miền là Chrome gắn "Nguy hiểm" cả tên miền). Một yêu cầu đang chờ mỗi quán; duyệt thì quán phát hành tự do từ đó.
---
-
-CREATE TABLE publish_reviews (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    page_id uuid NOT NULL,
-    requested_by text NOT NULL CHECK (requested_by ~ '^(owner|admin):[0-9a-f-]{36}$'::text),
-    requested_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
-    state text DEFAULT 'pending'::text NOT NULL CHECK (state = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
-    decided_by uuid REFERENCES platform_admins(id),
-    decided_at timestamp with time zone,
-    reason text CHECK (reason IS NULL OR (char_length(btrim(reason)) BETWEEN 1 AND 500 AND reason !~ '[<>]'::text)),
-    FOREIGN KEY (shop_id, page_id) REFERENCES pages(shop_id, id) ON DELETE CASCADE,
-    CHECK ((state = 'pending'::text) = (decided_at IS NULL AND decided_by IS NULL)),
-    CHECK ((state = 'rejected'::text) = (reason IS NOT NULL))
-);
-CREATE UNIQUE INDEX publish_reviews_one_pending ON publish_reviews (shop_id) WHERE state = 'pending'::text;

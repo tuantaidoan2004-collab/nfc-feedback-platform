@@ -68,7 +68,8 @@
             "motion": {
               "in": "fade",
               "at": 300
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "nganh",

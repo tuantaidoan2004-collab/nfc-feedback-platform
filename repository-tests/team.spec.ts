@@ -7,7 +7,9 @@ import {OwnerTeam} from '../lib/owner/team';
 import {OwnerActivity,parseActivityQuery,fold} from '../lib/owner/activity';
 import {OwnerDashboard} from '../lib/owner/dashboard';
 import {OwnerCards} from '../lib/owner/cards';
-import {OwnerDesign} from '../lib/owner/design';
+import {OwnerPages} from '../lib/owner/pages';
+import {OwnerMedia} from '../lib/owner/media';
+import {storageSettings} from '../lib/media/storage';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
 import {AdminAuth} from '../lib/admin/auth';
 import {AdminImpersonation} from '../lib/admin/impersonation';
@@ -48,7 +50,7 @@ test('roles appear on first open; a Nhân viên sees figures but no feedback wor
  const rows=(await dashboard.read(an,'one',parseFilters(new URLSearchParams()))).records;
  expect(rows[0].message).toBeNull();
  for(const refused of [
-  ()=>new OwnerCards(f.db).list(an,'one'),()=>new OwnerCards(f.db).create(an,'one',{label:'Bàn 9'}),()=>new OwnerDesign(f.db).read(an,'one'),
+  ()=>new OwnerCards(f.db).list(an,'one'),()=>new OwnerCards(f.db).create(an,'one',{label:'Bàn 9'}),()=>new OwnerPages(f.db).picture(an,'one','one'),
   ()=>new OwnerActivity(f.db).list(an,'one',everything()),()=>team.invite(an,'one',{handle:'someone',roleId:staffRole}),
   ()=>f.auth.access(an,'one','export'),()=>dashboard.update(an,'one',{sessionId:rows[0].session_id,expectedCaseRevision:0,expectedExperienceRevision:rows[0].experience_revision,status:'new',note:'x'}),
  ])await expect(refused()).rejects.toMatchObject({code:'PERMISSION_REQUIRED'});
@@ -122,7 +124,7 @@ test('history: every change leaves a line, search ignores accents, filters narro
  expect(JSON.stringify((await activity.list(owner,'one',everything())).rows[0])).not.toContain('bún');
 });
 
-test('support: never reads or changes the team or its history; its design work is recorded under its badge',async({f})=>{
+test('support: never reads or changes the team or its history; its work on the page is recorded under its badge',async({f})=>{
  const admins=new AdminAuth(f.db);await admins.bootstrap('tai','a-sufficiently-long-admin-secret',async()=>{});
  await f.db.query("UPDATE platform_admins SET handle='Quitesensational',title='Admin Tài'");
  const adminToken=(await admins.login('tai','a-sufficiently-long-admin-secret')).token;await enrolAdmin(f.db);
@@ -131,10 +133,10 @@ test('support: never reads or changes the team or its history; its design work i
  const credential={impersonation:s.token};
  await expect(new OwnerTeam(f.db).list(credential,'one')).rejects.toMatchObject({code:'PERMISSION_REQUIRED'});
  await expect(new OwnerActivity(f.db).list(credential,'one',everything())).rejects.toMatchObject({code:'PERMISSION_REQUIRED'});
- const design=new OwnerDesign(f.db),state=await design.read(credential,'one');
- await design.save(credential,'one',{expectedRevision:state.draft.revision,config:{...state.draft.config,name:'Sửa hộ'}});
+ const store=storageSettings({R2_ACCOUNT_ID:'a'.repeat(32),R2_ACCESS_KEY_ID:'AKFIXTURE',R2_SECRET_ACCESS_KEY:'secret-fixture',R2_BUCKET:'nfc-media',MEDIA_PUBLIC_ORIGIN:'https://media.example.com/'});
+ await new OwnerMedia(f.db,store).presign(credential,'one',{type:'image/png',size:1000});
  const line=(await new OwnerActivity(f.db).list(f.users[0].token,'one',everything())).rows[0];
- expect(line).toMatchObject({actor_kind:'admin',actor_handle:'Quitesensational',action:'design.save'});
+ expect(line).toMatchObject({actor_kind:'admin',actor_handle:'Quitesensational',action:'media.upload'});
 });
 
 test('F-007: a manager without the feedback switch cannot act on someone the owner opened feedback to',async({f})=>{

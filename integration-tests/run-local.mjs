@@ -64,12 +64,12 @@ async function warm(origin) {
     // The behaviour beacon (lát mục 7). A route compiled on its first call makes `next dev` reload every open
     // page, and a beacon fires while another test has a half-filled login form on screen.
     `/api/v2/pages/visits/${zero}/events`,
-    // Sign-up and onboarding (đợt ①), the canvas editor and its API (đợt ②), the templates, and the crawler files.
-    '/bat-dau', '/api/start/signup', '/app/one', '/app/one/library', '/app/one/my-card', '/api/owner/v2/one/design', '/templates', '/templates/basic-1',
+    // Sign-up and onboarding (đợt ①), the Library and My Card, the templates, and the crawler files.
+    '/bat-dau', '/api/start/signup', '/app/one', '/app/one/library', '/app/one/my-card', '/templates', '/templates/basic-1',
     '/app/one/dashboard', '/app/one/data', '/app/one/my-card', '/app/one/quan-ly', '/app/one/cai-dat', '/api/owner/v2/one/overview', '/api/owner/v2/one/pulse',
     '/api/owner/v2/one/google-business', '/api/owner/v2/one/onboarding', '/api/owner/v2/one/edit-requests', '/api/owner/v2/logout', '/owner/setup/' + '0'.repeat(64),
-    // A self-signed-up shop's first publish (đợt ②): the draft /gov looks at, and the decision.
-    `/gov/xem/${zero}`, `/gov/api/publish-reviews/${zero}`,
+    // A page waiting for Tài to build it (06/10): the template /gov shows, and the steps he marks.
+    `/gov/xem/${zero}`, `/gov/api/edit-requests/${zero}`,
     '/robots.txt', '/sitemap.xml',
     // Google sign-in (lát D4c).
     '/api/owner/v2/google/start', '/api/owner/v2/google/callback'];

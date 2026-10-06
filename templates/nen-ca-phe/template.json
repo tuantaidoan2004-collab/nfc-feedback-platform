@@ -59,7 +59,8 @@
             "motion": {
               "in": "fade",
               "at": 300
-            }
+            },
+            "slot": "handle"
           },
           {
             "id": "sao-1",
@@ -154,7 +155,8 @@
               "in": "pop",
               "at": 900,
               "loop": "bob"
-            }
+            },
+            "slot": "wifi"
           },
           {
             "id": "gop-y",

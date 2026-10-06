@@ -125,11 +125,11 @@ test('the Google rules stop a page being written, and never stop one already pub
  await expect(f.admin.publish(f.page,2)).resolves.toMatchObject({draftRevision:3});
 
  // A draft written before the rule existed cannot be published under it -- checked again on the way out.
- await f.db.query(`UPDATE page_drafts SET config=replace(config::text,'"vi": "Quán Thử"','"vi": "Đánh giá 5 sao nhận quà"')::jsonb,revision=9`);
+ await f.db.query(`UPDATE page_drafts SET config=replace(config::text,'Thật tuyệt nếu nhận được đánh giá của bạn trên:','Đánh giá 5 sao nhận quà')::jsonb,revision=9`);
  await expect(f.admin.publish(f.page,9)).rejects.toThrow('POLICY_GOOGLE_EXCHANGE');
  // And the page that is already live still renders: the rule never runs on a stored snapshot.
  const live=await new PublishingResolver(f.db).live({slug:'one'});
- expect(JSON.stringify(live.config.doc)).toContain('"vi":"Quán Thử"');
+ expect(JSON.stringify(live.config.doc)).toContain('"vi":"Thật tuyệt nếu nhận được đánh giá của bạn trên:"');
 });
 
 /**

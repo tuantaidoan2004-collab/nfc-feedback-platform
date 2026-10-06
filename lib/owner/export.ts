@@ -3,12 +3,14 @@ import { OwnerAuth, OwnerError, type OwnerCredential } from './auth';
 import { cohort, type Filters } from './filters';
 import { experienceSelect, utc } from './dashboard';
 import { recordActivity } from './activity';
-export type Dataset='experiences'|'page_visits'|'receipts'|'comments';
+export type Dataset='experiences'|'page_visits'|'receipts'|'comments'|'google_reviews';
+export const DATASETS:Dataset[]=['experiences','page_visits','receipts','comments','google_reviews'];
 const fields = {
  experiences:['schemaVersion','dataset','session_id','first_rated_at','updated_at','rating','experience_revision','topic','message','phone','status','note','case_revision','case_updated_at','tag_id','source_label','release_id','origin_release_id'],
  page_visits:['schemaVersion','dataset','visit_id','session_id','opened_at','navigation_kind','tag_id','release_id'],
  receipts:['schemaVersion','dataset','session_id','visit_id','revision','operation','rating','applied_at','topic','message','phone','tag_id','release_id'],
  comments:['schemaVersion','dataset','comment_id','session_id','author_kind','author_handle','body','created_at','edited_at','pinned','likes','deleted_at'],
+ google_reviews:['schemaVersion','dataset','review_id','reviewer_name','stars','comment','created_at','reply','status','note','first_seen_at','removed_at'],
 } as const;
 const descriptions:Record<string,string>={
  schemaVersion:'Export schema version, nfc-owner-export-v1.',dataset:'Row family: experiences, page_visits or receipts.',
@@ -25,17 +27,27 @@ const descriptions:Record<string,string>={
  author_handle:'@handle of the author when they wrote it.',body:'Current text of the internal reply; earlier versions are kept by the platform.',
  created_at:'When the reply was written.',edited_at:'Last edit, null when never edited.',pinned:'true for the pinned reply of its thread.',
  likes:'Number of likes.',deleted_at:'When the reply was deleted and hidden, null while visible.',
+ review_id:'Google review ID.',reviewer_name:'Public Google name, null for an anonymous reviewer.',stars:'Google stars, 1–5.',
+ comment:'Review text as Google shows it.',reply:'The shop\'s public reply on Google, null when none.',
+ first_seen_at:'When the platform first saw the review.',removed_at:'When Google Maps stopped showing it, null while shown.',
 };
-const nullable=new Set(['rating','phone','topic','message','status','case_updated_at','tag_id','release_id','origin_release_id','edited_at','deleted_at']);
+const nullable=new Set(['rating','phone','topic','message','status','case_updated_at','tag_id','release_id','origin_release_id','edited_at','deleted_at','reviewer_name','comment','reply','note','removed_at']);
 export function dictionary(dataset:Dataset){return {schemaVersion:'nfc-owner-export-v1',dataset,scope:'live',storageTimezone:'UTC',displayTimezone:'Asia/Ho_Chi_Minh',
  filterSemantics:'Inclusive Ho Chi Minh calendar start; exclusive day-after-end. Cohort = matching live opens filtered by source/release and current rating/case status. Experiences are current state of cohort sessions; receipts are complete immutable history of those sessions, including events outside the open date/release filter.',
  consistency:'Repeatable-read database snapshot per export. Authorization rechecked with fresh database state before each chunk. No credential/browser hash/proof fields.',
- fields:fields[dataset].map(name=>({name,type:['rating','case_revision','likes'].includes(name)?'integer':name==='pinned'?'boolean':name==='revision'||name==='experience_revision'?'decimal-string':name.endsWith('_at')?'timestamp':'string',
- nullable:nullable.has(name),unit:name.endsWith('_at')?'UTC ISO8601, microseconds':name==='rating'?'stars, 1–5':null,meaning:descriptions[name]}))};}
+ fields:fields[dataset].map(name=>({name,type:['rating','case_revision','likes','stars'].includes(name)?'integer':name==='pinned'?'boolean':name==='revision'||name==='experience_revision'?'decimal-string':name.endsWith('_at')?'timestamp':'string',
+ nullable:nullable.has(name),unit:name.endsWith('_at')?'UTC ISO8601, microseconds':name==='rating'||name==='stars'?'stars, 1–5':null,
+ meaning:dataset==='google_reviews'&&name==='created_at'?'Day Google shows for the review; from Google Maps an estimate ("2 tháng trước").'
+  :dataset==='google_reviews'&&name==='status'?'How the shop handles it: new, seen or handled.':dataset==='google_reviews'&&name==='note'?'Internal note of the shop.'
+  :descriptions[name]}))};}
 export function csvCell(value:unknown){let text=value===null||value===undefined?'':String(value);
  if(/^[\s\u0000-\u001f]*[=+\-@]/u.test(text)||/^[\u0000-\u001f]/.test(text))text="'"+text;
  return '"'+text.replaceAll('"','""')+'"';}
 export function exportSelect(dataset:Dataset){
+ // Google reviews by their (estimated) day within the dates asked; the cohort's other filters are about guests' visits.
+ if(dataset==='google_reviews')return `SELECT g.review_id,CASE WHEN g.is_anonymous THEN NULL ELSE g.reviewer_name END reviewer_name,g.stars,g.comment,${utc('g.created_at')} created_at,
+ g.reply_comment reply,g.status,g.note,${utc('g.first_seen_at')} first_seen_at,${utc('g.removed_at')} removed_at
+ FROM google_reviews g WHERE g.shop_id=$1 AND g.created_at>=$2::timestamptz AND g.created_at<$3::timestamptz ORDER BY g.created_at DESC,g.review_id`;
  if(dataset==='experiences')return `${experienceSelect} ORDER BY e.first_interaction_at DESC,e.session_id DESC`;
  if(dataset==='comments')return `SELECT c.id comment_id,c.session_id,c.author_kind,c.author_handle,c.body,${utc('c.created_at')} created_at,${utc('c.edited_at')} edited_at,
  c.pinned_at IS NOT NULL pinned,(SELECT count(*)::int FROM feedback_comment_likes l WHERE l.comment_id=c.id) likes,${utc('c.deleted_at')} deleted_at

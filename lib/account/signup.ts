@@ -6,9 +6,9 @@ import { shortCode } from '../short-code';
 
 /**
  * Đăng ký USER — bước 1 của onboarding (kịch bản mục 4, Tài 05/10: "đăng ký xong dùng được ngay"). The account, its shop
- * and the owner's membership are made at once, and a session opens. What still waits for Tài is a self-signed-up shop's
- * first publish (shops.publish_approved_at), not the account: a stranger can build at once, but cannot put a page on the
- * platform's domain unseen.
+ * and the owner's membership are made at once, and a session opens. What waits for Tài is the shop's page, not the account:
+ * every page goes live only once he has matched it to the shop (lib/owner/edit-requests.ts), so nothing reaches the platform's
+ * domain unseen.
  *
  * A public form that runs scrypt and writes rows, so three brakes, all in the database: the one KDF slot owner sign-in
  * shares (never two 128 MB hashes at once), a per-hour limit for the platform and one per address, kept in the sign-in

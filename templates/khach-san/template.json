@@ -128,7 +128,8 @@
             "motion": {
               "in": "rise",
               "at": 550
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "google",
@@ -199,7 +200,8 @@
                     "w": 46,
                     "h": 20,
                     "size": 13,
-                    "fg": "#ffffff"
+                    "fg": "#ffffff",
+                    "slot": "website"
                   },
                   {
                     "id": "gach-1",
@@ -225,7 +227,8 @@
                     "w": 56,
                     "h": 20,
                     "size": 13,
-                    "fg": "#ffffff"
+                    "fg": "#ffffff",
+                    "slot": "menu"
                   },
                   {
                     "id": "gach-2",
@@ -251,7 +254,8 @@
                     "w": 70,
                     "h": 20,
                     "size": 13,
-                    "fg": "#ffffff"
+                    "fg": "#ffffff",
+                    "slot": "booking"
                   }
                 ]
               }
@@ -266,7 +270,8 @@
             "y": 528,
             "w": 20,
             "h": 20,
-            "link": "https://www.instagram.com/"
+            "link": "https://www.instagram.com/",
+            "slot": "instagram"
           },
           {
             "id": "handle",
@@ -281,7 +286,8 @@
             "w": 120,
             "h": 20,
             "size": 14,
-            "fg": "#1fa0de"
+            "fg": "#1fa0de",
+            "slot": "handle"
           },
           {
             "id": "gop-y",

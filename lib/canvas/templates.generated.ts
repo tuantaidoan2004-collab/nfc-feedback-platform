@@ -123,7 +123,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 300
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "gach",
@@ -278,7 +279,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "right",
         "at": 800
-       }
+       },
+       "slot": "instagram"
       },
       {
        "id": "tiktok",
@@ -314,7 +316,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "right",
         "at": 880
-       }
+       },
+       "slot": "tiktok"
       },
       {
        "id": "zalo",
@@ -337,7 +340,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "right",
         "at": 960
-       }
+       },
+       "slot": "zalo"
       },
       {
        "id": "vien",
@@ -378,7 +382,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 1100
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "website",
@@ -398,7 +403,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 1100
-       }
+       },
+       "slot": "website"
       },
       {
        "id": "link",
@@ -413,7 +419,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 1150
-       }
+       },
+       "slot": "website"
       },
       {
        "id": "gop-y",
@@ -516,7 +523,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "blur",
         "at": 350
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "san-pham",
@@ -601,7 +609,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "left",
         "at": 900
-       }
+       },
+       "slot": "website"
       },
       {
        "id": "tiktok",
@@ -637,7 +646,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "rise",
         "at": 1000
-       }
+       },
+       "slot": "tiktok"
       },
       {
        "id": "zalo",
@@ -656,7 +666,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "rise",
         "at": 1080
-       }
+       },
+       "slot": "zalo"
       },
       {
        "id": "dich-vu",
@@ -701,7 +712,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 1200
-       }
+       },
+       "slot": "menu"
       },
       {
        "id": "gop-y",
@@ -789,7 +801,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 300
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "nganh",
@@ -1056,7 +1069,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
          "font": "sans",
          "size": 30,
          "color": "#1d2b24",
-         "weight": 800
+         "weight": 800,
+         "slot": "name"
         },
         {
          "id": "loi-moi",
@@ -1122,7 +1136,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "link": "https://www.instagram.com/",
            "w": 89,
            "h": 44,
-           "size": 11.5
+           "size": 11.5,
+           "slot": "instagram"
           },
           {
            "id": "zalo",
@@ -1135,7 +1150,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "link": "https://zalo.me/",
            "w": 89,
            "h": 44,
-           "size": 11.5
+           "size": 11.5,
+           "slot": "zalo"
           },
           {
            "id": "tiktok",
@@ -1148,7 +1164,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "link": "https://www.tiktok.com/",
            "w": 89,
            "h": 44,
-           "size": 11.5
+           "size": 11.5,
+           "slot": "tiktok"
           }
          ]
         },
@@ -1412,7 +1429,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
             "w": 5,
             "color": "#1d1529"
            }
-          }
+          },
+          "slot": "initial"
          },
          {
           "id": "ten-quan",
@@ -1424,7 +1442,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
           "font": "rounded",
           "size": 28,
           "color": "#ffffff",
-          "weight": 900
+          "weight": 900,
+          "slot": "name"
          },
          {
           "id": "loi-moi",
@@ -1493,7 +1512,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
             100
            ]
           ]
-         }
+         },
+         "slot": "instagram"
         },
         {
          "icon": "tiktok",
@@ -1514,7 +1534,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
             100
            ]
           ]
-         }
+         },
+         "slot": "tiktok"
         },
         {
          "icon": "zalo",
@@ -1535,7 +1556,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
             100
            ]
           ]
-         }
+         },
+         "slot": "zalo"
         }
        ]
       },
@@ -1711,7 +1733,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 850
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "khau-hieu",
@@ -2018,7 +2041,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
         "in": "pop",
         "at": 500,
         "loop": "pulse"
-       }
+       },
+       "slot": "booking"
       },
       {
        "id": "mxh",
@@ -2041,7 +2065,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "icon": "instagram",
            "link": "https://www.instagram.com/",
            "w": 34,
-           "h": 34
+           "h": 34,
+           "slot": "instagram"
           },
           {
            "id": "fb",
@@ -2049,7 +2074,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "icon": "facebook",
            "link": "https://www.facebook.com/",
            "w": 34,
-           "h": 34
+           "h": 34,
+           "slot": "facebook"
           },
           {
            "id": "zl",
@@ -2057,7 +2083,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "icon": "zalo",
            "link": "https://zalo.me/",
            "w": 34,
-           "h": 34
+           "h": 34,
+           "slot": "zalo"
           },
           {
            "id": "tt",
@@ -2065,7 +2092,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "icon": "tiktok",
            "link": "https://www.tiktok.com/",
            "w": 34,
-           "h": 34
+           "h": 34,
+           "slot": "tiktok"
           }
          ]
         }
@@ -2206,7 +2234,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "rise",
         "at": 550
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "google",
@@ -2277,7 +2306,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "w": 46,
            "h": 20,
            "size": 13,
-           "fg": "#ffffff"
+           "fg": "#ffffff",
+           "slot": "website"
           },
           {
            "id": "gach-1",
@@ -2303,7 +2333,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "w": 56,
            "h": 20,
            "size": 13,
-           "fg": "#ffffff"
+           "fg": "#ffffff",
+           "slot": "menu"
           },
           {
            "id": "gach-2",
@@ -2329,7 +2360,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            "w": 70,
            "h": 20,
            "size": 13,
-           "fg": "#ffffff"
+           "fg": "#ffffff",
+           "slot": "booking"
           }
          ]
         }
@@ -2344,7 +2376,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "y": 528,
        "w": 20,
        "h": 20,
-       "link": "https://www.instagram.com/"
+       "link": "https://www.instagram.com/",
+       "slot": "instagram"
       },
       {
        "id": "handle",
@@ -2359,7 +2392,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "w": 120,
        "h": 20,
        "size": 14,
-       "fg": "#1fa0de"
+       "fg": "#1fa0de",
+       "slot": "handle"
       },
       {
        "id": "gop-y",
@@ -2477,7 +2511,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "rise",
         "at": 250
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "gio",
@@ -2497,7 +2532,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 350
-       }
+       },
+       "slot": "hours"
       },
       {
        "id": "loe-sang",
@@ -2566,7 +2602,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
            ]
           ]
          },
-         "fg": "#ffffff"
+         "fg": "#ffffff",
+         "slot": "instagram"
         },
         {
          "id": "tiktok",
@@ -2596,7 +2633,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
             ]
            ]
           }
-         }
+         },
+         "slot": "tiktok"
         },
         {
          "id": "xem-them",
@@ -2612,7 +2650,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
          "size": 22,
          "weight": 800,
          "bg": "#24597a",
-         "fg": "#ffffff"
+         "fg": "#ffffff",
+         "slot": "website"
         },
         {
          "id": "dung-cu",
@@ -2701,7 +2740,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 300
-       }
+       },
+       "slot": "handle"
       },
       {
        "id": "sao-1",
@@ -2796,7 +2836,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
         "in": "pop",
         "at": 900,
         "loop": "bob"
-       }
+       },
+       "slot": "wifi"
       },
       {
        "id": "gop-y",
@@ -2876,7 +2917,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        "motion": {
         "in": "fade",
         "at": 250
-       }
+       },
+       "slot": "name"
       },
       {
        "id": "google",
@@ -2951,7 +2993,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
          "link": "https://www.instagram.com/",
          "h": 28,
          "w": 136,
-         "size": 15
+         "size": 15,
+         "slot": "instagram"
         },
         {
          "id": "tiktok",
@@ -2964,7 +3007,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
          "link": "https://www.tiktok.com/",
          "h": 28,
          "w": 136,
-         "size": 15
+         "size": 15,
+         "slot": "tiktok"
         },
         {
          "id": "facebook",
@@ -2977,7 +3021,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
          "link": "https://www.facebook.com/",
          "h": 28,
          "w": 136,
-         "size": 15
+         "size": 15,
+         "slot": "facebook"
         },
         {
          "id": "dat-lich",
@@ -2993,7 +3038,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
          "w": 190,
          "size": 15,
          "weight": 500,
-         "fg": "#1a1a1a"
+         "fg": "#1a1a1a",
+         "slot": "booking"
         }
        ],
        "motion": {
@@ -3023,7 +3069,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        },
        "font": "sans",
        "size": 14,
-       "color": "#ffffff"
+       "color": "#ffffff",
+       "slot": "handle"
       },
       {
        "id": "gop-y",
@@ -3247,7 +3294,8 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = [
        },
        "font": "sans",
        "size": 14,
-       "color": "#ffffff"
+       "color": "#ffffff",
+       "slot": "handle"
       },
       {
        "id": "gach-2",

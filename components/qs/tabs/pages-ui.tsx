@@ -1,48 +1,38 @@
 'use client';
 /**
- * Trang của quán, không có trình sửa (Tài 05/10: "nhìn phát là khách ấn luôn"). Chọn một mẫu → xem nó mang tên quán trong
- * khung điện thoại → **Phát hành luôn**, hoặc **Nhờ admin sửa** (ghi điều muốn đổi, gửi ảnh/video qua Zalo; trang chờ ở /gov,
- * admin sửa rồi phát hành lại). Library và My Card dùng chung các mảnh ở đây.
+ * Trang của quán (Tài 06/10): một mẫu chỉ là bố cục; trang thật phải khớp quán — link, chữ trên nút, wifi, ảnh — nên mọi
+ * trang đi qua Admin Tài. Chủ quán chọn mẫu, để lại số Zalo, rồi theo dõi ba bước: đã gửi → Admin Tài đang chỉnh → đang chạy.
+ * Không có nút phát hành phía chủ quán. Library và My Card dùng chung các mảnh ở đây.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { TemplateCard } from '@/lib/canvas/templates';
 import type { PageSummary } from '@/lib/owner/pages';
-import { pageLabel } from '@/lib/owner/page-names';
+import { vnPhone } from '@/lib/shop/profile';
 import { ZALO } from '@/lib/contact';
 import Icon from '../icons';
 import styles from './pages.module.css';
 
 const post = (url: string, body: unknown) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
+const spaced = (phone: string) => phone.replace(/^(\d{4})(\d{3})(\d{3})$/, '$1 $2 $3');
 
 export function usePages(slug: string) {
-  const [pages, setPages] = useState<PageSummary[] | null>(null);
+  const [pages, setPages] = useState<PageSummary[] | null>(null), [contact, setContact] = useState('');
   const load = useCallback(async () => {
     const response = await fetch(`/api/owner/v2/${slug}/pages`, { cache: 'no-store' }).catch(() => null);
-    setPages(response?.ok ? (await response.json()).pages : []);
+    const body = response?.ok ? await response.json() : null;
+    setPages(body?.pages ?? []); if (body?.contact) setContact(body.contact);
   }, [slug]);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
-  return { pages, reload: load };
+  return { pages, contact, reload: load };
 }
 
-/** Publishes the page's draft. `review`: the shop's first publish went to Tài instead (kịch bản mục 4). */
-async function publish(slug: string, page: string, revision: number): Promise<'live' | 'review' | 'error'> {
-  const response = await post(`/api/owner/v2/${slug}/design`, { action: 'publish', expectedRevision: revision, page });
-  if (!response?.ok) return 'error';
-  return (await response.json()).review === 'pending' ? 'review' : 'live';
-}
-async function askEdit(slug: string, page: string, message: string) {
-  return !!(await post(`/api/owner/v2/${slug}/edit-requests`, { page, message }))?.ok;
-}
-
-/** What a page is doing now, in a word or two, and how it reads (green: guests see it; amber: someone is on it; red: stopped). */
+/** Where a page stands, in a few words, and how it reads (green: guests see it; amber: Tài is on it; red: stopped). */
 export function pageState(page: PageSummary): { text: string; tone: 'live' | 'wait' | 'stop' | 'idle' } {
   if (page.state === 'closed') return { text: 'Đã đóng', tone: 'stop' };
   if (page.state === 'paused') return { text: 'Tạm dừng', tone: 'stop' };
-  if (page.editRequest) return { text: 'Chờ admin sửa', tone: 'wait' };
-  if (page.review?.state === 'pending') return { text: 'Chờ duyệt lần đầu', tone: 'wait' };
-  if (page.review?.state === 'rejected') return { text: 'Chưa được duyệt', tone: 'stop' };
-  if (page.state === 'active') return page.unpublished ? { text: 'Có bản mới chưa phát hành', tone: 'wait' } : { text: 'Đang chạy', tone: 'live' };
+  if (page.request) return page.request.contacted ? { text: 'Admin đang chỉnh', tone: 'wait' } : { text: 'Chờ Admin Tài', tone: 'wait' };
+  if (page.state === 'active') return { text: 'Đang chạy', tone: 'live' };
   return { text: 'Chưa phát hành', tone: 'idle' };
 }
 export function StateTag({ page }: { page: PageSummary }) {
@@ -50,45 +40,68 @@ export function StateTag({ page }: { page: PageSummary }) {
   return <span className={styles.state} data-tone={state.tone} data-page-state={state.text}>{state.text}</span>;
 }
 
-function ZaloCard() {
-  return <div className={styles.zalo}>
-    <span className={styles.zaloMark} aria-hidden="true">Zalo</span>
-    <div><b>Gửi ảnh, video, logo qua Zalo</b><small>{ZALO.number} · gửi kèm tên quán</small></div>
-    <a className="qs-btn small" href={ZALO.url} target="_blank" rel="noreferrer">Mở Zalo</a>
+/** The three steps every page goes through, the current one lit: picked → Tài matching it to the shop → live. */
+export function Steps({ at }: { at: 1 | 2 | 3 }) {
+  const steps = ['Bạn chọn mẫu', 'Admin Tài nhắn Zalo, khớp mẫu với quán', 'Trang lên mạng'];
+  return <ol className={styles.steps} aria-label="Các bước">{steps.map((text, i) => <li key={text} data-done={i + 1 < at || undefined} data-now={i + 1 === at || undefined}>
+    <span className={styles.stepDot} aria-hidden="true">{i + 1 < at ? <Icon name="check" size={14} /> : i + 1}</span>{text}</li>)}</ol>;
+}
+
+/** Why a template cannot simply go live: said once, plainly, where the shop decides (Tài 06/10). */
+function WhyAdmin() {
+  return <div className={styles.why}>
+    <span className={styles.whyMark} aria-hidden="true"><Icon name="sparkle" size={20} /></span>
+    <div><b>Mẫu cần khớp với quán của bạn</b>
+      <p>Link Zalo, Facebook, số điện thoại, wifi, ảnh, logo, chữ trên từng nút… phải đúng của quán. Vì vậy Admin Tài sẽ nhắn Zalo lấy
+        thông tin, chỉnh theo ý bạn rồi phát hành — bạn không cần tự làm gì.</p></div>
   </div>;
 }
 
-/** "Bạn muốn sửa gì?": a few words (optional) and the files over Zalo. */
-function EditForm({ busy, onSend, onBack }: { busy: boolean; onSend: (message: string) => void; onBack?: () => void }) {
-  const [message, setMessage] = useState('');
-  return <div className={styles.form} data-edit-form>
-    <label className="qs-field">Bạn muốn sửa gì?<small>Không bắt buộc. Viết ngắn cũng được, admin sẽ nhắn lại qua Zalo.</small>
-      <textarea value={message} maxLength={1000} onChange={event => setMessage(event.target.value)} autoFocus
-        placeholder="Ví dụ: thay ảnh bìa bằng ảnh quán, đổi màu sang xanh lá, thêm số điện thoại 09…" /></label>
-    <ZaloCard />
-    <div className={styles.actions}>
-      <button type="button" className="qs-btn" disabled={busy} onClick={() => onSend(message)}><Icon name="send" size={18} /> {busy ? 'Đang gửi…' : 'Gửi yêu cầu'}</button>
-      {onBack && <button type="button" className="qs-btn ghost" disabled={busy} onClick={onBack}>Quay lại</button>}
-    </div>
-  </div>;
+/**
+ * The shop's Zalo (Tài messages it) and a note; the number the shop left last time is already there. The one button sits outside
+ * the fields, on a band pinned to the foot of the sheet that the rest scrolls under, so it is in sight from the first screen on a
+ * phone; a failed send says so just above it.
+ */
+function RequestForm({ contact, busy, cta, note, error, onSend }:
+  { contact: string; busy: boolean; cta: string; note: string; error: string; onSend: (contact: string, message: string) => void }) {
+  const [phone, setPhone] = useState(contact ? spaced(contact) : ''), [message, setMessage] = useState(''), [tried, setTried] = useState(false);
+  const valid = vnPhone(phone), id = useId(), field = useRef<HTMLInputElement>(null);
+  // A wrong number with the field out of sight (the button is pinned below): bring the field to the eye and the cursor into it.
+  const submit = (event: React.FormEvent) => { event.preventDefault(); setTried(true); if (valid) onSend(valid, message); else field.current?.focus(); };
+  return <><form id={id} className={styles.form} data-request-form onSubmit={submit}>
+    <label className="qs-field">Số Zalo của bạn
+      <input ref={field} className="qs-input" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="0912 345 678"
+        aria-invalid={tried && !valid ? true : undefined} required />
+      <small>{tried && !valid ? <span className="qs-error">Số điện thoại Việt Nam, 10 số (vd 0912 345 678).</span> : 'Admin Tài nhắn bạn qua số này. Chỉ dùng để dựng trang.'}</small>
+    </label>
+    <label className="qs-field">{note}<small>Không bắt buộc — nói chuyện tiếp trên Zalo cũng được.</small>
+      <textarea value={message} maxLength={1000} rows={3} onChange={event => setMessage(event.target.value)}
+        placeholder="Ví dụ: quán cà phê muối, màu chủ đạo xanh lá, có wifi riêng cho khách…" /></label>
+  </form>
+  <div className={styles.ctaBar}>
+    {error && <p className="qs-error" role="alert">{error}</p>}
+    <button type="submit" form={id} className="qs-btn" disabled={busy}><Icon name="send" size={18} /> {busy ? 'Đang gửi…' : cta}</button>
+  </div></>;
 }
 
-function Done({ result, url, onClose, next }: { result: 'live' | 'review' | 'edit'; url: string; onClose: () => void; next?: { label: string; href: string } }) {
+/** Sent: what happens next, and the quickest way to start it -- messaging Tài with the page's code. */
+function Sent({ code, contact, onClose, next }: { code: string; contact: string; onClose: () => void; next?: { label: string; href: string } }) {
   const [copied, setCopied] = useState(false);
-  return <div className={styles.done} role="status" data-done={result}>
-    <span className={styles.mark} aria-hidden="true">{result === 'live' ? '🎉' : result === 'review' ? '⏳' : '🛠️'}</span>
-    <strong>{result === 'live' ? 'Trang đã lên mạng' : result === 'review' ? 'Đã gửi duyệt' : 'Đã gửi yêu cầu sửa'}</strong>
-    <p className="qs-muted">{result === 'live' ? 'Khách chạm thẻ hoặc quét QR là thấy ngay. Muốn đổi gì, bấm "Nhờ admin sửa" ở trang này.'
-      : result === 'review' ? 'Lần phát hành đầu admin xem qua một lần, thường trong ngày. Duyệt xong trang lên mạng luôn.'
-        : 'Trang đang chờ admin sửa. Nhớ gửi ảnh, video qua Zalo. Sửa xong admin phát hành, bạn thấy trạng thái đổi trong My Card.'}</p>
-    {result === 'edit' && <ZaloCard />}
-    <div className={styles.actions}>
-      {next ? <a className="qs-btn" href={next.href}>{next.label} <Icon name="arrow" size={18} /></a> : <button type="button" className="qs-btn" onClick={onClose}>Xong</button>}
-      {result === 'live' && <>
-        <a className="qs-btn ghost" href={url} target="_blank" rel="noreferrer">Mở trang <Icon name="external" size={16} /></a>
-        <button type="button" className="qs-btn ghost" onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); } catch { /* the link is on the page */ } }}>
-          <Icon name="link" size={16} /> {copied ? 'Đã sao chép' : 'Sao chép link'}</button></>}
+  return <div className={styles.sent} role="status" data-sent={code}>
+    <span className={styles.sentMark} aria-hidden="true"><Icon name="check" size={26} /></span>
+    <strong>Đã gửi cho Admin Tài</strong>
+    <p className="qs-muted">Admin Tài sẽ nhắn Zalo cho bạn qua số {spaced(contact)} để lấy thông tin quán. Trang lên mạng ngay khi chỉnh xong.</p>
+    <Steps at={2} />
+    <div className={styles.zalo}>
+      <span className={styles.zaloMark} aria-hidden="true">Zalo</span>
+      <div><b>Muốn nhanh hơn? Nhắn Admin Tài ngay</b><small>{ZALO.number} · gửi kèm mã trang <code>{code}</code></small></div>
+      <div className={styles.zaloActions}>
+        <a className="qs-btn small" href={ZALO.url} target="_blank" rel="noreferrer">Mở Zalo</a>
+        <button type="button" className="qs-btn ghost small" onClick={async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { /* the code is shown */ } }}>
+          {copied ? 'Đã chép mã' : 'Chép mã'}</button>
+      </div>
     </div>
+    {next ? <a className="qs-btn" href={next.href}>{next.label} <Icon name="arrow" size={18} /></a> : <button type="button" className="qs-btn" onClick={onClose}>Xong</button>}
   </div>;
 }
 
@@ -120,113 +133,116 @@ function PhoneFrame({ src, height }: { src: string; height: number }) {
 }
 
 /**
- * A template chosen in the Library: it in a phone with the shop's name, and the two ways on. Either way makes the page; only
- * "Phát hành luôn" puts it live. `onboarding`: the Template step of the start (kịch bản mục 4) closes, and the next step is offered.
+ * A template chosen in the Library: it in a phone with the shop's name, why Tài makes it the shop's, and one way on -- leave a
+ * Zalo and ask him to build it. A shop that has pages says which one takes the new look, or that it is a new page; a page live
+ * today stays as it is until Tài publishes the new one. `onboarding`: the Template step of the start (kịch bản mục 4) closes.
  */
-export function TemplateSheet({ slug, name, card, pages, origin, onboarding, onClose, onMade }:
-  { slug: string; name: string; card: TemplateCard; pages: number; origin: string; onboarding: boolean; onClose: () => void; onMade: () => void }) {
-  const [mode, setMode] = useState<'choose' | 'edit'>('choose'), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const [result, setResult] = useState<{ kind: 'live' | 'review' | 'edit'; page: string } | null>(null);
-  const make = async () => {
-    const response = await post(`/api/owner/v2/${slug}/pages`, { template: card.key, label: pageLabel(pages) });
-    return response?.ok ? await response.json() as { slug: string; revision: number } : null;
-  };
-  const finish = async (kind: 'live' | 'review' | 'edit', page: string) => {
+export function TemplateSheet({ slug, name, card, pages, contact, onboarding, preferred, onClose, onMade }:
+  { slug: string; name: string; card: TemplateCard; pages: PageSummary[]; contact: string; onboarding: boolean;
+    /** The page the owner came from with "Đổi sang mẫu khác": it takes the look unless they choose otherwise. */
+    preferred?: string | null; onClose: () => void; onMade: () => void }) {
+  const open = pages.filter(page => page.state !== 'closed');
+  const [target, setTarget] = useState<string>(open.find(page => page.slug === preferred)?.slug ?? open[0]?.slug ?? '');
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [sent, setSent] = useState<{ code: string; contact: string } | null>(null);
+  const send = async (phone: string, message: string) => {
+    setBusy(true); setError('');
+    const response = await post(`/api/owner/v2/${slug}/edit-requests`, { ...(target ? { page: target } : {}), template: card.key, contact: phone, message });
+    if (!response?.ok) {
+      const code = (await response?.json().catch(() => null))?.error;
+      setBusy(false); setError(code === 'OWNER_ROLE_REQUIRED' ? 'Chỉ chủ quán tạo được trang mới. Chọn một trang có sẵn để đổi giao diện.' : 'Chưa gửi được. Thử lại.'); return;
+    }
     if (onboarding) await post(`/api/owner/v2/${slug}/onboarding`, { step: 'template', value: 'done' });
-    setResult({ kind, page }); setBusy(false); onMade();
+    setSent({ code: (await response.json()).page, contact: phone }); setBusy(false); onMade();
   };
-  const goLive = async () => {
-    setBusy(true); setError('');
-    const made = await make();
-    if (!made) { setBusy(false); setError('Chưa tạo được trang. Thử lại.'); return; }
-    const outcome = await publish(slug, made.slug, made.revision);
-    // Made but not live (a rule of the page, a lost connection): it waits in My Card with its own "Phát hành".
-    if (outcome === 'error') { setBusy(false); setError('Đã tạo trang nhưng chưa phát hành được. Thử lại ở My Card.'); onMade(); return; }
-    await finish(outcome, made.slug);
-  };
-  const askAdmin = async (message: string) => {
-    setBusy(true); setError('');
-    const made = await make();
-    if (!made || !await askEdit(slug, made.slug, message)) { setBusy(false); setError('Chưa gửi được. Thử lại.'); if (made) onMade(); return; }
-    await finish('edit', made.slug);
-  };
-  const preview = `/templates/${card.key}?ten=${encodeURIComponent(name)}`;
-  return <Sheet label={`Mẫu ${card.name}`} onClose={onClose} preview={preview}>
+  return <Sheet label={`Mẫu ${card.name}`} onClose={onClose} preview={`/templates/${card.key}?ten=${encodeURIComponent(name)}`}>
     <div style={{ display: 'grid', gap: 6 }}>
       <span className="qs-pill free">Free</span>
       <h2>{card.name}</h2>
       <p className={styles.lead}>{card.about}</p>
     </div>
-    {result ? <Done result={result.kind} url={`${origin}/${result.page}`} onClose={onClose}
-      next={onboarding ? { label: 'Tiếp tục: bước Dashboard', href: '/bat-dau/tien-trinh' } : undefined} />
-      : mode === 'choose' ? <div className={styles.choices}>
-        <button type="button" className={styles.choice} data-kind="publish" disabled={busy} onClick={() => void goLive()}>
-          <span className={styles.mark} aria-hidden="true">⚡</span>
-          <div><strong>{busy ? 'Đang phát hành…' : 'Phát hành luôn'}</strong><span>Dùng mẫu này với tên quán và nút đánh giá Google của quán.</span></div>
-          <Icon name="arrow" />
-        </button>
-        <button type="button" className={styles.choice} data-kind="edit" disabled={busy} onClick={() => setMode('edit')}>
-          <span className={styles.mark} aria-hidden="true">🛠️</span>
-          <div><strong>Nhờ admin sửa</strong><span>Thay ảnh, video, chữ, màu theo ý bạn. Admin sửa xong rồi phát hành.</span></div>
-          <Icon name="arrow" />
-        </button>
-      </div> : <EditForm busy={busy} onSend={message => void askAdmin(message)} onBack={() => setMode('choose')} />}
-    {error && <p className="qs-error" role="alert">{error}</p>}
+    {sent ? <Sent code={sent.code} contact={sent.contact} onClose={onClose}
+      next={onboarding ? { label: 'Tiếp tục: bước Dashboard', href: '/bat-dau/tien-trinh' } : undefined} /> : <>
+      <WhyAdmin />
+      {open.length > 0 && <fieldset className={styles.targets}>
+        <legend>Dùng mẫu này cho</legend>
+        {open.map(page => <label key={page.slug} className={styles.target}>
+          <input type="radio" name="target" checked={target === page.slug} onChange={() => setTarget(page.slug)} />
+          <span><b>Đổi giao diện “{page.label || page.slug}”</b><small>{page.state === 'active' ? 'Trang đang chạy giữ nguyên tới khi Admin Tài phát hành bản mới.' : `/${page.slug}`}</small></span>
+        </label>)}
+        <label className={styles.target}>
+          <input type="radio" name="target" checked={target === ''} onChange={() => setTarget('')} />
+          <span><b>Một trang mới</b><small>Link riêng, thẻ NFC riêng.</small></span>
+        </label>
+      </fieldset>}
+      <RequestForm contact={contact} busy={busy} cta="Nhờ Admin Tài dựng trang này" note="Ghi chú cho Admin Tài" error={error}
+        onSend={(phone, message) => void send(phone, message)} />
+    </>}
   </Sheet>;
 }
 
 /**
- * One page of the shop, opened from Library or My Card: it as guests see it (or will), its state, and the same two ways:
- * publish what is there, or ask the admin for changes. A page already waiting for the admin can take more words.
+ * One page of the shop, opened from Library or My Card: it as guests see it (or, while Tài works on it, the template picked),
+ * where it stands among the three steps, and what the shop can do -- open it, ask Tài for changes or add to what it asked, or
+ * pick another template for it.
  */
-export function PageSheet({ slug, page, origin, onClose, onChanged }: { slug: string; page: PageSummary; origin: string; onClose: () => void; onChanged: () => void }) {
-  const [mode, setMode] = useState<'choose' | 'edit'>('choose'), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const [result, setResult] = useState<'live' | 'review' | 'edit' | null>(null);
-  const url = `${origin}/${page.slug}`;
-  const canPublish = page.state !== 'closed' && page.state !== 'paused' && (page.state === 'draft' || page.unpublished)
-    && page.review?.state !== 'pending' && !page.editRequest;
-  const goLive = async () => {
+export function PageSheet({ slug, page, contact, origin, onClose, onChanged, onPickTemplate }:
+  { slug: string; page: PageSummary; contact: string; origin: string; onClose: () => void; onChanged: () => void; onPickTemplate: () => void }) {
+  const [asking, setAsking] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [sent, setSent] = useState<{ contact: string } | null>(null);
+  const url = `${origin}/${page.slug}`, live = page.state === 'active';
+  const send = async (phone: string, message: string) => {
     setBusy(true); setError('');
-    const outcome = await publish(slug, page.slug, page.revision);
+    const response = await post(`/api/owner/v2/${slug}/edit-requests`, { page: page.slug, contact: phone, message });
     setBusy(false);
-    if (outcome === 'error') { setError('Chưa phát hành được. Thử lại.'); return; }
-    setResult(outcome); onChanged();
-  };
-  const askAdmin = async (message: string) => {
-    setBusy(true); setError('');
-    const ok = await askEdit(slug, page.slug, message);
-    setBusy(false);
-    if (!ok) { setError('Chưa gửi được. Thử lại.'); return; }
-    setResult('edit'); onChanged();
+    if (!response?.ok) { setError('Chưa gửi được. Thử lại.'); return; }
+    setSent({ contact: phone }); onChanged();
   };
   return <Sheet label={page.label || page.slug} onClose={onClose} preview={`/ZZZ/${slug}/thumb/${page.slug}`}>
     <div style={{ display: 'grid', gap: 8 }}>
       <StateTag page={page} />
       <h2>{page.label || 'Trang chưa đặt tên'}</h2>
       <p className="qs-small qs-muted">{url.replace(/^https?:\/\//, '')}</p>
-      {page.editRequest?.message && <p className={styles.note}>Bạn đã nhắn: “{page.editRequest.message}”</p>}
-      {page.review?.state === 'rejected' && page.review.reason && <p className={styles.note}>Admin nhắn: “{page.review.reason}”. Bấm “Nhờ admin sửa” để admin sửa giúp.</p>}
     </div>
-    {result ? <Done result={result} url={url} onClose={onClose} />
-      : mode === 'choose' ? <div className={styles.choices}>
-        {canPublish && <button type="button" className={styles.choice} data-kind="publish" disabled={busy} onClick={() => void goLive()}>
-          <span className={styles.mark} aria-hidden="true">⚡</span>
-          <div><strong>{busy ? 'Đang phát hành…' : 'Phát hành luôn'}</strong><span>{page.state === 'active' ? 'Đưa bản mới nhất lên cho khách.' : 'Đưa trang này lên mạng ngay.'}</span></div>
-          <Icon name="arrow" />
-        </button>}
-        {page.state === 'active' && !canPublish && <a className={styles.choice} data-kind="publish" href={url} target="_blank" rel="noreferrer">
-          <span className={styles.mark} aria-hidden="true">👀</span>
-          <div><strong>Mở trang</strong><span>Xem trang như khách đang thấy.</span></div>
-          <Icon name="external" />
-        </a>}
-        {page.state !== 'closed' && <button type="button" className={styles.choice} data-kind="edit" disabled={busy} onClick={() => setMode('edit')}>
-          <span className={styles.mark} aria-hidden="true">🛠️</span>
-          <div><strong>{page.editRequest ? 'Gửi thêm ý cho admin' : 'Nhờ admin sửa'}</strong>
-            <span>{page.editRequest ? 'Admin đang sửa trang này. Muốn thêm gì, ghi vào đây.' : 'Thay ảnh, video, chữ, màu. Admin sửa xong rồi phát hành.'}</span></div>
-          <Icon name="arrow" />
-        </button>}
-        {page.state === 'paused' && <p className="qs-small qs-muted">Trang đang tạm dừng. Mở lại ở tab Quản lý.</p>}
-      </div> : <EditForm busy={busy} onSend={message => void askAdmin(message)} onBack={() => setMode('choose')} />}
-    {error && <p className="qs-error" role="alert">{error}</p>}
+    {sent ? <Sent code={page.slug} contact={sent.contact} onClose={onClose} /> : <>
+      {page.request && <>
+        <Steps at={2} />
+        {page.request.message && <p className={styles.note}>Bạn đã nhắn: “{page.request.message}”</p>}
+        {live && <p className="qs-small qs-muted">Trang đang chạy giữ nguyên tới khi Admin Tài phát hành bản mới.</p>}
+      </>}
+      {asking ? <RequestForm contact={contact} busy={busy} cta={page.request ? 'Gửi thêm cho Admin Tài' : 'Nhờ Admin Tài chỉnh trang này'}
+        note={page.request ? 'Bạn muốn thêm gì?' : 'Bạn muốn chỉnh gì?'} error={error} onSend={(phone, message) => void send(phone, message)} />
+        : <div className={styles.choices}>
+          {live && <a className={styles.choice} data-kind="primary" href={url} target="_blank" rel="noreferrer">
+            <span className={styles.mark} aria-hidden="true"><Icon name="eye" size={22} /></span>
+            <div><strong>Mở trang</strong><span>Xem trang như khách đang thấy.</span></div>
+            <Icon name="external" />
+          </a>}
+          {page.state !== 'closed' && <button type="button" className={styles.choice} data-kind={live ? undefined : 'primary'} onClick={() => setAsking(true)}>
+            <span className={styles.mark} aria-hidden="true"><Icon name="send" size={22} /></span>
+            <div><strong>{page.request ? 'Gửi thêm ghi chú cho Admin Tài' : 'Nhờ Admin Tài chỉnh trang này'}</strong>
+              <span>{page.request ? 'Admin Tài đang lo trang này. Muốn thêm gì, ghi vào đây.' : 'Đổi link, chữ, ảnh, màu… Admin Tài chỉnh rồi phát hành.'}</span></div>
+            <Icon name="arrow" />
+          </button>}
+          {page.state !== 'closed' && <button type="button" className={styles.choice} onClick={onPickTemplate}>
+            <span className={styles.mark} aria-hidden="true"><Icon name="template" size={22} /></span>
+            <div><strong>Đổi sang mẫu khác</strong><span>Chọn mẫu trong Library cho trang này.</span></div>
+            <Icon name="arrow" />
+          </button>}
+          {page.request && <a className={styles.choice} href={ZALO.url} target="_blank" rel="noreferrer">
+            <span className={styles.mark} aria-hidden="true">Zalo</span>
+            <div><strong>Nhắn Admin Tài</strong><span>{ZALO.number} · mã trang <code>{page.slug}</code></span></div>
+            <Icon name="external" />
+          </a>}
+          {page.state === 'paused' && <p className="qs-small qs-muted">Trang đang tạm dừng. Mở lại ở tab Quản lý.</p>}
+        </div>}
+    </>}
   </Sheet>;
+}
+
+/** The way a page comes to be, shown above the templates: nobody wonders what picking one will do. */
+export function HowItWorks() {
+  return <div className={styles.how} data-how-it-works>
+    <Steps at={1} />
+  </div>;
 }

@@ -186,13 +186,14 @@ test('the template account comes with a single-use link, never a fixed password,
 
 test('every template can start a shop: a copy of it carrying the shop\'s name, one template row per template used',async({f})=>{
  const {CANVAS_TEMPLATES,DEFAULT_TEMPLATE,pageFromTemplate}=await import('../lib/canvas/templates');
- const {PublishingResolver}=await import('../lib/publishing/repository');
+ const {PublishingResolver,shownConfig}=await import('../lib/publishing/repository');
  const resolver=new PublishingResolver(f.db);
  for(const [i,{key}] of CANVAS_TEMPLATES.entries()){
   const made=await f.shops.create(f.actorId,{...input,ownerUsername:`khuon-${i}`,ownerEmail:`khuon${i}@example.com`,templateKey:key});
   const page=await resolver.live({slug:made.slug});
   expect(page.template).toBe(key);
-  expect(page.config).toEqual(pageFromTemplate(key,input.name));
+  // As guests see it: the shop's name in its places, and nothing of the template's samples while the shop has no details.
+  expect(page.config).toEqual(shownConfig(pageFromTemplate(key,input.name),{name:input.name,profile:{},is_template:false}));
   expect(page.googleUrl).toBe(REVIEW);
  }
  // One row per template, shared by every shop on it.

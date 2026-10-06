@@ -1,5 +1,5 @@
-import { ARTBOARD, ARTS, BUTTON_LOOKS, DECK_LOOKS, FONTS, GOOGLE_LOOKS, ICONS, MAX_ELEMENTS, MAX_SECTION_H, MAX_SECTIONS, MOTIONS_IN, MOTIONS_LOOP,
-  SHAPES, type PageDoc } from './doc';
+import { ARTBOARD, ARTS, BUTTON_LOOKS, DECK_LOOKS, FONTS, GOOGLE_LOOKS, ICONS, LINK_SLOTS, MAX_ELEMENTS, MAX_SECTION_H, MAX_SECTIONS, MOTIONS_IN, MOTIONS_LOOP,
+  SHAPES, SLOTS, type PageDoc } from './doc';
 
 /**
  * Kiểm một tài liệu canvas trước khi lưu (doc.ts). Chặt như `validateConfig` của trang cũ: mỗi đối tượng chỉ có đúng các khoá
@@ -77,7 +77,7 @@ function panel(v: unknown, at: string) {
 }
 
 const BOX = ['id', 't', 'x', 'y', 'w', 'h'];
-const BOX_OPTIONAL = ['name', 'r', 'o', 'hide', 'lock', 'motion'];
+const BOX_OPTIONAL = ['name', 'r', 'o', 'hide', 'lock', 'motion', 'slot'];
 /** Fields every element may carry beyond its own, checked once here. Inside a stack x, y are absent and w is optional. */
 function box(v: Obj, at: string, inStack: boolean) {
   if (typeof v.id !== 'string' || !ID.test(v.id)) fail(`${at}.id`);
@@ -87,7 +87,21 @@ function box(v: Obj, at: string, inStack: boolean) {
   opt(v, 'name', (n, a) => text(n, a, 60), at); opt(v, 'r', (n, a) => num(n, a, -360, 360), at); opt(v, 'o', (n, a) => num(n, a, 0, 1), at);
   opt(v, 'hide', bool, at); opt(v, 'lock', bool, at); opt(v, 'motion', motion, at);
 }
-/** An element's own keys, exactly, and the box every element has (id, place, size, turn, fade, motion). */
+/**
+ * A slot only where the shop's data can show (doc.ts SLOTS): words in a text, a link where the element already leads somewhere
+ * or is a picture, an icon or a shape, the network behind a wifi button. Never on a container, the Google button or the plane.
+ */
+function slotFits(v: Obj, at: string) {
+  if (!('slot' in v)) return;
+  const slot = v.slot, t = v.t;
+  if (typeof slot !== 'string' || !(SLOTS as readonly string[]).includes(slot)) fail(`${at}.slot`);
+  const ok = slot === 'name' || slot === 'initial' || slot === 'hours' || slot === 'address' ? t === 'text'
+    : slot === 'handle' ? t === 'text' || (t === 'button' && 'link' in v)
+      : slot === 'wifi' ? t === 'button' && 'wifi' in v
+        : t === 'icon' || t === 'image' || t === 'shape' || ((t === 'button' || t === 'text') && 'link' in v);
+  if (!ok) fail(`${at}.slot`);
+}
+/** An element's own keys, exactly, and the box every element has (id, place, size, turn, fade, motion, slot). */
 function own(v: unknown, at: string, required: string[], optional: string[], inStack: boolean): asserts v is Obj {
   keys(v, at, inStack ? BOX.filter(k => !['x', 'y', 'w'].includes(k)).concat(required) : [...BOX, ...required], [...BOX_OPTIONAL, ...(inStack ? ['w'] : []), ...optional]);
   box(v, at, inStack);
@@ -143,7 +157,9 @@ function leaf(v: unknown, at: string, inStack: boolean, depth: number) {
     num(v.h, `${at}.h`, 1, 1000); num(v.gap, `${at}.gap`, 0, 200); opt(v, 'w', (n, a) => num(n, a, 1, ARTBOARD), at); opt(v, 'hide', bool, at);
     const list = v.kids; if (!Array.isArray(list) || !list.length || list.length > 6) fail(`${at}.kids`);
     (list as unknown[]).forEach((kid, i) => { leaf(kid, `${at}.kids.${i}`, true, depth + 1); if (!('w' in (kid as Obj)) || (kid as Obj).t === 'row') fail(`${at}.kids.${i}`); });
+    return;
   } else fail(`${at}.t`);
+  slotFits(v as Obj, at);
 }
 
 function kids(list: unknown, at: string, depth: number) {
@@ -155,22 +171,23 @@ function element(v: unknown, at: string) {
   if (!isObj(v)) fail(at);
   const t = (v as Obj).t;
   if (t === 'feedback') {
-    own(v, at, ['icon', 'color', 'edge'], [], false);
+    own(v, at, ['icon', 'color', 'edge'], [], false); slotFits(v, at);
     oneOf(['plane', 'chat', 'mail'])(v.icon, `${at}.icon`); color(v.color, `${at}.color`); color(v.edge, `${at}.edge`);
   } else if (t === 'stack') {
-    own(v, at, ['kids', 'gap'], ['pad', 'align', 'panel', 'reveal'], false);
+    own(v, at, ['kids', 'gap'], ['pad', 'align', 'panel', 'reveal'], false); slotFits(v, at);
     kids(v.kids, `${at}.kids`, 1); num(v.gap, `${at}.gap`, 0, 200); opt(v, 'pad', (n, a) => num(n, a, 0, 120), at);
     opt(v, 'align', oneOf(['start', 'center', 'end', 'stretch']), at); opt(v, 'panel', panel, at); opt(v, 'reveal', (n, a) => num(n, a, 100, 5000), at);
   } else if (t === 'deck') {
-    own(v, at, ['look', 'front', 'cards'], [], false);
+    own(v, at, ['look', 'front', 'cards'], [], false); slotFits(v, at);
     oneOf(DECK_LOOKS)(v.look, `${at}.look`);
     keys(v.front, `${at}.front`, ['kids', 'gap'], ['pad', 'panel', 'tilt']);
     kids(v.front.kids, `${at}.front.kids`, 1); num(v.front.gap, `${at}.front.gap`, 0, 200);
     opt(v.front, 'pad', (n, a) => num(n, a, 0, 120), `${at}.front`); opt(v.front, 'panel', panel, `${at}.front`); opt(v.front, 'tilt', (n, a) => num(n, a, -15, 15), `${at}.front`);
     const cards = v.cards; if (!Array.isArray(cards) || cards.length > 4) fail(`${at}.cards`);
     (cards as unknown[]).forEach((card, i) => {
-      const a = `${at}.cards.${i}`; keys(card, a, ['icon', 'label', 'link', 'fill'], ['fg']);
+      const a = `${at}.cards.${i}`; keys(card, a, ['icon', 'label', 'link', 'fill'], ['fg', 'slot', 'hide']);
       oneOf(ICONS)(card.icon, `${a}.icon`); words(card.label, `${a}.label`, 40); link(card.link, `${a}.link`); fill(card.fill, `${a}.fill`); opt(card, 'fg', color, a);
+      opt(card, 'slot', oneOf(LINK_SLOTS), a); opt(card, 'hide', bool, a);
     });
   } else leaf(v, at, false, 0);
 }

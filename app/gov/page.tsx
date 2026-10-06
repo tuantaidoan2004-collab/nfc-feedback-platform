@@ -13,8 +13,6 @@ import AdminIncidents from '@/components/admin-incidents';
 import AdminEditRequests from '@/components/admin-edit-requests';
 import { EditRequests, type EditRequestRow } from '@/lib/admin/edit-requests';
 import { PageIncidents, type IncidentForReview } from '@/lib/admin/page-incidents';
-import AdminPublishReviews from '@/components/admin-publish-reviews';
-import { PublishReviews, type PublishReviewRow } from '@/lib/admin/publish-reviews';
 import styles from '@/components/admin.module.css';
 import { AuthCard, Eyebrow } from '@/components/platform/ui';
 import ThemeToggle from '@/components/platform/theme';
@@ -25,7 +23,7 @@ export const metadata = { robots: { index: false, follow: false } };
 
 export default async function Page() {
   if (!adminEnabled()) notFound();
-  let principal: AdminPrincipal | null = null, shops: ShopRow[] = [], media: MediaForReview[] = [], incidents: IncidentForReview[] = [], edits: EditRequestRow[] = [], reviews: PublishReviewRow[] = [], unavailable = false;
+  let principal: AdminPrincipal | null = null, shops: ShopRow[] = [], media: MediaForReview[] = [], incidents: IncidentForReview[] = [], edits: EditRequestRow[] = [], unavailable = false;
   try {
     principal = await new AdminAuth(database()).access(await adminSessionToken(), true);
     // The list is only fetched once the second factor is on; before that this page shows nothing else anyway.
@@ -34,7 +32,6 @@ export default async function Page() {
       media = await new MediaReview(database()).pending();
       incidents = await new PageIncidents(database()).open();
       edits = await new EditRequests(database()).open();
-      reviews = await new PublishReviews(database()).pending();
     }
   }
   // A rejected session sends the visitor to the form; a database problem must not, or the two pages loop.
@@ -51,9 +48,7 @@ export default async function Page() {
       <div><Eyebrow>Quản trị nền tảng</Eyebrow><h1>Xin chào, {principal.username}</h1></div>
       <div className={styles.topTools}><ThemeToggle initial={await themeFromCookie()}/><AdminSignOut/></div>
     </header>
-    {/* Keyed by each waiting draft's revision: a refresh after the owner edited draws the list again from what is there now. */}
-    <AdminPublishReviews key={reviews.map(row => `${row.id}:${row.revision}`).join()} initial={reviews} origin={process.env.APP_ORIGIN ?? null}/>
-    <AdminEditRequests initial={edits} origin={process.env.APP_ORIGIN ?? null}/>
+    <AdminEditRequests initial={edits}/>
     <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
     <AdminMedia initial={media}/>
     <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}

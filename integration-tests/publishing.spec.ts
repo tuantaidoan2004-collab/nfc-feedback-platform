@@ -12,13 +12,20 @@ if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_t
 type Fixture = { db: Pool; admin: PublishingAdmin; shop: string; page: PageRef; release: string };
 /** The shop's review link: the Google button always takes it (shops.google_url), never anything a page says. */
 const GOOGLE = 'https://maps.google.com/?cid=42', SHOP_GOOGLE = 'https://maps.google.com/?cid=66';
-/** A page from a template, carrying `name`; `change` edits its document the way the editor would (đợt ②, lib/canvas/doc.ts). */
+/**
+ * A page from a template, named `name`; `change` edits its document the way the agent would (scripts/sua-trang.mjs). The name
+ * slot shows the shop's name whatever the page (lib/canvas/slots.ts, Tài 06/10), so the page also writes `name` on a line of its
+ * own (`loi-moi`, when the template has it): that line tells which release is on screen.
+ */
 function canvas(name: string, change?: (doc: PageDoc) => void, key = DEFAULT_TEMPLATE): PageConfig {
-  const config = pageFromTemplate(key, name); change?.(config.doc); return config;
+  const config = pageFromTemplate(key, name);
+  if ([...walk(config.doc)].some(e => e.id === 'loi-moi')) set(config.doc, 'loi-moi', { words: { vi: name } });
+  change?.(config.doc); return config;
 }
-/** One element of the document by its id, wherever it sits (a stack's child, a button in a row). */
+/** One element of the document by its id, wherever it sits (a stack's child, a button in a row); `undefined` removes a key. */
 function set(doc: PageDoc, id: string, patch: Record<string, unknown>) {
-  const el = [...walk(doc)].find(e => e.id === id); if (!el) throw Error(`No element ${id}`); Object.assign(el, patch);
+  const el = [...walk(doc)].find(e => e.id === id) as Record<string, unknown> | undefined; if (!el) throw Error(`No element ${id}`);
+  for (const [key, value] of Object.entries(patch)) if (value === undefined) delete el[key]; else el[key] = value;
 }
 const test = base.extend<{ fixture: Fixture }>({ fixture: async ({}, provideFixture) => {
   const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}` });
@@ -52,7 +59,7 @@ async function thanked(page: Page) {
 }
 async function rated(page: Page, n: number) { await openCard(page); await star(page, n).click(); await sendButton(page).click(); await thanked(page); }
 /** The page's name as the page shows it: the template's "Tên quán" spot, filled with the name (lib/canvas/templates.ts). */
-const shownName = (page: Page) => page.locator('[data-id="ten-quan"]');
+const shownName = (page: Page) => page.locator('[data-id="loi-moi"]');
 /** Entrance animations done (loops run for ever and are left alone): every box is where the design puts it. */
 const settled = (page: Page) => page.evaluate(() => Promise.all(document.getAnimations()
   .filter(a => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => null))));
@@ -68,7 +75,7 @@ test('render R1 → publish R2 → open remains R1; reload shares session and re
   await page.route('**/api/v2/pages/visits', async route => { if (hold) { hold = false; await latch; } await route.continue(); });
   const pending = page.waitForRequest('**/api/v2/pages/visits');
   await page.goto('/one'); await pending;
-  // The page carries its own name since đợt ② (it is part of the canvas document), so the name shows which release is on screen.
+  // Each release writes its name on a line of its own (canvas() above), so that line shows which release is on screen.
   await expect(shownName(page)).toHaveText('Release One');
   await f.admin.saveDraft(f.page, 2, canvas('Release Two'));
   const second = await f.admin.publish(f.page, 3);
@@ -317,9 +324,10 @@ test('the scroll hint comes only after its time without a scroll, and leaves at 
   await expect(hint).toHaveCount(0);
 });
 test('the page draws what its document says: links and their tabs, the plane\'s look, hidden elements; a press sinks a button', async ({ page, fixture: f }) => {
+  // Written into the page itself, these two buttons are no longer the shop's places (`slot` gone, lib/canvas/slots.ts).
   await release(f, canvas('Quán Thử', doc => {
-    set(doc, 'instagram', { label: { vi: 'Facebook' }, icon: 'facebook', link: 'https://facebook.com/quanthu' });
-    set(doc, 'zalo', { label: { vi: 'Gọi cho quán', en: 'Call us' }, icon: 'phone', link: 'tel:+84901234567' });
+    set(doc, 'instagram', { label: { vi: 'Facebook' }, icon: 'facebook', link: 'https://facebook.com/quanthu', slot: undefined });
+    set(doc, 'zalo', { label: { vi: 'Gọi cho quán', en: 'Call us' }, icon: 'phone', link: 'tel:+84901234567', slot: undefined });
     set(doc, 'tiktok', { hide: true });
     set(doc, 'anh-chinh', { hide: true });
     set(doc, 'gop-y', { icon: 'chat', color: '#FF5500', edge: '#000000' });

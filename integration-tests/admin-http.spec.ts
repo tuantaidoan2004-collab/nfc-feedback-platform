@@ -157,12 +157,12 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Mật khẩu',{exact:true}).fill('chosen-by-the-shop');
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page).toHaveURL(`${origin}/app/${slug}`);await expect(page.locator('[data-orb]')).toBeVisible();
- // Its page is in My Card: running, the link to open on other phones, and the way to ask the admin for changes.
+ // Its page is in My Card: running, the link to open on other phones, and the way to ask Tài for changes.
  await page.goto(`/app/${slug}/my-card`);
  const card=page.locator(`[data-my-card="${slug}"]`);await expect(card.locator('[data-page-state]')).toHaveText('Đang chạy');
  await expect(card.getByRole('link',{name:'Mở trang'})).toHaveAttribute('href',`${origin}/${slug}`);
- await card.getByRole('button',{name:'Nhờ admin sửa',exact:true}).click();
- await expect(page.getByRole('dialog').getByRole('button',{name:/Nhờ admin sửa/})).toBeVisible();
+ await card.getByRole('button',{name:'Nhờ Admin Tài chỉnh',exact:true}).click();
+ await expect(page.getByRole('dialog').getByRole('button',{name:/Nhờ Admin Tài chỉnh trang này/})).toBeVisible();
 
  // Spent once: the same link is dead now that the password is set.
  await page.goto(setupUrl);
@@ -304,7 +304,7 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
  for(const name of ['Tắt','Khấc 1 · Xem','Khấc 2 · Sửa','Khấc 3 · Toàn quyền'])await expect(level(page,name)).toBeDisabled();
 
  const cookies=(await context.cookies()).filter(c=>c.name==='nfc_impersonation_v1');
- expect(cookies.map(c=>c.path).sort()).toEqual([`/app/${made.slug}`,`/api/owner/v2/${made.slug}`].sort());
+ expect(cookies.map(c=>c.path).sort()).toEqual([`/app/${made.slug}`,`/api/owner/v2/${made.slug}`,`/ZZZ/${made.slug}`].sort());
  expect(cookies.every(c=>c.httpOnly&&c.sameSite==='Strict')).toBe(true);
  const sent:string[]=[];
  page.on('request',r=>{if(r.isNavigationRequest())sent.push(r.headers()['cookie']??'');});
@@ -346,9 +346,11 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await standIn(page,shopName,'feedback','Shop nhờ đọc góp ý khách để phản hồi');
   await page.goto(`/app/${made.slug}/data`);
   await expect(page.getByText('Góp ý kín của khách')).toBeVisible();
-  // Reading is all position 1 gives: the item opens on a note, not a form.
-  await page.locator('[data-item="private"]').getByRole('button').first().click();
-  await expect(page.locator('[data-read-only]')).toBeVisible();await expect(page.getByRole('button',{name:'Lưu',exact:true})).toHaveCount(0);
+  // Reading is all position 1 gives: the detail panel opens on a note, not on status buttons or a note field.
+  await page.locator('[data-item="private"]').click();
+  await expect(page.locator('[data-read-only]')).toBeVisible();await expect(page.getByRole('button',{name:/Lưu|Đánh dấu đã xử lý/})).toHaveCount(0);
+  await expect(page.getByRole('dialog').getByRole('radio')).toHaveCount(0);await expect(page.getByRole('dialog').getByRole('textbox')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   // The call-back number never reaches support, whatever the switch position (F-003).
   expect((await context.request.get(`${api}?from=2026-01-01&to=2030-01-01`)).ok()).toBe(true);
   expect(((await (await context.request.get(`${api}?from=2026-01-01&to=2030-01-01`)).json()).records as {phone:string|null}[]).every(r=>r.phone===null)).toBe(true);
@@ -380,12 +382,13 @@ test('impersonation: cookie stays on one shop, support never exports, feedback o
   await expect(ownerPage.locator('[data-impersonation]')).toHaveCount(0);
   await ownerPage.screenshot({path:info.outputPath('owner-visits.png'),fullPage:true});
   // The owner, unlike support, handles the feedback.
-  await ownerPage.goto(`/app/${made.slug}/data`);await ownerPage.locator('[data-item="private"]').getByRole('button').first().click();
-  await expect(ownerPage.getByRole('button',{name:'Lưu',exact:true})).toBeVisible();
+  await ownerPage.goto(`/app/${made.slug}/data`);await ownerPage.locator('[data-item="private"]').click();
+  await expect(ownerPage.getByRole('button',{name:'Đánh dấu đã xử lý'})).toBeVisible();
+  await expect(ownerPage.getByRole('dialog').getByRole('radio')).toHaveCount(3);await expect(ownerPage.getByRole('dialog').getByRole('textbox')).toBeVisible();
  }finally{await owner.close();}
 });
 
-test('position 2: support edits and publishes the page in a design session, sees no figures, and the owner sees the visit',async({page,browser,admin})=>{
+test('position 2: support opens the shop\'s pages in a design session, sees no figures, changes nothing, and the owner sees the visit',async({page,browser,admin})=>{
  const shopName='Quán Sửa Hộ',ownerPassword='chosen-by-the-shop';
  const made=await new ShopProvisioning(admin.db).create((await admin.db.query('SELECT id FROM platform_admins')).rows[0].id,
   {name:shopName,ownerUsername:'quan-suaho',ownerEmail:'suaho@example.com',placeId:'ChIJN1t_tDeuEmsRUsoyG83frY4'});
@@ -411,17 +414,13 @@ test('position 2: support edits and publishes the page in a design session, sees
   // No figures and no rows: the session reaches the page and nothing else.
   expect((await page.request.get(`/api/owner/v2/${made.slug}/summary`)).status()).toBe(403);
   await expect(page.getByText('Không cho quản trị thấy')).toHaveCount(0);
-  // The page itself, through the design API (no editor since 05/10; the admin's edits go the same way): saved, published,
-  // both on the books, and the strip still above the owner's tabs.
+  // The shop's pages as the owner sees them, the strip still above the tabs. Pages change only through Tài's own tool
+  // (scripts/sua-trang.mjs, Tài 06/10), so the session asks for nothing on the shop's behalf.
   await page.goto(`/app/${made.slug}/my-card`);await expect(page.locator('[data-impersonation="design"]')).toBeVisible();
-  const designApi=`/api/owner/v2/${made.slug}/design`,headers={Origin:origin};
-  const state=await (await page.request.get(designApi)).json();
-  const saved=await page.request.put(designApi,{headers,data:{expectedRevision:state.draft.revision,config:{...state.draft.config,name:'Quán Đã Sửa Hộ'}}});
-  expect(saved.status()).toBe(200);
-  expect((await page.request.post(designApi,{headers,data:{action:'publish',expectedRevision:(await saved.json()).revision}})).status()).toBe(200);
-  expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'impersonation.design.%' ORDER BY id")).rows.map(r=>r.action))
-   .toEqual(['impersonation.design.save','impersonation.design.publish']);
-  expect((await (await page.request.get(designApi)).json()).live.config.name).toBe('Quán Đã Sửa Hộ');
+  await expect(page.locator(`[data-my-card="${made.slug}"]`)).toBeVisible();
+  expect((await page.request.get(`/ZZZ/${made.slug}/thumb/${made.slug}`)).status()).toBe(200);
+  expect((await page.request.post(`/api/owner/v2/${made.slug}/edit-requests`,{headers:{Origin:origin},data:{page:made.slug,contact:'0912345678'}})).status()).toBe(403);
+  expect((await admin.db.query('SELECT count(*)::int n FROM edit_requests')).rows[0].n).toBe(0);
   // The owner sees the visit and its reason.
   await ownerPage.goto(`/app/${made.slug}/quan-ly`);
   await expect(ownerPage.locator('[data-admin-visit]')).toContainText('Sửa giao diện');
@@ -550,60 +549,41 @@ test('page incidents: an emergency stop waits in /gov, is lifted, handled and re
  expect((await page.request.post(`/gov/api/pages/${shop.pageId}`,{headers:{Origin:'https://evil.example'},data:{action:'close'}})).status()).toBe(403);
 });
 
-// Kịch bản mục 4: an account that signed itself up uses everything at once, but its shop's first publish waits here: Tài sees
-// the page as the guest would, approves that very draft, or sends it back with a reason the owner reads in the editor.
-test('first publish: a signed-up shop\'s page waits in /gov with its picture, is approved or sent back, each decision on the record',async({page,browser,admin})=>{
+// Tài 06/10: a shop picks a template and leaves its Zalo; the page waits in /gov with the template it picked, the number to message
+// and what the shop wrote. "Đã nhắn Zalo" tells the owner Tài is on it; "Đóng" closes it without publishing. The agent's publish
+// closes it too (repository-tests/edit-requests.spec.ts).
+test('trang chờ dựng: a shop\'s chosen template waits in /gov with its Zalo; Tài marks it messaged or closes it, each step on the record',async({page,admin})=>{
  const {AccountSignup}=await import('../lib/account/signup');
- const {OwnerPages}=await import('../lib/owner/pages');
- const {OwnerDesign}=await import('../lib/owner/design');
- const ask=async(handle:string)=>{
-  const made=await new AccountSignup(admin.db).create({username:handle,email:`${handle}@example.test`,password:'a-long-test-password'},null);
-  const page=await new OwnerPages(admin.db).create(made.session.token,made.slug,{template:'basic-1',label:'Trang chính'});
-  expect(await new OwnerDesign(admin.db).publish(made.session.token,made.slug,{action:'publish',expectedRevision:1},page.slug)).toEqual({review:'pending',revision:1});
-  const pageId=(await admin.db.query('SELECT id FROM pages WHERE slug=$1',[page.slug])).rows[0].id as string;
-  return {...made,page:page.slug,pageId};
- };
- const first=await ask('quan-cho-duyet'),second=await ask('quan-bi-tra-lai');
- // Nothing of it without a signed-in operator.
- expect((await page.request.get(`/gov/xem/${first.pageId}`)).status()).toBe(404);
- expect((await page.request.post(`/gov/api/publish-reviews/${randomUUID()}`,{headers:{origin},data:{decision:'reject',reason:'Chưa được'}})).status()).toBe(401);
- expect(await (await page.request.get(`/${first.page}`)).text()).not.toContain('data-google');
+ const {requestEdit}=await import('../lib/owner/edit-requests');
+ const made=await new AccountSignup(admin.db).create({username:'quan-cho-dung',email:'quan-cho-dung@example.test',password:'a-long-test-password'},null);
+ const asked=await requestEdit(admin.db,made.session.token,made.slug,{template:'hien-dai',contact:'0912 345 678',message:'Quán trà sữa, màu xanh lá'});
+ const pageId=(await admin.db.query('SELECT id FROM pages WHERE slug=$1',[asked.page])).rows[0].id as string;
+ const requestId=(await admin.db.query('SELECT id FROM edit_requests')).rows[0].id as string;
+ // Nothing of it without a signed-in operator, and nothing live yet.
+ expect((await page.request.get(`/gov/xem/${pageId}`)).status()).toBe(404);
+ expect((await page.request.post(`/gov/api/edit-requests/${requestId}`,{headers:{origin},data:{action:'done'}})).status()).toBe(401);
+ expect(await (await page.request.get(`/${asked.page}`)).text()).not.toContain('data-google');
  await signIn(page,admin.username,admin.app);
- const panel=page.locator('[data-publish-reviews]');
- const item=panel.locator(`[data-publish-review="${first.page}"]`);
- await expect(item).toContainText('Quán của @quan-cho-duyet');
- await expect(item).toContainText('@quan-cho-duyet');await expect(item).toContainText('quan-cho-duyet@example.test');
- // The draft as the guest would get it: drawn small here, full size behind the link.
+ const item=page.locator(`[data-edit-request="${asked.page}"]`);
+ await expect(item).toContainText('Quán của @quan-cho-dung');await expect(item).toContainText('mẫu Hiện đại');
+ await expect(item.locator('[data-edit-contact]')).toContainText('0912 345 678');
+ await expect(item).toContainText('“Quán trà sữa, màu xanh lá”');await expect(item).toContainText(`node scripts/sua-trang.mjs lay ${asked.page}`);
+ await expect(item.getByRole('link',{name:'Nhắn Zalo'})).toHaveAttribute('href','https://zalo.me/0912345678');
+ // The template the shop picked, with its name in, drawn small here and full size behind the link.
  await expect(item.frameLocator('iframe').locator('main.cv')).toBeVisible();
- await expect(item.getByRole('link',{name:'Mở bản nháp ↗'})).toHaveAttribute('href',`/gov/xem/${first.pageId}`);
- const draft=await page.request.get(`/gov/xem/${first.pageId}`);expect(draft.status()).toBe(200);
- expect(await draft.text()).toContain('Quán của @quan-cho-duyet');
- await item.getByRole('button',{name:'Duyệt và phát hành'}).click();
- await expect(item).toHaveCount(0);
- expect(await (await page.request.get(`/${first.page}`)).text()).toContain('data-google');
- // Sent back, with a reason the owner will read.
- const other=panel.locator(`[data-publish-review="${second.page}"]`);
- await other.getByRole('button',{name:'Chưa duyệt…'}).click();
- await other.getByLabel('Lý do (chủ quán sẽ đọc)').fill('Trang dùng tên của một thương hiệu khác');
- await other.getByRole('button',{name:'Gửi lại cho chủ quán'}).click();
- await expect(panel.locator('[data-publish-reviews-empty]')).toBeVisible();
- expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'shop.first_publish.%' ORDER BY id")).rows.map(r=>r.action))
-  .toEqual(['shop.first_publish.approve','shop.first_publish.reject']);
- // A draft that no longer waits is not on show; a decision from another site is refused like every administrative write.
- expect((await page.request.get(`/gov/xem/${first.pageId}`)).status()).toBe(404);
- const decided=(await admin.db.query('SELECT id FROM publish_reviews ORDER BY requested_at LIMIT 1')).rows[0].id;
- expect((await page.request.post(`/gov/api/publish-reviews/${decided}`,{headers:{Origin:'https://evil.example'},data:{decision:'reject',reason:'x'}})).status()).toBe(403);
- // The owner reads why in My Card, and can ask again.
- await admin.db.query('UPDATE shops SET onboarded_at=clock_timestamp() WHERE slug=$1',[second.slug]);
- const owner=await browser.newContext({baseURL:origin});
- try{
-  const o=await owner.newPage();await ownerSignIn(o,'quan-bi-tra-lai','a-long-test-password',second.slug);
-  await o.setViewportSize({width:1280,height:900});await o.goto(`/app/${second.slug}/my-card`);
-  const card=o.locator(`[data-my-card="${second.page}"]`);await expect(card.locator('[data-page-state]')).toHaveText('Chưa được duyệt');
-  await card.getByRole('button',{name:'Phát hành / Nhờ sửa',exact:true}).click();
-  const sheet=o.getByRole('dialog');await expect(sheet.getByText('Admin nhắn: “Trang dùng tên của một thương hiệu khác”',{exact:false})).toBeVisible();
-  await sheet.getByRole('button',{name:/Phát hành luôn/}).click();await expect(sheet.locator('[data-done="review"]')).toBeVisible({timeout:20_000});
- }finally{await owner.close();}
+ const shown=await page.request.get(`/gov/xem/${pageId}`);expect(shown.status()).toBe(200);
+ expect((await shown.text()).toUpperCase()).toContain('QUÁN CỦA @QUAN-CHO-DUNG');
+ // Messaged: the owner reads that Tài is on it.
+ await item.getByRole('button',{name:'Đã nhắn Zalo'}).click();await expect(item.getByRole('button',{name:'Đã nhắn Zalo'})).toHaveCount(0);
+ const {OwnerPages}=await import('../lib/owner/pages');
+ expect((await new OwnerPages(admin.db).list(made.session.token,made.slug)).pages[0].request).toMatchObject({contacted:true,template:'hien-dai'});
+ // A step from another site is refused like every administrative write; closing takes it off the list.
+ expect((await page.request.post(`/gov/api/edit-requests/${requestId}`,{headers:{Origin:'https://evil.example'},data:{action:'done'}})).status()).toBe(403);
+ await item.getByRole('button',{name:'Đóng'}).click();await expect(item).toHaveCount(0);
+ expect((await page.request.get(`/gov/xem/${pageId}`)).status()).toBe(404);
+ expect((await admin.db.query("SELECT action FROM admin_audit WHERE action LIKE 'page.edit_request.%' ORDER BY id")).rows.map(r=>r.action))
+  .toEqual(['page.edit_request.contacted','page.edit_request.done']);
+ expect((await admin.db.query('SELECT outcome FROM edit_requests')).rows[0].outcome).toBe('closed');
 });
 
 /**

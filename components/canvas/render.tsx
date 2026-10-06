@@ -164,7 +164,7 @@ const ElementView = memo(function ElementView({ el, z, mode }: { el: El; z: numb
 
 function DeckView({ el, cls, box, mode }: { el: DeckEl; cls: string; box: Vars; mode: GuestMode }) {
   return <div className={`${cls} cv-deck`} data-id={el.id} data-look={el.look} style={box}>
-    <DeckCards cards={el.cards} />
+    <DeckCards cards={el.cards.filter(card => !card.hide)} />
     <div className="cv-front" style={{ '--pad': el.front.pad ?? 0, '--tilt': deg(el.front.tilt) } as Vars}>
       <PanelView panel={el.front.panel} />
       {el.front.kids.map((kid, i) => <KidView key={kid.id} kid={kid} gap={el.front.gap} mode={mode} index={i} />)}

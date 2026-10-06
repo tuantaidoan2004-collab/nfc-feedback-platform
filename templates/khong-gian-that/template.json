@@ -119,7 +119,8 @@
             "motion": {
               "in": "fade",
               "at": 300
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "gach",
@@ -274,7 +275,8 @@
             "motion": {
               "in": "right",
               "at": 800
-            }
+            },
+            "slot": "instagram"
           },
           {
             "id": "tiktok",
@@ -310,7 +312,8 @@
             "motion": {
               "in": "right",
               "at": 880
-            }
+            },
+            "slot": "tiktok"
           },
           {
             "id": "zalo",
@@ -333,7 +336,8 @@
             "motion": {
               "in": "right",
               "at": 960
-            }
+            },
+            "slot": "zalo"
           },
           {
             "id": "vien",
@@ -374,7 +378,8 @@
             "motion": {
               "in": "fade",
               "at": 1100
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "website",
@@ -394,7 +399,8 @@
             "motion": {
               "in": "fade",
               "at": 1100
-            }
+            },
+            "slot": "website"
           },
           {
             "id": "link",
@@ -409,7 +415,8 @@
             "motion": {
               "in": "fade",
               "at": 1150
-            }
+            },
+            "slot": "website"
           },
           {
             "id": "gop-y",

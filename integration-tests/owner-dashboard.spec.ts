@@ -14,7 +14,8 @@ const test=base.extend<{f:Awaited<ReturnType<typeof ownerFixture>>}>({f:async({}
 const origin='http://127.0.0.1:3317';
 /**
  * The giao diện chính (đợt ①–②, kịch bản mục 6–9): the Orb's screen at /app/<shop>, six tabs at /app/<shop>/<tab>. No page
- * editor since 05/10: a template is published as it is, or the admin edits it (Nhờ admin sửa). A signed-out visit goes to the sign-in page and comes back to the shop after.
+ * editor, and no publishing by the shop (Tài 06/10): the shop picks a template and leaves its Zalo, Tài matches the page to the
+ * shop and publishes it (scripts/sua-trang.mjs). A signed-out visit goes to the sign-in page and comes back to the shop after.
  */
 async function login(page:Page,user:{username:string;password:string},shop='one'){
  await page.goto(`/app/${shop}`);await expect(page.getByRole('heading',{name:'Đăng nhập',exact:true})).toBeVisible();
@@ -36,7 +37,7 @@ const clipped=(page:Page)=>page.evaluate(()=>[...document.querySelectorAll('main
 test.beforeEach(async({page})=>{await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());});
 // next dev compiles an API on its first call and reloads every open page (operations-gotchas.md): compile the ones the tabs
 // call before any page exists. The answers (401 without a session) do not matter.
-test.beforeEach(async({request})=>{for(const api of ['team','activity','cards','pages','overview','summary','pulse','google-business','design'])await request.get(`/api/owner/v2/warm/${api}`);
+test.beforeEach(async({request})=>{for(const api of ['team','activity','cards','pages','overview','summary','pulse','google-business','google-reviews','edit-requests'])await request.get(`/api/owner/v2/warm/${api}`);
  for(const api of ['profile','notifications'])await request.get(`/api/owner/v2/${api}`);});
 
 test('sign-in lands on the Orb; every tab has its address and a way back; the theme stays; signing out ends the session',async({page,context,f},info)=>{
@@ -80,75 +81,138 @@ test('Data: a guest\'s private feedback arrives with its stars, words and number
  await login(page,f.users[0]);await tab(page,'data');
  const item=page.locator('[data-item="private"]');await expect(item).toHaveCount(1);
  await expect(item).toContainText('=SUM(1,2)');await expect(item.getByLabel('2 trên 5 sao')).toBeVisible();await expect(item).toContainText('Mới');
- await item.getByRole('button').first().click();
- await expect(item.getByRole('link',{name:'0961036265'})).toHaveAttribute('href','tel:0961036265');
- await item.getByLabel('Trạng thái').selectOption('resolved');await item.getByLabel(/Ghi chú nội bộ/).fill('Đã gọi lại, khách đồng ý quay lại');
- await item.getByRole('button',{name:'Lưu',exact:true}).click();await expect(item.getByRole('status')).toHaveText('Đã lưu.');
- await expect(item).toContainText('Đã xong');
+ await expect(item).toContainText('Cần xử lý');await expect(page.getByRole('tab',{name:/Cần xử lý/})).toContainText('1');
+ // The whole line opens the detail panel (the tool's): the number to call back, the status, the internal note.
+ await item.click();const panel=page.getByRole('dialog',{name:'Chi tiết góp ý riêng'});
+ await expect(panel.getByRole('link',{name:'0961036265'})).toHaveAttribute('href','tel:0961036265');
+ await panel.getByRole('textbox').fill('Đã gọi lại, khách đồng ý quay lại');
+ await panel.getByRole('button',{name:'Lưu ghi chú',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('Đã lưu.');
+ await panel.getByRole('radio',{name:'Đã xử lý',exact:true}).click();await expect(panel.getByRole('radio',{name:'Đã xử lý',exact:true})).toHaveAttribute('aria-checked','true');
+ await expect(panel.getByRole('button',{name:'Mở lại',exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
+ await expect(item).toContainText('Đã xử lý');await expect(item).not.toContainText('Cần xử lý');await expect(item).toContainText('📝 Đã gọi lại');
  expect((await f.db.query('SELECT status,note FROM owner_feedback_cases')).rows).toEqual([{status:'resolved',note:'Đã gọi lại, khách đồng ý quay lại'}]);
- // One inbox, two sources: Google alone hides the private one.
- await page.getByRole('button',{name:'Google',exact:true}).click();await expect(page.locator('[data-item="private"]')).toHaveCount(0);
- await page.getByRole('button',{name:'Tất cả',exact:true}).click();await expect(page.locator('[data-item="private"]')).toHaveCount(1);
+ // One inbox, two sources: Google alone hides the private one; the search finds words and notes.
+ await page.getByLabel('Nguồn').selectOption('google');await expect(page.locator('[data-item="private"]')).toHaveCount(0);
+ await page.getByLabel('Nguồn').selectOption('');await expect(page.locator('[data-item="private"]')).toHaveCount(1);
+ await page.getByLabel('Tìm').fill('dong y quay');await expect(page.locator('[data-item="private"]')).toHaveCount(1);
+ await page.getByLabel('Tìm').fill('không có chữ này');await expect(page.locator('[data-item="private"]')).toHaveCount(0);
+ await page.getByRole('button',{name:/Xoá lọc/}).click();await expect(page.locator('[data-item="private"]')).toHaveCount(1);
  for(const width of [390,1200]){await page.setViewportSize({width,height:844});expect(await noSideScroll(page)).toBe(true);await page.screenshot({path:info.outputPath(`data-${width}.png`),fullPage:true});}
  // The shop's data leaves as files; a formula a guest typed stays text in the spreadsheet.
  const csv=await (await context.request.get('/api/owner/v2/one/export?format=csv')).text();expect(csv.startsWith('﻿')).toBe(true);expect(csv).toContain('"\'=SUM(1,2)"');
  const jsonl=await context.request.get('/api/owner/v2/one/export?format=jsonl&dataset=receipts');expect(jsonl.headers()['cache-control']).toContain('no-store');
  const events=(await jsonl.text()).trim().split('\n').map(x=>JSON.parse(x));expect(events).toHaveLength(2);expect(events[1].message).toBe('=SUM(1,2)');
  const dict=await context.request.get('/api/owner/v2/one/export?format=dictionary&dataset=receipts');expect((await dict.json()).fields.every((x:{meaning:string})=>x.meaning)).toBe(true);
+ // Google reviews leave the same way, under the same permission; the shop has none yet, so only the header.
+ const reviews=await (await context.request.get('/api/owner/v2/one/export?format=csv&dataset=google_reviews&from=2000-01-01')).text();
+ expect(reviews.startsWith('\uFEFF')).toBe(true);expect(reviews.trim()).toBe('"schemaVersion","dataset","review_id","reviewer_name","stars","comment","created_at","reply","status","note","first_seen_at","removed_at"');
  expect(errors).toEqual([]);
 });
 
-test('Library → a template → Phát hành luôn puts a new page live; Nhờ admin sửa leaves another waiting for the admin',async({page,context,f},info)=>{
+test('Library → a template → the shop leaves its Zalo for Tài: a draft waits, nothing goes live, My Card follows it; another template restyles the page',async({page,context,f},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  // next dev reloads every open page the first time it compiles a route; compile the guest page and the templates first.
- const warm=await context.newPage();await warm.goto('/one');await warm.goto('/templates/party?anh=1');await warm.goto('/templates/basic-1?ten=x');await warm.close();
+ const warm=await context.newPage();await warm.goto('/one');await warm.goto('/templates/party?anh=1&ten=x');await warm.goto('/templates/basic-1?ten=x');await warm.close();
  await page.setViewportSize({width:1280,height:900});
  await login(page,f.users[0]);await tab(page,'library');
  // Home: the shop's one page, as a picture.
  await expect(page.locator('[data-page]')).toHaveCount(1);
  await page.getByRole('button',{name:'Template',exact:true}).click();
+ // What picking a template leads to, before anything is picked.
+ await expect(page.locator('[data-how-it-works]')).toContainText('Admin Tài nhắn Zalo, khớp mẫu với quán');
  await expect(page.locator('[data-template]')).toHaveCount(10);
  await page.getByLabel('Tìm template').fill('party');await expect(page.locator('[data-template]')).toHaveCount(1);
  await page.getByRole('button',{name:'Xem mẫu Interactive card · Party'}).click();
- // The template in a phone with the shop's name, and the two ways on.
+ // The template in a phone with the shop's name, why Tài makes it the shop's, and one way on.
  const sheet=page.getByRole('dialog',{name:'Mẫu Interactive card · Party'});
  await expect(sheet.frameLocator('iframe').locator('main.cv')).toBeVisible();
+ await expect(sheet.getByText('Mẫu cần khớp với quán của bạn')).toBeVisible();
+ await expect(sheet.getByRole('button',{name:/Phát hành/})).toHaveCount(0);
+ // A shop that has a page says which page takes the look; this one wants a new page.
+ await sheet.getByRole('radio',{name:/Một trang mới/}).check();
  await page.screenshot({path:info.outputPath('template-1280.png')});
- await sheet.getByRole('button',{name:/Phát hành luôn/}).click();
- await expect(sheet.locator('[data-done="live"]')).toBeVisible({timeout:20_000});
+ await sheet.getByLabel('Số Zalo của bạn').fill('0912 34');
+ await sheet.getByRole('button',{name:'Nhờ Admin Tài dựng trang này'}).click();
+ await expect(sheet.getByText('Số điện thoại Việt Nam, 10 số',{exact:false})).toBeVisible();
+ await sheet.getByLabel('Số Zalo của bạn').fill('0912 345 678');
+ await sheet.getByLabel(/Ghi chú cho Admin Tài/).fill('Quán trà sữa, màu xanh lá');
+ await sheet.getByRole('button',{name:'Nhờ Admin Tài dựng trang này'}).click();
+ const sent=sheet.locator('[data-sent]');await expect(sent).toBeVisible({timeout:20_000});
  const made=async()=>(await f.db.query(`SELECT p.slug,p.state FROM pages p JOIN shops s ON s.id=p.shop_id WHERE s.slug='one' AND p.slug<>'one' ORDER BY p.created_at`)).rows;
- const [live]=await made();expect(live.state).toBe('active');
- // Live for guests at once, with the shop's Google button; the template itself never changed.
- const guest=await context.newPage();await guest.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- await guest.goto(`/${live.slug}`);await expect(guest.locator('main[data-ready]')).toBeVisible();
- expect(await (await page.request.get(`/${live.slug}`)).text()).toContain('data-google');
- await sheet.getByRole('button',{name:'Xong',exact:true}).click();await expect(sheet).toHaveCount(0);
- // Another template, for the admin to edit: a draft with the owner's words, nothing live, until the admin publishes it.
- await page.getByLabel('Tìm template').fill('basic 1');
- await page.getByRole('button',{name:'Xem mẫu Basic 1'}).click();
- const second=page.getByRole('dialog',{name:'Mẫu Basic 1'});
- await second.getByRole('button',{name:/Nhờ admin sửa/}).click();
- await second.getByLabel(/Bạn muốn sửa gì/).fill('Thay ảnh bìa bằng ảnh quán');
- await second.getByRole('button',{name:/Gửi yêu cầu/}).click();
- await expect(second.locator('[data-done="edit"]')).toBeVisible({timeout:20_000});
- const [,waiting]=await made();expect(waiting.state).toBe('draft');
- expect((await f.db.query('SELECT e.message,e.handled_at FROM edit_requests e JOIN pages p ON p.id=e.page_id WHERE p.slug=$1',[waiting.slug])).rows)
-  .toEqual([{message:'Thay ảnh bìa bằng ảnh quán',handled_at:null}]);
+ const [waiting]=await made();expect(waiting.state).toBe('draft');
+ await expect(sent).toHaveAttribute('data-sent',waiting.slug);await expect(sent.getByRole('link',{name:'Mở Zalo'})).toHaveAttribute('href','https://zalo.me/0961036265');
+ expect((await f.db.query('SELECT e.template_key,e.contact,e.message,e.handled_at FROM edit_requests e JOIN pages p ON p.id=e.page_id WHERE p.slug=$1',[waiting.slug])).rows)
+  .toEqual([{template_key:'party',contact:'0912345678',message:'Quán trà sữa, màu xanh lá',handled_at:null}]);
+ // Nothing reaches guests before Tài publishes it.
  expect(await (await page.request.get(`/${waiting.slug}`)).text()).not.toContain('data-google');
- // My Card: the three pages, each with what it is doing now.
- await tab(page,'my-card');await expect(page.locator('[data-my-card]')).toHaveCount(3);
- await expect(page.locator(`[data-my-card="${live.slug}"] [data-page-state]`)).toHaveText('Đang chạy');
- await expect(page.locator(`[data-my-card="${waiting.slug}"] [data-page-state]`)).toHaveText('Chờ admin sửa');
- // Opened again, the waiting page takes more words for the admin rather than a second request.
- await page.locator(`[data-my-card="${waiting.slug}"]`).getByRole('button',{name:'Gửi thêm ý cho admin'}).click();
- await expect(page.getByRole('dialog').getByText('Bạn đã nhắn: “Thay ảnh bìa bằng ảnh quán”')).toBeVisible();
+ await sheet.getByRole('button',{name:'Xong',exact:true}).click();await expect(sheet).toHaveCount(0);
+ // My Card: both pages, each with where it stands; the waiting one shows its steps and takes more words, its Zalo remembered.
+ await tab(page,'my-card');await expect(page.locator('[data-my-card]')).toHaveCount(2);
+ await expect(page.locator('[data-my-card="one"] [data-page-state]')).toHaveText('Đang chạy');
+ await expect(page.locator(`[data-my-card="${waiting.slug}"] [data-page-state]`)).toHaveText('Chờ Admin Tài');
+ await page.locator(`[data-my-card="${waiting.slug}"]`).getByRole('button',{name:'Xem tiến độ'}).click();
+ const opened=page.getByRole('dialog');
+ await expect(opened.getByText('Bạn đã nhắn: “Quán trà sữa, màu xanh lá”')).toBeVisible();
+ await opened.getByRole('button',{name:/Gửi thêm ghi chú cho Admin Tài/}).click();
+ await expect(opened.getByLabel('Số Zalo của bạn')).toHaveValue('0912 345 678');
  // The sheet on a phone.
  await page.setViewportSize({width:390,height:844});expect(await noSideScroll(page)).toBe(true);
  await page.screenshot({path:info.outputPath('page-sheet-390.png')});
+ await opened.getByRole('button',{name:'Đóng'}).click();
+ // Another template for the live page: a new look waits for Tài; guests keep the page they have.
+ await page.setViewportSize({width:1280,height:900});await tab(page,'library');await page.getByRole('button',{name:'Template',exact:true}).click();
+ await page.getByLabel('Tìm template').fill('basic 1');await page.getByRole('button',{name:'Xem mẫu Basic 1'}).click();
+ const restyle=page.getByRole('dialog',{name:'Mẫu Basic 1'});
+ // The shop's first page comes first, already chosen (the fixture's pages carry no name, so it shows its link).
+ await expect(restyle.getByRole('radio',{name:/Đổi giao diện “one”/})).toBeChecked();
+ await restyle.getByRole('button',{name:'Nhờ Admin Tài dựng trang này'}).click();await expect(restyle.locator('[data-sent="one"]')).toBeVisible({timeout:20_000});
+ expect((await f.db.query("SELECT tv.template_key FROM page_drafts d JOIN template_versions tv ON tv.id=d.template_version_id JOIN pages p ON p.id=d.page_id WHERE p.slug='one'")).rows[0].template_key).toBe('basic-1');
+ expect((await f.db.query("SELECT tv.template_key FROM pages p JOIN page_releases r ON r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id WHERE p.slug='one'")).rows[0].template_key).not.toBe('basic-1');
  expect(errors).toEqual([]);
 });
 
-test('a shop that signed itself up sends its first page to Quite Sensational instead of publishing it',async({page})=>{
+test('Google reviews as the tool shows them: Dashboard counts what needs handling and draws the months; Data marks several at once',async({page,f},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const shop=(await f.db.query("SELECT id FROM shops WHERE slug='one'")).rows[0].id,link='https://maps.app.goo.gl/AbCdEf123';
+ await f.db.query(`INSERT INTO google_business_connections(shop_id,mode,maps_url,location_title,average_rating,total_reviews,last_synced_at)
+   VALUES($1,'maps',$2,'Quán Thử Trên Maps',4.2,3,clock_timestamp())`,[shop,link]);
+ const ago=(days:number)=>new Date(Date.now()-days*86400000).toISOString();
+ await f.db.query(`INSERT INTO google_reviews(shop_id,review_id,reviewer_name,stars,comment,created_at,updated_at,reply_comment,status) VALUES
+   ($1,'r-low','An',1,'Chờ lâu quá.',$2,$2,NULL,'new'),($1,'r-mid','Bình',2,NULL,$3,$3,NULL,'seen'),($1,'r-top','Chi',5,'Ngon.',$4,$4,'Cảm ơn Chi!','seen')`,[shop,ago(2),ago(40),ago(70)]);
+ await page.setViewportSize({width:1280,height:900});
+ await login(page,f.users[0]);await tab(page,'dashboard');
+ // "Số liệu của quán" keeps its look and gains one line; the months and the stars are a card of their own.
+ const needs=page.locator('[data-needs]');await expect(needs).toContainText('2 đánh giá ≤ 3★ chưa trả lời');
+ await expect(page.getByRole('heading',{name:'Đánh giá theo tháng'})).toBeVisible();await expect(page.getByRole('img',{name:'Đánh giá theo tháng'})).toBeVisible();
+ await expect(page.getByTitle(/^5 sao: 1 đánh giá/)).toBeAttached();
+ await page.screenshot({path:info.outputPath('dashboard-google-1280.png'),fullPage:true});
+ await needs.click();await expect(page).toHaveURL(/\/app\/one\/data\?xem=can-xu-ly$/);
+ await expect(page.getByRole('tab',{name:/Cần xử lý/})).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('[data-item="google"]')).toHaveCount(2);
+ // Both at once, as the tool does: the box above the list picks the page.
+ await page.getByLabel('Chọn mọi đánh giá Google ở trang này').click();await expect(page.getByText('Đã chọn 2')).toBeVisible();
+ await page.getByRole('button',{name:'Đã xử lý',exact:true}).click();
+ await expect(page.getByText('Không còn gì cần xử lý 🎉')).toBeVisible();
+ await expect.poll(async()=>(await f.db.query('SELECT review_id,status FROM google_reviews ORDER BY review_id')).rows)
+  .toEqual([{review_id:'r-low',status:'handled'},{review_id:'r-mid',status:'handled'},{review_id:'r-top',status:'seen'}]);
+ // The answered one: its reply, and the way to answer on Google Maps.
+ await page.getByRole('tab',{name:/^Tất cả/}).click();await page.locator('[data-item="google"]',{hasText:'Chi'}).click();
+ const panel=page.getByRole('dialog',{name:'Chi tiết đánh giá'});await expect(panel).toContainText('Cảm ơn Chi!');
+ await expect(panel.getByRole('link',{name:/Trả lời trên Google Maps/})).toHaveAttribute('href',link);
+ await page.screenshot({path:info.outputPath('data-google-1280.png')});
+ await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
+ // Gone from Maps: out of the list, kept under "Đã bị xoá / ẩn".
+ await f.db.query("UPDATE google_reviews SET removed_at=clock_timestamp() WHERE review_id='r-mid'");
+ await page.reload();await page.getByRole('tab',{name:/^Tất cả/}).click();
+ await expect(page.locator('[data-item="google"]')).toHaveCount(2);
+ await page.getByLabel('Phạm vi').selectOption('removed');
+ await expect(page.locator('[data-item="google"]')).toHaveCount(1);await expect(page.locator('[data-item="google"]')).toContainText('Đã bị xoá');
+ await page.setViewportSize({width:390,height:844});expect(await noSideScroll(page)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('a shop that signed itself up gets its first page from Tài: it asks, he publishes it with the shop\'s details, and guests see only those',async({page})=>{
  const db=new Pool({connectionString:uri,options:`-c search_path=${schema}`});
  try{
   const made=await new AccountSignup(db).create({username:'tu-dang-ky',email:'tu-dang-ky@example.test',password:'a-long-test-password'},null);
@@ -158,14 +222,35 @@ test('a shop that signed itself up sends its first page to Quite Sensational ins
   await tab(page,'library',made.slug);await page.getByRole('button',{name:'Template',exact:true}).click();
   await page.getByRole('button',{name:'Xem mẫu Basic 1'}).click();
   const sheet=page.getByRole('dialog',{name:'Mẫu Basic 1'});
-  // Creating the page and sending it: a few seconds on a CI runner, which ran this suite three times slower than a Mac.
-  await sheet.getByRole('button',{name:/Phát hành luôn/}).click();
-  await expect(sheet.locator('[data-done="review"]')).toBeVisible({timeout:20_000});
-  const rows=(await db.query("SELECT r.state,p.slug,p.state page_state FROM publish_reviews r JOIN pages p ON p.id=r.page_id")).rows;
-  expect(rows).toEqual([{state:'pending',slug:expect.any(String),page_state:'draft'}]);
-  expect(await (await page.request.get(`/${rows[0].slug}`)).text()).not.toContain('data-google');
+  // No page yet, so no page to choose: the template makes the shop's first one. A few seconds on a slow CI runner.
+  await expect(sheet.getByRole('radio')).toHaveCount(0);
+  await sheet.getByLabel('Số Zalo của bạn').fill('0912345678');
+  await sheet.getByRole('button',{name:'Nhờ Admin Tài dựng trang này'}).click();
+  await expect(sheet.locator('[data-sent]')).toBeVisible({timeout:20_000});
+  const slug=(await db.query('SELECT p.slug FROM edit_requests e JOIN pages p ON p.id=e.page_id')).rows[0].slug as string;
+  expect(await (await page.request.get(`/${slug}`)).text()).not.toContain('data-google');
+  // Tài has the shop's details from Zalo; the agent publishes (scripts/sua-trang.mjs does these steps in one transaction).
+  const {saveShopDetails}=await import('../lib/admin/shop-details');
+  const {PublishingAdmin}=await import('../lib/publishing/repository');
+  const {AdminAuth}=await import('../lib/admin/auth');
+  const adminId=await new AdminAuth(db).bootstrap('tai-dung-trang','a-sufficiently-long-admin-secret',async()=>{});
+  const client=await db.connect();
+  try{
+   await client.query('BEGIN');
+   await saveShopDetails(client,adminId,(await client.query('SELECT id FROM shops WHERE slug=$1',[made.slug])).rows[0].id,
+    {name:'Nhẹ Tênh Tea',placeId:'ChIJN1t_tDeuEmsRUsoyG83frY4',profile:{links:{zalo:'0912345678',tiktok:'@nhetenh'}}});
+   const row=(await client.query('SELECT p.shop_id,p.id,d.revision FROM pages p JOIN page_drafts d ON d.page_id=p.id WHERE p.slug=$1',[slug])).rows[0];
+   await new PublishingAdmin(client,async()=>({actorId:`admin:${adminId}`})).publish({shopId:row.shop_id,pageId:row.id},Number(row.revision));
+   await client.query("UPDATE edit_requests SET handled_at=clock_timestamp(),handled_by='agent',outcome='published'");
+   await client.query('COMMIT');
+  }finally{client.release();}
+  // Live, as the shop: its name, its Zalo and TikTok; Instagram, which it does not have, is not there at all.
+  const live=await (await page.request.get(`/${slug}`)).text();
+  expect(live).toContain('data-google');expect(live).toContain('Nhẹ Tênh Tea');
+  expect(live).toContain('https://zalo.me/0912345678');expect(live).toContain('https://www.tiktok.com/@nhetenh');
+  expect(live).not.toContain('https://www.instagram.com/');expect(live).not.toContain('https://zalo.me/"');
   await tab(page,'my-card',made.slug);
-  await expect(page.locator(`[data-my-card="${rows[0].slug}"] [data-page-state]`)).toHaveText('Chờ duyệt lần đầu');
+  await expect(page.locator(`[data-my-card="${slug}"] [data-page-state]`)).toHaveText('Đang chạy');
  }finally{await db.end();}
 });
 

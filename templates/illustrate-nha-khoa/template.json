@@ -154,7 +154,8 @@
             "motion": {
               "in": "fade",
               "at": 850
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "khau-hieu",
@@ -461,7 +462,8 @@
               "in": "pop",
               "at": 500,
               "loop": "pulse"
-            }
+            },
+            "slot": "booking"
           },
           {
             "id": "mxh",
@@ -484,7 +486,8 @@
                     "icon": "instagram",
                     "link": "https://www.instagram.com/",
                     "w": 34,
-                    "h": 34
+                    "h": 34,
+                    "slot": "instagram"
                   },
                   {
                     "id": "fb",
@@ -492,7 +495,8 @@
                     "icon": "facebook",
                     "link": "https://www.facebook.com/",
                     "w": 34,
-                    "h": 34
+                    "h": 34,
+                    "slot": "facebook"
                   },
                   {
                     "id": "zl",
@@ -500,7 +504,8 @@
                     "icon": "zalo",
                     "link": "https://zalo.me/",
                     "w": 34,
-                    "h": 34
+                    "h": 34,
+                    "slot": "zalo"
                   },
                   {
                     "id": "tt",
@@ -508,7 +513,8 @@
                     "icon": "tiktok",
                     "link": "https://www.tiktok.com/",
                     "w": 34,
-                    "h": 34
+                    "h": 34,
+                    "slot": "tiktok"
                   }
                 ]
               }

@@ -3,6 +3,8 @@
  * Tab Dashboard (kịch bản mục 7) — theo ảnh YouTube Studio Tài gửi 05/10, đổi cho đúng bản chất nền tảng: "video mới nhất"
  * thành thẻ (trang) mới nhất, "người đăng ký" thành điểm Google, "người đăng ký gần đây" thành phản hồi gần đây, "bài đăng
  * đầu tiên" thành thẻ đầu tiên. Ba cột xếp kiểu gạch như Studio trên máy tính; một cột trên điện thoại, số của quán đứng sớm.
+ * Từ tool Google Maps (Tài 05/10 tối: giữ nguyên Dashboard, ghép thêm cho khớp): dòng "Cần xử lý" trong "Số liệu của quán"
+ * và ô "Đánh giá theo tháng" cùng phân bố số sao (components/qs/tabs/reviews-ui.tsx).
  * Số liệu: lib/owner/overview.ts, một lần gọi.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -14,6 +16,7 @@ import Icon from '../icons';
 import TabActions from '../tab-actions';
 import { FirstCardArt, NewTemplatesArt } from './dashboard-art';
 import { ESTIMATE, momentOf } from './google-business';
+import { LOW, MonthlyChart, StarBars } from './reviews-ui';
 import styles from './dashboard.module.css';
 
 const number = (n: number) => n.toLocaleString('vi-VN');
@@ -109,7 +112,7 @@ export default function DashboardTab({ slug, origin }: TabProps) {
           </div>
         </>}
       </section> : null}
-      <section className={`${styles.card} ${styles.prompt}`} data-order="4">
+      <section className={`${styles.card} ${styles.prompt}`} data-order="5">
         <div className={styles.promptBox}>
           <FirstCardArt />
           <p>{firstStep.text}</p>
@@ -128,6 +131,7 @@ export default function DashboardTab({ slug, origin }: TabProps) {
           : <><p className={styles.big}>{data.google.rating?.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '—'}
             <small><b>★</b> {number(data.google.total ?? 0)} đánh giá <em className="qs-pill">{ESTIMATE}</em></small></p>
             {data.google.source === 'maps' && data.google.syncedAt && <p className={styles.caption}>Google Maps · {momentOf(data.google.syncedAt)}</p>}</>}
+        {data.needs && <Needs slug={slug} google={data.needs.google} own={data.needs.private} />}
         <hr />
         <h3>Tóm tắt</h3>
         <p className={styles.caption}>28 ngày qua</p>
@@ -143,7 +147,7 @@ export default function DashboardTab({ slug, origin }: TabProps) {
           : <p className={styles.quiet}>Chưa có lượt mở nào trong 48 giờ qua.</p>}
         <Link className={styles.pill} href={`/app/${slug}/data`}>Chuyển đến Data</Link>
       </section>
-      <section className={styles.card} data-order="3" aria-labelledby="recent-title">
+      <section className={styles.card} data-order="4" aria-labelledby="recent-title">
         <h2 id="recent-title">Phản hồi gần đây</h2>
         <p className={styles.caption}>Toàn thời gian</p>
         {data.recent === null ? <p className={styles.quiet}><Icon name="lock" size={16} /> Bạn chưa có quyền đọc góp ý của quán.</p>
@@ -161,14 +165,38 @@ export default function DashboardTab({ slug, origin }: TabProps) {
     </div>
 
     <div className={styles.column}>
-      <section className={styles.card} data-order="5" aria-labelledby="news-title">
+      {data.googleMonths && data.googleStars && <section className={styles.card} data-order="3" aria-labelledby="monthly-title">
+        <h2 id="monthly-title">Đánh giá theo tháng</h2>
+        <p className={styles.caption}>{data.google?.source === 'maps' ? 'Theo ngày đăng ước đoán từ “x tháng trước” trên Google Maps' : 'Theo ngày đăng trên Google'} · 12 tháng gần nhất</p>
+        {data.googleStars.counts.some(Boolean) ? <MonthlyChart data={data.googleMonths} /> : <p className={styles.quiet}>Chưa có đánh giá Google nào. Đánh giá về sau lần đọc đầu tiên.</p>}
+        <hr />
+        <h3>Phân bố số sao</h3>
+        <p className={styles.caption}>{number(data.googleStars.withText)} đánh giá có nội dung</p>
+        <StarBars counts={data.googleStars.counts} />
+      </section>}
+      <section className={styles.card} data-order="6" aria-labelledby="news-title">
         <h2 id="news-title">Tin tức</h2>
         <div className={styles.newsArt}><NewTemplatesArt /></div>
         <h3 className={styles.newsTitle}>Template mới trong Library</h3>
-        <p className={styles.quiet}>Các mẫu dựng lại từ đầu, mỗi mẫu một kiểu chơi: thẻ bấm được kiểu party, nha khoa, khách sạn, cà phê, salon… Chọn một mẫu, sửa
-          như Canva rồi phát hành.</p>
+        <p className={styles.quiet}>Các mẫu dựng lại từ đầu, mỗi mẫu một kiểu chơi: thẻ bấm được kiểu party, nha khoa, khách sạn, cà phê, salon… Chọn một mẫu rồi
+          phát hành luôn, hoặc nhờ admin sửa theo ý bạn.</p>
         <Link className={styles.pill} href={`${library}?muc=template`}>Khám phá</Link>
       </section>
     </div>
   </div></>;
+}
+
+/**
+ * "Cần xử lý" (the tool's red figure): Google reviews of 1–3★ still unanswered and not handled, and private feedback not yet
+ * handled. One line in "Số liệu của quán", opening Data on that tab.
+ */
+function Needs({ slug, google, own }: { slug: string; google: number; own: number }) {
+  const total = google + own;
+  return <Link className={styles.needs} href={`/app/${slug}/data?xem=can-xu-ly`} data-alert={total > 0} data-needs>
+    <span className={styles.needsIcon}><Icon name={total ? 'alert' : 'check'} size={18} /></span>
+    <span className={styles.needsText}><b>Cần xử lý</b>
+      <small>{!total ? 'Không còn gì cần xử lý' : [google && `${number(google)} đánh giá ≤ ${LOW}★ chưa trả lời`, own && `${number(own)} góp ý riêng`].filter(Boolean).join(' · ')}</small></span>
+    <strong>{number(total)}</strong>
+    <Icon name="arrow" size={18} />
+  </Link>;
 }

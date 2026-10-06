@@ -18,8 +18,25 @@ Trước khi làm, đọc `rieng/kich-ban.md` mục 8–9 (chỉ có trên máy 
 
 Trang mới tạo từ template là **bản sao** của `doc`: sửa trang không đổi template, sửa template không đổi trang đã có.
 
-Hai id có nghĩa riêng: chữ có id `ten-quan` nhận tên quán, chữ có id `chu-dau` nhận chữ cái đầu của tên quán (ảnh đại diện
-kiểu chữ) ngay lúc trang được tạo.
+## Chỗ của quán (`slot`) — bắt buộc cho mọi thứ thuộc về quán
+
+Mẫu chỉ là bố cục; tên, link, @tên, giờ mở cửa, wifi là **của từng quán** (Tài 06/10). Phần tử nào chứa thứ của quán thì ghi
+`"slot": "<khoá>"`; lúc trang hiện ra, hệ thống điền **thông tin quán** vào đó (`lib/canvas/slots.ts`), quán chưa có thì
+**phần tử ẩn hẳn**. Chữ và link mẫu trong template chỉ để xem thử; trang lưu giữ nguyên chúng, không bao giờ ghi đè.
+
+| `slot` | Đặt trên | Nhận |
+|---|---|---|
+| `name` · `initial` | chữ | tên quán (giữ chữ hoa nếu mẫu viết hoa, tự thu nhỏ cho vừa khung) · chữ cái đầu |
+| `zalo` `facebook` `instagram` `tiktok` `youtube` `website` `menu` `booking` `phone` `maps` | nút, biểu tượng, ảnh, hình, chữ có link | link của quán; nhãn nút là địa chỉ mẫu (vd `tenquan.vn`) thì thành tên miền của quán |
+| `handle` | chữ, hoặc nút có link | `@tên` của quán; nút dẫn tới trang mạng xã hội đầu tiên quán có |
+| `hours` · `address` | chữ | giờ mở cửa · địa chỉ |
+| `wifi` | nút wifi | tên và mật khẩu wifi của quán |
+
+Thẻ trong bộ bài (mẫu Party) cũng nhận `slot` link. **Mọi link mẫu** (trang chủ trần của Zalo, Facebook, TikTok…, hoặc link về
+Quite Sensational) phải nằm trong một `slot`: lõi phát hành từ chối trang còn link mẫu ở chỗ khách bấm được, và test
+`tests/contracts/templates.spec.ts` kiểm điều đó cho từng mẫu (quán trống thông tin: không còn link mẫu; quán đủ thông tin: mọi
+chỗ đều được điền). Chữ chủ đề của mẫu (vd "HAIR SALON", danh sách dịch vụ nha khoa) không phải chỗ của quán; admin sửa thẳng
+khi quán muốn khác.
 
 ## Luật mà mọi template phải qua
 

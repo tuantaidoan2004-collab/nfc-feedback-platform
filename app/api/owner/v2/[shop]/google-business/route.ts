@@ -4,7 +4,7 @@ import { database } from '@/server/db';
 import { ownerCredential, ownerFailure, ownerGate, ownerInput, ownerJson, ownerOrigin } from '@/server/owner-v2';
 type Context = { params: Promise<{ shop: string }> };
 
-/** Google Business of the shop (kịch bản mục 5): status and reviews; the shop's Google Maps link for the tool, read again, disconnect. */
+/** Google Business of the shop (kịch bản mục 5): the connection; the shop's Google Maps link for the tool, read again, disconnect. */
 export async function GET(_request: Request, context: Context) {
   try { ownerGate(); return ownerJson(await new GoogleBusiness(database()).status(await ownerCredential(), (await context.params).shop)); }
   catch (error) { return ownerFailure(error); }

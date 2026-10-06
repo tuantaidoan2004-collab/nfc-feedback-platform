@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export { PublishingError } from './config';
-import { PublishingError, TEMPLATE_ROW, validateConfig } from './config';
+import { PublishingError, TEMPLATE_ROW, validateConfig, type PageConfig } from './config';
 import { assertPublishable } from './policy';
+import { bindShop, placeholderLinks } from '../canvas/slots';
+import { readProfile } from '../shop/profile';
 import { assertMediaApproved } from './media-gate';
 import type { RenderContext } from './proof';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
@@ -15,6 +17,14 @@ export type PageRef = { shopId: string; pageId: string };
 /** Why a page is paused (migration 026): the owner's emergency stop, an administrator, or an unpaid plan (lát P5). */
 export type PauseReason = 'emergency' | 'admin' | 'billing';
 const error = (code: string): never => { throw new PublishingError(code); };
+/**
+ * A page as its guests see it (lib/canvas/slots.ts): the shop's name and data in their places. The sample shop that shows the
+ * dashboard (`is_template`) keeps its template's samples, with its name in. The page's own name (its tab title) stays its own.
+ */
+export function shownConfig(config: PageConfig, shop: { name: string; profile: unknown; is_template: boolean }): PageConfig {
+  const data = { name: shop.name, profile: readProfile(shop.profile) };
+  return { ...config, doc: bindShop(config.doc, data, shop.is_template ? 'sample' : 'live') };
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pageRef = (page: PageRef) => { if (!page || !UUID.test(page.shopId) || !UUID.test(page.pageId)) error('PAGE_NOT_FOUND'); };
 const revision = (n: number) => { if (!Number.isSafeInteger(n) || n < 1 || n >= Number.MAX_SAFE_INTEGER) error('INVALID_REVISION'); };
@@ -40,7 +50,7 @@ export async function templateVersionRow(db: PublishingDb, key: string, version 
     ON CONFLICT(template_key,version) DO NOTHING`, [key, version, TEMPLATE_ROW.schemaVersion, TEMPLATE_ROW.rendererVersion, JSON.stringify(TEMPLATE_ROW.capabilities)]);
   return (await db.query('SELECT id FROM template_versions WHERE template_key=$1 AND version=$2', [key, version])).rows[0].id as string;
 }
-/** INTERNAL boundary: callers authorize (lib/owner/design.ts, lib/admin/provisioning.ts). */
+/** INTERNAL boundary: callers authorize (lib/owner/pages.ts, lib/admin/provisioning.ts, scripts/sua-trang.ts). */
 export class PublishingAdmin {
   constructor(private pool: PublishingDb, private authorize: AuthorizePublishing) {}
   private async actor(action: string, shopId?: string) {
@@ -87,6 +97,21 @@ export class PublishingAdmin {
     });
   }
   /**
+   * The page's draft started again from another template (Tài 06/10: a shop picks a new look for a page it has): its document
+   * and the template it records both change, the revision moves on, and what guests see stays as it is until the next publish.
+   */
+  async restartDraft(page: PageRef, templateId: string, input: unknown) {
+    await this.onPage('draft:save', page); if (!UUID.test(templateId)) error('INVALID_TEMPLATE');
+    const config = validateConfig(input); assertPublishable(config);
+    return tx(this.pool, async db => {
+      await this.openPage(db, page);
+      const updated = (await db.query(`UPDATE page_drafts SET config=$3,template_version_id=$4,revision=revision+1 WHERE shop_id=$1 AND page_id=$2 RETURNING revision`,
+        [page.shopId, page.pageId, config, templateId])).rows[0];
+      if (!updated) error('PAGE_NOT_FOUND');
+      return Number(updated.revision);
+    });
+  }
+  /**
    * Vòng đời trang (migration 026, `goi-va-trang.md` mục 5). Paused: guests see "Trang tạm ngừng", nothing is lost, and
    * the page can be resumed. Only a live page pauses. Who may resume depends on why it paused -- the caller says which
    * reasons it may lift (the owner lifts only their own emergency stop; an unpaid plan lifts only by paying, lát P5).
@@ -121,18 +146,18 @@ export class PublishingAdmin {
     const { shopId, pageId } = page;
     return tx(this.pool, async db => {
       // Lock order everywhere: shop, then page, then what hangs off the page.
-      const shop = (await db.query('SELECT publishing_state,self_signup,publish_approved_at FROM shops WHERE id=$1 FOR UPDATE', [shopId])).rows[0];
+      const shop = (await db.query('SELECT publishing_state,name,profile,is_template FROM shops WHERE id=$1 FOR UPDATE', [shopId])).rows[0];
       if (!shop) error('SHOP_NOT_FOUND'); if (shop.publishing_state === 'suspended') error('SHOP_SUSPENDED');
       await this.openPage(db, page, 'UPDATE');
       const draft = (await db.query('SELECT * FROM page_drafts WHERE shop_id=$1 AND page_id=$2 FOR UPDATE', [shopId, pageId])).rows[0];
       if (!draft || Number(draft.revision) !== expected) error('DRAFT_CONFLICT');
-      // Checked again on the way out: a draft written before this rule existed cannot be published under it.
-      const config = validateConfig(draft.config); assertPublishable(config);
+      // Checked again on the way out, as guests will see it -- the shop's data in its places (slots.ts): a draft written before
+      // a rule existed cannot be published under it, and neither can a page that still leads to a template's sample link.
+      const config = validateConfig(draft.config), shown = shownConfig(config, shop);
+      assertPublishable(shown);
+      if (!shop.is_template && placeholderLinks(shown.doc).length) error('PAGE_NOT_SYNCED');
       // Every uploaded picture on the page must have passed review (migration 023). The page already live stays live.
-      await assertMediaApproved(db, shopId, config);
-      // A shop that signed itself up puts its first page on the platform's domain only once Tài has seen it (kịch bản mục 4).
-      // Asked last, so what waits for him is a page that would otherwise publish (lib/admin/publish-reviews.ts approves).
-      if (shop.self_signup && !shop.publish_approved_at) error('PUBLISH_REVIEW_REQUIRED');
+      await assertMediaApproved(db, shopId, shown);
       const release = (await db.query(`INSERT INTO page_releases(shop_id,page_id,template_version_id,config_snapshot,draft_revision,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,
         [shopId, pageId, draft.template_version_id, config, expected, actor])).rows[0].id;
       // A draft goes live; a paused page takes the new release and stays paused until it is resumed (migration 026).
@@ -201,11 +226,11 @@ export class PublishingResolver {
     // The page as published, and the shop's Google link: the Google button always leads to the shop's own review page (its
     // Place ID), never to a link written into the page, so a link fixed today reaches every page at once.
     const row = 'slug' in target
-      ? (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+      ? (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
           tv.template_key,tv.version template_version,NULL::uuid tag_id FROM pages p JOIN shops s ON s.id=p.shop_id
         JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
         WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
-      : (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+      : (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
           tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state FROM tags t
         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
         JOIN template_versions tv ON tv.id=r.template_version_id WHERE t.public_code=$1`, [target.code])).rows[0];
@@ -216,16 +241,18 @@ export class PublishingResolver {
     if (row.page_state !== 'active') error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : row.entry_key };
     return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
-      config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context };
+      config: shownConfig(validateConfig(row.config_snapshot), { name: row.shop_name, profile: row.profile, is_template: row.is_template }),
+      googleUrl: row.google_url as string | null, context };
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,s.google_url,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
+    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
       JOIN shops s ON s.id=v.shop_id JOIN pages p ON p.id=v.page_id JOIN template_versions tv ON tv.id=v.template_version_id
       LEFT JOIN tags t ON t.shop_id=v.shop_id AND t.id=v.tag_id WHERE v.token_hash=$1 AND v.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled' || row.page_state === 'closed') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
     return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
-      config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context, expiresAt: row.expires_at as Date };
+      config: shownConfig(validateConfig(row.config_snapshot), { name: row.shop_name, profile: row.profile, is_template: row.is_template }),
+      googleUrl: row.google_url as string | null, context, expiresAt: row.expires_at as Date };
   }
 }

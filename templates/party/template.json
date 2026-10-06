@@ -195,7 +195,8 @@
                       "w": 5,
                       "color": "#1d1529"
                     }
-                  }
+                  },
+                  "slot": "initial"
                 },
                 {
                   "id": "ten-quan",
@@ -207,7 +208,8 @@
                   "font": "rounded",
                   "size": 28,
                   "color": "#ffffff",
-                  "weight": 900
+                  "weight": 900,
+                  "slot": "name"
                 },
                 {
                   "id": "loi-moi",
@@ -276,7 +278,8 @@
                       100
                     ]
                   ]
-                }
+                },
+                "slot": "instagram"
               },
               {
                 "icon": "tiktok",
@@ -297,7 +300,8 @@
                       100
                     ]
                   ]
-                }
+                },
+                "slot": "tiktok"
               },
               {
                 "icon": "zalo",
@@ -318,7 +322,8 @@
                       100
                     ]
                   ]
-                }
+                },
+                "slot": "zalo"
               }
             ]
           },

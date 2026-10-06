@@ -83,7 +83,8 @@
             "motion": {
               "in": "blur",
               "at": 350
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "san-pham",
@@ -168,7 +169,8 @@
             "motion": {
               "in": "left",
               "at": 900
-            }
+            },
+            "slot": "website"
           },
           {
             "id": "tiktok",
@@ -204,7 +206,8 @@
             "motion": {
               "in": "rise",
               "at": 1000
-            }
+            },
+            "slot": "tiktok"
           },
           {
             "id": "zalo",
@@ -223,7 +226,8 @@
             "motion": {
               "in": "rise",
               "at": 1080
-            }
+            },
+            "slot": "zalo"
           },
           {
             "id": "dich-vu",
@@ -268,7 +272,8 @@
             "motion": {
               "in": "fade",
               "at": 1200
-            }
+            },
+            "slot": "menu"
           },
           {
             "id": "gop-y",

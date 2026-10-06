@@ -77,7 +77,7 @@ Lược đồ: production từ `312c757a73cace9e` hoặc `607d263bd56bc02c` lên
 `help_requests` thành `edit_requests` của "Nhờ admin sửa") bằng lệnh dưới. Đã chạy thử 05/10 trên database dựng từ cả hai lược đồ cũ:
 `pg_dump -s` trùng bản dựng mới. (Lần đầu chỉ nhận `607d263b`, nhưng lệnh của mục cũ chưa từng chạy trên production: lệnh dừng
 đúng như thiết kế, không đổi gì.) Kết nối `maps` kiểu cũ (một quán qua `NFC_MAPS_SHOP`, chưa có link) bị xoá; quán dán link lại.
-Chạy **trước** khi đẩy code (code mới không chạy trên lược đồ cũ):
+Chạy **trước** khi đẩy code (code mới không chạy trên lược đồ cũ). **Đã chạy 05/10 tối** (Tài, ra `COMMIT`):
 
 ```bash
 cd ~/Desktop/QuiteSensational
@@ -120,9 +120,38 @@ SQL
 unset DATABASE_URL
 ```
 
+**Trạng thái, ghi chú, đã bị xoá (05/10 tối, Data và Dashboard lấy giao diện tool):** `google_reviews` thêm `first_seen_at`,
+`removed_at`, `status`, `note`; lược đồ `6ac19fbf412a9a5d` lên `262a0c65daf33d7d`. Đánh giá đang có thành "Đã xem" (điểm bắt
+đầu, như tool). Đã chạy thử trên database dựng từ `6ac19fbf`: `pg_dump -s` trùng bản dựng mới; chạy lần hai thì dừng. Chạy
+**trước** khi đẩy code:
+
+```bash
+cd ~/Desktop/QuiteSensational && export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)" && awk '/^\*\*Trạng thái, ghi chú, đã bị xoá/{f=1} f&&/<<.SQL.$/{p=1;next} p&&/^SQL$/{exit} p' docs/production-launch.md | /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1; unset DATABASE_URL
+```
+
+```sql
+-- <<'SQL'
+BEGIN;
+-- Production phải đang ở lược đồ 6ac19fbf412a9a5d (sau lệnh tối 05/10); khác thì dừng, không đổi gì, và in nó ra.
+DO $$ DECLARE h text := (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1); BEGIN
+  IF h IS DISTINCT FROM '6ac19fbf412a9a5d' THEN RAISE EXCEPTION 'production đang ở lược đồ %', h; END IF; END $$;
+ALTER TABLE google_reviews ADD COLUMN first_seen_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+  ADD COLUMN removed_at timestamp with time zone,
+  ADD COLUMN status text DEFAULT 'new'::text NOT NULL CHECK (status = ANY (ARRAY['new'::text, 'seen'::text, 'handled'::text])),
+  ADD COLUMN note text CHECK (note IS NULL OR char_length(note) <= 2000);
+-- Đánh giá đang có là điểm bắt đầu: "Đã xem", thấy lần đầu lúc được đồng bộ.
+UPDATE google_reviews SET status='seen', first_seen_at=synced_at;
+INSERT INTO applied_schema(hash) VALUES ('262a0c65daf33d7d');
+COMMIT;
+SQL
+```
+
 Phía tool: `backend/app/qs_sync.py` (05/10) hỏi và gửi; `qs.json` = `{"qs_url": "https://quitesensational-review-bio.com",
 "enabled": true}`; hẹn giờ 5 phút trong `scheduler.py` khi có `qs.json`; chạy tay `python review_tracker.py qs-sync [--qs URL]`.
 Bản gốc các tệp đã sửa ở `~/MAps/backup-code-20261005/`. Sau khi sửa tool phải khởi động lại `review_tracker.py serve`.
+`scraper.py` sửa 05/10 tối: link quán dán (chia sẻ `maps.app.goo.gl`, link không có `!9m1!1b1`) mở tab "Tổng quan", tab này
+cũng có vài đánh giá xem trước mang `data-review-id`, nên tool tưởng đang ở tab đánh giá, không bấm sang, rồi lỗi vì không thấy
+"170 bài đánh giá". Giờ tool bấm tab "Bài đánh giá" khi tab đó chưa được chọn, và chỉ đếm, cuộn, đọc đánh giá đang hiện.
 Máy Tài tắt hay phiên Google của tool hết hạn thì production giữ bản cuối, ghi giờ Google Maps đọc lần cuối; lượt đọc lỗi
 hiện `MAPS_RUN_FAILED` trên kết nối.
 

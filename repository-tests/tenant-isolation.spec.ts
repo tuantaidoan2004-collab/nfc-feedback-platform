@@ -5,7 +5,7 @@ import {Pool} from 'pg';
 import {ownerFixture,addExperience} from './owner-fixture';
 import {OwnerDashboard} from '../lib/owner/dashboard';
 import {OwnerCards} from '../lib/owner/cards';
-import {OwnerDesign} from '../lib/owner/design';
+import {requestEdit} from '../lib/owner/edit-requests';
 import {OwnerPages,OwnerPageLifecycle} from '../lib/owner/pages';
 import {OwnerComments} from '../lib/owner/comments';
 import {OwnerTeam} from '../lib/owner/team';
@@ -43,10 +43,10 @@ async function shopTwo(f:F){
  const managerToken=(await f.auth.login('quan-ly-b','password-of-quan-ly-b')).token;
  // A reply that names shop one's owner (not a member here) and shop two's owner, who gets a notification.
  const reply=await comments.create(managerToken,'two',{sessionId:guest.session.sessionId,body:`Gọi lại khách @${f.users[0].username} @${f.users[1].username}`});
- const page=await new OwnerPages(f.db).create(owner,'two',{template:'party',label:'Trang B2'});
+ const page=await requestEdit(f.db,owner,'two',{template:'party',contact:'0912345678'});
  const notification=(await f.db.query('SELECT id FROM owner_notifications WHERE user_id=$1',[f.users[1].id])).rows[0].id as string;
  const release=(await f.db.query('SELECT id FROM page_releases WHERE shop_id=$1 LIMIT 1',[f.shops[1]])).rows[0].id as string;
- return {session:guest.session.sessionId,card,reply:reply.id,manager:invited.userId,staff:staff.id,managerRole:manager.id,page:page.slug,notification,release,mentioned:reply.notified};
+ return {session:guest.session.sessionId,card,reply:reply.id,manager:invited.userId,staff:staff.id,managerRole:manager.id,page:page.page,notification,release,mentioned:reply.notified};
 }
 /** Everything of shop two a leak would touch, read straight from the database, to compare before and after. */
 const snapshot=(f:F)=>Promise.all([
@@ -66,16 +66,16 @@ const leaks=(value:unknown)=>JSON.stringify(value).includes(SECRET)||JSON.string
 
 test("naming shop two's link: every door of the dashboard refuses shop one's owner, and nothing of shop two moves",async({f})=>{
  const b=await shopTwo(f),before=await snapshot(f),a=f.users[0].token;
- const dashboard=new OwnerDashboard(f.db),cards=new OwnerCards(f.db),design=new OwnerDesign(f.db),pages=new OwnerPages(f.db),life=new OwnerPageLifecycle(f.db),
+ const dashboard=new OwnerDashboard(f.db),cards=new OwnerCards(f.db),pages=new OwnerPages(f.db),life=new OwnerPageLifecycle(f.db),
   comments=new OwnerComments(f.db),team=new OwnerTeam(f.db),activity=new OwnerActivity(f.db),media=new OwnerMedia(f.db);
  const doors:[string,()=>Promise<unknown>][]=[
   ['dashboard.read',()=>dashboard.read(a,'two',parseFilters(new URLSearchParams()))],['dashboard.summary',()=>dashboard.summary(a,'two')],
   ['dashboard.update',()=>dashboard.update(a,'two',{sessionId:b.session,expectedCaseRevision:0,expectedExperienceRevision:'2',status:'resolved',note:'x'})],
   ['dashboard.setSupport',()=>dashboard.setSupport(a,'two',{level:'full'})],
   ['cards.list',()=>cards.list(a,'two')],['cards.create',()=>cards.create(a,'two',{label:'x'})],['cards.update',()=>cards.update(a,'two',{id:b.card.id,label:'x'})],
-  ['design.read',()=>design.read(a,'two')],['design.save',()=>design.save(a,'two',{expectedRevision:2,config:{}})],
-  ['design.publish',()=>design.publish(a,'two',{action:'publish',expectedRevision:2})],['design.preview',()=>design.preview(a,'two',{action:'preview',expectedRevision:2})],
-  ['pages.list',()=>pages.list(a,'two')],['pages.create',()=>pages.create(a,'two',{copy:'two',label:''})],['pages.rename',()=>pages.rename(a,'two',{page:'two',label:'x'})],
+  ['pages.picture',()=>pages.picture(a,'two','two')],['edit.request',()=>requestEdit(f.db,a,'two',{page:'two',contact:'0912345678'})],
+  ['edit.template',()=>requestEdit(f.db,a,'two',{template:'party',contact:'0912345678'})],
+  ['pages.list',()=>pages.list(a,'two')],['pages.rename',()=>pages.rename(a,'two',{page:'two',label:'x'})],
   ['pages.pause',()=>life.pause(a,'two',{action:'pause',page:'two',reason:'x'})],['pages.resume',()=>life.resume(a,'two',{action:'resume',page:'two'})],
   ['comments.list',()=>comments.list(a,'two',b.session)],['comments.create',()=>comments.create(a,'two',{sessionId:b.session,body:'x'})],
   ['comments.change',()=>comments.change(a,'two',{id:b.reply,op:'pin',value:true})],['comments.remove',()=>comments.remove(a,'two',{id:b.reply})],
@@ -90,7 +90,7 @@ test("naming shop two's link: every door of the dashboard refuses shop one's own
 
 test("standing in shop one with shop two's ids: nothing is found, nothing is read, nothing moves",async({f})=>{
  const b=await shopTwo(f),before=await snapshot(f),a=f.users[0].token;
- const cards=new OwnerCards(f.db),comments=new OwnerComments(f.db),team=new OwnerTeam(f.db),design=new OwnerDesign(f.db),pages=new OwnerPages(f.db),life=new OwnerPageLifecycle(f.db);
+ const cards=new OwnerCards(f.db),comments=new OwnerComments(f.db),team=new OwnerTeam(f.db),pages=new OwnerPages(f.db),life=new OwnerPageLifecycle(f.db);
  const refused:[string,()=>Promise<unknown>,number,string][]=[
   ['a card',()=>cards.update(a,'one',{id:b.card.id,label:'x'}),404,'CARD_NOT_FOUND'],
   ['switching a card on',()=>cards.update(a,'one',{id:b.card.id,state:'active'}),404,'CARD_NOT_FOUND'],
@@ -104,11 +104,10 @@ test("standing in shop one with shop two's ids: nothing is found, nothing is rea
   ['re-issuing a member link',()=>team.change(a,'one',{op:'link',userId:b.manager}),404,'MEMBER_NOT_FOUND'],
   ['editing a role',()=>team.roles(a,'one','PATCH',{id:b.managerRole,name:'Chiếm',icon:null,color:'#000000',permissions:['feedback']}),404,'ROLE_NOT_FOUND'],
   ['deleting a role',()=>team.roles(a,'one','DELETE',{id:b.staff}),404,'ROLE_NOT_FOUND'],
-  ['reading a page',()=>design.read(a,'one',b.page),404,'PAGE_NOT_FOUND'],
-  ['saving a page',()=>design.save(a,'one',{expectedRevision:1,config:{}},b.page),404,'PAGE_NOT_FOUND'],
-  ['publishing a page',()=>design.publish(a,'one',{action:'publish',expectedRevision:1},b.page),404,'PAGE_NOT_FOUND'],
+  ['reading a page',()=>pages.picture(a,'one',b.page),404,'PAGE_NOT_FOUND'],
+  ['asking Tài to change a page',()=>requestEdit(f.db,a,'one',{page:b.page,contact:'0912345678'}),404,'PAGE_NOT_FOUND'],
+  ['a new look for a page',()=>requestEdit(f.db,a,'one',{page:b.page,template:'party',contact:'0912345678'}),404,'PAGE_NOT_FOUND'],
   ['a card on a page',()=>cards.create(a,'one',{label:'x'},b.page),404,'PAGE_NOT_FOUND'],
-  ['copying a page',()=>pages.create(a,'one',{copy:b.page,label:''}),404,'PAGE_NOT_FOUND'],
   ['renaming a page',()=>pages.rename(a,'one',{page:b.page,label:'x'}),404,'PAGE_NOT_FOUND'],
   ['stopping a page',()=>life.pause(a,'one',{action:'pause',page:'two',reason:'x'}),404,'PAGE_NOT_FOUND'],
  ];

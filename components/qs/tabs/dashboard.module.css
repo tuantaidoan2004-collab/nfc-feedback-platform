@@ -76,6 +76,21 @@
 .stars { color: #f5b301; letter-spacing: 1px; font-size: 13px; }
 .stars span { color: var(--qs-line); }
 
+/* "Cần xử lý" (từ tool Google Maps): một dòng bấm được trong "Số liệu của quán", đỏ khi còn việc. */
+.needs { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 4px; border-radius: 14px;
+  background: var(--qs-soft); color: var(--qs-ink); text-decoration: none; transition: background .15s ease, transform .15s ease; }
+.needs:hover { background: color-mix(in srgb, var(--qs-ink) 7%, var(--qs-soft)); transform: translateY(-1px); }
+.needs[data-alert='true'] { background: var(--qs-crit-soft); }
+.needs[data-alert='true']:hover { background: color-mix(in srgb, var(--qs-crit-text) 16%, transparent); }
+.needsIcon { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--qs-card); color: var(--qs-muted); }
+.needs[data-alert='true'] .needsIcon { color: var(--qs-crit-text); }
+.needsText { display: grid; gap: 2px; min-width: 0; }
+.needsText b { font-size: 16px; font-weight: 600; }
+.needsText small { font-size: 13px; color: var(--qs-muted); }
+.needs strong { font-size: 24px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.needs[data-alert='true'] strong { color: var(--qs-crit-text); }
+.needs > svg { color: var(--qs-muted); }
+
 .newsArt { aspect-ratio: 16 / 8.5; border-radius: 14px; overflow: hidden; }
 .newsTitle { font-size: 20px !important; line-height: 1.3; }
 
@@ -90,7 +105,7 @@
   .board { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .column, .board > .column:last-child { display: contents; }
   .card[data-order='1'] { order: 1; } .card[data-order='2'] { order: 2; } .card[data-order='3'] { order: 3; }
-  .card[data-order='4'] { order: 4; } .card[data-order='5'] { order: 5; }
+  .card[data-order='4'] { order: 4; } .card[data-order='5'] { order: 5; } .card[data-order='6'] { order: 6; }
   .card { padding: 22px 18px 20px; }
   .card h2 { font-size: 20px; }
   .big { font-size: 40px; }

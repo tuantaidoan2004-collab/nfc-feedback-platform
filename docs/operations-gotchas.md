@@ -96,6 +96,20 @@ Chạy từng lệnh riêng, hoặc `${=a}`. **Lặp lại 05/10** với `P="-h 
 nhận cả chuỗi làm tên máy, và `dropdb` thiếu `-w` thì **treo chờ mật khẩu** tới hết giờ. Lệnh nhiều cờ dùng chung: bọc trong
 `bash <<'EOF'`, và luôn thêm `-w` cho công cụ PostgreSQL chạy không người.
 
+**Thử tool Google Maps bằng đúng loại link chủ quán dán, không bằng link mình có sẵn (05/10 tối).** Claude thử luồng dán link
+trên local bằng link đầy đủ trong `config.json` của tool — link đó có `!9m1!1b1` nên Google Maps mở thẳng tab "Bài đánh giá".
+Link Tài dán trên production mở tab "Tổng quan"; tab này cũng có vài đánh giá xem trước mang `data-review-id`, nên scraper tưởng
+đã ở tab đánh giá, không bấm sang, và lỗi `MAPS_RUN_FAILED`. Ảnh và HTML lúc lỗi nằm ở `~/MAps/data/debug/last_error.*` — đọc
+chúng trước khi đoán. Sửa xong lại gặp lần hai: đánh giá xem trước của tab đã ẩn vẫn nằm trong trang, đoạn cuộn bám vào chúng
+và chỉ đọc được 17/170. Cách thử đúng: dán cả link chia sẻ lẫn link đầy đủ, và so số đánh giá đọc được với tổng của quán.
+
+**Chuyển một biểu đồ từ tool thì so với chính biểu đồ của tool trước khi gửi ảnh.** Bản đầu "Đánh giá theo tháng" gộp mọi
+đánh giá cũ hơn 12 tháng vào cột đầu (≈130), làm các tháng khác phẳng lì; tool không gộp — Google viết "1 năm trước" cho cả
+một năm nên những đánh giá đó chỉ có nghĩa trong phân bố sao. Đặt hai ảnh cạnh nhau là thấy ngay.
+
+**`check()` của Playwright treo khi ô chọn biến mất lúc được chọn.** Ô "chọn cả trang" ở Data nhường chỗ cho thanh "Đã chọn 2"
+(như tool), nên Playwright chờ mãi trạng thái checked của một phần tử đã rời trang. Dùng `click()` rồi kiểm thanh mới.
+
 **Test "đổi ký tự cuối của chuỗi base64url" đỏ ngẫu nhiên.** `google.spec.ts` sửa ký tự cuối của chuyến đi đã ký để thử chữ ký
 giả; ký tự cuối của base64url có khi chỉ mang bit đệm, giải ra y nguyên byte cũ, nên chữ ký vẫn đúng và test đỏ khoảng 1/6 lần
 (05/10). Muốn làm hỏng một chuỗi đã mã hoá, đổi ký tự **đầu** (hoặc một byte sau khi giải mã), đừng đổi ký tự cuối.
@@ -772,3 +786,29 @@ Next build trong thư mục dự án tên `/app` (WORKDIR cũ của `Dockerfile`
 nhận 307 sang `/owner/login?next=%2Fapp`. Bảng route (`app-paths-manifest.json`) vẫn đúng; build ở thư mục khác (máy Tài,
 Vercel, `/srv/nfc`) thì không sao, nên chỉ bước smoke của CI self-host thấy (đỏ từ `3571676`). Sửa: `WORKDIR /srv/nfc`. Kiểm
 lại bằng đúng các bước của job `self-host` với `docker compose -p <tên riêng>` rồi `down -v`.
+
+**"Phát hành luôn" đưa link mẫu của template lên trang thật — lỗi thiết kế của Claude, 05/10 (Tài bắt 06/10).** Bản bỏ trình
+sửa cho chủ quán bấm "Phát hành luôn" một mẫu như nó đang có: các nút Zalo/TikTok/Instagram trỏ về trang chủ trần
+(`https://zalo.me/`…), nút "TENQUAN.VN – HẬU MÃI" trỏ về chính Quite Sensational, wifi "Ten-Quan-Wifi", "@tensalon". Agent đã
+không hỏi một mẫu **chứa gì** khi thành trang của một quán thật. Sửa (06/10): mẫu đánh dấu chỗ của quán (`slot`), thông tin quán
+gắn vào lúc trang hiện ra, phần tử thiếu dữ liệu tự ẩn, và **lõi phát hành từ chối trang còn link mẫu** (`PAGE_NOT_SYNCED`); test
+`templates.spec.ts` kiểm từng mẫu. Bài học: trước khi cho thứ gì "lên mạng ngay", đọc nó bằng mắt khách của quán.
+
+**Phiên hỗ trợ thấy ảnh trang trống — cookie mạo danh chỉ gửi tới những đường đã kê, 06/10.** Cookie `nfc_impersonation_v1`
+đặt theo từng đường (`impersonationPaths` trong `server/owner-v2.ts`): `/app/<quán>` và `/api/owner/v2/<quán>`. Ảnh trang ở
+Library/My Card là `/ZZZ/<quán>/thumb/<trang>`, cũng đọc `ownerCredential()`, nhưng nằm ngoài hai đường đó: trình duyệt không
+gửi cookie, trang trả 404, khung điện thoại trống — có từ lát P3, test admin "position 2" mới bắt được. Sửa: thêm `/ZZZ/<quán>`
+vào `impersonationPaths`. **Thêm một route đọc phiên của quán ở đường mới thì thêm đường đó vào danh sách** (và vào test cookie
+ở `admin-http.spec.ts`).
+
+**Chọn lại đúng mẫu trang đang dùng thì mất bản Tài đã dựng — lỗi của Claude, bắt khi tự rà 06/10.** Bản đầu của "đổi giao
+diện" luôn dựng lại bản nháp từ mẫu (`restartFromTemplate`), kể cả khi khách chọn lại chính mẫu trang đang mang: ảnh, chữ Tài
+đã chỉnh cho quán mất sạch dù khách chỉ muốn nhờ chỉnh. Sửa: cùng mẫu thì chỉ ghi yêu cầu (`lib/owner/edit-requests.ts`), test ở
+`repository-tests/edit-requests.spec.ts`. Bài học: một thao tác "làm lại từ đầu" phải hỏi "nếu người ta bấm lại đúng thứ đang có
+thì sao".
+
+**Nút dính đáy (`position: sticky; bottom`) trong khung cuộn có padding dừng ở mép padding, không ở mép khung — 06/10.** Nút
+"Nhờ Admin Tài dựng trang này" dính đáy khung chọn mẫu nhưng chữ trong ô ghi chú vẫn lộ ra dưới nút và quanh hai mép: Chrome
+giữ hộp sticky trong phần nội dung (trừ padding 28px). Sửa: nút nằm trên một dải nền `.ctaBar` kéo ra tới mép khung bằng margin
+âm bằng đúng padding, và `bottom` âm bằng padding (`components/qs/tabs/pages.module.css`). Đo bằng `getBoundingClientRect` của
+khung và dải: hai đáy phải trùng nhau.

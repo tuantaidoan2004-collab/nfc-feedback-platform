@@ -1,11 +1,12 @@
 'use client';
 /**
- * Tab My Card (kịch bản mục 7): từng thẻ của quán — đang chạy, chờ admin sửa hay chưa phát hành, link, tên, mã, các thẻ NFC
- * trỏ vào — để chủ quán và nhân viên cùng xem. Mỗi trang: Phát hành luôn hoặc Nhờ admin sửa (pages-ui.tsx), không có trình sửa.
+ * Tab My Card (kịch bản mục 7): từng thẻ của quán — đang chạy, chờ Admin Tài hay chưa phát hành, link, tên, mã, các thẻ NFC
+ * trỏ vào — để chủ quán và nhân viên cùng xem. Muốn đổi gì trên trang thì nhờ Admin Tài (pages-ui.tsx); không có trình sửa.
  * Quán mới: trống, kèm lối sang Library để chọn mẫu.
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { TabProps } from './index';
 import styles from './tabs.module.css';
 import Icon from '../icons';
@@ -15,7 +16,7 @@ type Card = { id: string; code: string; label: string; state: string; page: stri
 const CARD_STATES: Record<string, string> = { prepared: 'Chưa kích hoạt', tested: 'Đã thử', active: 'Đang hoạt động', disabled: 'Đã tắt' };
 
 export default function MyCardTab({ slug, origin }: TabProps) {
-  const { pages, reload } = usePages(slug);
+  const router = useRouter(), { pages, contact, reload } = usePages(slug);
   const [cards, setCards] = useState<Card[]>([]), [notice, setNotice] = useState(''), [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
     void (async () => {
@@ -39,9 +40,10 @@ export default function MyCardTab({ slug, origin }: TabProps) {
         <div className={styles.row}>
           <div style={{ display: 'grid', gap: 6 }}><h2>{page.label || 'Trang chưa đặt tên'}</h2><StateTag page={page} /></div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="qs-btn ghost small" onClick={() => void copy(url)}><Icon name="link" size={16} /> Sao chép link</button>
-            {page.state === 'active' && <a className="qs-btn ghost small" href={url} target="_blank" rel="noreferrer">Mở trang <Icon name="external" size={14} /></a>}
-            <button type="button" className="qs-btn small" onClick={() => setOpen(page.slug)}>{page.editRequest ? 'Gửi thêm ý cho admin' : page.state === 'draft' || page.unpublished ? 'Phát hành / Nhờ sửa' : 'Nhờ admin sửa'}</button>
+            {page.state === 'active' && <>
+              <button type="button" className="qs-btn ghost small" onClick={() => void copy(url)}><Icon name="link" size={16} /> Sao chép link</button>
+              <a className="qs-btn ghost small" href={url} target="_blank" rel="noreferrer">Mở trang <Icon name="external" size={14} /></a></>}
+            <button type="button" className="qs-btn small" onClick={() => setOpen(page.slug)}>{page.request ? 'Xem tiến độ' : 'Nhờ Admin Tài chỉnh'}</button>
           </div>
         </div>
         <p className="qs-small qs-muted">{url.replace(/^https?:\/\//, '')} · Mã <code>{page.slug}</code> · Tạo {new Date(page.createdAt).toLocaleDateString('vi-VN')}</p>
@@ -50,6 +52,7 @@ export default function MyCardTab({ slug, origin }: TabProps) {
             <td><span className={styles.dot} data-state={card.state}>{CARD_STATES[card.state] ?? card.state}</span></td></tr>)}</tbody></table>}
       </article>;
     })}
-    {opened && <PageSheet slug={slug} page={opened} origin={origin} onClose={() => setOpen(null)} onChanged={() => void reload()} />}
+    {opened && <PageSheet slug={slug} page={opened} contact={contact} origin={origin} onClose={() => setOpen(null)} onChanged={() => void reload()}
+      onPickTemplate={() => router.push(`/app/${slug}/library?muc=template&trang=${encodeURIComponent(opened.slug)}`)} />}
   </div>;
 }

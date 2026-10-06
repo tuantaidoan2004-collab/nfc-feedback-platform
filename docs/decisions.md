@@ -164,7 +164,7 @@ Toàn bộ quyết định về **giao diện trang khách và mô hình templat
 | **13** | Hai luật dùng chung mọi template: trang luôn dài hơn màn hình · nút máy bay giấy bất biến |
 | **14** | Ba chỗ suýt thủng khi tách nội dung khỏi template, và thứ tự triển khai bắt buộc |
 
-## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-10-05 (tối)
+## TIẾP TỤC TỪ ĐÂY — cập nhật 2026-10-06
 
 Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc mục 1–8 ở trên, rồi [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md)
 (logic gốc, đích kiến trúc module, tự chạy được, đội ngũ), rồi khối này. Việc còn lại: [`roadmap-slices.md`](roadmap-slices.md).
@@ -176,20 +176,36 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`
 (thẻ Finder "Cam"); chạy local `node scripts/local.mjs`; test DB `node scripts/test-db.mjs`.
 
-**Tối 05/10 — bỏ trình sửa canvas (Tài: "library riêng phần edit rất nặng và phải bỏ", "cứ đơn giản hoá, chưa tính phí
-riêng").** Khách chọn mẫu → xem mẫu mang tên quán → **Phát hành luôn** hoặc **Nhờ admin sửa** (ghi ý + gửi ảnh/video qua Zalo);
-trang ở trạng thái "Chờ admin sửa", `/gov` có khung "Trang chờ sửa", agent sửa bằng `node scripts/sua-trang.mjs lay|dang <trang>`
-(ảnh/video tự thu nhỏ, tải lên, phát hành, đóng yêu cầu). Kịch bản mục 8–9. Đã xoá: `components/canvas/editor/*`,
-`/app/<slug>/sua/<trang>`, `lib/canvas/edit.ts`, Tải lên/Brand/More trong Library, "Nhờ tạo giúp" (bảng `help_requests` →
-`edit_requests`, mỗi trang một yêu cầu chờ). Ô ảnh của trang phát được video MP4. Đã đẩy nhánh tối 05/10 (`78b8fbf`, gộp cả
-phần Google Maps bên dưới); test gọi trình sửa đã viết lại theo luồng mới (Library → Phát hành luôn / Nhờ admin sửa, My Card),
-test tải ảnh trong trình sửa bỏ (ảnh đi qua Zalo; API `media` của quán giờ chưa có giao diện nào gọi). Kế tiếp: làm lại một loạt
-template đẹp.
+**06/10 — chọn mẫu → Admin Tài dựng (Tài: "mọi thứ như link, chữ trên hitbox… phải đồng bộ với shop"; "để cho khách 1 lựa
+chọn là Nhờ admin sửa… liên hệ Admin Tài"; "bạn quyết định").** Thay hẳn "Phát hành luôn / Nhờ admin sửa" của tối 05/10 (đã bỏ
+trình sửa canvas, `78b8fbf`). Khách chọn mẫu (mọi ảnh mẫu mang tên quán, dải 3 bước ở đầu thư viện) → ô "Mẫu cần khớp với quán"
+→ **số Zalo** (bắt buộc) + ghi chú → **"Nhờ Admin Tài dựng trang này"**; quán có trang thì chọn "đổi giao diện trang đó" (khách
+vẫn thấy trang cũ tới khi Tài phát hành) hay "trang mới". Trạng thái: Chờ Admin Tài → Admin đang chỉnh → Đang chạy. `/gov` "Trang
+chờ dựng": mẫu, số Zalo + "Nhắn Zalo", thời gian chờ, "Đã nhắn Zalo", "Đóng". **Thông tin quán** (`shops.profile`,
+`lib/shop/profile.ts`) gắn vào **chỗ của quán** (`slot` trong mẫu, `lib/canvas/slots.ts`) **lúc trang hiện ra**, như link Google:
+quán thiếu thứ gì thì phần tử đó ẩn, đổi số một lần là mọi trang đúng; trang lưu giữ mẫu nguyên vẹn. **Lõi phát hành từ chối trang
+còn link mẫu** (`PAGE_NOT_SYNCED`) và kiểm luật Google trên trang đã điền. Đã bỏ: chủ quán tự phát hành (API `design`,
+`lib/owner/design.ts`), tạo/nhân bản trang trực tiếp, **duyệt lần phát hành đầu** (`publish_reviews`, `publish_approved_at`,
+khung /gov) — mọi trang đều qua tay Tài. Agent: `scripts/sua-trang.mjs ds|lay|kiem|dang` (lưu thông tin quán, từ chối nếu làm
+hỏng trang đang chạy). Lược đồ đổi: `shops.profile`, `edit_requests` thêm `template_key`, `contact`, `contacted_at`, `outcome`;
+**lên production cần thêm bước lược đồ** (viết lúc gộp với đợt Google Maps). Bảy bộ xanh tại máy 06/10: repository 166 ·
+contracts 111 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 · admin 11. Tài duyệt ảnh (`rieng/anh/xem-0610-admin-tai-dung/`),
+đã commit 06/10 chung với đợt Data dưới đây; chưa đẩy nhánh.
 
 **Tối 05/10 — Google Maps theo từng quán (Tài: "mỗi quán … tự add thủ công link").** Quán trống link tới khi chủ quán tự dán
 link Google Maps ở tab Data (ô kiểm ngay, tách link khỏi chữ chia sẻ); tool `~/MAps` hỏi production mỗi 5 phút quán nào cần đọc
 rồi gửi đánh giá về, hai chiều ký HMAC bằng `NFC_MAPS_KEY` (biến duy nhất; `NFC_MAPS_SHOP` bỏ). Lệnh nâng lược đồ production và
 phía tool: `production-launch.md` mục "Đánh giá Google từ tool Google Maps".
+
+**Tối 05/10 — giao diện tool Google Maps cho khách (Tài: "tool rất tuyệt… hãy lấy hầu hết đem qua"; "dashboard đang rất đẹp…
+giữ nguyên, có đổi thì thêm cần xử lý… add/merge thông minh").** Dashboard giữ các ô Studio; thêm dòng **Cần xử lý** trong "Số
+liệu của quán" (đánh giá Google ≤ 3★ chưa trả lời chưa xử lý + góp ý riêng chưa xong, bấm sang Data) và ô **Đánh giá theo
+tháng** + **Phân bố số sao** (12 tháng gần nhất, rê chuột hiện số, chỉ chủ quán — luật Google số 10). **Data** = trang "Đánh giá"
+của tool gộp góp ý riêng: tab Tất cả/Cần xử lý/Mới/Đã xem/Đã xử lý có số, tìm, lọc sao, nguồn, đã trả lời, nội dung, đang
+hiện/đã bị xoá, sắp xếp, 7/30/90 ngày/**Tất cả**, chọn nhiều để đánh dấu, khung chi tiết trượt phải (trạng thái, ghi chú nội bộ,
+"Trả lời trên Google Maps"), xuất CSV (`dataset=google_reviews`). Không thư viện biểu đồ (SVG tự vẽ, màu của tool trong
+`qs.css`). Lược đồ: `google_reviews` thêm `status`, `note`, `first_seen_at`, `removed_at`; đánh giá rời Maps được đánh dấu chứ
+không xoá. API `GET/POST /api/owner/v2/<quán>/google-reviews`; `status()` không trả đánh giá nữa.
 
 **Đợt ① đã commit (`3571676`, đã đẩy nhánh):** database một tệp `db/schema.sql` · Orb bản đầu · 6 tab bản khung ở `/app/<slug>/…`
 · onboarding theo ảnh Jitter · đăng ký dùng ngay · **Place ID dán tay** (Tài 05/10: chưa bật Places API; nút mở trang tìm Place ID
@@ -208,10 +224,8 @@ tạo lại shop template và các quán; branch Neon preview vẫn lược đ�
 `components/guest/core.tsx`) · nút Google luôn dùng `shops.google_url` của quán · Library 10 mẫu bằng ảnh thật, tạo trang từ mẫu tự
 điền và tự co tên quán · trình sửa canvas (đã bỏ tối 05/10, xem trên) · **máy bay giấy góp ý riêng giữ nguyên bản cũ** (Tài 05/10: "đừng code máy bay giấy mới") — nút xanh góc
 trái, lời mời sau 2 giây ở cuối trang, thẻ spotlight, chuyển nguyên vào `components/guest/plane.css`; trang luôn cao hơn màn hình
-(A1) và chừa chỗ cho máy bay · **duyệt lần phát hành đầu** của quán tự đăng ký (kịch bản mục 4): lõi phát hành từ chối
-`PUBLISH_REVIEW_REQUIRED`, "Phát hành luôn" thành gửi duyệt (`publish_reviews`, một yêu cầu chờ mỗi quán), `/gov` khung "Trang
-chờ duyệt lần đầu" có ảnh trang + `/gov/xem/<trang>`, duyệt là phát hành đúng bản nháp đang thấy, chưa duyệt thì ghi lý do chủ quán
-đọc ở trang đó trong Library/My Card · khung mới có lại những gì dashboard cũ có mà khung bản đầu thiếu: **Đăng xuất** (Cài đặt), **tạm dừng khẩn
+(A1) và chừa chỗ cho máy bay · duyệt lần phát hành đầu của quán tự đăng ký (**bỏ 06/10**: mọi trang do Tài phát hành, xem
+trên; `/gov/xem/<trang>` giờ cho xem mẫu khách chọn) · khung mới có lại những gì dashboard cũ có mà khung bản đầu thiếu: **Đăng xuất** (Cài đặt), **tạm dừng khẩn
 cấp** (Quản lý), **dải "Đang xem thay mặt"** của phiên quản trị trên mọi màn (nổi ở chân màn hình, không che Orb) và **lượt quản trị vào + lịch sử
 mức hỗ trợ** cho chủ quán (Quản lý); phiên hỗ trợ chỉ đọc trong Data. Gỡ cửa duyệt lời cảm ơn M2b. Trang đầu của quán tên
 **"Trang chính"**, như Library đặt (`lib/owner/page-names.ts`). Ảnh quán do chủ quán tự tải lên (`/api/owner/v2/<quán>/media`) vẫn chờ duyệt ở `/gov` trước khi phát hành;

@@ -10,7 +10,8 @@ export async function ownerToken(){return (await cookies()).get(ownerCookie)?.va
 // An administrator standing in for an owner carries a cookie of its own, scoped to that one shop's dashboard and
 // API paths. When both are present the impersonation wins: it is the narrower of the two, read-only and short.
 export const impersonationCookie='nfc_impersonation_v1';
-export const impersonationPaths=(slug:string)=>[`/app/${slug}`,`/api/owner/v2/${slug}`];
+// The shop's screens, its API, and the pictures of its pages (/ZZZ/<shop>/thumb): a support session sees the pages it opens.
+export const impersonationPaths=(slug:string)=>[`/app/${slug}`,`/api/owner/v2/${slug}`,`/ZZZ/${slug}`];
 /**
  * Written as raw headers on purpose. `response.cookies.set` keys cookies by name, so a second call for the same
  * name on another path silently replaces the first, and only one of the two paths ever received the cookie.

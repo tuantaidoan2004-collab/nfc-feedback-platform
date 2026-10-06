@@ -55,7 +55,23 @@ export type ButtonLook = typeof BUTTON_LOOKS[number];
 export const GOOGLE_LOOKS = ['maps', 'g', 'ring', 'glass'] as const;
 export type GoogleLook = typeof GOOGLE_LOOKS[number];
 
-type Box = { id: string; name?: string; x: number; y: number; w: number; h: number; r?: number; o?: number; hide?: boolean; lock?: boolean; motion?: Motion };
+/**
+ * Chỗ của quán (Tài 06/10: "mọi thứ như link, chữ trên hitbox phải đồng bộ với shop"): an element marked with a slot shows
+ * the shop's own data, filled in where the page is shown (slots.ts), as the Google button always takes the shop's own link.
+ * What the template wrote there is a sample; a shop without that piece of data does not show the element at all.
+ *   name, initial      the shop's name, its first letter (text)
+ *   link slots         where a button, icon, picture, shape or text leads (lib/shop/profile.ts says what each takes)
+ *   handle             "@name" (text, or a button that leads to the shop's first social page)
+ *   hours, address     a line of text
+ *   wifi               the shop's network behind a wifi button
+ */
+export const LINK_SLOTS = ['zalo', 'facebook', 'instagram', 'tiktok', 'youtube', 'website', 'menu', 'booking', 'phone', 'maps'] as const;
+export type LinkSlot = typeof LINK_SLOTS[number];
+export const SLOTS = ['name', 'initial', ...LINK_SLOTS, 'handle', 'hours', 'address', 'wifi'] as const;
+export type SlotKey = typeof SLOTS[number];
+
+type Box = { id: string; name?: string; x: number; y: number; w: number; h: number; r?: number; o?: number; hide?: boolean; lock?: boolean; motion?: Motion;
+  slot?: SlotKey };
 export type TextEl = Box & { t: 'text'; words: Words; font: FontKey; size: number; weight?: number; color: Color;
   /** Letters coloured in turn (the round button's thank-you line in Google's colours). */
   colors?: Color[];
@@ -99,7 +115,7 @@ export type StackEl = Box & { t: 'stack'; kids: Kid[]; gap: number; pad?: number
   /** Milliseconds between children appearing one after another; each pushes what follows down (mẫu Dynamic movement). */
   reveal?: number };
 /** One card behind the front card of a deck (mẫu Interactive card): a tap pulls it out, a second tap follows its link. */
-export type DeckCard = { icon: IconKey; label: Words; link: string; fill: Fill; fg?: Color };
+export type DeckCard = { icon: IconKey; label: Words; link: string; fill: Fill; fg?: Color; slot?: LinkSlot; hide?: boolean };
 export const DECK_LOOKS = ['party', 'racing', 'nails', 'pho'] as const;
 export type DeckEl = Box & { t: 'deck'; look: typeof DECK_LOOKS[number]; front: { kids: Kid[]; gap: number; pad?: number; panel?: Panel; tilt?: number }; cards: DeckCard[] };
 export type El = Leaf | FeedbackEl | StackEl | DeckEl;

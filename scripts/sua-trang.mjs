@@ -1,8 +1,9 @@
-// "Nhờ admin sửa": the agent edits a shop's page and publishes it (scripts/sua-trang.ts says how). Local by default -- the
+// "Nhờ Admin Tài dựng": the agent fills a shop's details, edits its page and publishes it (scripts/sua-trang.ts says how). Local by default -- the
 // database and picture store scripts/local.mjs runs; `--env <file>` reads DATABASE_URL and the store's R2_*/STORAGE_* names
 // from a file Tài writes himself (production, the day he asks for it).
 //   node scripts/sua-trang.mjs ds
 //   node scripts/sua-trang.mjs lay <mã trang>
+//   node scripts/sua-trang.mjs kiem <mã trang>
 //   node scripts/sua-trang.mjs dang <mã trang>
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

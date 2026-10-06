@@ -98,7 +98,8 @@
             "motion": {
               "in": "rise",
               "at": 250
-            }
+            },
+            "slot": "name"
           },
           {
             "id": "gio",
@@ -118,7 +119,8 @@
             "motion": {
               "in": "fade",
               "at": 350
-            }
+            },
+            "slot": "hours"
           },
           {
             "id": "loe-sang",
@@ -187,7 +189,8 @@
                     ]
                   ]
                 },
-                "fg": "#ffffff"
+                "fg": "#ffffff",
+                "slot": "instagram"
               },
               {
                 "id": "tiktok",
@@ -217,7 +220,8 @@
                       ]
                     ]
                   }
-                }
+                },
+                "slot": "tiktok"
               },
               {
                 "id": "xem-them",
@@ -233,7 +237,8 @@
                 "size": 22,
                 "weight": 800,
                 "bg": "#24597a",
-                "fg": "#ffffff"
+                "fg": "#ffffff",
+                "slot": "website"
               },
               {
                 "id": "dung-cu",

@@ -19,7 +19,7 @@ export default function Progress({ slug, template, dashboard }: { slug: string; 
         {templateDone && <span className={styles.tick} aria-label="Đã xong"><Icon name="check" size={22} /></span>}
         <span className={styles.mark}><Icon name="plus" size={56} /></span>
         <h2>Template</h2>
-        <p>{templateDone ? (template === 'done' ? 'Đã tạo trang đầu tiên.' : 'Đã bỏ qua — tạo sau trong Library.')
+        <p>{templateDone ? (template === 'done' ? 'Đã chọn mẫu — Admin Tài sẽ nhắn Zalo cho bạn.' : 'Đã bỏ qua — chọn mẫu sau trong Library.')
           : 'Bạn sẽ được tạo trang web của mình ngay trong dashboard sau khi hoàn tất. Hoặc bạn có thể tạo ngay luôn →'}</p>
       </Template>
       <Dashboard href="/bat-dau/google" className={styles.card} data-kind="dashboard" data-done={dashboard} aria-disabled={dashboard || undefined} data-choice="dashboard">

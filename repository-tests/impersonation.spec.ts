@@ -239,7 +239,7 @@ test('one live session per administrator; closed sessions and reasons cannot be 
 });
 
 test('four positions: what support may open and read at each, checked again on every request',async({f})=>{
- const dashboard=new OwnerDashboard(f.db),{OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
+ const dashboard=new OwnerDashboard(f.db),{OwnerPages}=await import('../lib/owner/pages');const pages=new OwnerPages(f.db);
  await addExperience(f.db,'one',2,'Góp ý bí mật');
  const can=async(scope:'overview'|'feedback'|'design')=>f.imp.start(f.adminToken,{shopId:f.shops[0],ownerUserId:f.users[0].id,scope,reason}).then(()=>true,e=>{expect(String(e)).toContain('SUPPORT_NOT_GRANTED');return false;});
  const table:Record<string,boolean[]>={off:[true,false,false],view:[true,true,false],edit:[false,false,true],full:[true,true,true]};
@@ -251,76 +251,18 @@ test('four positions: what support may open and read at each, checked again on e
  await position(f,'edit');const d=await open(f,'design');
  await expect(dashboard.summary(d.credential,'one')).rejects.toThrow('SUPPORT_NOT_GRANTED');
  await expect(dashboard.read(d.credential,'one',filters())).rejects.toThrow('SUPPORT_NOT_GRANTED');
- await expect(design.read(d.credential,'one')).resolves.toMatchObject({draft:{revision:expect.any(Number)}});
+ await expect(pages.picture(d.credential,'one','one')).resolves.toMatchObject({slug:'one'});
  await position(f,'view');
- await expect(design.read(d.credential,'one')).rejects.toThrow('SUPPORT_NOT_GRANTED');
+ await expect(pages.picture(d.credential,'one','one')).rejects.toThrow('SUPPORT_NOT_GRANTED');
  await position(f,'full');
  await expect(dashboard.summary(d.credential,'one')).resolves.toBeTruthy();
- await expect(design.read(d.credential,'one')).resolves.toBeTruthy();
+ await expect(pages.picture(d.credential,'one','one')).resolves.toBeTruthy();
  // Never at any position: case notes, exports, the switch itself.
  await expect(dashboard.update(d.credential,'one',{sessionId:randomUUID(),expectedCaseRevision:0,expectedExperienceRevision:'1',status:'resolved',note:''})).rejects.toThrow('IMPERSONATION_READ_ONLY');
  await expect(dashboard.setSupport(d.credential,'one',{level:'off'})).rejects.toThrow('IMPERSONATION_READ_ONLY');
  await expect(exportStream(f.db,d.credential,'one',filters(),'experiences','csv',new AbortController().signal)).rejects.toThrow('IMPERSONATION_NO_EXPORT');
- // An overview or feedback session cannot edit the page.
- const o=await open(f,'overview');await expect(design.read(o.credential,'one')).rejects.toThrow('IMPERSONATION_SCOPE');
-});
-test('the page editor: a change and the record of it fall together, so a failed record leaves the page untouched',async({f})=>{
- // F-011 (Astra, 20/09): the draft was written on one connection and entered in the books on the next, so an audit
- // insert that failed left a renamed page nobody had recorded. A trigger makes that insert fail on purpose.
- const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
- const {PublishingResolver}=await import('../lib/publishing/repository');
- await position(f,'full');const s=await open(f,'design');
- const before=await design.read(s.credential,'one'),live=(await new PublishingResolver(f.db).live({slug:'one'})).config;
- await f.db.query(`CREATE FUNCTION reject_design_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-  IF NEW.action LIKE 'impersonation.design.%' THEN RAISE EXCEPTION 'AUDIT_UNAVAILABLE'; END IF; RETURN NEW; END $$`);
- await f.db.query('CREATE TRIGGER reject_design_audit BEFORE INSERT ON admin_audit FOR EACH ROW EXECUTE FUNCTION reject_design_audit()');
- const config={...before.draft.config,name:'KHÔNG ĐƯỢC LƯU'},at=before.draft.revision;
- await expect(design.save(s.credential,'one',{expectedRevision:at,config})).rejects.toThrow('AUDIT_UNAVAILABLE');
- await expect(design.preview(s.credential,'one',{action:'preview',expectedRevision:at})).rejects.toThrow('AUDIT_UNAVAILABLE');
- await expect(design.publish(s.credential,'one',{action:'publish',expectedRevision:at})).rejects.toThrow('AUDIT_UNAVAILABLE');
- // Nothing moved: same draft at the same revision, same live page, and no activity row claiming otherwise.
- expect(await design.read(f.users[0].token,'one')).toMatchObject({draft:before.draft});
- expect((await new PublishingResolver(f.db).live({slug:'one'})).config).toEqual(live);
- expect((await f.db.query("SELECT 1 FROM shop_activity WHERE action LIKE 'design.%'")).rowCount).toBe(0);
- // With the books working again the same session saves normally, so joining one transaction did not close the path.
- await f.db.query('DROP TRIGGER reject_design_audit ON admin_audit');
- await expect(design.save(s.credential,'one',{expectedRevision:at,config})).resolves.toEqual({revision:at+1});
- expect((await audit(f,'impersonation.design.save')).at(-1)).toMatchObject({detail:{revision:at+1}});
-});
-
-test('the page editor: owners and managers edit and publish; support edits only in a design session and is recorded',async({f})=>{
- const {OwnerDesign}=await import('../lib/owner/design');const design=new OwnerDesign(f.db);
- const {PublishingResolver}=await import('../lib/publishing/repository');
- const state=await design.read(f.users[0].token,'one');
- // A page is a canvas document (đợt ②): its name and its document, whole.
- expect(state.draft.config.schemaVersion).toBe(4);expect(state.live).not.toBeNull();
- const words=(config:typeof state.draft.config)=>JSON.stringify(config.doc).includes('Bản mới của quán');
- const doc=JSON.parse(JSON.stringify(state.draft.config.doc).replace('"vi":"Shop one"','"vi":"Bản mới của quán"'));
- const config={...state.draft.config,name:'Tên mới',doc};
- await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config:{...config,html:'<b>'}})).rejects.toThrow('INVALID_CONFIG');
- const saved=await design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config});
- await expect(design.save(f.users[0].token,'one',{expectedRevision:state.draft.revision,config})).rejects.toThrow('DRAFT_CONFLICT');
- const preview=await design.preview(f.users[0].token,'one',{action:'preview',expectedRevision:saved.revision});
- // The preview shows the draft; guests keep the page as published until Publish.
- expect(words((await new PublishingResolver(f.db).preview(preview.token)).config)).toBe(true);
- expect(words((await new PublishingResolver(f.db).live({slug:'one'})).config)).toBe(false);
- const published=await design.publish(f.users[0].token,'one',{action:'publish',expectedRevision:saved.revision});
- expect(words((await new PublishingResolver(f.db).live({slug:'one'})).config)).toBe(true);
- expect((await new PublishingResolver(f.db).live({slug:'one'})).config.name).toBe('Tên mới');
- // A manager edits too; another shop's owner does not.
- await f.db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'manager')",[f.users[1].id,f.shops[0]]);
- const again=await design.read(f.users[1].token,'one');expect(again.draft.revision).toBe(published.revision);
- await expect(design.read(f.users[1].token,'two')).resolves.toBeTruthy();
- await f.db.query('UPDATE owner_memberships_v2 SET active=false WHERE user_id=$1 AND shop_id=$2',[f.users[1].id,f.shops[0]]);
- await expect(design.read(f.users[1].token,'one')).rejects.toThrow('ACCESS_DENIED');
- // Support at position 2, in a design session: saves and publishes, each recorded as on the owner's behalf.
- await position(f,'edit');const d=await open(f,'design');
- const current=await design.read(d.credential,'one');
- const s2=await design.save(d.credential,'one',{expectedRevision:current.draft.revision,config:{...current.draft.config,name:'Sửa hộ'}});
- await design.publish(d.credential,'one',{action:'publish',expectedRevision:s2.revision});
- expect((await audit(f,'impersonation.design.save')).map(r=>[r.actor_id,r.on_behalf_of])).toEqual([[f.adminId,f.users[0].id]]);
- expect(await audit(f,'impersonation.design.publish')).toHaveLength(1);
- expect((await f.db.query("SELECT created_by FROM page_releases ORDER BY created_at DESC LIMIT 1")).rows[0].created_by).toBe(`admin:${f.adminId}`);
+ // An overview or feedback session cannot see the page's design.
+ const o=await open(f,'overview');await expect(pages.picture(o.credential,'one','one')).rejects.toThrow('IMPERSONATION_SCOPE');
 });
 
 test('uploads: a signed PUT to R2 pinned to type and size under the shop\'s folder; editors only; support recorded',async({f})=>{

@@ -5,6 +5,10 @@
 .qs {
   --qs-bg: #ffffff; --qs-ink: #0b0b0c; --qs-muted: #6b6f76; --qs-faint: #a3a7ae; --qs-line: #ececef; --qs-soft: #f6f7f9;
   --qs-card: #ffffff; --qs-blue: #1f5bff; --qs-blue-deep: #1846cc; --qs-red: #e5484d; --qs-green: #30a46c; --qs-amber: #f5a524;
+  /* Từ tool Google Maps (Tài 05/10): cột 4–5★ xanh, 1–3★ đỏ, sao vàng, nền khi rê chuột, nhãn trạng thái. */
+  --qs-series-good: #2a78d6; --qs-series-bad: #e34948; --qs-star: #eda100; --qs-hover: rgba(11, 11, 11, .04);
+  --qs-accent-soft: rgba(42, 120, 214, .1); --qs-accent-text: #2a78d6; --qs-good-soft: rgba(12, 163, 12, .1); --qs-good-text: #006300;
+  --qs-warn-soft: rgba(250, 178, 25, .14); --qs-warn-text: #8a5a00; --qs-crit-soft: rgba(208, 59, 59, .1); --qs-crit-text: #b42828;
   --qs-radius: 18px; --qs-shadow: 0 1px 2px rgba(10, 12, 16, .05), 0 10px 32px rgba(10, 12, 16, .07);
   --qs-shadow-lg: 0 2px 6px rgba(10, 12, 16, .06), 0 24px 64px rgba(10, 12, 16, .12);
   font-family: var(--font-qs), system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -14,11 +18,17 @@
 .qs[data-theme='dark'] {
   --qs-bg: #07080b; --qs-ink: #f3f5fa; --qs-muted: #9aa1ad; --qs-faint: #5d636e; --qs-line: #1c2029; --qs-soft: #0f1218;
   --qs-card: #0d1016; --qs-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 32px rgba(0, 0, 0, .35); color-scheme: dark;
+  --qs-series-good: #3987e5; --qs-series-bad: #e66767; --qs-star: #f5b625; --qs-hover: rgba(255, 255, 255, .05);
+  --qs-accent-soft: rgba(57, 135, 229, .16); --qs-accent-text: #6aa6ef; --qs-good-soft: rgba(12, 163, 12, .16); --qs-good-text: #2fc42f;
+  --qs-warn-soft: rgba(250, 178, 25, .14); --qs-warn-text: #fab219; --qs-crit-soft: rgba(208, 59, 59, .18); --qs-crit-text: #e66767;
 }
 @media (prefers-color-scheme: dark) {
   .qs[data-theme='system'] {
     --qs-bg: #07080b; --qs-ink: #f3f5fa; --qs-muted: #9aa1ad; --qs-faint: #5d636e; --qs-line: #1c2029; --qs-soft: #0f1218;
     --qs-card: #0d1016; --qs-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 32px rgba(0, 0, 0, .35); color-scheme: dark;
+    --qs-series-good: #3987e5; --qs-series-bad: #e66767; --qs-star: #f5b625; --qs-hover: rgba(255, 255, 255, .05);
+    --qs-accent-soft: rgba(57, 135, 229, .16); --qs-accent-text: #6aa6ef; --qs-good-soft: rgba(12, 163, 12, .16); --qs-good-text: #2fc42f;
+    --qs-warn-soft: rgba(250, 178, 25, .14); --qs-warn-text: #fab219; --qs-crit-soft: rgba(208, 59, 59, .18); --qs-crit-text: #e66767;
   }
 }
 .qs *, .qs *::before, .qs *::after { box-sizing: border-box; }

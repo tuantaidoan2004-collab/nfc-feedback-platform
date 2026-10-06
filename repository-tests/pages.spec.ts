@@ -6,9 +6,9 @@ import {ShopProvisioning} from '../lib/admin/provisioning';
 import {AdminAuth} from '../lib/admin/auth';
 import {OwnerAuth} from '../lib/owner/auth';
 import {OwnerSetupLinks} from '../lib/owner/setup-link';
-import {OwnerDesign} from '../lib/owner/design';
 import {OwnerCards} from '../lib/owner/cards';
 import {OwnerPages} from '../lib/owner/pages';
+import {requestEdit} from '../lib/owner/edit-requests';
 import {OwnerDashboard} from '../lib/owner/dashboard';
 import {parseFilters} from '../lib/owner/filters';
 import {PublishingAdmin,PublishingResolver,type PageRef} from '../lib/publishing/repository';
@@ -74,15 +74,14 @@ test('two pages of one shop: separate links, drafts, content and visits; one das
  const read=await new OwnerDashboard(f.db).read(shop.token,shop.slug,parseFilters(new URLSearchParams()));
  expect(read.metrics).toMatchObject({sessions:'2',rated:'2',feedback:'1'});
  expect(read.sources).toEqual([{label:'Trực tiếp',sessions:2}]);
- // The editor works on the page it is asked for, and on the first page when none is named.
- const design=new OwnerDesign(f.db);
- expect((await design.read(shop.token,shop.slug)).page.slug).toBe(shop.slug);
- const vipState=await design.read(shop.token,shop.slug,'phong-vip');
- expect([vipState.page.slug,vipState.draft.config.name]).toEqual(['phong-vip','Phòng VIP']);
- await design.save(shop.token,shop.slug,{expectedRevision:vipState.draft.revision,config:{...vipState.draft.config,name:'Phòng VIP tầng 2'}},'phong-vip');
- expect((await design.read(shop.token,shop.slug,'phong-vip')).draft.config.name).toBe('Phòng VIP tầng 2');
- expect((await design.read(shop.token,shop.slug)).draft.config.name).toBe('Quán 1');
- await expect(design.read(shop.token,shop.slug,'khong-co')).rejects.toMatchObject({status:404,code:'PAGE_NOT_FOUND'});
+ // Each page's picture in the dashboard is its own: a change to one draft leaves the other as it was.
+ const pages=new OwnerPages(f.db);
+ expect((await pages.picture(shop.token,shop.slug,shop.slug)).config.name).toBe('Quán 1');
+ expect((await pages.picture(shop.token,shop.slug,'phong-vip')).config.name).toBe('Phòng VIP');
+ await f.admin.saveDraft(vip,2,pageFromTemplate('nut-don','Phòng VIP tầng 2'));
+ expect((await pages.picture(shop.token,shop.slug,'phong-vip')).config.name).toBe('Phòng VIP tầng 2');
+ expect((await pages.picture(shop.token,shop.slug,shop.slug)).config.name).toBe('Quán 1');
+ await expect(pages.picture(shop.token,shop.slug,'khong-co')).rejects.toMatchObject({status:404,code:'PAGE_NOT_FOUND'});
 });
 
 test('a card belongs to one page, opens that page, and goes live only on a live page',async({f})=>{
@@ -114,7 +113,8 @@ test("another shop's page is out of reach from every door",async({f})=>{
  await expect(f.admin.createTag(borrowed,'borrowed1')).rejects.toThrow();
  await expect(f.admin.publish({shopId:two.shopId,pageId:'not-a-uuid'},2)).rejects.toThrow('PAGE_NOT_FOUND');
  // Through the dashboard: shop two cannot name shop one's page.
- await expect(new OwnerDesign(f.db).read(two.token,two.slug,one.slug)).rejects.toMatchObject({code:'PAGE_NOT_FOUND'});
+ await expect(new OwnerPages(f.db).picture(two.token,two.slug,one.slug)).rejects.toMatchObject({code:'PAGE_NOT_FOUND'});
+ await expect(requestEdit(f.db,two.token,two.slug,{page:one.slug,contact:'0912345678'})).rejects.toMatchObject({code:'PAGE_NOT_FOUND'});
  await expect(new OwnerCards(f.db).create(two.token,two.slug,{label:'x'},one.slug)).rejects.toMatchObject({code:'PAGE_NOT_FOUND'});
  expect((await f.db.query('SELECT count(*)::int n FROM tags WHERE page_id=$1',[one.pageId])).rows[0].n).toBe(1);
 });
@@ -130,42 +130,31 @@ test('a link is permanent: a page is never deleted, renamed or moved, and its li
  await expect(f.admin.createPage(other.shopId,template,pageFromTemplate('nut-don','x'),'gov')).rejects.toThrow('check constraint');
 });
 
-test('the page list: the owner copies a page or takes a template from the library, each a draft at a new permanent link',async({f})=>{
- const shop=await shopOn(f,1),pages=new OwnerPages(f.db),design=new OwnerDesign(f.db),resolver=new PublishingResolver(f.db);
+test('the page list: each page with where it stands, the Zalo the shop left last, and names the owner gives',async({f})=>{
+ const shop=await shopOn(f,1),pages=new OwnerPages(f.db);
  // A shop's first page is "Trang chính" from the start, as Library names it (lib/owner/page-names.ts), never unnamed.
- expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,pages:[{slug:shop.slug,label:'Trang chính',state:'active',pauseReason:null,template:{key:'nut-don',version:1},createdAt:expect.any(String),
-  revision:2,unpublished:false,editRequest:null,review:null}]});
- // A copy: the same document, its own link and name, not live until published.
- const before=(await design.read(shop.token,shop.slug)).draft.config;
- const copy=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Phòng VIP'});
- expect(copy.slug).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
- expect((await design.read(shop.token,shop.slug,copy.slug)).draft.config).toEqual(before);
- await expect(resolver.live({slug:copy.slug})).rejects.toThrow('PAGE_UNAVAILABLE');
- await design.publish(shop.token,shop.slug,{action:'publish',expectedRevision:1},copy.slug);
- expect((await resolver.live({slug:copy.slug})).config.name).toBe('Quán 1');
- // From the library: a copy of the template's document, with the shop's name already in it.
- const fresh=await pages.create(shop.token,shop.slug,{template:'party',label:'Quầy bar'});
- const state=await design.read(shop.token,shop.slug,fresh.slug);
- expect([state.template.key,state.draft.config.name]).toEqual(['party','Quán 1']);
- expect(state.draft.config).toEqual(pageFromTemplate('party','Quán 1'));
- expect((await pages.list(shop.token,shop.slug)).pages.map(p=>[p.label,p.state,p.template.key])).toEqual([['Trang chính','active','nut-don'],['Phòng VIP','active','nut-don'],['Quầy bar','draft','party']]);
- await pages.rename(shop.token,shop.slug,{page:fresh.slug,label:'  Quầy bar tầng 1 '});
- expect((await pages.list(shop.token,shop.slug)).pages[2].label).toBe('Quầy bar tầng 1');
- for(const body of [{template:'nope',label:''},{copy:'khong-co',label:''},{template:'party',label:'x'.repeat(61)},{template:'party'},{copy:shop.slug,template:'party',label:''},{page:shop.slug,label:'<b>'}])
-  await expect('page' in body?pages.rename(shop.token,shop.slug,body):pages.create(shop.token,shop.slug,body)).rejects.toMatchObject({status:expect.any(Number)});
- // No price per page any more (Tài 05/10: a shop pays for a plan). A third page is just a page.
- const third=await pages.create(shop.token,shop.slug,{copy:shop.slug,label:'Bàn 3'});
- await design.publish(shop.token,shop.slug,{action:'publish',expectedRevision:1},third.slug);
- expect((await f.shops.list()).find(row=>row.id===shop.shopId)).toMatchObject({pages:4});
- expect((await f.db.query("SELECT target FROM shop_activity WHERE action='page.create' ORDER BY id")).rows.map(r=>r.target)).toEqual([`Phòng VIP (${copy.slug})`,`Quầy bar (${fresh.slug})`,`Bàn 3 (${third.slug})`]);
+ expect(await pages.list(shop.token,shop.slug)).toEqual({canManage:true,contact:null,pages:[{slug:shop.slug,label:'Trang chính',state:'active',pauseReason:null,
+  template:{key:'nut-don',version:1},createdAt:expect.any(String),request:null}]});
+ // A new page comes from a template the shop picked for Tài to build (edit-requests.spec.ts): a draft at a new permanent link.
+ const fresh=await requestEdit(f.db,shop.token,shop.slug,{template:'party',contact:'0912 345 678'});
+ expect(fresh.page).toMatch(/^[2-9a-hjkmnp-z]{5}$/);
+ const listed=await pages.list(shop.token,shop.slug);
+ expect(listed.contact).toBe('0912345678');
+ expect(listed.pages.map(p=>[p.label,p.state,p.template.key,!!p.request])).toEqual([['Trang chính','active','nut-don',false],['Trang 2','draft','party',true]]);
+ await pages.rename(shop.token,shop.slug,{page:fresh.page,label:'  Quầy bar tầng 1 '});
+ expect((await pages.list(shop.token,shop.slug)).pages[1].label).toBe('Quầy bar tầng 1');
+ for(const body of [{page:shop.slug,label:'x'.repeat(61)},{page:'khong-co',label:'x'},{page:shop.slug},{page:shop.slug,label:'<b>'}])
+  await expect(pages.rename(shop.token,shop.slug,body)).rejects.toMatchObject({status:expect.any(Number)});
+ expect((await f.db.query("SELECT target FROM shop_activity WHERE action='page.create' ORDER BY id")).rows.map(r=>r.target)).toEqual([`Trang 2 (${fresh.page})`]);
 });
 
-test('only the owner makes pages; a manager with the design switch may name them',async({f})=>{
+test('only the owner makes pages; a manager with the design switch may name them and ask Tài to change one',async({f})=>{
  const shop=await shopOn(f,1),token=await manager(f,shop.shopId),pages=new OwnerPages(f.db);
  expect((await pages.list(token,shop.slug)).canManage).toBe(false);
- await expect(pages.create(token,shop.slug,{template:'party',label:''})).rejects.toMatchObject({status:403,code:'OWNER_ROLE_REQUIRED'});
- // Naming a page is not a payment decision: a manager with the design switch may.
+ await expect(requestEdit(f.db,token,shop.slug,{template:'party',contact:'0912345678'})).rejects.toMatchObject({status:403,code:'OWNER_ROLE_REQUIRED'});
+ // Naming a page, or asking for a page to change, is not a payment decision: a manager with the design switch may.
  await pages.rename(token,shop.slug,{page:shop.slug,label:'Sảnh chính'});
+ await expect(requestEdit(f.db,token,shop.slug,{page:shop.slug,template:'party',contact:'0912345678'})).resolves.toMatchObject({page:shop.slug});
  expect((await f.db.query('SELECT count(*)::int n FROM pages WHERE shop_id=$1',[shop.shopId])).rows[0].n).toBe(1);
 });
 

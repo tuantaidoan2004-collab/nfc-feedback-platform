@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { authorize, transaction, type OwnerAccess, type OwnerCredential } from './auth';
 import { recordAdminAction } from '../admin/audit';
+import { effectiveStatus } from './filters';
 
 /**
  * Tab Dashboard (kịch bản mục 7, theo ảnh YouTube Studio Tài gửi 05/10), đọc trong một lần: hiệu suất của thẻ mới nhất · số
@@ -15,7 +16,21 @@ export type Overview = {
   /** Google's score and count, the owner's alone (google-policy.md rule 10): `figures: false` for everyone else. */
   google: null | { rating: number | null; total: number | null; source: 'google' | 'maps'; figures: boolean; syncedAt: string | null };
   recent: null | { kind: 'google' | 'private'; name: string | null; stars: number | null; text: string | null; at: string }[];
+  /**
+   * "Cần xử lý" (the tool's, Tài 05/10): Google reviews of LOW stars or fewer still on Maps, not answered and not handled, and
+   * private feedback not yet handled. For whoever reads feedback, like `recent`.
+   */
+  needs: null | { google: number; private: number };
+  /**
+   * "Đánh giá theo tháng" and "Phân bố số sao" (the tool's, Tài 05/10): Google reviews still on Maps by the month of their
+   * estimated day, the last twelve months, as the tool draws them (older ones are in the stars, not the months: Google says
+   * "1 năm trước" for a whole year, so they would pile up in one bar). Google figures: the owner's alone.
+   */
+  googleMonths: null | { month: string; good: number; bad: number; avg: number | null }[];
+  googleStars: null | { counts: number[]; withText: number };
 };
+/** The tool's threshold: a review of this many stars or fewer is a low one. */
+export const LOW = 3;
 
 // A visit, an event or a feedback send belongs to the page whose release the guest opened.
 const pageOfVisit = (visit: string) => `(SELECT pr.page_id FROM published_visit_contexts c JOIN page_releases pr ON pr.id=c.release_id WHERE c.visit_id=${visit})`;
@@ -65,12 +80,40 @@ async function top(db: PoolClient, shopId: string) {
 /** The newest three, Google's and the shop's own, mixed by time. Private feedback never carries a name: none is asked. */
 async function recent(db: PoolClient, shopId: string) {
   const rows = (await db.query(`(SELECT 'google' kind,CASE WHEN is_anonymous THEN NULL ELSE reviewer_name END name,stars,comment text,created_at at
-      FROM google_reviews WHERE shop_id=$1 ORDER BY created_at DESC LIMIT 3)
+      FROM google_reviews WHERE shop_id=$1 AND removed_at IS NULL ORDER BY created_at DESC LIMIT 3)
     UNION ALL
     (SELECT 'private' kind,NULL name,e.rating stars,e.feedback_message text,GREATEST(e.updated_at,COALESCE(e.feedback_updated_at,e.updated_at)) at
       FROM rating_experiences e WHERE e.shop_id=$1 AND e.scope='live' AND ${clean('e.session_id')} ORDER BY at DESC LIMIT 3)
     ORDER BY at DESC LIMIT 3`, [shopId])).rows;
   return rows.map(r => ({ kind: r.kind, name: r.name, stars: r.stars, text: r.text ? String(r.text).slice(0, 280) : null, at: (r.at as Date).toISOString() })) as NonNullable<Overview['recent']>;
+}
+
+async function needs(db: PoolClient, shopId: string) {
+  const row = (await db.query(`SELECT
+      (SELECT count(*)::int FROM google_reviews WHERE shop_id=$1 AND removed_at IS NULL AND stars<=$2 AND reply_comment IS NULL AND status<>'handled') google,
+      (SELECT count(*)::int FROM rating_experiences e LEFT JOIN owner_feedback_cases c ON c.session_id=e.session_id
+        WHERE e.shop_id=$1 AND e.scope='live' AND ${clean('e.session_id')} AND e.feedback_message IS NOT NULL AND (${effectiveStatus}) IN ('new','progress')) private`,
+    [shopId, LOW])).rows[0];
+  return { google: row.google as number, private: row.private as number };
+}
+
+/** Months are Vietnam's; "YYYY-MM". */
+const monthOf = (date: Date) => new Date(date.getTime() + 7 * 3600000).toISOString().slice(0, 7);
+async function googleMonths(db: PoolClient, shopId: string, now: Date) {
+  const rows = (await db.query(`SELECT to_char(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM') ym,count(*) FILTER (WHERE stars>$2)::int good,
+      count(*) FILTER (WHERE stars<=$2)::int bad,sum(stars)::int stars FROM google_reviews WHERE shop_id=$1 AND removed_at IS NULL GROUP BY 1`, [shopId, LOW])).rows;
+  const last = monthOf(now), [y, m] = last.split('-').map(Number);
+  const months = Array.from({ length: 12 }, (_, i) => { const d = new Date(Date.UTC(y, m - 12 + i, 1)); return d.toISOString().slice(0, 7); });
+  const sums = new Map(months.map(month => [month, { good: 0, bad: 0, stars: 0 }]));
+  for (const row of rows) { const into = sums.get(row.ym); if (into) { into.good += row.good; into.bad += row.bad; into.stars += row.stars; } }
+  return months.map(month => { const v = sums.get(month)!, n = v.good + v.bad;
+    return { month, good: v.good, bad: v.bad, avg: n ? Math.round(v.stars / n * 100) / 100 : null }; });
+}
+async function googleStars(db: PoolClient, shopId: string) {
+  const row = (await db.query(`SELECT array[count(*) FILTER (WHERE stars=1),count(*) FILTER (WHERE stars=2),count(*) FILTER (WHERE stars=3),
+      count(*) FILTER (WHERE stars=4),count(*) FILTER (WHERE stars=5)]::int[] counts,count(*) FILTER (WHERE comment IS NOT NULL)::int with_text
+    FROM google_reviews WHERE shop_id=$1 AND removed_at IS NULL`, [shopId])).rows[0];
+  return { counts: row.counts as number[], withText: row.with_text as number };
 }
 
 const readsFeedback = (access: OwnerAccess) => access.actor.kind === 'owner' ? access.permissions.includes('feedback') : access.actor.scope === 'feedback';
@@ -90,6 +133,9 @@ export async function shopOverview(pool: Pool, credential: OwnerCredential, slug
       google: connection ? { rating: figures && connection.average_rating !== null ? Number(connection.average_rating) : null, total: figures ? connection.total_reviews : null,
         source: connection.mode, figures, syncedAt: connection.last_synced_at?.toISOString() ?? null } : null,
       recent: feedback ? await recent(db, access.shopId) : null,
+      needs: feedback ? await needs(db, access.shopId) : null,
+      googleMonths: figures && connection ? await googleMonths(db, access.shopId, (await db.query('SELECT clock_timestamp() now')).rows[0].now) : null,
+      googleStars: figures && connection ? await googleStars(db, access.shopId) : null,
     };
     if (access.actor.kind === 'admin') await recordAdminAction(db, access.actor.adminId, { action: 'impersonation.read', shopId: access.shopId, onBehalfOf: access.userId,
       detail: { session: access.actor.sessionId, scope: access.actor.scope, view: 'overview', rows: result.recent?.length ?? 0, feedbackShown: feedback } });
