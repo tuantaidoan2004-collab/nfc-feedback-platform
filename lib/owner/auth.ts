@@ -1,5 +1,6 @@
 import { randomBytes, createHash, scrypt, timingSafeEqual } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
+import { BILLING_COLUMNS, billingRow, entitled, type Billing } from '@/lib/billing/plans';
 export class OwnerError extends Error { constructor(public status: number, public code: string) { super(code); } }
 export const sessionHash = (token: string) => createHash('sha256').update(`nfc-owner-session-v2\0${token}`).digest('hex');
 /** The sign-in throttle bucket for a username; resetting the template test account clears its rows (`${bucket}:%` too). */
@@ -85,7 +86,9 @@ export type OwnerActor = { kind: 'owner' }
   | { kind: 'admin'; adminId: string; adminUsername: string; adminHandle: string | null; adminTitle: string | null; sessionId: string; scope: ImpersonationScope; reason: string; expiresAt: string };
 export type OwnerAccess = { userId: string; shopId: string; slug: string; name: string; role: 'owner' | 'manager'; actor: OwnerActor;
   /** What this member may do; empty for support, whose reach is its impersonation scope instead. */
-  permissions: Permission[] };
+  permissions: Permission[];
+  /** The shop's plan and how far it is paid (lib/billing/plans.ts). */
+  billing: Billing };
 /** Refuses a member without the switch. Support is governed by the scope checks in authorize, not by this. */
 export function requirePermission(access: OwnerAccess, permission: Permission) {
   if (access.actor.kind === 'owner' && !access.permissions.includes(permission)) throw new OwnerError(403, 'PERMISSION_REQUIRED');
@@ -98,14 +101,24 @@ export function requirePermission(access: OwnerAccess, permission: Permission) {
  */
 export async function ownerShop(db: PoolClient, userId: string, shop: { slug: string } | { id: string }) {
   const [where, key] = 'slug' in shop ? ['lower(s.slug)=lower($2)', shop.slug] : ['s.id=$2', shop.id];
-  const row = (await db.query(`SELECT s.id,s.slug,s.name,m.role,r.permissions,m.feedback_override FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
+  const row = (await db.query(`SELECT s.id,s.slug,s.name,m.role,r.permissions,m.feedback_override,${BILLING_COLUMNS('s')} FROM owner_memberships_v2 m JOIN shops s ON s.id=m.shop_id
     JOIN owner_identities_v2 u ON u.id=m.user_id LEFT JOIN shop_roles r ON r.id=m.role_id AND r.shop_id=m.shop_id
     WHERE m.user_id=$1 AND ${where} AND u.active AND m.active AND s.publishing_state='active' FOR SHARE OF m,s,u`, [userId, key])).rows[0];
   if (!row) return undefined;
   let permissions: Permission[] = row.role === 'owner' ? [...PERMISSIONS] : [...(row.permissions ?? MANAGER_DEFAULT)] as Permission[];
   if (row.role !== 'owner' && row.feedback_override !== null)
     permissions = row.feedback_override ? [...new Set([...permissions, 'feedback' as const])] : permissions.filter(p => p !== 'feedback');
-  return { id: row.id as string, slug: row.slug as string, name: row.name as string, role: row.role as 'owner' | 'manager', permissions };
+  return { id: row.id as string, slug: row.slug as string, name: row.name as string, role: row.role as 'owner' | 'manager', permissions, billing: billingRow(row) };
+}
+
+/**
+ * What the shop's plan allows, asked on every request like the membership (kịch bản mục 3b): past 14 days unpaid only the
+ * frame opens, and it shows nothing but how to point the cards back at the shop's own Google page; a member other than the
+ * owner gets in only on the Đội ngũ plan. A shop not yet billed (`trial`) is open, as in the trial period.
+ */
+function planGate(shop: { role: 'owner' | 'manager'; billing: Billing }, need: OwnerNeed) {
+  if (shop.role !== 'owner' && !entitled(shop.billing, 'team') && shop.billing.state !== 'off') throw new OwnerError(403, 'TEAM_PLAN_REQUIRED');
+  if (shop.billing.state === 'off' && need !== 'shell') throw new OwnerError(402, 'SHOP_UNPAID');
 }
 
 /**
@@ -134,9 +147,10 @@ export async function authorize(db: PoolClient, credential: OwnerCredential, slu
   const shop = await ownerShop(db, session.user_id, { slug });
   if (!shop) throw new OwnerError(403, 'ACCESS_DENIED');
   if (await now(db) >= session.expires_at) throw new OwnerError(401,'LOGIN_REQUIRED');
+  planGate(shop, need);
   const needed = NEED_PERMISSION[need];
   if (needed && !shop.permissions.includes(needed)) throw new OwnerError(403, 'PERMISSION_REQUIRED');
-  return { userId: session.user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, actor: { kind: 'owner' }, permissions: shop.permissions };
+  return { userId: session.user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, actor: { kind: 'owner' }, permissions: shop.permissions, billing: shop.billing };
 }
 
 async function authorizeImpersonation(db: PoolClient, token: string | undefined, slug: string, need: OwnerNeed): Promise<OwnerAccess> {
@@ -157,6 +171,7 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   const shop = await ownerShop(db, row.owner_user_id, { slug });
   // The cookie is scoped to one shop's paths, but the session is what decides: it names exactly one shop.
   if (!shop || shop.id !== row.shop_id) throw new OwnerError(403, 'ACCESS_DENIED');
+  planGate(shop, need);
   // Asked on every request, so moving the switch takes effect at once rather than when the session runs out.
   const level = await supportLevel(db, shop.id);
   if (row.scope === 'feedback' && !['view', 'full'].includes(level)) throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
@@ -164,7 +179,7 @@ async function authorizeImpersonation(db: PoolClient, token: string | undefined,
   // Position 2 lets support edit the page but hides every figure, even the overview allowed when the switch is off.
   if ((need === 'overview' || need === 'feedback') && level === 'edit') throw new OwnerError(403, 'SUPPORT_NOT_GRANTED');
   if (await now(db) >= row.expires_at) throw new OwnerError(401, 'IMPERSONATION_ENDED');
-  return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, permissions: [],
+  return { userId: row.owner_user_id, shopId: shop.id, slug: shop.slug, name: shop.name, role: shop.role, permissions: [], billing: shop.billing,
     actor: { kind: 'admin', adminId: row.admin_id, adminUsername: row.username, adminHandle: row.handle ?? null, adminTitle: row.title ?? null, sessionId: row.id, scope: row.scope, reason: row.reason,
       expiresAt: (row.expires_at as Date).toISOString() } };
 }

@@ -7,6 +7,7 @@ import { bindShop, placeholderLinks } from '../canvas/slots';
 import { readProfile } from '../shop/profile';
 import { assertMediaApproved } from './media-gate';
 import type { RenderContext } from './proof';
+import { BILLING_COLUMNS, billingRow } from '../billing/plans';
 export const previewHash = (token: string) => createHash('sha256').update(`nfc-preview-v1\0${token}`).digest('hex');
 export type AuthorizePublishing = (request: { action: string; shopId?: string }) => Promise<{ actorId: string }>;
 /**
@@ -220,6 +221,11 @@ export class PublishingAdmin {
     });
   }
 }
+/**
+ * A shop more than 14 days past its paid date (kịch bản mục 3b): its page is off, and every card and link of it goes
+ * straight to the shop's own Google review page, so a guest never meets a broken page. Paying turns the page back on.
+ */
+export class ShopUnpaid extends PublishingError { constructor(public readonly googleUrl: string | null) { super('SHOP_UNPAID'); } }
 export class PublishingResolver {
   constructor(private pool: Pool) {}
   async live(target: { slug: string } | { code: string }) {
@@ -227,16 +233,17 @@ export class PublishingResolver {
     // Place ID), never to a link written into the page, so a link fixed today reaches every page at once.
     const row = 'slug' in target
       ? (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
-          tv.template_key,tv.version template_version,NULL::uuid tag_id FROM pages p JOIN shops s ON s.id=p.shop_id
+          tv.template_key,tv.version template_version,NULL::uuid tag_id,${BILLING_COLUMNS('s')} FROM pages p JOIN shops s ON s.id=p.shop_id
         JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
         WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
       : (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
-          tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state FROM tags t
+          tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state,${BILLING_COLUMNS('s')} FROM tags t
         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
         JOIN template_versions tv ON tv.id=r.template_version_id WHERE t.public_code=$1`, [target.code])).rows[0];
     if (!row || row.publishing_state !== 'active' || ('code' in target && row.tag_state !== 'active')) error('PAGE_UNAVAILABLE');
     // A closed page does not exist any more; a paused one says so, rather than looking broken (migration 026).
     if (row.page_state === 'closed') error('PAGE_CLOSED');
+    if (billingRow(row).state === 'off') throw new ShopUnpaid(row.google_url ?? null);
     if (row.page_state === 'paused') error('PAGE_PAUSED');
     if (row.page_state !== 'active') error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : row.entry_key };

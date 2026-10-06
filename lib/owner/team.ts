@@ -4,6 +4,7 @@ import { authorize, requirePermission, transaction, username, OwnerError, PERMIS
 import { OwnerSetupLinks, ownerEmail } from './setup-link';
 import { recordActivity } from './activity';
 import { PERMISSION_LABELS } from './permission-labels';
+import { entitled } from '@/lib/billing/plans';
 
 /**
  * The shop's team (lát F3, Tài 2026-09-18). Roles work like Discord's: the owner names a role, gives it an icon and a
@@ -112,6 +113,8 @@ export class OwnerTeam {
     if (email === null && data.email) throw new OwnerError(400, 'INVALID_EMAIL');
     return transaction(this.pool, async db => {
       const access = await this.member(db, credential, slug);
+      // Staff accounts are the Đội ngũ plan's (kịch bản mục 3); a shop not yet billed may invite, as in the trial period.
+      if (!entitled(access.billing, 'team')) throw new OwnerError(403, 'TEAM_PLAN_REQUIRED');
       const role = await this.role(db, access.shopId, data.roleId);
       this.guard(access, role.permissions);
       if ((await db.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1', [handle])).rowCount) throw new OwnerError(409, 'HANDLE_TAKEN');

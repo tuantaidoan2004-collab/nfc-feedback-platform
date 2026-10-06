@@ -93,3 +93,12 @@
 .qs-support-float { position: fixed; left: 50%; bottom: 14px; translate: -50% 0; width: min(820px, calc(100vw - 24px)); border: 1px solid #e2d2ff;
   border-radius: 18px; box-shadow: 0 12px 40px rgba(59, 29, 110, .22); }
 .qs[data-support] { padding-bottom: var(--qs-support-room, 130px); }
+/* Gói quá hạn ≤ 14 ngày (kịch bản mục 3b): một dải nhắc nổi ở chân mọi màn, tránh Orb ở góc trên; khung chừa chỗ để cuộn hết. */
+.qs-billing-strip { position: fixed; z-index: 61; left: 50%; bottom: 14px; translate: -50% 0; width: min(820px, calc(100vw - 24px));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; border-radius: 18px; font-size: 14px;
+  background: color-mix(in srgb, var(--qs-amber) 14%, var(--qs-card)); color: var(--qs-warn-text); border: 1px solid color-mix(in srgb, var(--qs-amber) 35%, var(--qs-line));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .12); }
+.qs-billing-strip .qs-btn { margin-left: auto; }
+.qs[data-billing='grace'] { padding-bottom: 130px; }
+/* An administrator's strip already holds the foot of the screen. */
+.qs[data-support] .qs-billing-strip { bottom: auto; top: 14px; }

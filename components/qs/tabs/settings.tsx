@@ -1,7 +1,7 @@
 'use client';
 /**
  * Tab Cài đặt (kịch bản mục 7): Hoạt động · Thanh toán · Hồ sơ — bố cục thường, tab bên trái, nội dung bên phải.
- * Thanh toán theo bảng giá mới (kịch bản mục 3): hai gói, trả tháng hoặc năm; giai đoạn trải nghiệm miễn phí hết.
+ * Thanh toán (kịch bản mục 3, 3b): gói đang dùng và hạn, ba gói, trả tháng hoặc năm; quán chưa tính phí thì mọi thứ mở.
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,12 +9,13 @@ import type { TabProps } from './index';
 import styles from './tabs.module.css';
 import ActivityPanel from '../../activity-panel';
 import ProfilePanel, { useProfile } from '../../profile-panel';
-import { PLANS, yearly } from '@/lib/billing/plans';
+import { PLANS, yearly, viDate, COLLAB_PRICE, type Billing } from '@/lib/billing/plans';
+import { ZALO } from '@/lib/contact';
 
 type View = 'activity' | 'billing' | 'profile';
 const VIEWS: [View, string][] = [['activity', 'Hoạt động'], ['billing', 'Thanh toán'], ['profile', 'Hồ sơ']];
 
-export default function SettingsTab({ slug, query, role }: TabProps) {
+export default function SettingsTab({ slug, query, role, billing }: TabProps) {
   const [view, setView] = useState<View>(query.view === 'profile' ? 'profile' : query.view === 'billing' ? 'billing' : 'activity');
   const { profile, setProfile } = useProfile(view === 'profile');
   const router = useRouter(), [leaving, setLeaving] = useState(''), [busy, setBusy] = useState(false);
@@ -35,7 +36,7 @@ export default function SettingsTab({ slug, query, role }: TabProps) {
     <div>
       {view === 'activity' && <section className={styles.card}><h2>Hoạt động</h2><p>Ai đã làm gì trong quán, mới nhất trên cùng.</p>
         <div className={styles.legacy}><ActivityPanel endpoint={`/api/owner/v2/${slug}`} /></div></section>}
-      {view === 'billing' && <Billing />}
+      {view === 'billing' && <BillingView billing={billing} />}
       {view === 'profile' && <section className={styles.card} style={{ display: 'grid', gap: 18 }}><h2>Hồ sơ</h2>
         {role === 'support' ? <p>Quản trị đang xem thay mặt quán: không xem được hồ sơ cá nhân.</p>
           : <div className={styles.legacy}><ProfilePanel slug={slug} profile={profile} setProfile={setProfile} password={<PasswordForm />} /></div>}
@@ -44,22 +45,35 @@ export default function SettingsTab({ slug, query, role }: TabProps) {
   </div>;
 }
 
-function Billing() {
+/** What the shop is on now, in one sentence (kịch bản mục 3b). */
+function current(billing: Billing) {
+  const name = PLANS.find(plan => plan.key === billing.plan)?.name;
+  if (billing.state === 'trial') return { title: 'Đang trong giai đoạn trải nghiệm — mọi thứ miễn phí',
+    text: 'Mọi tính năng đều mở, mọi template đều Free. Khi bắt đầu tính phí cho quán, Admin Tài sẽ báo trước.' };
+  if (billing.state === 'active') return { title: `Gói ${name} — dùng tới hết ngày ${viDate(billing.paidUntil!)}`,
+    text: 'Gia hạn bằng chuyển khoản; nhắn Admin Tài để nhận mã chuyển khoản.' };
+  return { title: `Gói ${name} đã hết hạn ngày ${viDate(billing.paidUntil!)}`,
+    text: `Trang của quán sẽ tắt từ ngày ${viDate(billing.offFrom!)} nếu chưa gia hạn. Khi đó thẻ vẫn đưa khách thẳng tới trang đánh giá Google của quán.` };
+}
+
+function BillingView({ billing }: { billing: Billing }) {
   const [cycle, setCycle] = useState<'month' | 'year'>('month');
+  const now = current(billing);
   return <section className={styles.grid}>
-    <div className={styles.banner}><h2 style={{ fontSize: 17 }}>Đang trong giai đoạn trải nghiệm — mọi thứ miễn phí</h2>
-      <p className="qs-small qs-muted">Không giới hạn số thẻ, mọi template đều Free. Khi bắt đầu thu phí, Quite Sensational sẽ báo trước; bạn chọn gói và trả bằng chuyển khoản.</p></div>
+    <div className={styles.banner} data-billing-state={billing.state}><h2 style={{ fontSize: 17 }}>{now.title}</h2>
+      <p className="qs-small qs-muted">{now.text}</p>
+      {billing.state !== 'trial' && <a className="qs-btn small" href={ZALO.url} target="_blank" rel="noopener noreferrer" style={{ justifySelf: 'start' }}>Nhắn Admin Tài · Zalo {ZALO.number}</a>}</div>
     <div className={styles.row}><h2>Gói dịch vụ</h2>
       <div className={styles.segmented} role="group" aria-label="Chu kỳ trả">
         <button type="button" aria-pressed={cycle === 'month'} onClick={() => setCycle('month')}>Theo tháng</button>
         <button type="button" aria-pressed={cycle === 'year'} onClick={() => setCycle('year')}>Theo năm · tặng 2 tháng</button>
       </div></div>
-    <div className={styles.plans}>{PLANS.map(plan => <article key={plan.key} className={`${styles.card} ${styles.plan}`}>
-      <h3>{plan.name}</h3>
+    <div className={styles.plans}>{PLANS.map(plan => <article key={plan.key} className={`${styles.card} ${styles.plan}`} data-current-plan={billing.plan === plan.key && billing.state !== 'trial' ? '' : undefined}>
+      <h3>{plan.name}{billing.plan === plan.key && billing.state !== 'trial' && <small className="qs-muted"> · đang dùng</small>}</h3>
       <div className={styles.price}>{(cycle === 'month' ? plan.monthly : yearly(plan)).toLocaleString('vi-VN')}đ<small>/{cycle === 'month' ? 'tháng' : 'năm'}</small></div>
       <ul>{plan.features.map(feature => <li key={feature}>{feature}</li>)}</ul>
     </article>)}</div>
-    <p className="qs-small qs-muted">Thẻ NFC vật lý bán riêng, ngoài gói.</p>
+    <p className="qs-small qs-muted">Không giới hạn số trang. Collab {COLLAB_PRICE.toLocaleString('vi-VN')}đ trả một lần cho mỗi collab, cần gói Sự kiện. Thẻ NFC vật lý bán riêng, ngoài gói. Chuỗi nhiều chi nhánh: nhắn Admin Tài.</p>
   </section>;
 }
 

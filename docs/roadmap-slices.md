@@ -1,4 +1,4 @@
-# Việc còn lại — cập nhật 26/09/2026
+# Việc còn lại — cập nhật 06/10/2026
 
 Viết lại sau buổi duyệt toàn bộ ngày 26/09 (Tài: *"những gì mới ở đây là cần chỉnh sửa và xoá các ý cũ"*). Tệp này chỉ
 liệt kê **việc chưa làm**; hướng kiến trúc và lý do ở [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md). Mọi lát chạm trang
@@ -6,6 +6,18 @@ khách hay marketing phải qua [`google-policy.md`](google-policy.md). Làm xon
 
 **Cỡ:** **L** lớn (nhiều lát hoặc migration lớn) · **V** vừa (một lát) · **N** nhỏ. **Mig** = có migration (Tài chạy trên Neon
 trước khi đẩy `main`).
+
+## 00. Đang làm — gói, kích hoạt, nhân viên, collab (Tài 06/10, trước loạt template đẹp)
+
+Nguồn: `rieng/kich-ban.md` mục 3, 3b, 7, 8, 10 (2b), 13. Làm lần lượt (lát 1–3 cùng sửa `db/schema.sql` và lớp quyền).
+
+| # | Việc | Effort |
+|---|---|---|
+| G1 ✅ 06/10 (chưa commit) | Gói Cơ bản 50k / Sự kiện 70k / Đội ngũ 120k thay 100k/120k (`lib/billing/plans.ts`), quyền mở khoá theo gói, "tặng đến ngày…" ở `/gov`, quá hạn 14 ngày → tắt trang, thẻ và link chuyển tới Google của quán, dashboard chỉ còn popup ghi lại thẻ | Extra |
+| G2 | Onboarding "Bạn là…" ba lối (chủ mới / Admin Tài tạo sẵn → Zalo → link đặt mật khẩu một lần / nhân viên); khách tự đến quét VietQR 10k, trừ tháng đầu; Tài bấm "Đã nhận" | Extra |
+| G3 | Nhân viên xin vào quán bằng @quán hoặc link mời, chủ luôn duyệt; báo khi quán chưa có gói Đội ngũ; nhật ký ai tạo/nhờ sửa gì; đếm số lần Admin Tài dựng/sửa | Extra |
+| G4 | Collab: chỗ báo hiệu ở khúc A + khối khúc B theo `slot`, danh mục `/gov`, quán mua 100k một lần; dựng lại "Công cụ làm việc" (Tiệm Bản Quyền) trên canvas | Max |
+| G5 | Khúc "Vì sao có Quite Sensational" trên landing — nháp trong `rieng/`, Tài duyệt | High |
 
 ## 0. Thứ tự của đợt cải tổ UI/UX (audit 27/09)
 
@@ -40,7 +52,7 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
 | # | Việc | Cỡ | Ghi chú |
 |---|---|---|---|
-| P5b | Phần còn lại sau P5b-lite: quá hạn thì ra sao (tạm ngừng tự động? sau bao lâu? — **Tài quyết**), huỷ → hết kỳ → đóng, mốc "bắt đầu chạy" cho suất miễn phí | V | **Mig.** Tự động hoá (VietQR có số tiền + nội dung, bot đối soát) là B6 |
+| B6 | Nối dịch vụ báo biến động số dư để "Đã nhận" tự động (Tài 06/10: chưa, Tài bấm tay — G2) | V | Khớp mã + số tiền, luôn có đường đối soát tay (`commercial-model.md` mục 7) |
 | P7 | App admin trên tên miền riêng | V | |
 | A21 | `/gov`: tìm quán, số liệu nền tảng, dùng được trên điện thoại | V | Cần dữ liệu thật |
 | A20 | Onboarding "3 bước bắt đầu" + màn trống có hướng dẫn | V | |
@@ -76,7 +88,7 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
 | # | Việc | Ghi chú |
 |---|---|---|
-| **V1** | **Chuyển production sang VPS, giữ Neon + R2**: bộ `deploy/hosted/` (app + Caddy) đã chạy thử 29/09; Tài mua VPS Singapore, chép biến từ Vercel, đổi DNS | Các bước: `tu-chay.md` mục "Chuyển production từ Vercel sang VPS" |
+| **V1** | **VPS cho tool Google Maps** (Tài 06/10: app giữ Vercel Pro): Linux ≥ 2 GB, Tài thuê và tự đăng nhập Google; không né phát hiện | `rieng/kich-ban.md` mục 5.3. Bộ `deploy/hosted/` giữ làm đường thoát khỏi Vercel |
 | B2 | Sao lưu mỗi đêm: **mã xong**, Tài tạo người dùng chỉ-đọc, bucket, khoá, mật khẩu, 6 secret, rồi diễn tập khôi phục | `sao-luu.md` |
 | B1 | Neon gói trả phí (quay ngược thời điểm) | Chưa chọn — không dịch vụ trả phí |
 | B3 | Giám sát lỗi + kiểm tra sống + cảnh báo | **Kiểm tra sống có rồi: `/api/health`** (29/09). Còn: Tài chọn dịch vụ gọi nó và báo (ưu tiên miễn phí), và giám sát lỗi (qua adapter) |
@@ -87,11 +99,11 @@ kho template (M5) → **M4**. C1 song song khi Tài đủ điều kiện.
 
 A8–A10 đọc dòng sự kiện (số liệu chuẩn, bảng theo ngày, so sánh bản phát hành) · D1 kho phân tích / tầng lạnh R2 · D2
 chuẩn ngành ẩn danh · D3 AI tóm tắt góp ý · C1 sao Google của quán (**Tài 27/09 kéo lên**; đi thẳng Business Profile API, cần Tài có hồ sơ doanh nghiệp xác minh 60 ngày — `audit-ui-ux-20260927.md` mục 5) · D5 API/webhook đối
-tác · D6 chuỗi, SSO · D7 "quanh đây có gì" · D9 passkey.
+tác · D6 chuỗi, SSO (hướng: `rieng/kich-ban.md` mục 13 — làm khi có chuỗi thật hỏi mua) · D7 "quanh đây có gì" · D9 passkey.
 
 ## 8. Việc của Tài
 
-F1 luật sư dữ liệu và sở hữu trí tuệ · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F6 phần in: logo, dấu trên thẻ (màu và tên đã
+F1 luật sư dữ liệu và sở hữu trí tuệ · tạo và xác minh hồ sơ Google Business cho Quite Sensational (đồng hồ 60 ngày xin quyền API; Tài 06/10: "sẽ") · F2 nộp đơn nhãn hiệu · F4 xoay mật khẩu đã lộ · F6 phần in: logo, dấu trên thẻ (màu và tên đã
 chốt ở S1) · Google OAuth: Publish app trước khi chủ quán thật dùng nút Google · F7 `story.md`/Obsidian · thử lại sáu template trên Chrome iPhone sau bản sửa
 luật cùng trang (27/09: 403 vì Origin lạ, `server/same-origin.ts`) · tạo quán thật đầu tiên và ghi thẻ.
 

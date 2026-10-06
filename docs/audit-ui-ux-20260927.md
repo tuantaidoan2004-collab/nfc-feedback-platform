@@ -45,8 +45,8 @@ Thứ tự đề xuất ở mục 4. Việc hạ tầng gấp (Vercel 29/09) ở
 - Cơ sở dữ liệu nằm trên laptop thì sao lưu thành chuyện sống còn (`sao-luu.md`).
 - Dùng làm **máy thử** thì rất hợp: chạy đúng bộ production trên máy mình trước khi đổi chỗ.
 
-**Tài chốt 27/09:** dùng **Vercel Pro (dùng thử) tới 29/09**, sau đó chuyển sang **VPS** chạy đúng bộ I1 (`tu-chay.md`). Trang chính lên
-production được trong thời gian Pro; **từ 29/09 phải đã chạy trên VPS, hoặc trả Pro thêm** — ở Hobby thì trang chính vi phạm luật dùng thương mại.
+**Tài chốt 06/10 (thay 27/09):** **giữ Vercel Pro** cho app; không chuyển app sang VPS. VPS chỉ còn để chạy tool Google Maps khi
+Tài thuê (`rieng/kich-ban.md` mục 5.3). Bộ I1 (`tu-chay.md`) giữ làm đường thoát khỏi Vercel.
 
 ## 2. Mức sẵn sàng từng tầng
 
@@ -181,7 +181,7 @@ không phải biết gì về Google Cloud.
 3. **Mã QR ngân hàng và số Zalo** cho tab Thanh toán — lưu trong cài đặt admin, **không** đưa vào GitHub (`AGENTS.md`).
 4. **Kịch bản video 3 phút** (Claude viết nháp khi Tài muốn; dựng bằng HyperFrames).
 5. **Search Console:** xác minh tên miền bằng bản ghi DNS, sau khi trang chính được mở lập chỉ mục (A1).
-6. ~~Chọn Vercel Pro hay VPS~~ — **Tài chốt 27/09: Pro tới 29/09, rồi VPS** (mục 1). Còn: dựng VPS trước 29/09.
+6. Vercel Pro hay VPS — **Tài chốt 06/10: giữ Vercel Pro** (mục 1).
 
 ## Nguồn
 

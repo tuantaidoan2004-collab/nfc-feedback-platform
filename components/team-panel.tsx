@@ -15,7 +15,7 @@ import styles from './owner-app.module.css';
  */
 const ALL = Object.keys(PERMISSION_LABELS) as Permission[];
 const ERRORS: Record<string, string> = {
-  HANDLE_TAKEN: '@handle này đã có người dùng.', EMAIL_TAKEN: 'Email này đã có tài khoản.', INVALID_HANDLE: '@handle cần 3–64 ký tự: chữ thường không dấu, số, . _ -',
+  TEAM_PLAN_REQUIRED: 'Tài khoản nhân viên thuộc gói Đội ngũ. Nâng gói ở Cài đặt → Thanh toán rồi mời lại.', HANDLE_TAKEN: '@handle này đã có người dùng.', EMAIL_TAKEN: 'Email này đã có tài khoản.', INVALID_HANDLE: '@handle cần 3–64 ký tự: chữ thường không dấu, số, . _ -',
   INVALID_EMAIL: 'Email chưa đúng.', ROLE_ABOVE_YOU: 'Bạn chỉ gán được vai có quyền không vượt quá quyền của mình.', PERMISSION_REQUIRED: 'Bạn chưa có quyền làm việc này.',
   OWNER_ROLE_REQUIRED: 'Chỉ chủ shop làm được việc này.', ROLE_IN_USE: 'Vai đang có người giữ. Đổi vai cho họ trước khi xoá.',
   ROLE_NAME_TAKEN: 'Đã có vai trùng tên.', INVALID_ROLE: 'Tên vai 1–30 ký tự; biểu tượng tối đa 8 ký tự, không khoảng trắng.',

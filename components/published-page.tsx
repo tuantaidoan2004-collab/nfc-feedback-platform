@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { publicPage } from '@/server/publishing-runtime';
 import { PublishingError } from '@/lib/publishing/config';
+import { ShopUnpaid } from '@/lib/publishing/repository';
 import CanvasPage from './canvas/render';
 
 type Target = {slug:string}|{code:string}|{previewToken:string};
@@ -28,6 +29,11 @@ export default async function PublishedPage({target}:{target:Target}) {
   catch (error) {
     // Vòng đời trang (migration 026): a closed page's link no longer exists; a paused one says it is paused.
     if (error instanceof PublishingError && error.code === 'PAGE_CLOSED') notFound();
+    // Unpaid past 14 days (kịch bản mục 3b): the card still works, straight to the shop's own Google review page.
+    if (error instanceof ShopUnpaid) {
+      if (error.googleUrl) redirect(error.googleUrl);
+      return <main className="dashboard-wrap" data-shop-unpaid><h1>Quán tạm dừng</h1><p>Trang của quán đang tạm dừng. / This page is paused for now.</p></main>;
+    }
     if (error instanceof PublishingError && error.code === 'PAGE_PAUSED') return <main className="dashboard-wrap" data-page-paused>
       <h1>Trang tạm ngừng</h1><p>Quán đang tạm ngừng trang này. Vui lòng quay lại sau. / This page is paused for now. Please come back later.</p></main>;
     return <main className="dashboard-wrap"><h1>Trang chưa sẵn sàng</h1><p>Vui lòng thử lại sau. / Please try again later.</p></main>;

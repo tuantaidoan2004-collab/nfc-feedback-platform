@@ -11,10 +11,14 @@ import styles from './studio.module.css';
 import { usePulse } from './use-pulse';
 import { TAB_KEYS, TAB_LABELS, type TabKey } from './tabs-config';
 import SupportBanner, { type SupportSession } from './support-banner';
+import { BillingStrip } from './billing-notice';
+import type { Billing } from '@/lib/billing/plans';
 
 const TAB_ICONS: Record<TabKey, Parameters<typeof Icon>[0]['name']> = { dashboard: 'dashboard', data: 'data', library: 'library', 'my-card': 'card', 'quan-ly': 'manage', 'cai-dat': 'settings' };
 
-export default function StudioFrame({ slug, name, theme, support, children }: { slug: string; name: string; theme: 'light' | 'dark' | 'system';
+export default function StudioFrame({ slug, name, theme, support, billing, children }: { slug: string; name: string; theme: 'light' | 'dark' | 'system';
+  /** The shop's plan: past its paid date, a strip says when the page goes off. */
+  billing: Billing;
   /** An administrator's support session: its strip sits above every screen. */
   support: SupportSession | null; children: ReactNode }) {
   const router = useRouter(), path = usePathname();
@@ -33,7 +37,9 @@ export default function StudioFrame({ slug, name, theme, support, children }: { 
   const dark = mode === 'dark' || (mode === 'system' && systemDark);
   const { pulse, mood } = usePulse(slug);
   const tabs: OrbTab[] = TAB_KEYS.map(key => ({ key, label: TAB_LABELS[key], href: `/app/${slug}/${key}`, icon: <Icon name={TAB_ICONS[key]} /> }));
-  return <div className={`qs ${styles.frame}`} data-theme={mode} data-mode={current ? 'dock' : 'home'} data-support={support ? '' : undefined}>
+  return <div className={`qs ${styles.frame}`} data-theme={mode} data-mode={current ? 'dock' : 'home'} data-support={support ? '' : undefined}
+    data-billing={billing.state === 'grace' ? 'grace' : undefined}>
+    <BillingStrip billing={billing} />
     {support && <SupportBanner slug={slug} session={support} />}
     <Orb tabs={tabs} mode={current ? 'dock' : 'home'} current={current ?? undefined} dark={dark} mood={mood} pulse={pulse}
       onNavigate={tab => router.push(tab.href)} />

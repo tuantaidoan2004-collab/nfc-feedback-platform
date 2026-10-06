@@ -6,6 +6,7 @@ import { googleUrlProblem } from '../publishing/policy';
 import { parsePlaceId, reviewLink } from '../google/place-id';
 import { OwnerSetupLinks, ownerEmail } from '../owner/setup-link';
 import { loginBucket, transaction, username } from '../owner/auth';
+import { BILLING_COLUMNS, billingRow } from '../billing/plans';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 import { shortCode, withShortCode } from '../short-code';
@@ -206,10 +207,11 @@ export class ShopProvisioning {
   async list() {
     const shops = await this.shopRows();
     const pages = (await this.pool.query('SELECT shop_id,count(*)::int n FROM pages GROUP BY shop_id')).rows as { shop_id: string; n: number }[];
-    return shops.map(shop => ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0 }));
+    return shops.map(({ billing_plan, billing_paid_until, billing_today, ...shop }) =>
+      ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0, billing: billingRow({ billing_plan, billing_paid_until, billing_today }) }));
   }
   private async shopRows() {
-    return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,s.is_template,
+    return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,s.is_template,${BILLING_COLUMNS('s')},
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id) tags,
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id AND t.state='active') active_tags,
         i.id owner_user_id,i.username owner_username,i.email owner_email,
@@ -217,7 +219,7 @@ export class ShopProvisioning {
         COALESCE((SELECT CASE WHEN g.permission='level' THEN g.level WHEN g.enabled THEN 'view' ELSE 'off' END FROM shop_support_grant_events g
           WHERE g.shop_id=s.id AND g.permission IN ('feedback','level') ORDER BY g.id DESC LIMIT 1),'off') support_level
       FROM shops s
-      LEFT JOIN owner_memberships_v2 m ON m.shop_id=s.id AND m.active
+      LEFT JOIN owner_memberships_v2 m ON m.shop_id=s.id AND m.active AND m.role='owner'
       LEFT JOIN owner_identities_v2 i ON i.id=m.user_id
       ORDER BY s.is_template DESC,s.slug`)).rows;
   }

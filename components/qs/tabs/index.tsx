@@ -9,9 +9,12 @@ import ManageTab from './manage';
 import SettingsTab from './settings';
 
 import type { TemplateCard } from '@/lib/canvas/templates';
+import type { Billing } from '@/lib/billing/plans';
 export type TabProps = { slug: string; name: string; origin: string; role: string; onboarding: boolean; query: Record<string, string | undefined>;
   /** The Library's templates and their groups (lib/canvas/templates.ts); empty on the other tabs. */
-  templates: TemplateCard[]; groups: string[] };
+  templates: TemplateCard[]; groups: string[];
+  /** The shop's plan and how far it is paid (kịch bản mục 3b). */
+  billing: Billing };
 export default function TabContent({ tab, ...props }: { tab: TabKey } & TabProps) {
   switch (tab) {
     case 'dashboard': return <DashboardTab {...props} />;

@@ -36,12 +36,13 @@ Tài yêu cầu 2026-09-20: một tệp gom mọi thứ Google cấm, để **kh
 2. **Không hỏi sao trước rồi mới hiện Google.** Không dẫn khách chấm thấp rời trang. Góp ý riêng là **thêm** kênh, không **thay** Google.
 3. **Không điền sẵn số sao** sang Google (chốt 17/09).
 4. **Không có tính năng nào nối ưu đãi với đánh giá Google**: không "đánh giá để nhận quà", không mã giảm giá sau khi bấm Google, không bốc thăm cho người đã đánh giá, không điểm thưởng theo đánh giá.
-5. **Không có bảng xếp hạng hay chỉ tiêu đánh giá Google theo nhân viên**, không gắn tên nhân viên vào lời mời.
+5. **Không có bảng xếp hạng hay chỉ tiêu đánh giá Google theo nhân viên**, không gắn tên nhân viên vào lời mời, và **không cho nhân viên đánh dấu một đánh giá Google là "do em"** (Tài đề xuất 06/10, bỏ vì chạm luật này): chủ sẽ chấm nhân viên theo con số đó, thành chỉ tiêu ngầm, rồi nhân viên nhờ khách nhắc tên — cả hai Google cấm từ 04/2026, phạt rơi vào hồ sơ của quán. Ghi công nhân viên chỉ ở việc hợp luật: trang/sự kiện họ đề xuất, góp ý riêng họ xử lý xong, lời khen khách tự viết trong góp ý riêng.
 6. **Không có chế độ "máy của quán"** để khách đánh giá trên thiết bị dùng chung (kiosk, máy tính bảng trên quầy).
 7. **Không gợi ý nội dung** cho đánh giá Google (không câu mẫu, không từ khoá, không "hãy nhắc tên…").
 8. Nội dung marketing trên trang khách (sự kiện, trò chơi, ưu đãi — xem `ideas-curiosity.md`) **không được phụ thuộc** vào việc khách có bấm Google hay không, và **không đặt cạnh** nút Google theo kiểu gợi ý trao đổi. Kể cả popup cảm ơn trước khi sang Google và lúc khách quay lại tab cũ (27/09): chỉ lời cảm ơn, không ưu đãi, không nội dung chỉ dành cho người đã bấm.
 9. Không tự động đăng, không đăng hộ, không "giúp khách viết" đánh giá bằng AI.
 10. Không lấy chỉ số "số đánh giá Google tăng" làm mục tiêu hiển thị cho nhân viên. Số liệu Google (khi nối API) chỉ hiển thị cho chủ shop, ghi rõ là **ước đoán**. Cưỡng chế từ 05/10 (khi có số thật từ tool Google Maps): máy chủ trả điểm và tổng số đánh giá Google **chỉ cho vai chủ quán** (`lib/google/business.ts` `status`, `lib/owner/overview.ts`); thành viên có quyền góp ý vẫn đọc từng đánh giá ở Data. Test trong `repository-tests/onboarding.spec.ts`.
+11. **Không có chỗ để châm chọc đánh giá hay khách** (Tài đề xuất "hùa nhau châm chọc đánh giá xấu" 06/10, bỏ). Không phải luật Google mà là luật của nền tảng: một ảnh chụp màn hình lọt ra là khủng hoảng của quán, và tên nền tảng nằm trong ảnh. Ghi chú và bình luận nội bộ ở Data là để xử lý vấn đề.
 
 ## 2b. Một sản phẩm thật đang bán đúng thứ mục 2 cấm (22/09/2026)
 
@@ -64,7 +65,7 @@ Không lát nào được lấy sản phẩm này làm tham chiếu tính năng.
 
 ## 3. Việc shop phải làm và không làm (đưa vào hướng dẫn một trang khi bàn giao shop)
 
-**Nên:** đặt thẻ ở chỗ khách tự thấy (bàn, quầy); câu mời trung lập kiểu "Cảm nhận của bạn giúp quán tốt hơn"; trả lời mọi đánh giá, kể cả đánh giá chê, lịch sự; dùng phần góp ý riêng để xử lý vấn đề thật.
+**Nên:** đặt thẻ ở chỗ khách tự thấy (bàn, quầy); câu mời trung lập kiểu "Cảm nhận của bạn giúp quán tốt hơn"; nhân viên nói một câu trung lập với **mọi** khách lúc tính tiền rồi **không nhìn** khách thao tác, vd "anh ơi lưu mã này giúp em, khi nào anh thấy quán em sao thì để lại đánh giá giúp em nhé" — **không** nói "khi nào thấy ưng thì…" (chỉ mời người hài lòng là mời có chọn lọc); trả lời mọi đánh giá, kể cả đánh giá chê, lịch sự; dùng phần góp ý riêng để xử lý vấn đề thật.
 
 **Không:** đứng chờ khách đánh giá, cầm điện thoại khách, đưa máy của quán; tặng món, giảm giá, bốc thăm cho người đánh giá; giao chỉ tiêu cho nhân viên; nhờ nhân viên, người nhà đánh giá; nhắn khách sửa đánh giá xấu để đổi quà; chạy chiến dịch làm số đánh giá tăng vọt trong vài ngày.
 

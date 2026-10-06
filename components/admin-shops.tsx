@@ -4,15 +4,21 @@ import styles from './admin.module.css';
 import { buttonClass } from './platform/ui';
 
 import { PLACE_ID_FINDER } from '@/lib/google/place-id';
+import { PLANS, viDate, type Billing } from '@/lib/billing/plans';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
   tags: number; active_tags: number;
   owner_user_id: string | null; owner_username: string | null; owner_email: string | null; last_seen: string | null;
   support_level: 'off' | 'view' | 'edit' | 'full';
-  /** Pages, and what they would cost a month (lát P5, nothing charged yet). */
   pages: number;
+  /** Gói và hạn (kịch bản mục 3b). */
+  billing: Billing;
 };
+const PLAN_NAMES = Object.fromEntries(PLANS.map(plan => [plan.key, plan.name])) as Record<string, string>;
+/** One line for the operator: which plan, until when, and what the shop's guests see now. */
+const billingText = (b: Billing) => b.state === 'trial' ? `Chưa tính phí${b.plan ? ` · ${PLAN_NAMES[b.plan]}` : ''}`
+  : `${PLAN_NAMES[b.plan!]} · ${b.state === 'active' ? 'tới' : 'hết hạn'} ${viDate(b.paidUntil!)}${b.state === 'grace' ? ` · tắt trang từ ${viDate(b.offFrom!)}` : b.state === 'off' ? ' · trang đã tắt' : ''}`;
 /** The owner's four positions, as the operator sees them (migration 012). */
 /** What each publishing state means to the operator (migration 003); the raw word stays on data-publishing-state. */
 const STATES: Record<string, string> = { draft: 'nháp', active: 'đang chạy', suspended: 'bị treo' };
@@ -35,6 +41,18 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [standIn, setStandIn] = useState<ShopRow | null>(null);
   const [templateLink, setTemplateLink] = useState<string | null>(null);
+  const [planFor, setPlanFor] = useState<ShopRow | null>(null);
+
+  const savePlan = async (row: ShopRow, form: FormData) => {
+    setBusy(true); setError('');
+    const plan = String(form.get('plan') ?? ''), until = String(form.get('paidUntil') ?? '');
+    try {
+      const response = await fetch('/gov/api/shops/plan', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: row.id, plan: plan || null, paidUntil: plan ? until || null : null }) });
+      if (!response.ok) { setError(response.status === 400 ? 'Chọn gói và một ngày hợp lệ (bỏ gói thì để trống ngày).' : failed(response.status)); return; }
+      setPlanFor(null); setError(`Đã lưu gói cho ${row.name}.`); await refresh();
+    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  };
 
   const refresh = async () => {
     const response = await fetch('/gov/api/shops', { credentials: 'same-origin' });
@@ -132,6 +150,21 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
       {error && <p className={styles.muted} data-impersonate-error>{error}</p>}
     </section>}
 
+    {planFor && <section className={styles.panel} data-plan-form>
+      <h2>Gói của {planFor.name}</h2>
+      <p className={styles.muted}>Quán bạn đi chào: chọn gói và ngày <strong>tặng tới</strong>. Tính hết ngày đó; quá hạn 14 ngày thì trang tắt và thẻ đưa
+        khách thẳng tới Google của quán. Bỏ gói = chưa tính phí, mọi thứ mở như giai đoạn trải nghiệm.</p>
+      <form className={styles.form} onSubmit={event => { event.preventDefault(); void savePlan(planFor, new FormData(event.currentTarget)); }}>
+        <label>Gói<select name="plan" defaultValue={planFor.billing.plan ?? 'basic'}>
+          {PLANS.map(plan => <option key={plan.key} value={plan.key}>{plan.name} · {plan.monthly.toLocaleString('vi-VN')}đ/tháng</option>)}
+          <option value="">Chưa tính phí (bỏ gói)</option></select></label>
+        <label>Trả / tặng tới ngày<input name="paidUntil" type="date" defaultValue={planFor.billing.paidUntil ?? ''} /></label>
+        <button className={buttonClass('primary')} disabled={busy}>Lưu gói</button>
+        <button type="button" className={buttonClass('quiet')} disabled={busy} onClick={() => setPlanFor(null)}>Huỷ</button>
+      </form>
+      {error && <p role="alert" className={styles.muted}>{error}</p>}
+    </section>}
+
     <section className={styles.panel}>
       <h2>Tạo shop mới</h2>
       <p className={styles.muted}>Một lần bấm tạo trang khách từ template đã chọn (mang sẵn tên shop), bản phát hành đầu tiên, một mã thẻ và tài khoản chủ shop chưa có mật khẩu.</p>
@@ -191,7 +224,7 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
         <button type="button" className={buttonClass('secondary')} onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
       <div className={styles.wide}>
         <table className={styles.table}>
-          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
+          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Gói</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
               <td data-label="Shop" className={styles.shopCell}>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
@@ -203,14 +236,17 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
               <td data-label="Thẻ">{row.active_tags}/{row.tags} hoạt động</td>
               <td data-label="Trang">{row.pages} trang</td>
               <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
+              <td data-label="Gói" data-billing-state={row.billing.state}>{row.is_template ? '—' : billingText(row.billing)}</td>
               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
               <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
-              <td className={styles.rowActions}><div>{row.owner_user_id && !row.is_template && <>
+              <td className={styles.rowActions}><div>{!row.is_template &&
+                <button className={buttonClass('secondary')} disabled={busy} onClick={() => { setError(''); setPlanFor(row); setTimeout(() => document.querySelector('[data-plan-form]')?.scrollIntoView({ block: 'start' }), 0); }}>Đặt gói</button>}
+                {row.owner_user_id && !row.is_template && <>
                 <button className={buttonClass('secondary')} disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>
                 <button className={buttonClass('caution')} disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
               </>}</div></td>
             </tr>)}
-            {!shops.length && <tr><td colSpan={9} className={styles.muted}>Chưa có shop nào.</td></tr>}
+            {!shops.length && <tr><td colSpan={11} className={styles.muted}>Chưa có shop nào.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -18,5 +18,5 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!onboarding.done && access.actor.kind === 'owner' && tab !== 'library') redirect('/bat-dau/tien-trinh');
   return <TabContent tab={tab as TabKey} slug={access.slug} name={access.name} origin={process.env.APP_ORIGIN ?? ''}
     role={access.actor.kind === 'owner' ? access.role : 'support'} onboarding={!onboarding.done} query={await searchParams}
-    templates={tab === 'library' ? templateCards() : []} groups={tab === 'library' ? TEMPLATE_GROUPS : []} />;
+    templates={tab === 'library' ? templateCards() : []} groups={tab === 'library' ? TEMPLATE_GROUPS : []} billing={access.billing} />;
 }

@@ -67,8 +67,8 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 ## 6. Còn chưa quyết
 
 Bảng đầy đủ các quyết định lớn chưa thực hiện ở [`kien-truc-nen-tang.md`](kien-truc-nen-tang.md) mục 6. Những điểm
-Tài phải chốt: đền bù khi tạm dừng khẩn cấp · thẻ chuyển giữa các trang · dữ liệu trang đã đóng giữ bao lâu · khi nào
-bắt đầu thu tiền. Đã quyết mà chưa làm: **cột `purpose` cho số điện thoại** (21/09 — phải có trước section nào xin số)
+Tài phải chốt: đền bù khi tạm dừng khẩn cấp · thẻ chuyển giữa các trang · dữ liệu trang đã đóng giữ bao lâu. (Thu tiền:
+chốt 06/10 — thu từ khi kích hoạt G2 chạy, `rieng/kich-ban.md` mục 3b.) Đã quyết mà chưa làm: **cột `purpose` cho số điện thoại** (21/09 — phải có trước section nào xin số)
 và **hạn giữ dữ liệu** (hạn chót 9/2027).
 
 ## 7. Dòng sự kiện hành vi — đã làm 21/09 (migration 020)
@@ -171,6 +171,26 @@ Khối này luôn nằm cuối tệp và **luôn ngắn**. Phiên mới đọc m
 Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-archive.md).
 
 ### Đang ở đâu
+
+**06/10 tối — mô hình kinh doanh mới (Lát 0, chỉ tài liệu).** Sau buổi phản biện "góc nhìn người ngoài", Tài chốt: ba gói
+**Cơ bản 50k · Sự kiện 70k · Đội ngũ 120k** (+ Chuỗi thoả thuận), collab 100k một lần, không giới hạn số trang; quán Tài đi chào
+được "tặng đến ngày…", vào bằng link đặt mật khẩu một lần qua Zalo; khách tự đến quét **10k** kích hoạt (trừ tháng đầu), **Tài
+bấm "Đã nhận"**; quá hạn **14 ngày** thì tắt trang, thẻ chuyển thẳng tới Google của quán (thay "khoá giữa" 16/09); onboarding "Bạn
+là…" ba lối; nhân viên xin vào quán, chủ luôn duyệt; collab = chỗ báo hiệu ở khúc A + khối khúc B theo `slot`; giữ **Vercel Pro**
+(thay kế hoạch VPS 29/09), VPS chỉ cho tool Google Maps sau này. **Bỏ:** ghi công đánh giá Google cho nhân viên, chỗ châm chọc
+đánh giá (`google-policy.md` luật 5, 11). Nguồn: `rieng/kich-ban.md` mục 3, 3b, 7, 8, 10 (2b), 13; nguyên văn ở
+`rieng/thiet-ke-goc.md` mục 06/10. **Việc kế: G1–G5** ở đầu `roadmap-slices.md`, trước loạt template đẹp.
+
+**06/10 — G1 gói và hạn dùng (chưa commit, chờ Tài xem ảnh).** Trạng thái tiền của quán chỉ là `shops.plan` (`basic`/`events`/
+`team`) + `shops.paid_until` (ngày, giờ Việt Nam); một hàm thuần `billingOf` (`lib/billing/plans.ts`) cho ra `trial` (chưa tính
+phí: mở hết) · `active` · `grace` (≤ 14 ngày sau hạn) · `off`. Cổng: trang khách và thẻ (`PublishingResolver.live` →
+`ShopUnpaid` → chuyển 307 tới `shops.google_url`, không có link thì trang "Quán tạm dừng") · dashboard (`authorize` → 402
+`SHOP_UNPAID` trừ `shell`; layout chỉ hiện màn ghi lại thẻ bằng NFC Tools) · nhân viên (`TEAM_PLAN_REQUIRED` khi gói không có
+`team`, cả đăng nhập lẫn lời mời). `/gov` cột **Gói** + "Đặt gói" (`/gov/api/shops/plan`, sổ admin `shop.plan`); Pricing và
+Cài đặt → Thanh toán theo ba gói; dải nhắc nổi ở chân màn khi `grace`. Sửa kèm: bảng `/gov` từng lặp một quán theo mỗi nhân viên
+(chỉ nối chủ quán). Test `repository-tests/billing.spec.ts`. Bảy bộ xanh tại máy 06/10 (chưa commit): repository 170 · contracts 111 ·
+client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 · admin 11, mỗi lệnh harness thêm 2 ca production gate. **Lên production cần thêm hai cột `shops.plan`, `shops.paid_until`**
+vào bước lược đồ còn chờ viết (cùng đợt chọn mẫu và Google Maps).
 
 **05/10 — đổi hướng lớn, đang dựng lại.** Nguồn chính: `rieng/kich-ban.md` (kịch bản), `rieng/thiet-ke-goc.md` (nguyên văn
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`

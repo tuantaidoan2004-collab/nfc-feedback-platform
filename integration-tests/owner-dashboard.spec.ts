@@ -425,12 +425,12 @@ test('team: invite a Nhân viên by link, they see only what the role allows; ro
  expect(errors).toEqual([]);
 });
 
-test('Cài đặt → Thanh toán shows the two plans, monthly and yearly, while everything is free in the trial',async({page,f})=>{
+test('Cài đặt → Thanh toán shows the three plans, monthly and yearly, while a shop not yet billed has everything free',async({page,f})=>{
  await login(page,f.users[0]);await page.goto('/app/one/cai-dat?view=billing');
  await expect(page.getByText('Đang trong giai đoạn trải nghiệm — mọi thứ miễn phí')).toBeVisible();
- await expect(page.getByText('100.000đ',{exact:false})).toBeVisible();await expect(page.getByText('120.000đ',{exact:false})).toBeVisible();
+ for(const price of ['50.000đ','70.000đ','120.000đ'])await expect(page.getByText(price,{exact:false})).toBeVisible();
  await page.getByRole('button',{name:/Theo năm/}).click();
- await expect(page.getByText('1.000.000đ',{exact:false})).toBeVisible();await expect(page.getByText('1.200.000đ',{exact:false})).toBeVisible();
+ for(const price of ['500.000đ','700.000đ','1.200.000đ'])await expect(page.getByText(price,{exact:false})).toBeVisible();
 });
 
 test('H1: the giao diện chính works under its policy -- every tab, the page pictures, a page sheet -- and nothing is refused',async({page,f})=>{

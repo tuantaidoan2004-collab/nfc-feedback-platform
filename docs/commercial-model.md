@@ -47,21 +47,22 @@ Một trường đang trộn hai nghĩa. Tách:
 | `publishing_state` (đã có) | Admin, thủ công | Vận hành: `draft`/`active`/`suspended`. Dùng khi vi phạm, ngừng hợp đồng, shop đóng cửa |
 | `paid_until` (mới) | Hệ thống thanh toán | **Chỉ là một ngày.** Không mang logic quyền |
 
-Ba cổng đọc khác nhau — **khoá giữa**:
+Các cổng đọc khác nhau (Tài 06/10, **thay "khoá giữa"** 16/09 — khi đó trang khách chạy mãi):
 
-| Cổng | Điều kiện | Khi quá hạn |
-|---|---|---|
-| Trang khách | **chỉ** `publishing_state='active'` | **vẫn chạy**, khách không bị ảnh hưởng |
-| Ghi visit | `active` **và** còn hạn | **ngừng ghi**, dữ liệu đứng lại |
-| Dashboard | `active` **và** còn hạn | vào được, **chỉ xem lịch sử**, không sửa |
+| Cổng | Còn hạn | Quá hạn ≤ 14 ngày | Quá hạn > 14 ngày |
+|---|---|---|---|
+| Trang khách, thẻ `/t/<mã>`, link trang | trang của quán | vẫn là trang của quán | **chuyển thẳng tới link đánh giá Google của quán** (quán chưa có link Google: trang "Quán tạm dừng", không nút) — khách không bao giờ thấy trang lỗi |
+| Dashboard | đủ quyền theo gói | đủ quyền, nhắc trả tiền | **chỉ còn popup** hướng dẫn dùng app NFC ghi link của quán vào lại thẻ, link soạn sẵn để copy |
+
+Trả lại thì trang bật lại. Gói nào mở quyền gì và cách kích hoạt: `rieng/kich-ban.md` mục 3, 3b (chỉ có trên máy Tài).
 
 Kỷ luật bắt buộc: `paid_until` chỉ được là một ngày. Mọi cám dỗ thêm cột `is_locked` sẽ dẫn về đúng mớ một-trường-hai-nghĩa hiện tại. **Tiền quyết định ngày, cổng quyết định quyền.**
 
 ## 3. Bảng giá
 
-> **Đã thay (25–26/09):** bảng giá bên dưới — gói theo chi nhánh, phí theo số thẻ — không còn dùng. Giá nay theo
-> **trang**, mỗi template một giá, hai suất miễn phí, template 6 miễn phí; **thẻ không tính phí** trong app (Tài: thẻ chỉ là vật
-> chứa link, bán riêng). Xem `goi-va-trang.md` mục 4 và 14. Phần dưới giữ làm lịch sử.
+> **Đã thay (06/10):** giá nay là **ba gói mỗi quán** — Cơ bản 50k · Sự kiện 70k · Đội ngũ 120k (gồm Sự kiện) · Chuỗi thoả
+> thuận; collab 100k trả một lần, cần gói Sự kiện; không giới hạn số trang; thẻ NFC bán riêng. Nguồn: `rieng/kich-ban.md`
+> mục 3. Bảng giá bên dưới (theo chi nhánh, theo số thẻ) và bảng theo template của 25/09 đều không còn dùng; giữ làm lịch sử.
 
 Đơn vị tính là **chi nhánh**, không phải dashboard.
 
@@ -126,20 +127,20 @@ Khách **gia hạn năm liên tục** được giữ mức **giảm 17%** vĩnh 
 
 ## 6. Chu kỳ, ân hạn, vòng đời dữ liệu
 
-- Tháng đầu **miễn phí**; từ tháng sau **trả trước mới dùng**, mọi gói.
-- **Ân hạn 7 ngày**, áp cả cho tháng dùng thử. Quyền khoá có hiệu lực từ **đúng thời điểm hết hạn gói**; 7 ngày là chính sách vận hành, không phải quyền của khách.
+- **Đã thay 06/10:** quán Tài đi chào được "tặng đến ngày…" (Tài đặt ở `/gov`); khách tự đến quét 10k kích hoạt, trừ vào
+  tháng đầu; trả trước mới dùng; **ân hạn 14 ngày** rồi tắt trang như mục 2. Quyền khoá có hiệu lực từ **đúng thời điểm hết hạn gói**; 7 ngày là chính sách vận hành, không phải quyền của khách.
 - `grace_days` **để trong bảng, không hardcode**. Shop hay trễ hạ về 0, khách lâu năm nới thêm. Chính sách thành dữ liệu, đổi không cần deploy.
-- Quá ân hạn: **đóng băng dữ liệu** (khoá giữa ở mục 2).
+- Quá ân hạn: tắt trang, thẻ chuyển tới Google của quán (mục 2).
 - **3 tháng không hoạt động** → hệ thống báo admin → Tài xoá dữ liệu theo chính sách an toàn thông tin.
 - **Bản ghi gửi về email chủ shop** trước khi xoá, kèm nhật ký truy cập. Tài **chấp nhận** việc audit ghi lại cả lần chính mình vào xem cuối cùng, kể cả khi khách dùng nó để khiếu nại.
 
 ### Thẻ bán đứt, thuê bao riêng
 
-Thẻ là **hàng hoá bán một lần**; thuê bao là **dịch vụ tháng**. Không trả tiếp thì mất dashboard, **không mất thẻ** — thẻ vẫn dẫn khách tới Google review. Khách có sẵn thẻ từ nguồn khác vẫn mua được dịch vụ. Tách bạch này phải nằm trong điều khoản để việc bán thẻ không bị kéo vào tranh chấp thuê bao.
+Thẻ là **hàng hoá bán một lần**; thuê bao là **dịch vụ tháng**. Không trả tiếp thì mất dashboard, **không mất thẻ** — thẻ vẫn dẫn khách tới Google review (nền tảng chuyển thẳng, và chủ quán được hướng dẫn ghi link của quán vào lại thẻ). Khách có sẵn thẻ từ nguồn khác vẫn mua được dịch vụ. Tách bạch này phải nằm trong điều khoản để việc bán thẻ không bị kéo vào tranh chấp thuê bao.
 
 ## 7. Thanh toán
 
-Giai đoạn đầu: **chuyển khoản + VietQR**. Không dùng cổng thẻ — phí ~2–3% trên 100k không đáng, thường yêu cầu đăng ký kinh doanh mà Tài chưa có, và thêm một bề mặt bảo mật. Tính lại khi đã đăng ký kinh doanh và đủ lượng khách.
+Giai đoạn đầu: **chuyển khoản + VietQR**, **Tài bấm "Đã nhận" ở `/gov`** (Tài 06/10: chưa nối dịch vụ báo số dư; kiến trúc dưới đây vẫn giữ để nối sau). Không dùng cổng thẻ — phí ~2–3% trên 100k không đáng, thường yêu cầu đăng ký kinh doanh mà Tài chưa có, và thêm một bề mặt bảo mật. Tính lại khi đã đăng ký kinh doanh và đủ lượng khách.
 
 **Kiến trúc bắt buộc — nguồn thanh toán phải cắm rời:**
 
