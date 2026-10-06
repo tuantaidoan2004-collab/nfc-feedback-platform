@@ -15,7 +15,7 @@ Nguồn: `rieng/kich-ban.md` mục 3, 3b, 7, 8, 10 (2b), 13. Làm lần lượt 
 |---|---|---|
 | G1 ✅ 06/10 `5792e71` | Gói Cơ bản 50k / Sự kiện 70k / VIP 120k (sửa cuối ngày: nhân viên ở mọi gói, VIP = mọi địa chỉ quán) thay 100k/120k (`lib/billing/plans.ts`), quyền mở khoá theo gói, "tặng đến ngày…" ở `/gov`, quá hạn 14 ngày → tắt trang, thẻ và link chuyển tới Google của quán, dashboard chỉ còn popup ghi lại thẻ | Extra |
 | G2 ✅ 06/10 | Onboarding "Bạn là…" ba lối (chủ mới / Admin Tài tạo sẵn → Zalo → link đặt mật khẩu một lần / nhân viên); khách tự đến quét VietQR 10k, trừ tháng đầu; Tài bấm "Đã nhận" | Extra |
-| G3 | Nhân viên xin vào quán bằng @quán hoặc link mời, chủ luôn duyệt; nhật ký ai tạo/nhờ sửa gì; đếm số lần Admin Tài dựng/sửa | Extra |
+| G3 ✅ 06/10 | Nhân viên xin vào quán bằng @chủ quán / link trang / link thẻ / mã quán, chủ hoặc người có quyền Thành viên duyệt và chọn vai; nhật ký `member.join`/`member.decline` (nhờ sửa đã có `edit.request`); `/gov` đếm số lần Admin Tài dựng/sửa | Extra |
 | G3b | VIP: thêm địa chỉ quán (tên, Place ID), chuyển qua lại giữa các quán; mọi địa chỉ dùng chung gói VIP của tài khoản (`kich-ban.md` mục 13) | Extra |
 | G4 | Collab: chỗ báo hiệu ở khúc A + khối khúc B theo `slot`, danh mục `/gov`, quán mua 100k một lần; dựng lại "Công cụ làm việc" (Tiệm Bản Quyền) trên canvas | Max |
 | G5 | Khúc "Vì sao có Quite Sensational" trên landing — nháp trong `rieng/`, Tài duyệt | High |

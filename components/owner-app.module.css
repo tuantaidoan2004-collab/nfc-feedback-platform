@@ -263,7 +263,7 @@ fieldset.panel legend { float: left; width: 100%; margin-bottom: 10px; font-size
 .inviteForm { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .inviteForm h3 { grid-column: 1 / -1; margin: 0; font-size: 15px; }
 .inviteForm label, .activityFilters label, .roleEditorRow label { display: grid; gap: 6px; font-size: 13px; font-weight: 650; }
-.inviteForm button, .roleEditor button:not(.textButton):not(.dangerText), .addRole, .setupLink button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: linear-gradient(180deg, var(--p-accent), var(--p-accent-2)); color: var(--p-accent-ink); font-weight: 700; }
+.inviteForm button, .roleEditor button:not(.textButton):not(.dangerText), .addRole, .setupLink button, .joinApprove { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: linear-gradient(180deg, var(--p-accent), var(--p-accent-2)); color: var(--p-accent-ink); font-weight: 700; }
 .setupLink { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--p-warn-soft); border: 1px solid var(--p-line-strong); display: grid; gap: 8px; }
 .setupLink p { margin: 0; font-size: 14px; }
 .setupLink code { overflow-wrap: anywhere; font-size: 13px; }

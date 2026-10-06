@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { OwnerError, openSession, passwordKey, transaction, username, validPassword } from '../owner/auth';
 import { ownerEmail } from '../owner/setup-link';
 import { shortCode } from '../short-code';
+import { findShop, joinMessage, openJoinRequest, type JoinShop } from './join';
 
 /**
  * Đăng ký USER — bước 1 của onboarding (kịch bản mục 4, Tài 05/10: "đăng ký xong dùng được ngay"). The account, its shop
@@ -13,6 +14,9 @@ import { shortCode } from '../short-code';
  * A public form that runs scrypt and writes rows, so three brakes, all in the database: the one KDF slot owner sign-in
  * shares (never two 128 MB hashes at once), a per-hour limit for the platform and one per address, kept in the sign-in
  * limiter's table. Either a password the owner chose, or their Google account (no password stored then).
+ *
+ * Staff (G3, `join`): the same account, but no shop of its own — a request to join the shop they named instead, which its
+ * owner approves (lib/account/join.ts). The shop is looked up before the account exists, so a wrong name costs nothing.
  */
 export const SIGNUP_LIMITS = { perHour: 60, perAddressPerHour: 5 } as const;
 const addressBucket = (address: string) => `signup-address:${createHash('sha256').update(`nfc-signup-address-v1\0${address}`).digest('hex')}`;
@@ -23,12 +27,24 @@ export type BusinessKind = typeof BUSINESS_KINDS[number];
 /** The owner's own name (1–60 characters, no markup) and what the shop is; both optional, both asked on the sky screens. */
 export const displayName = (value: unknown) => typeof value === 'string' && value.trim() && value.trim().length <= 60 && !/[\u0000-\u001f<>]/.test(value) ? value.trim() : null;
 export const businessKind = (value: unknown): BusinessKind | null => BUSINESS_KINDS.includes(value as BusinessKind) ? value as BusinessKind : null;
-export type SignupInput = { username: unknown; displayName?: unknown; kind?: unknown } & ({ email: unknown; password: unknown } | { google: { sub: string; email: string } });
+export type SignupInput = { username: unknown; displayName?: unknown; kind?: unknown; join?: unknown; message?: unknown } & ({ email: unknown; password: unknown } | { google: { sub: string; email: string } });
 
 export class AccountSignup {
   constructor(private pool: Pool) {}
 
+  /** An owner: the account, its shop, a session. */
   async create(input: SignupInput, address: string | null, previous?: string) {
+    const made = await this.make({ ...input, join: undefined, message: undefined }, address, previous);
+    return { ...made, slug: made.slug as string };
+  }
+  /** Staff (G3): the account, a request to join the shop `input.join` names, a session. */
+  async createStaff(input: SignupInput & { join: unknown }, address: string | null, previous?: string) {
+    if (input.join === undefined || input.join === null) throw new OwnerError(400, 'SHOP_NOT_FOUND');
+    const made = await this.make(input, address, previous);
+    return { ...made, join: made.join as JoinShop };
+  }
+
+  private async make(input: SignupInput, address: string | null, previous?: string) {
     const name = username(typeof input.username === 'string' ? input.username.replace(/^@/, '') : input.username);
     const google = 'google' in input ? input.google : null;
     const email = ownerEmail(google ? google.email : 'email' in input ? input.email : null);
@@ -36,6 +52,7 @@ export class AccountSignup {
     if (!email) throw new OwnerError(400, 'INVALID_EMAIL');
     const password = 'password' in input ? input.password : null;
     if (!google && !validPassword(password)) throw new OwnerError(400, 'WEAK_PASSWORD');
+    const joining = input.join !== undefined && input.join !== null, message = joining ? joinMessage(input.message) : null;
     const result = await transaction(this.pool, async db => {
       if (!google && !(await db.query("SELECT pg_try_advisory_xact_lock(hashtextextended('nfc-owner-login-v2',0)) locked")).rows[0].locked)
         return { error: 'TOO_MANY_ATTEMPTS' } as const;
@@ -51,6 +68,9 @@ export class AccountSignup {
       }
       if ((await db.query('SELECT 1 FROM owner_identities_v2 WHERE username=$1 OR email=$2', [name, email])).rowCount) return { error: 'OWNER_ALREADY_EXISTS' } as const;
       if (google && (await db.query('SELECT 1 FROM owner_identities_v2 WHERE google_sub=$1', [google.sub])).rowCount) return { error: 'GOOGLE_ALREADY_LINKED' } as const;
+      // Answered, not thrown: the limiter rows above must commit, or naming shops at random would cost nothing.
+      let joinShop: JoinShop | null = null;
+      if (joining) try { joinShop = await findShop(db, input.join); } catch (error) { if (error instanceof OwnerError) return { error: error.code as 'SHOP_NOT_FOUND' | 'SHOP_AMBIGUOUS' }; throw error; }
       const salt = randomBytes(16).toString('hex');
       const key = google ? randomBytes(32).toString('hex') : (await passwordKey(password as string, salt)).toString('hex');
       // A savepoint, so a name taken by a racing twin comes back as an answer and the limiter rows above still commit.
@@ -58,6 +78,10 @@ export class AccountSignup {
       try {
         const userId = (await db.query('INSERT INTO owner_identities_v2(username,password_salt,password_key,email,google_sub,display_name)VALUES($1,$2,$3,$4,$5,$6)RETURNING id',
           [name, salt, key, email, google?.sub ?? null, displayName(input.displayName)])).rows[0].id as string;
+        if (joinShop) {
+          await openJoinRequest(db, userId, joinShop, message);
+          return { userId, username: name, slug: null, join: joinShop, session: await openSession(db, userId, previous) };
+        }
         let shop: { id: string; slug: string } | undefined;
         for (let attempt = 0; attempt < 5 && !shop; attempt++) {
           await db.query('SAVEPOINT shop');
@@ -71,14 +95,15 @@ export class AccountSignup {
         if (!shop) throw new OwnerError(503, 'SERVICE_UNAVAILABLE');
         await db.query("INSERT INTO owner_memberships_v2(user_id,shop_id,role)VALUES($1,$2,'owner')", [userId, shop.id]);
         const session = await openSession(db, userId, previous);
-        return { userId, username: name, slug: shop.slug, session };
+        return { userId, username: name, slug: shop.slug as string | null, join: null as JoinShop | null, session };
       } catch (error) {
         if (!duplicate(error)) throw error;
         await db.query('ROLLBACK TO SAVEPOINT signup');
         return { error: 'OWNER_ALREADY_EXISTS' } as const;
       }
     });
-    if ('error' in result) throw new OwnerError(result.error === 'OWNER_ALREADY_EXISTS' || result.error === 'GOOGLE_ALREADY_LINKED' ? 409 : 429, result.error!);
+    if ('error' in result) throw new OwnerError(result.error === 'SHOP_NOT_FOUND' ? 404
+      : ['OWNER_ALREADY_EXISTS', 'GOOGLE_ALREADY_LINKED', 'SHOP_AMBIGUOUS'].includes(result.error!) ? 409 : 429, result.error!);
     return result;
   }
 }

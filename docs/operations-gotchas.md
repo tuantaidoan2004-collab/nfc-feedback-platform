@@ -818,3 +818,10 @@ did reaches the log": `page_opened` ghi `since_open_ms` = 1 thay vì 0. `lib/cli
 một lần cho `openedAt`, rồi chạy đồng bộ phần đầu của việc dựng sink, rồi gọi `Date.now()` lần nữa cho `at`; mili-giây nhảy giữa
 hai lần là lệch. Lỗi có từ trước (G2 không đụng tới), lộ ra khi máy bận. Sửa: đọc đồng hồ một lần, dùng cho cả hai. Khi một mốc
 thời gian phải bằng một mốc khác, lấy cùng một biến, đừng đọc lại.
+
+**Ca D4c (`admin-http.spec.ts`, đăng ký bằng Google) đỏ "element is not stable" ở nút "Tiếp tục với Google" — 06/10, chưa rõ gốc.**
+Xanh ở hai lượt bảy bộ của G2 trong ngày, rồi đỏ ba lần liền trong lượt G3, và **đỏ cả trên commit G2 (`d7dc718`) chạy lại trong
+worktree tạm** — nên không do code G3. Chrome cài trên máy đã tự cập nhật từ 154.0.8037.93 (bản đang mở) lên .98 (bản harness
+khởi động), nghi là nguyên nhân. Thử tái hiện bằng script Playwright riêng (390×844, Chrome .98) với nút email và một nút chèn giống
+nút Google: cả hai đứng yên, nên chưa tái hiện được ngoài harness. Chưa sửa code sản phẩm (chưa có bằng chứng). Lượt sau: chạy lại
+ca này sau khi Chrome khởi động lại hẳn, rồi bật `--trace on` nếu còn đỏ.

@@ -132,7 +132,7 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  const slug=(await admin.db.query("SELECT slug FROM shops WHERE name='Cà Phê Ban Mai'")).rows[0].slug;
  await expect(page.getByRole('cell',{name:slug})).toBeVisible();
  const shopRow=page.locator('tr',{has:page.getByRole('cell',{name:slug})});
- await expect(shopRow.locator('[data-label="Trang"]')).toHaveText('1 trang');
+ await expect(shopRow.locator('[data-label="Trang"]')).toHaveText('1 trangdựng/sửa 0 lần');await expect(shopRow.locator('[data-label="Trang"]')).toHaveAttribute('data-edits','0');
  await expect(shopRow.locator('[data-publishing-state]')).toHaveText('đang chạy');
  // Lát S1 (audit A5): on a phone each shop is a card whose cells name their column, and nothing scrolls sideways.
  await page.setViewportSize({width:390,height:844});

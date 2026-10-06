@@ -206,6 +206,18 @@ thêm** `shops.activated_at`, `payment_settings`, `payments` vào bước lượ
 sự kiện mở trang (`operations-gotchas.md`). Bảy bộ xanh tại máy 06/10 sau các sửa đó: repository 174 · contracts 111 · client 84 ·
 public 20 (+1 bỏ qua sẵn có) · publishing 19 (hai lần liền) · owner 13 · admin 11, mỗi lệnh harness thêm 2 ca production gate.
 
+**06/10 — G3 nhân viên tự xin vào quán (Tài chọn commit dù ca D4c còn đỏ vì môi trường; kiểm lại trước khi đẩy `main`).** **Việc kế: G3b** (thêm địa chỉ quán cho VIP, `rieng/kich-ban.md` mục 13), Tài làm ở phiên mới. Bảng `join_requests` (một yêu cầu mở mỗi người mỗi quán,
+outcome approved/declined/withdrawn). `lib/account/join.ts`: `findShop` nhận @chủ quán (chủ nhiều quán → `SHOP_AMBIGUOUS`, phải
+dán link), link trang, link thẻ `/t/<mã>`, mã quán; bỏ qua quán mẫu và quán không chạy; giới hạn 5 yêu cầu mở mỗi người, 30 mỗi
+quán. Đăng ký nhân viên `AccountSignup.createStaff` (tìm quán **trước** khi tạo tài khoản, lỗi trả về chứ không ném để bộ đếm
+chống spam vẫn ghi) → tài khoản không quán + yêu cầu → `/bat-dau/cho-duyet`; người đã có tài khoản xin qua `/api/start/join`.
+Chủ: `OwnerTeam.list` trả `requests` cho ai có quyền Thành viên; `change({op:'join'})` duyệt với vai (cùng luật như mời) hoặc từ
+chối, người bị gỡ trước đó vào lại trên cùng dòng thành viên. `/gov` cột Trang ghi "dựng/sửa N lần" (`edit_requests` đã phát
+hành). Test `repository-tests/join.spec.ts`. **Lên production cần thêm** bảng `join_requests` vào bước lược đồ còn chờ viết. Bảy bộ tại máy 06/10:
+repository 178 · contracts 111 · client 84 · public 20 (+1 bỏ qua sẵn có) · publishing 19 · owner 13 xanh; admin 10/11 — ca D4c (đăng
+ký Google) đỏ "not stable", **đỏ cả trên commit G2**, nghi do Chrome tự cập nhật (`operations-gotchas.md`); ca "/gov cột Trang"
+đã sửa theo cột mới, ca mạo danh đỏ một lần rồi xanh khi chạy lại.
+
 **05/10 — đổi hướng lớn, đang dựng lại.** Nguồn chính: `rieng/kich-ban.md` (kịch bản), `rieng/thiet-ke-goc.md` (nguyên văn
 + câu trả lời), `rieng/google-api.md`. `rieng/` **không bao giờ commit** (repo công khai). Dự án ở `~/Desktop/QuiteSensational`
 (thẻ Finder "Cam"); chạy local `node scripts/local.mjs`; test DB `node scripts/test-db.mjs`.

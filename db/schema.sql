@@ -2328,3 +2328,22 @@ CREATE TABLE payments (
 );
 CREATE UNIQUE INDEX payments_one_pending ON payments (shop_id) WHERE status = 'pending';
 CREATE INDEX payments_shop ON payments (shop_id, created_at DESC);
+
+--
+-- Nhân viên xin vào quán (G3, Tài 06/10, kịch bản mục 1 bước 5): tự gõ @chủ quán hay link trang của quán, chủ (hoặc người có
+-- quyền Thành viên) duyệt và chọn vai. Một yêu cầu đang mở mỗi người mỗi quán. outcome: approved · declined · withdrawn.
+--
+
+CREATE TABLE join_requests (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES owner_identities_v2(id) ON DELETE CASCADE,
+    message text CHECK (message IS NULL OR (char_length(message) BETWEEN 1 AND 200 AND message !~ '[<>[:cntrl:]]'::text)),
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid REFERENCES owner_identities_v2(id),
+    outcome text CHECK (outcome IS NULL OR outcome = ANY (ARRAY['approved'::text, 'declined'::text, 'withdrawn'::text])),
+    CHECK ((decided_at IS NULL) = (outcome IS NULL))
+);
+CREATE UNIQUE INDEX join_requests_one_open ON join_requests (shop_id, user_id) WHERE decided_at IS NULL;
+CREATE INDEX join_requests_shop_open ON join_requests (shop_id, created_at) WHERE decided_at IS NULL;

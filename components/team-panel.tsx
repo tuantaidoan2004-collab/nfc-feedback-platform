@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Member, Role } from '@/lib/owner/team';
+import type { JoinRequest, Member, Role } from '@/lib/owner/team';
 import type { Permission } from '@/lib/owner/auth';
 import { Avatar } from './profile-panel';
 import RoleBadge from './role-badge';
@@ -15,14 +15,14 @@ import styles from './owner-app.module.css';
  */
 const ALL = Object.keys(PERMISSION_LABELS) as Permission[];
 const ERRORS: Record<string, string> = {
-  HANDLE_TAKEN: '@handle này đã có người dùng.', EMAIL_TAKEN: 'Email này đã có tài khoản.', INVALID_HANDLE: '@handle cần 3–64 ký tự: chữ thường không dấu, số, . _ -',
+  REQUEST_NOT_FOUND: 'Yêu cầu này đã được xử lý.', ALREADY_MEMBER: 'Người này đã ở trong quán.', HANDLE_TAKEN: '@handle này đã có người dùng.', EMAIL_TAKEN: 'Email này đã có tài khoản.', INVALID_HANDLE: '@handle cần 3–64 ký tự: chữ thường không dấu, số, . _ -',
   INVALID_EMAIL: 'Email chưa đúng.', ROLE_ABOVE_YOU: 'Bạn chỉ gán được vai có quyền không vượt quá quyền của mình.', PERMISSION_REQUIRED: 'Bạn chưa có quyền làm việc này.',
   OWNER_ROLE_REQUIRED: 'Chỉ chủ shop làm được việc này.', ROLE_IN_USE: 'Vai đang có người giữ. Đổi vai cho họ trước khi xoá.',
   ROLE_NAME_TAKEN: 'Đã có vai trùng tên.', INVALID_ROLE: 'Tên vai 1–30 ký tự; biểu tượng tối đa 8 ký tự, không khoảng trắng.',
   NOT_ON_YOURSELF: 'Không tự đổi vai của chính mình.', OWNER_UNTOUCHABLE: 'Không đổi được chủ shop.',
   MEMBER_ALREADY_ACTIVE: 'Người này đã kích hoạt tài khoản. Quên mật khẩu thì liên hệ quản trị NFC để đặt lại.',
 };
-type Team = { roles: Role[]; members: Member[]; me: { userId: string; owner: boolean; permissions: Permission[] } };
+type Team = { roles: Role[]; members: Member[]; requests: JoinRequest[]; me: { userId: string; owner: boolean; permissions: Permission[] } };
 
 function RoleEditor({ role, onSave, onDelete, onCancel }: { role: Partial<Role>; onSave: (r: { name: string; icon: string | null; color: string; permissions: Permission[] }) => void;
   onDelete?: () => void; onCancel: () => void }) {
@@ -78,7 +78,10 @@ export default function TeamPanel({ endpoint }: { endpoint: string }) {
   return <>
     <section className={styles.panel} aria-label="Thành viên" data-team>
       <h2>Thành viên</h2>
-      <p className={styles.hint}>Mỗi người một tài khoản riêng; mọi thao tác của họ hiện trong Hoạt động. Người mới tự đặt mật khẩu bằng link dùng một lần (48 giờ), nên không ai khác biết mật khẩu của họ.</p>
+      {canManage && team.requests.length > 0 && <JoinRequests requests={team.requests} roles={assignable} least={least} busy={busy}
+        decide={(request, value) => void send('team', 'PATCH', { op: 'join', requestId: request.id, value },
+          value === false ? `Đã từ chối @${request.handle}.` : `Đã cho @${request.handle} vào quán.`)} />}
+      <p className={styles.hint}>Nhân viên tự xin vào bằng @tài khoản của bạn hoặc link trang của quán (trang Bắt đầu → Nhân viên của quán); bạn duyệt ở đây. Mỗi người một tài khoản riêng; mọi thao tác của họ hiện trong Hoạt động. Người mới tự đặt mật khẩu bằng link dùng một lần (48 giờ), nên không ai khác biết mật khẩu của họ.</p>
       <ul className={styles.members}>{team.members.map(m => {
         const role = roleOf(m), editable = !m.owner && m.userId !== me.userId && canManage && within(m.permissions);
         return <li key={m.userId} data-member={m.handle}>
@@ -143,4 +146,30 @@ export default function TeamPanel({ endpoint }: { endpoint: string }) {
         : <button type="button" className={styles.addRole} onClick={() => setEditing('new')}>+ Tạo vai</button>)}
     </section>
   </>;
+}
+
+/** Xin vào quán (G3): người tự xin, chờ ai có quyền Thành viên chọn vai rồi cho vào, hoặc từ chối. */
+function JoinRequests({ requests, roles, least, busy, decide }: { requests: JoinRequest[]; roles: Role[]; least: string | undefined; busy: boolean;
+  decide: (request: JoinRequest, value: string | false) => void }) {
+  const [choice, setChoice] = useState<Record<string, string>>({});
+  return <div data-join-requests style={{ display: 'grid', gap: 10, margin: '6px 0 14px' }}>
+    <strong>Xin vào quán ({requests.length})</strong>
+    <ul className={styles.members}>{requests.map(request => {
+      const roleId = choice[request.id] ?? least ?? '';
+      return <li key={request.id} data-join-request={request.handle}>
+        <Avatar profile={{ displayName: request.displayName, avatarUrl: request.avatarUrl, handle: request.handle }} size={40} />
+        <div className={styles.memberText}>
+          <strong>{request.displayName ?? request.handle}</strong>
+          <span>@{request.handle} · {new Date(request.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })}</span>
+          {request.message && <span>“{request.message}”</span>}
+        </div>
+        <div className={styles.memberControls}>
+          <select aria-label={`Vai cho @${request.handle}`} value={roleId} disabled={busy} onChange={e => setChoice({ ...choice, [request.id]: e.target.value })}>
+            {roles.map(r => <option key={r.id} value={r.id}>{r.icon ? `${r.icon} ` : ''}{r.name}</option>)}</select>
+          <button type="button" className={styles.joinApprove} disabled={busy || !roleId} onClick={() => decide(request, roleId)}>Cho vào</button>
+          <button type="button" className={styles.textButton} disabled={busy} onClick={() => decide(request, false)}>Từ chối</button>
+        </div>
+      </li>;
+    })}</ul>
+  </div>;
 }

@@ -13,6 +13,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ g
   if (account) {
     const shop = await homeShop(pool, account.id);
     if (shop) redirect(shop.self_signup && !shop.onboarded_at ? '/bat-dau/tien-trinh' : `/app/${shop.slug}`);
+    // An account with no shop of its own is staff waiting for, or about to ask, an owner (G3).
+    redirect('/bat-dau/cho-duyet');
   }
   const notice = (await searchParams).google ?? null;
   return <SkySignup google={!!googleSettings()} notice={notice && /^[A-Z_]{2,40}$/.test(notice) ? notice : null} />;

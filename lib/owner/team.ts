@@ -15,6 +15,8 @@ import { PERMISSION_LABELS } from './permission-labels';
 export type Role = { id: string; name: string; icon: string | null; color: string; permissions: Permission[]; position: number; members: number };
 export type Member = { userId: string; handle: string; displayName: string | null; avatarUrl: string | null; owner: boolean; roleId: string | null;
   feedbackOverride: boolean | null; showBadge: boolean; pending: boolean; permissions: Permission[] };
+/** Someone who asked to join (G3): seen by whoever may invite, decided with a role or declined. */
+export type JoinRequest = { id: string; handle: string; displayName: string | null; avatarUrl: string | null; message: string | null; createdAt: string };
 
 const DEFAULT_ROLES = [
   { name: 'Quản lý', icon: '👑', color: '#d69a2d', permissions: MANAGER_DEFAULT, position: 1 },
@@ -99,7 +101,40 @@ export class OwnerTeam {
         FROM owner_memberships_v2 m JOIN owner_identities_v2 u ON u.id=m.user_id LEFT JOIN shop_roles r ON r.id=m.role_id
         WHERE m.shop_id=$1 AND m.active AND u.active ORDER BY m.role='owner' DESC,r.position NULLS FIRST,u.username`, [access.shopId, MANAGER_DEFAULT])).rows as Member[];
       for (const m of members) if (m.owner) m.permissions = [...PERMISSIONS];
-      return { roles, members, me: { userId: access.userId, owner: access.role === 'owner', permissions: access.permissions } };
+      const requests = access.permissions.includes('members') ? (await db.query(`SELECT j.id,u.username handle,u.display_name "displayName",
+          u.avatar_url "avatarUrl",j.message,j.created_at "createdAt" FROM join_requests j JOIN owner_identities_v2 u ON u.id=j.user_id
+        WHERE j.shop_id=$1 AND j.decided_at IS NULL AND u.active ORDER BY j.created_at`, [access.shopId])).rows as JoinRequest[] : [];
+      return { roles, members, requests, me: { userId: access.userId, owner: access.role === 'owner', permissions: access.permissions } };
+    });
+  }
+
+  /**
+   * A request to join (G3): `value` a role id lets them in with that role, `false` declines. Whoever may invite decides, and
+   * only with a role no stronger than their own, as an invitation. Someone removed before comes back as a new member.
+   */
+  private async decideJoin(credential: OwnerCredential, slug: string, data: Record<string, unknown>) {
+    return transaction(this.pool, async db => {
+      const access = await this.member(db, credential, slug);
+      requirePermission(access, 'members');
+      const request = (await db.query(`SELECT j.id,j.user_id,u.username FROM join_requests j JOIN owner_identities_v2 u ON u.id=j.user_id
+        WHERE j.id=$1 AND j.shop_id=$2 AND j.decided_at IS NULL FOR UPDATE OF j`, [id(data.requestId), access.shopId])).rows[0];
+      if (!request) throw new OwnerError(404, 'REQUEST_NOT_FOUND');
+      if (data.value === false) {
+        await db.query("UPDATE join_requests SET decided_at=clock_timestamp(),decided_by=$2,outcome='declined' WHERE id=$1", [request.id, access.userId]);
+        await recordActivity(db, access, 'member.decline', `@${request.username}`);
+        return { ok: true };
+      }
+      const role = await this.role(db, access.shopId, data.value);
+      this.guard(access, role.permissions);
+      const existing = (await db.query('SELECT role,active FROM owner_memberships_v2 WHERE user_id=$1 AND shop_id=$2 FOR UPDATE', [request.user_id, access.shopId])).rows[0];
+      if (existing?.active) throw new OwnerError(409, 'ALREADY_MEMBER');
+      if (existing?.role === 'owner') throw new OwnerError(403, 'OWNER_UNTOUCHABLE');
+      await db.query(`INSERT INTO owner_memberships_v2(user_id,shop_id,role,role_id,invited_by)VALUES($1,$2,'manager',$3,$4)
+        ON CONFLICT(user_id,shop_id) DO UPDATE SET active=true,role_id=$3,feedback_override=NULL,invited_by=$4,joined_at=clock_timestamp()`,
+        [request.user_id, access.shopId, role.id, access.userId]);
+      await db.query("UPDATE join_requests SET decided_at=clock_timestamp(),decided_by=$2,outcome='approved' WHERE id=$1", [request.id, access.userId]);
+      await recordActivity(db, access, 'member.join', `@${request.username}`, { role: role.name });
+      return { ok: true };
     });
   }
 
@@ -133,6 +168,7 @@ export class OwnerTeam {
    */
   async change(credential: OwnerCredential, slug: string, body: unknown) {
     const op = (body as Record<string, unknown> | null)?.op;
+    if (op === 'join') return this.decideJoin(credential, slug, shape(body, ['op', 'requestId', 'value']));
     const data = op === 'badge' ? shape(body, ['op', 'value']) : op === 'link' || op === 'remove' ? shape(body, ['op', 'userId']) : shape(body, ['op', 'userId', 'value']);
     return transaction(this.pool, async db => {
       const access = await this.member(db, credential, slug);

@@ -216,6 +216,7 @@ export class ShopProvisioning {
         (SELECT count(*)::int FROM tags t WHERE t.shop_id=s.id AND t.state='active') active_tags,
         i.id owner_user_id,i.username owner_username,i.email owner_email,
         (SELECT max(p.opened_at) FROM page_visits p WHERE p.shop_id=s.id) last_seen,
+        (SELECT count(*)::int FROM edit_requests e WHERE e.shop_id=s.id AND e.outcome='published') edits_published,
         COALESCE((SELECT CASE WHEN g.permission='level' THEN g.level WHEN g.enabled THEN 'view' ELSE 'off' END FROM shop_support_grant_events g
           WHERE g.shop_id=s.id AND g.permission IN ('feedback','level') ORDER BY g.id DESC LIMIT 1),'off') support_level
       FROM shops s

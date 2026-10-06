@@ -27,6 +27,8 @@ export const ACTIONS: Record<string, string> = {
   'member.role': 'Đổi vai thành viên',
   'member.feedback': 'Đổi quyền đọc góp ý',
   'member.remove': 'Gỡ thành viên',
+  'member.join': 'Duyệt nhân viên vào quán',
+  'member.decline': 'Từ chối yêu cầu vào quán',
   'role.create': 'Tạo vai',
   'role.update': 'Sửa vai',
   'role.delete': 'Xoá vai',

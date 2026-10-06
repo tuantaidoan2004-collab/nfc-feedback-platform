@@ -2,8 +2,8 @@
 /**
  * Bước đầu của onboarding, pha trời xanh (kịch bản mục 1 bước 5 và mục 4, mẫu Jitter): chào mừng → **bạn là…** → (chủ quán
  * lần đầu) bạn tên gì → quán của bạn là gì → tạo tài khoản. Mỗi màn một câu hỏi; tài khoản chỉ được tạo ở màn cuối, cùng lúc
- * với quán (lib/account/signup.ts). Quán Admin Tài đã tạo sẵn: nhắn Zalo nhận link đặt mật khẩu dùng một lần. Nhân viên: nhờ
- * chủ quán gửi link mời.
+ * với quán (lib/account/signup.ts). Quán Admin Tài đã tạo sẵn: nhắn Zalo nhận link đặt mật khẩu dùng một lần. Nhân viên (G3):
+ * gõ @chủ quán hay link trang của quán cùng tài khoản của mình → yêu cầu chờ chủ duyệt; có link mời thì bấm link đó.
  */
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import styles from './sky.module.css';
 import Journey from './journey';
 import Icon from '../icons';
 import { ZALO } from '@/lib/contact';
+import { JOIN_ERRORS } from './join-wait';
 
 const KINDS: [string, string, string][] = [['cafe', 'Cà phê', '☕'], ['restaurant', 'Nhà hàng', '🍜'], ['tea', 'Trà sữa & bánh', '🧋'],
   ['beauty', 'Spa & làm đẹp', '💅'], ['retail', 'Cửa hàng', '🛍️'], ['other', 'Khác', '✨']];
@@ -33,7 +34,7 @@ export default function SkySignup({ google, notice }: { google: boolean; notice:
   const [step, setStep] = useState(notice ? 4 : 0), [who, setWho] = useState<Who | null>(notice ? 'new' : null), [name, setName] = useState(''), [kind, setKind] = useState<string | null>(null);
   const path = who ?? 'new', last = path === 'new' ? 4 : 2;
   const [handle, setHandle] = useState(''), [handleTouched, setHandleTouched] = useState(false);
-  const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [error, setError] = useState(notice ? ERRORS[notice] ?? '' : ''), [busy, setBusy] = useState(false), [help, setHelp] = useState(false);
+  const [joinShop, setJoinShop] = useState(''), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [error, setError] = useState(notice ? ERRORS[notice] ?? '' : ''), [busy, setBusy] = useState(false), [help, setHelp] = useState(false);
   const suggested = useMemo(() => { const h = handleFrom(name); return h.length >= 3 ? h : ''; }, [name]);
   const at = handleTouched ? handle : suggested;
   useEffect(() => { if (step !== 0) return; const timer = window.setTimeout(() => setStep(1), 2600); return () => window.clearTimeout(timer); }, [step]);
@@ -42,9 +43,10 @@ export default function SkySignup({ google, notice }: { google: boolean; notice:
     setBusy(true); setError('');
     try {
       const response = await fetch('/api/start/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: at.replace(/^@/, '').toLowerCase(), email, password, displayName: name.trim() || undefined, kind: kind ?? undefined }) });
+        body: JSON.stringify({ username: at.replace(/^@/, '').toLowerCase(), email, password, displayName: name.trim() || undefined,
+          ...(who === 'staff' ? { join: joinShop } : { kind: kind ?? undefined }) }) });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) { setError(ERRORS[body.error] ?? 'Chưa tạo được tài khoản. Thử lại.'); return; }
+      if (!response.ok) { setError(ERRORS[body.error] ?? JOIN_ERRORS[body.error] ?? 'Chưa tạo được tài khoản. Thử lại.'); return; }
       router.push(body.next);
     } catch { setError('Không thể kết nối. Thử lại.'); } finally { setBusy(false); }
   };
@@ -77,9 +79,20 @@ export default function SkySignup({ google, notice }: { google: boolean; notice:
       </section>}
       {step === 2 && who === 'staff' && <section className={styles.screen} key="staff" data-who-screen="staff">
         <h1 className={`${styles.title} ${styles.mid}`}>Vào quán nơi bạn làm</h1>
-        <p className={styles.lead}>Nhờ chủ quán mời bạn ở <strong>Quản lý → Thành viên</strong>: bạn nhận một link để tự đặt mật khẩu và vào thẳng
-          quán.</p>
-        <div className={styles.form}><p className={styles.small}>Đã có tài khoản? <Link href="/owner/login">Đăng nhập</Link></p></div>
+        <p className={styles.lead}>Gõ @tài khoản của chủ quán hoặc dán link trang của quán, rồi tạo tài khoản của bạn. Chủ quán duyệt là bạn vào được.</p>
+        <form className={styles.form} onSubmit={event => { event.preventDefault(); void submit(); }}>
+          <input className={styles.input} required maxLength={300} placeholder="@chủ quán, hoặc link trang của quán" value={joinShop}
+            onChange={event => setJoinShop(event.target.value)} aria-label="Quán" autoCapitalize="none" spellCheck={false} />
+          <input className={styles.input} maxLength={60} placeholder="Tên của bạn" value={name} onChange={event => setName(event.target.value)} aria-label="Tên của bạn" />
+          <div className={styles.handle}><span>@</span><input className={styles.input} autoCapitalize="none" spellCheck={false} autoComplete="username" required minLength={3} maxLength={64}
+            placeholder="tên đăng nhập của bạn" value={at} onChange={event => { setHandleTouched(true); setHandle(event.target.value.toLowerCase().replace(/\s/g, '')); }} aria-label="Tên đăng nhập" /></div>
+          <input className={styles.input} type="email" autoComplete="email" required placeholder="Email" value={email} onChange={event => setEmail(event.target.value)} aria-label="Email" />
+          <input className={styles.input} type="password" autoComplete="new-password" required minLength={12} placeholder="Mật khẩu (ít nhất 12 ký tự)" value={password}
+            onChange={event => setPassword(event.target.value)} aria-label="Mật khẩu" />
+          {error && <p className={styles.error} role="alert">{error}</p>}
+          <button className={styles.go} disabled={busy}>{busy ? 'Đang gửi…' : 'Tạo tài khoản và xin vào quán'}</button>
+        </form>
+        <p className={styles.small}>Có link mời từ chủ quán? Bấm link đó là vào thẳng. Đã có tài khoản? <Link href="/owner/login">Đăng nhập</Link></p>
       </section>}
       {step === 2 && who === 'new' && <section className={styles.screen} key="2">
         <h1 className={`${styles.title} ${styles.mid}`}>Bạn tên gì?</h1>

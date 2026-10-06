@@ -12,6 +12,8 @@ export type ShopRow = {
   owner_user_id: string | null; owner_username: string | null; owner_email: string | null; last_seen: string | null;
   support_level: 'off' | 'view' | 'edit' | 'full';
   pages: number;
+  /** How many times Admin Tài built or changed a page of the shop (kịch bản mục 3: counted, not yet charged). */
+  edits_published: number;
   /** Gói và hạn (kịch bản mục 3b). */
   billing: Billing;
 };
@@ -235,7 +237,7 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
                 ? row.owner_username ? <>{row.owner_username} <em>(tài khoản test)</em></> : <em>chưa có tài khoản, dùng để nhân bản</em>
                 : row.owner_username ?? <em>chưa có</em>}<br/><span className={styles.muted}>{row.owner_email ?? ''}</span></td>
               <td data-label="Thẻ">{row.active_tags}/{row.tags} hoạt động</td>
-              <td data-label="Trang">{row.pages} trang</td>
+              <td data-label="Trang" data-edits={row.edits_published}>{row.pages} trang<br/><span className={styles.muted}>dựng/sửa {row.edits_published} lần</span></td>
               <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
               <td data-label="Gói" data-billing-state={row.billing.state}>{row.is_template ? '—' : billingText(row.billing)}</td>
               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
