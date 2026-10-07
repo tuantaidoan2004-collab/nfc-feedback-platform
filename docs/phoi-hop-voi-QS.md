@@ -249,3 +249,54 @@ Mọi `200/201`: `{ok:true, created?, shop, name, status:"active"|"paused", paus
 - `401` sai chữ ký / `ts` lệch quá 2 phút / `nonce` lặp · `400` sai `action` hoặc mã quán.
 - Gọi lại nhiều lần không sao (không tạo trùng). Lỗi mạng → `/gov` vẫn lưu bên QS; Tài bấm lại sau, hoặc Tiệm thêm tay.
 - Thử nhanh từ máy TBQ: `npm run quan -- mo|dong|xem <link hoặc mã quán>`.
+
+**Mới ở 1.4:** mọi câu trả lời `200/201` có thêm `tools` — công cụ nào khách ở quán này nhận được **ngay bây giờ**, để khối trên trang quán
+hiện "Tạm hết" đúng lúc (chỉ có / không, không số tài khoản, không email):
+
+```
+"tools":[{"slug":"chatgpt","name":"ChatGPT Plus","available":true,"reason":null},
+         {"slug":"capcut","name":"CapCut Pro","available":false,"reason":"sold_out"}]
+```
+`reason`: `null` · `sold_out` (kho hết chỗ) · `tool_closing` (ChatGPT / Claude nghỉ nhận 5h–6h) · `cafe_full` (quán hết suất hôm nay) · `cafe_paused`.
+Gọi `status` khi dựng trang là đủ (TBQ không giới hạn lệnh này, nhưng nên lưu tạm ~1 phút).
+
+## 11. API kho (TBQ bản 1.4, 08/10/2026) — Tài thêm / sửa / xem tài khoản trong kho
+
+Kho **dùng chung cho mọi quán** nằm ở TBQ; giao diện từng quán là khối của QS. API này để Tài làm màn quản lý kho bên QS
+(hoặc nối Google Sheet) mà không phải vào trang quản trị TBQ.
+
+**Khoá riêng:** ký giống hệt mục 9–10 (cùng header, cùng `ts` / `nonce`), nhưng bằng **`QS_KHO_KEY`** của TBQ (bên QS đặt tên ví dụ
+`NFC_EVENT_TBQ_KHO_KEY`). Khác khoá vé: lộ khoá kho thì Tiệm đổi khoá này, vé ở quán vẫn chạy. TBQ chưa đặt khoá → `503 api_off`.
+
+```
+POST {TBQ_ORIGIN}/hooks/qs/kho
+Content-Type: application/json
+X-TBQ-Signature: sha256=<hex HMAC-SHA256(QS_KHO_KEY, nguyên body)>
+
+{"action":"…", …, "ts":<giây unix>, "nonce":"<8–64 ký tự A-Za-z0-9_->"}
+```
+
+| action | Gửi thêm | Trả về |
+|---|---|---|
+| `summary` | — | `tools:[{tool, name, loginType, enabled, free, reserved, expiringSoon, usedToday, dailyCap, holdersDefault, accounts:{ready, needs_rotation, quarantined, retired}}]` — `free` = chỗ giao được ngay |
+| `list` | `tool?`, `status?`, `limit?` (≤500), `offset?` | `accounts:[tài khoản]` |
+| `get` | `id` hoặc `email` | `account` |
+| `add` | `tool` + `accounts:[{email, password?, totp?, holders?}]` **hoặc** `lines:["email\|mật khẩu\|…"]` (dòng chép từ Google Sheet, giống ô nhập trang quản trị); `label?`, `dryRun?`, `setup?` | `201 {added, ids, skipped:[{email, code, message}]}` |
+| `update` | `id` hoặc `email` + bất kỳ: `label`, `holders`, `password`, `totp`, `keepPassword`, `status` (`ready` \| `retired` \| `quarantined`) | `{message, account}` |
+
+**Tài khoản** trả ra: `{id, tool, label, email, status, statusReason, inUse, maxHolders, hasPassword, has2fa, usable, pendingTask, createdAt, expiresAt, lastAssignedAt, lastRotatedAt}`.
+**Không lệnh nào trả mật khẩu hay khoá 2FA** — chỉ gửi vào được.
+
+Cần biết:
+- `tool` = mã công cụ (`chatgpt`, `claude`, `capcut`, `canva`, `adobe`…; xem `summary`). Ô cần có tuỳ kiểu đăng nhập: mã qua email / Canva → chỉ `email`;
+  mật khẩu (CapCut, Adobe) → `email` + `password`; mật khẩu + 2FA → thêm `totp`. Mã / link nhận quà → `codes:["…"]`.
+- `add` tối đa 500 mục / lần, body ≤ 500 KB. Trùng email (trong kho hoặc trong cùng lần gửi) → bỏ qua với `code:"exists"`; dòng sai → bỏ qua, dòng khác vẫn vào.
+  `dryRun:true` = chỉ kiểm, không lưu. ChatGPT (làm mới mỗi ngày): mặc định tài khoản mới **chờ tạo Project** rồi mới giao; gửi `setup:false` nếu đã tạo sẵn.
+- `update` kiểm hết rồi mới ghi: một ô sai → không ô nào đổi (`400`).
+  - Tài khoản đang **chờ đổi mật khẩu / làm mới** (`pendingTask:true`): gửi `password` mới (hoặc `status:"ready"` với loại không mật khẩu) = bấm "Đã xong" ở Việc tay.
+    Loại mật khẩu mà không gửi mật khẩu mới → `409 task_rejected` (khách cũ còn vào được). Còn khách đang dùng → nhận nhưng chưa mở lại.
+  - `retired` = ngừng giao, khách đang dùng vẫn dùng tới hết giờ. `quarantined` = thu hồi ngay mọi chỗ + tạo việc đổi mật khẩu.
+  - Mở lại tài khoản thiếu mật khẩu / 2FA → `409 not_usable`.
+- Không có lệnh xoá: muốn bỏ thì `retired` (giữ lịch sử giao cho chủ Tiệm).
+- `401` sai chữ ký / giờ lệch / nonce lặp (chủ Tiệm thấy báo vàng) · `404 tool_unknown | not_found` · `429` quá 300 lần / 10 phút.
+- Mọi lần thêm / sửa hiện trong trang Theo dõi của TBQ (người làm = `qs-api`).

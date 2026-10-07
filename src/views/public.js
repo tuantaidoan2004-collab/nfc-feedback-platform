@@ -1,10 +1,12 @@
-// Giao diện khách: trang chủ, trang nhận công cụ (sau khi vào từ khối "Công cụ làm việc" trên trang quán / chạm thẻ),
-// chọn quán, slot của tôi, về chúng tôi, chính sách dữ liệu. Giọng: trẻ, vui, thân thiện — nhưng các câu về dữ liệu,
+// Giao diện khách (thiết kế v2 "Vé vào ca", docs/thiet-ke-v2.md): trang chủ, trang nhận công cụ (chạm thẻ / khối "Công cụ làm việc"
+// trên trang quán QS), vé của tôi, về chúng tôi, chính sách dữ liệu. Giọng: trẻ, vui, thân thiện — nhưng các câu về dữ liệu,
 // luật dùng tài khoản và chống lạm dụng giữ rõ ràng. Không câu nào nối công cụ với việc đánh giá quán.
-import { html } from '../lib/http.js';
+import { html, raw } from '../lib/http.js';
 import { fmtLocal } from '../lib/time.js';
 import { maskPhone } from '../lib/phone.js';
 import { page } from './layout.js';
+import { asset } from './asset.js';
+import { CLAUDE_D, CHATGPT_D, TBQ_TAG } from './logos.js';
 import { MSG } from '../domain/claims.js';
 import { otpChannel } from '../services/otp.js';
 import { QS_EVENT } from '../qs-event.js';
@@ -29,139 +31,211 @@ export const duration = (hours) => (hours >= 48 && hours % 24 === 0 ? `${hours /
 
 const lines = (text) => String(text || '').split(/\r?\n/).filter((l) => l.trim()).map((l) => html`<p>${l}</p>`);
 
-function copyable(value, label = 'Sao chép') {
-  return html`<span class="copy-row"><code>${value}</code><button type="button" class="btn-mini" data-copy="${value}">${label}</button></span>`;
-}
-
 /** Khách đăng nhập bằng email (mã gửi vào hộp thư) thay vì số điện thoại. */
 const byEmail = (ctx) => ctx.config.otp.loginBy === 'email';
 /** "email" / "số điện thoại" — chữ dùng trong câu cho khách. */
 const idWord = (ctx) => (byEmail(ctx) ? 'email' : 'số điện thoại');
 
-function otpForm(ctx) {
-  const ch = otpChannel(ctx.config);
-  const em = byEmail(ctx);
-  // Ô nhập vẫn tên "phone" (API /api/otp/* dùng chung cho cả email và SĐT).
-  return html`
-<form id="otp-form" class="card" autocomplete="on" novalidate data-channel="${ch}" data-kind="${em ? 'email' : 'phone'}">
-  <h2>${em ? 'Xác nhận email nha ✉️' : 'Xác nhận số điện thoại nha 📱'}</h2>
-  <p class="muted">${em ? 'Tiệm gửi mã 6 số vào email của bạn. Mỗi email nhận 1 công cụ mỗi ngày' : `Tiệm gửi mã 6 số qua ${ch}. Mỗi số nhận 1 công cụ mỗi ngày`} — để ai ngồi quán cũng có phần 💛</p>
-  ${em ? html`<label for="phone">Email</label>
-  <input id="phone" name="phone" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="ban@gmail.com" required>`
-    : html`<label for="phone">Số điện thoại${ch === 'Zalo' ? ' (có Zalo)' : ''}</label>
-  <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="09xx xxx xxx" required>`}
-  <label class="check"><input type="checkbox" name="consent" value="1">
-    <span>Tôi đồng ý cho Tiệm Bản Quyền lưu ${idWord(ctx)}, mã thiết bị và địa chỉ IP để chống lạm dụng lượt dùng thử. <a href="/privacy">Xem chi tiết</a></span></label>
-  <button type="submit" class="btn" data-act="send-otp">${em ? 'Gửi mã vào email' : `Gửi mã qua ${ch}`}</button>
-  <div class="otp-step" hidden>
-    <label for="otp-code">${em ? 'Mã 6 số vừa gửi vào email' : `Mã 6 số vừa gửi qua ${ch}`}</label>
-    <input id="otp-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">
-    <button type="button" class="btn" data-act="verify-otp">Xác nhận</button>
-    <button type="button" class="link" data-act="resend-otp">Gửi lại mã</button>
-  </div>
-  <p class="msg" role="status" aria-live="polite"></p>
-</form>`;
+/** Logo đúng hình (SVG symbol nội tuyến, dùng lại bằng <use href="#ic-…">). Canva là ảnh tròn. */
+const LOGO_SYMBOLS = raw(`<svg class="defs" width="0" height="0" focusable="false" aria-hidden="true"><defs>
+<linearGradient id="g-gemini" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1a73e8"/><stop offset=".55" stop-color="#6c63ff"/><stop offset="1" stop-color="#c17cf2"/></linearGradient>
+<symbol id="ic-claude" viewBox="75.96 223.53 148.1 148.2"><path fill="#d97757" d="${CLAUDE_D}"/></symbol>
+<symbol id="ic-chatgpt" viewBox="12 12 156 156"><path fill="#16151a" d="${CHATGPT_D}"/></symbol>
+<symbol id="ic-capcut" viewBox="186 250 735 578"><g fill="#16151a"><path d="M192 330Q192 256 266 256H704Q778 256 778 330V361H192Z"/><path d="M192 748Q192 822 266 822H704Q778 822 778 748V717H192Z"/><path d="M192 361H257L915 703V817L192 440Z"/><path d="M192 717H257L915 375V261L192 638Z"/></g></symbol>
+<symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="url(#g-gemini)" d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"/></symbol>
+<symbol id="ic-adobe" viewBox="0 1 24 22"><path fill="#ed1c24" d="M13.966 22.624l-1.69-4.281H8.122l3.892-9.144 5.662 13.425zM8.884 1.376H0v21.248zm15.116 0h-8.884L24 22.624Z"/></symbol>
+</defs></svg>`);
+const BRANDS = ['chatgpt', 'claude', 'capcut', 'canva', 'gemini', 'adobe'];
+const logo = (name) => (name === 'canva'
+  ? html`<img src="${asset('canva.png')}" alt="" width="24" height="24">`
+  : html`<svg focusable="false" aria-hidden="true"><use href="#ic-${name}"/></svg>`);
+/** Mã công cụ (chatgpt, claude, canva-edu…) → hãng; công cụ khác → 'other'. */
+const brandOf = (slug) => BRANDS.find((n) => String(slug || '').startsWith(n)) || 'other';
+/** Món này làm được gì — 1 dòng dưới tên, để khách chọn nhanh. */
+const WHAT = { chatgpt: 'Viết, dịch, code — hỏi gì đáp nấy', claude: 'Đọc file dài không biết ngán', capcut: 'Dựng video cháy phố', canva: 'Slide, poster đẹp mê', gemini: 'A.I nhà Google, lanh lẹ', adobe: 'Photoshop, Premiere bao phê' };
+/** Ô logo nền nhạt màu hãng. */
+const icon = (slug, cls = '') => {
+  const b = brandOf(slug);
+  return html`<span class="ic b-${b}${cls ? ` ${cls}` : ''}" aria-hidden="true">${b === 'other' ? '🧰' : logo(b)}</span>`;
+};
+
+/** Thanh 3 bước: ở quán → chọn món → nhận vé. at = số bước đã xong (bước "ở quán" tự xong khi chạm thẻ). */
+const progress = (at) => html`<div class="prog" role="img" aria-label="Bước ${Math.min(at + 1, 3)} trên 3">${[0, 1, 2].map((i) => html`<i class="${i < at ? 'd' : i === at ? 'n' : ''}"></i>`)}</div>`;
+
+/** Hình điện thoại chạm thẻ (CSS động) + 1 dòng hướng dẫn — cho người chưa ở quán / chưa đăng nhập. */
+function tapScreen({ eyebrow = '', title, text, note = '' }) {
+  return html`<section class="tap">
+  <div class="scene" aria-hidden="true"><span class="nfc-card">${raw(TBQ_TAG)}</span><span class="wave"></span><span class="wave w2"></span><span class="nfc-phone"></span></div>
+  ${eyebrow ? html`<p class="eyebrow">${eyebrow}</p>` : ''}
+  <h1>${title}</h1>
+  <p class="sub">${text}</p>
+  ${note ? html`<p class="hint">${note}</p>` : ''}
+</section>`;
 }
 
 /** Cách bắt đầu: khách mở trang quán trên Quite Sensational (chạm thẻ / quét QR) rồi bấm nút trong khối "Công cụ làm việc". */
-const entryHint = () => html`Ở quán, chạm điện thoại vào thẻ trên bàn (hoặc quét mã QR). Nếu mở ra trang của quán thì bấm <b>${TAKE}</b>.`;
-
-/** Mục "Về chúng tôi" nằm ngay trong phần công cụ làm việc. */
-const aboutLink = (shop) => html`<a class="about-link" href="/ve-chung-toi${shop ? `?shop=${shop}` : ''}">Về chúng tôi — Tiệm Bản Quyền là ai? →</a>`;
+const entryHint = () => html`Ở quán, áp điện thoại vào thẻ trên bàn (hoặc quét mã QR). Nếu mở ra trang của quán thì bấm <b>${TAKE}</b>.`;
 
 function hello(ctx, customer) {
-  return html`<p class="muted hello">Xin chào <b>${maskPhone(customer.phone)}</b> · <button type="button" class="link" data-act="logout">${byEmail(ctx) ? 'Đổi email khác' : 'Đổi số khác'}</button></p>`;
+  return html`<p class="hello">Xin chào <b>${maskPhone(customer.phone)}</b> · <button type="button" class="link" data-act="logout">${byEmail(ctx) ? 'Đổi email khác' : 'Đổi số khác'}</button></p>`;
+}
+
+/** Trích bảng giá (giá "từ" trên tiembanquyen.com, 10/2026) — đổi giá ở web thì sửa ở đây. */
+const PRICE_PEEK = [['ChatGPT', '150.000đ'], ['Claude', '120.000đ'], ['CapCut Pro', '10.000đ']];
+
+/**
+ * Thẻ thương hiệu Tiệm: logo thẻ treo, câu chữ ký của web, trích bảng giá, 2 nút.
+ * Cho thấy giá trị thay vì hỏi "Tiệm là ai?" (tò mò + mỏ neo giá: thấy "từ 10.000đ" là muốn xem thêm).
+ */
+function tiemCard(ctx) {
+  return html`<section class="tiem">
+  <div class="tiem-h">${raw(TBQ_TAG)}<p class="eyebrow-s">Tiệm Bản Quyền · TBQ Space</p></div>
+  <h2 class="serif">Alo là có liền,<br>chỉ có thể là <em>Tiệm Bản Quyền.</em></h2>
+  <p class="tiem-p">60+ gói A.I, thiết kế, giải trí bản quyền xịn sò. Nhắn Zalo cái là có — 5–10 phút giao liền, chỉ tận tay cách dùng.</p>
+  <p class="peek-cap">Giá mềm xèo, ngó thử nè:</p>
+  <ul class="peek">${PRICE_PEEK.map(([n, p]) => html`<li><span>${n}</span><i></i><small>từ</small> <b>${p}</b></li>`)}</ul>
+  <div class="tiem-a">
+    <a class="btn gold" href="https://tiembanquyen.com" target="_blank" rel="noopener">Coi giá liền ›</a>
+    <a class="btn ghost" href="${ctx.settings().zaloUrl}" rel="noopener">Alo Tiệm</a>
+  </div>
+</section>`;
+}
+
+/** Khách đang giữ 1 slot → thẻ nhỏ mở vé. */
+const holdingCard = (view) => html`<a class="mini-ticket" href="/me">${icon(view.tool.slug)}<span><small>Bạn đang dùng</small><b>${view.tool.name}</b></span><em>Mở vé →</em></a>`;
+
+/** Hết slot / cần công cụ khác → liên hệ Tiệm qua Zalo. */
+function contactTiem(ctx) {
+  return html`<a class="contact-tiem" href="${ctx.settings().zaloUrl}" rel="noopener"><span>${CONTACT_Q}</span><b>Liên hệ Tiệm</b></a>`;
+}
+
+/** Bảng trượt từ đáy: email → mã 6 số. Mở khi khách đã chọn món mà chưa đăng nhập (app.js "Giữ chỗ"). */
+function otpSheet(ctx) {
+  const ch = otpChannel(ctx.config);
+  const em = byEmail(ctx);
+  // Ô nhập vẫn tên "phone" (API /api/otp/* dùng chung cho cả email và SĐT).
+  return html`<div class="sheet-wrap" data-sheet hidden>
+  <div class="sheet-dim" data-sheet-close></div>
+  <form class="sheet" id="otp-form" autocomplete="on" novalidate data-channel="${ch}" data-kind="${em ? 'email' : 'phone'}" role="dialog" aria-modal="true" aria-labelledby="sheet-h">
+    <span class="grab" aria-hidden="true"></span>
+    <button type="button" class="sheet-x" data-sheet-close aria-label="Đóng">✕</button>
+    <p class="pick-sum" data-pick-sum></p>
+    <div class="pane" data-pane="1">
+      <h2 id="sheet-h">${em ? 'Để lại email nha' : 'Để lại số điện thoại nha'}</h2>
+      <p class="sub">${em ? 'Tiệm gửi mã 6 số vào email. Mỗi email' : `Tiệm gửi mã 6 số qua ${ch}. Mỗi số`} nhận 1 món mỗi ngày. Không spam đâu — hứa!</p>
+      ${em ? html`<input id="phone" name="phone" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="ban@gmail.com" aria-label="Email" required>`
+        : html`<input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="09xx xxx xxx" aria-label="Số điện thoại${ch === 'Zalo' ? ' (có Zalo)' : ''}" required>`}
+      <label class="check"><input type="checkbox" name="consent" value="1">
+        <span>Tôi đồng ý cho Tiệm Bản Quyền lưu ${idWord(ctx)}, mã thiết bị và địa chỉ IP để chống lạm dụng lượt dùng thử. <a href="/privacy">Xem chi tiết</a></span></label>
+      <button type="submit" class="btn" data-act="send-otp">${em ? 'Gửi mã vào email' : `Gửi mã qua ${ch}`}</button>
+    </div>
+    <div class="pane" data-pane="2">
+      <h2>Mã đang bay tới nè</h2>
+      <p class="sub">Vừa gửi tới <b data-otp-to></b>.${em ? ' Không thấy thì lục mục Spam thử nha.' : ''}</p>
+      <div class="otp" data-otp-boxes>
+        <input id="otp-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" aria-label="Mã 6 số">
+        ${[1, 2, 3, 4, 5, 6].map(() => html`<i aria-hidden="true"></i>`)}
+      </div>
+      <p class="meta"><span>Đủ 6 số là tự vào</span><button type="button" class="link" data-act="resend-otp">Gửi lại mã</button></p>
+      <button type="button" class="btn" data-act="verify-otp">Xác nhận</button>
+      <p class="center"><button type="button" class="link" data-act="back-otp">${em ? 'Đổi email' : 'Đổi số'}</button></p>
+    </div>
+    <p class="msg" role="status" aria-live="polite"></p>
+  </form>
+</div>`;
+}
+
+/** Chữ nhỏ dưới tên món: thời hạn, cách nhận, số suất còn (số thật, chỉ khi còn ít). */
+function tileMeta(tool, free, blocked) {
+  if (blocked) return blocked.short;
+  if (!free) return 'Tạm hết';
+  if (tool.login_type === 'redeem') return 'Mã nhận quà';
+  const time = tool.end_hour != null ? `Đến ${tool.end_hour}h sáng` : `Dùng ${duration(tool.slot_hours)}`;
+  return `${time}${tool.login_type === 'team_invite' ? ' · mời vào nhóm' : ''}`;
+}
+
+/** Lưới chọn món + ô email Canva + nút dính đáy. Không đăng nhập thì nút mở bảng giữ chỗ trước. */
+function pickForm(ctx, { tools, customer }) {
+  const ok = ({ free, blocked }) => free > 0 && !blocked;
+  const on = tools.filter(ok);
+  const off = tools.filter((x) => !ok(x));
+  const tile = ({ tool, free, blocked }) => {
+    const meta = tileMeta(tool, free, blocked);
+    return html`<label class="tile">
+      <input type="radio" name="toolId" value="${tool.id}" data-name="${tool.name}" data-login="${tool.login_type}" data-sub="${meta}">
+      ${icon(tool.slug)}
+      <span class="tx"><b>${tool.name}</b>${WHAT[brandOf(tool.slug)] ? html`<span class="what">${WHAT[brandOf(tool.slug)]}</span>` : ''}<em${free <= 5 ? html` class="low"` : ''}>${meta}${free <= 5 ? ` · còn ${free}` : ''}</em></span>
+      <span class="tick" aria-hidden="true"></span>
+    </label>`;
+  };
+  return html`<form id="claim-form" class="pick" novalidate${customer ? html` data-logged="1"` : ''}>
+  ${on.length ? html`<div class="list">${on.map(tile)}</div>`
+    : html`<p class="empty">Hôm nay cháy hàng sạch trơn rồi. Mai ghé sớm nha 💛</p>`}
+  ${off.length ? html`<p class="out">Hôm nay cháy hàng: ${off.map(({ tool, free, blocked }) => html`<span data-off="${tool.name}">${tool.name}<small> · ${tileMeta(tool, free, blocked)}</small></span>`)}</p>` : ''}
+  <div class="invite" data-invite>
+    <label for="invite-email">Email <span data-tool-name>tài khoản</span> của bạn</label>
+    <input id="invite-email" name="inviteEmail" type="email" autocomplete="email" inputmode="email" placeholder="ban@gmail.com">
+    <p class="hint">Tiệm mời email này vào nhóm Pro. Chưa có tài khoản thì tạo free bằng email này trước nha.</p>
+  </div>
+  <p class="msg" role="status" aria-live="polite"></p>
+  ${on.length ? html`<div class="dock">
+    <button type="submit" class="btn" data-cta>Nhận ngay</button>
+    <p class="hint">Mỗi ${idWord(ctx)} 1 món/ngày — chia đều cho cả quán cùng vui</p>
+  </div>` : ''}
+</form>`;
 }
 
 export function homePage(ctx, { customer, view }) {
   return page(ctx, {
     title: ctx.settings().eventTitle,
-    body: html`
-<section class="card hero">
-  <div class="big-icon">☕</div>
-  <h1>${ctx.settings().eventTitle}</h1>
-  <p>ChatGPT, CapCut, Canva, Gemini, Adobe… bản Pro xịn xò, ngồi quán là dùng free. Chọn 1 món, chạy deadline vèo vèo 🚀</p>
-  <p>${entryHint()}</p>
-  ${aboutLink('')}
+    body: html`${LOGO_SYMBOLS}
+<section class="intro home">
+  <span class="free">Miễn phí ở quán</span>
+  <h1>Ngồi quán, dùng đồ <mark>Pro</mark>.</h1>
+  <p class="sub">ChatGPT, Claude, CapCut, Canva… bản xịn sò, không tốn một xu. Deadline thấy bạn là chạy.</p>
+  <div class="logos" aria-hidden="true">${BRANDS.map((b) => html`<span>${logo(b)}</span>`)}</div>
 </section>
-${customer ? html`<section class="card">${hello(ctx, customer)}${HOLDING.includes(view?.status)
-    ? html`<p>Bạn đang dùng <b>${view.tool.name}</b> nè.</p><a class="btn" href="/me">Xem slot của tôi</a>`
-    : html`<p>Bạn chưa có công cụ nào đang chạy.</p><a class="btn ghost" href="/me">Slot của tôi</a>`}</section>` : ''}
-<section class="card">
-  <h2>Nhận trong 1 phút ⏱</h2>
-  <ol class="steps">
-    <li>Chạm điện thoại vào thẻ trên bàn (bật NFC nếu máy hỏi) hoặc quét mã QR.</li>
-    <li>Nếu mở ra trang của quán: bấm <b>${TAKE}</b>.</li>
-    <li>${byEmail(ctx) ? 'Nhập email, mở hộp thư lấy mã 6 số.' : html`Nhập số điện thoại, nhận mã qua ${otpChannel(ctx.config)}.`}</li>
-    <li>Chọn 1 món.</li>
-    <li>Làm theo hướng dẫn trên màn hình để đăng nhập. Vậy là xong!</li>
-  </ol>
-</section>`,
+${customer ? html`${HOLDING.includes(view?.status) ? holdingCard(view) : ''}${hello(ctx, customer)}` : ''}
+<ol class="how">
+  <li><b>1</b><p>Chạm thẻ trên bàn<small>chạm nhẹ là mở, không thì quét QR</small></p></li>
+  <li><b>2</b><p>Chọn 1 món, nhập ${idWord(ctx)}<small>mã 6 số bay về trong 30 giây</small></p></li>
+  <li><b>3</b><p>Nhận vé, vào cày<small>Tiệm chỉ từng bước, khỏi sợ lạc</small></p></li>
+</ol>
+${tiemCard(ctx)}`,
   });
 }
 
 /**
  * Trang nhận công cụ của 1 quán (/qs/<mã quán QS>). atCafe = máy này vừa vào bằng vé từ trang quán (thẻ / QR trên bàn).
  * Chưa có vé thì không hiện ô email / số điện thoại: khỏi tốn tin OTP cho người không nhận được.
+ * Thứ tự: chọn món trước → (chưa đăng nhập) bảng giữ chỗ: email → mã → nhận luôn món đã chọn.
  */
-export function cardPage(ctx, { cafe, customer, tools, view, atCafe, shop = '' }) {
-  let main;
+export function cardPage(ctx, { cafe, customer, tools, view, atCafe }) {
+  const eyebrow = html`<p class="eyebrow"><span aria-hidden="true">☕</span><span>${cafe.name}</span><span class="free">Miễn phí</span></p>`;
+  let body;
   if (customer && HOLDING.includes(view?.status)) {
-    main = html`<section class="card">${hello(ctx, customer)}<p>Bạn đang dùng <b>${view.tool.name}</b> nè.</p><a class="btn" href="/me">Xem slot của tôi</a></section>`;
+    body = html`<section class="intro">${progress(3)}${eyebrow}<h1>Bạn có vé rồi nè</h1><p class="sub">Mỗi ngày 1 món thôi nha. Mở vé vào cày tiếp nè.</p></section>
+${holdingCard(view)}${hello(ctx, customer)}`;
   } else if (!atCafe) {
-    main = html`<section class="card center" data-need-ticket>
-  <div class="big-icon" aria-hidden="true">☕</div>
-  <h2>Nhận tại quán nhé</h2>
-  <p>${entryHint()}</p>
-  <p class="muted">Mỗi lần chạm thẻ dùng được ${ctx.settings().entryTtlMin} phút, trên đúng điện thoại đã chạm.</p>
-</section>`;
-  } else if (!customer) {
-    main = otpForm(ctx);
+    body = html`${tapScreen({
+      eyebrow: 'Nhận tại quán nhé', title: 'Chạm nhẹ thẻ là mở',
+      text: html`Áp lưng điện thoại vào thẻ trên bàn ở <b>${cafe.name}</b>. Máy không có NFC? Quét QR trên thẻ cũng được luôn.`,
+      note: `Mỗi lần chạm dùng được ${ctx.settings().entryTtlMin} phút, trên đúng điện thoại đã chạm.`,
+    })}${tiemCard(ctx)}`;
   } else {
-    main = html`
-<form id="claim-form" class="card" novalidate>
-  ${hello(ctx, customer)}
-  <h2>Hôm nay bạn cần món nào? ✨</h2>
-  <div class="tools">
-    ${tools.map(({ tool, free, blocked }) => html`
-    <label class="tool${free && !blocked ? '' : ' off'}">
-      <input type="radio" name="toolId" value="${tool.id}" data-name="${tool.name}" data-login="${tool.login_type}"${free && !blocked ? '' : html` disabled`}>
-      <span class="tool-name">${tool.name}</span>
-      <span class="tool-free">${blocked ? blocked.short : !free ? 'Tạm hết' : tool.login_type === 'redeem' ? 'Mã nhận quà' : `${tool.end_hour != null ? `tới ${tool.end_hour}h sáng` : duration(tool.slot_hours)}${tool.login_type === 'team_invite' ? ' · mời vào nhóm' : ''}`}</span>
-    </label>`)}
-  </div>
-  <div class="invite" hidden>
-    <label for="invite-email">Email tài khoản <span data-tool-name></span> của bạn</label>
-    <input id="invite-email" name="inviteEmail" type="email" autocomplete="email" inputmode="email" placeholder="ban@gmail.com">
-    <p class="muted">Tiệm mời email này vào nhóm Pro. Chưa có tài khoản thì tạo miễn phí bằng email này trước nhé.</p>
-  </div>
-  <p class="ok-line">✓ Đã thấy bạn đang ở quán, chuẩn rồi!</p>
-  <button type="submit" class="btn">Nhận ngay</button>
-  <p class="msg" role="status" aria-live="polite"></p>
-  ${contactTiem(ctx)}
-</form>`;
+    body = html`<section class="intro">${progress(1)}${eyebrow}
+  <h1>Hôm nay bạn cần món nào?</h1>
+  <p class="sub">Đồ Pro xịn sò, free 100%. Chọn 1 món — 1 phút là vào việc.</p>
+</section>
+${pickForm(ctx, { tools, customer })}
+${customer ? hello(ctx, customer) : otpSheet(ctx)}
+${contactTiem(ctx)}`;
   }
   return page(ctx, {
     title: `${ctx.settings().eventTitle} — ${cafe.name}`,
-    body: html`
-<section class="card hero compact">
-  <p class="eyebrow"><span class="pill free">Miễn phí</span>${cafe.name}</p>
-  <h1>${ctx.settings().eventTitle}</h1>
-  <p>Chọn 1 công cụ bản quyền, dùng free ngay tại quán. Ai ngồi quán cũng nhận được ☕</p>
-  <p class="muted">Tổ chức bởi Tiệm Bản Quyền</p>
-</section>
-${main}
-<section class="card about-mini">
-  <h2>Về chúng tôi</h2>
-  <p>Tiệm Bản Quyền — "Alo là có liền": 60+ gói A.I, thiết kế, giải trí bản quyền, nhắn Zalo là có.</p>
-  ${aboutLink(shop)}
-</section>`,
+    bodyClass: 'has-dock',
+    body: html`${LOGO_SYMBOLS}${body}`,
   });
-}
-
-/** Hết slot / cần công cụ khác → liên hệ Tiệm qua Zalo. */
-function contactTiem(ctx) {
-  return html`<a class="contact-tiem" href="${ctx.settings().zaloUrl}" rel="noopener"><span>${CONTACT_Q}</span><b>Liên hệ Tiệm</b></a>`;
 }
 
 function codeHint(ctx, v) {
@@ -175,44 +249,11 @@ function codeHint(ctx, v) {
 /** Ô mã phiếu cạnh nút lấy mã: công cụ dùng chung cần phiếu (phát ở quán) để lấy mã đăng nhập. */
 function voucherField(v) {
   if (!v.needVoucher) return '';
-  if (v.hasBoundVoucher) return html`<p class="muted" data-voucher-bound>Bạn có mã phiếu dùng nhiều lần — không cần nhập.</p>`;
+  if (v.hasBoundVoucher) return html`<p class="hint" data-voucher-bound>Bạn có mã phiếu dùng nhiều lần — không cần nhập.</p>`;
   if (v.hasAutoVoucher) return html`<p class="ok-line" data-voucher-auto>✓ Bạn vừa chạm thẻ ở quán — đã có phiếu, bấm lấy mã là được.</p>`;
-  return html`<p class="muted">Chạm thẻ NFC / quét mã QR trên bàn của quán là tự có phiếu. Hoặc nhập phiếu giấy:</p>
+  return html`<p class="hint">Chạm thẻ NFC / quét mã QR trên bàn của quán là tự có phiếu. Hoặc nhập phiếu giấy:</p>
   <label class="voucher"><span>Mã phiếu (nhận ở quán)</span>
     <input data-voucher inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX"></label>`;
-}
-
-/** Workspace (Project) theo thứ tự: tên + nút mở thẳng nếu bot đã tạo link. */
-function workspaceBox(v) {
-  if (!v.workspace) return '';
-  const w = v.workspace;
-  return html`<div class="seat">
-    <p>Workspace của bạn: <b>${w.name}</b> — tài khoản này dùng chung ${v.seatTotal} người.</p>
-    ${w.url ? html`<p><a class="btn ghost" href="${w.url}" target="_blank" rel="noopener noreferrer">Mở ${w.name}</a> <span class="muted">(đăng nhập xong rồi bấm)</span></p>` : ''}
-    <p class="muted">Chỉ làm việc trong <b>${w.name}</b>: không mở, sửa hay xoá Project / đoạn chat của người khác. Đừng lưu thông tin riêng tư.</p>
-  </div>`;
-}
-
-/** Dùng thêm (gia hạn): nhập mã gia hạn, hoặc xin gia hạn rồi nhắn Zalo thanh toán. */
-function extendBox(ctx, v) {
-  if (!v.canExtend) return '';
-  const zalo = ctx.settings().zaloUrl;
-  const daily = v.tool.end_hour != null;
-  return html`<details class="card extend" id="extend"${v.extendRequest ? html` open` : ''}>
-  <summary>Muốn dùng thêm? Gia hạn${v.extendedDays ? ` · đã gia hạn ${v.extendedDays} ngày` : ''}</summary>
-  ${v.extendedDays && daily ? html`<p class="muted">Mỗi sáng ${v.tool.end_hour}h Tiệm làm mới tài khoản: bạn bị đăng xuất, đăng nhập lại như cũ (lấy mã không cần phiếu). Workspace của bạn được giữ nguyên.</p>` : ''}
-  <form id="extend-form" class="row">
-    <input name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="Mã gia hạn" aria-label="Mã gia hạn">
-    <button class="btn">Gia hạn</button>
-  </form>
-  ${v.extendRequest
-    ? html`<p class="ok-line">Đã gửi yêu cầu thêm ${v.extendRequest.days} ngày. <a href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a> để thanh toán — gia hạn xong trang này tự cập nhật.</p>`
-    : html`<form id="extend-request" class="row">
-    <span class="muted">Chưa có mã?</span>
-    <select name="days" aria-label="Số ngày"><option value="1">1 ngày</option><option value="3">3 ngày</option><option value="7">7 ngày</option></select>
-    <button class="btn ghost">Xin gia hạn</button></form>`}
-  <p class="msg" role="status" aria-live="polite"></p>
-</details>`;
 }
 
 const END_TEXT = {
@@ -231,143 +272,183 @@ function codeBox(ctx, v, mode) {
   return html`
   <div id="code-box" class="code-box" data-mode="${mode}" data-totp-open="${totp && v.totpOpen ? '1' : ''}" data-window-id="${v.openWindow?.id || ''}" data-window-expires="${v.openWindow?.expiresAt || ''}">
     ${voucherField(v)}
-    <div class="code-actions">
-      <button type="button" class="btn" data-act="request-code">${totp ? 'Lấy mã 2FA' : 'Lấy mã'}</button>
-      <span class="muted" data-code-hint>${codeHint(ctx, v)}</span>
-    </div>
-    <div class="code-wait" hidden><div class="spinner small" aria-hidden="true"></div> Đang chờ mã… còn <b data-left>3:00</b>
+    <button type="button" class="btn sm" data-act="request-code">${totp ? 'Lấy mã 2FA' : 'Lấy mã'}</button>
+    <p class="hint" data-code-hint>${codeHint(ctx, v)}</p>
+    <div class="code-wait" hidden><span class="spin" aria-hidden="true"></span> Đang chờ mã… còn <b data-left>3:00</b>
       <button type="button" class="link" data-act="cancel-code">Huỷ</button></div>
     <div class="code-ready" hidden>
-      <p class="muted">${totp ? 'Mã xác thực 2 lớp:' : 'Mã đăng nhập của bạn:'}</p>
       <div class="code-digits" data-code></div>
-      ${totp ? html`<p class="muted">Đổi sau <b data-remain>30</b> giây</p>` : ''}
-      <button type="button" class="btn-mini" data-act="copy-code">Sao chép mã</button>
+      ${totp ? html`<p class="hint">Đổi sau <b data-remain>30</b> giây</p>` : ''}
+      <button type="button" class="chip-btn" data-act="copy-code">Chép mã</button>
     </div>
     <p class="msg" role="status" aria-live="polite"></p>
   </div>`;
 }
 
+/** 1 dòng cần chép: nhãn + giá trị + nút Chép. */
+const copyRow = (label, value) => html`<span class="cp"><small>${label}</small><code>${value}</code><button type="button" class="chip-btn" data-copy="${value}">Chép</button></span>`;
+
+/** Khung báo trạng thái (dừng, chưa nhận…). */
+const statusCard = (emoji, title, text, action = '') => html`<section class="state"><div class="state-ic" aria-hidden="true">${emoji}</div><h1>${title}</h1><p class="sub">${text}</p>${action}</section>`;
+
+/** "6g 46p" / "2 ngày 3g". */
+function usedFor(ms) {
+  const min = Math.max(1, Math.round(ms / 60_000));
+  const d = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  const m = min % 60;
+  return d ? `${d} ngày${h ? ` ${h}g` : ''}` : h ? `${h}g ${String(m).padStart(2, '0')}p` : `${m} phút`;
+}
+
+/** Hết giờ: cảm ơn + gợi dùng tiếp qua Zalo (lúc kết — khách nhớ nhất). */
+function endScreen(ctx, v) {
+  const t = v.tool;
+  const used = v.startedAt ? usedFor((v.endedAt || v.expiresAt) - v.startedAt) : '';
+  return html`<section class="end">
+  <div class="cup" aria-hidden="true">☕</div>
+  <h1>Hết ca rồi!</h1>
+  <p class="sub">Cảm ơn bạn đã cày cùng <b>${t.name}</b> và Tiệm. Hôm nay bạn đỉnh lắm!</p>
+  ${used ? html`<div class="stat"><div><b>${used}</b><small>đã cày</small></div><div>${icon(t.slug)}<small>${t.name}</small></div></div>` : ''}
+  <div class="offer">
+    <b>Ghiền rồi đúng hông?</b>
+    <p>Dùng tiếp ở nhà với giá mềm xèo — 60+ gói A.I, thiết kế, giải trí. Alo là có liền.</p>
+    <a class="btn dark" href="/zalo" rel="noopener">Nhắn Tiệm qua Zalo</a>
+  </div>
+  <p class="hint">Mai ghé quán, nhận lượt mới nha · <a href="https://tiembanquyen.com" target="_blank" rel="noopener">tiembanquyen.com</a></p>
+</section>`;
+}
+
+/** Vé: logo trong vòng thời gian còn lại, tên món, workspace, đếm ngược, giờ hết. */
+function ticket(ctx, v, sub) {
+  const t = v.tool;
+  const timed = t.login_type !== 'redeem' && v.expiresAt;
+  return html`<section class="ticket">
+  <div class="tk-h">
+    <span class="ring" data-ring data-start="${v.startedAt || ''}" data-end="${v.expiresAt || ''}">${icon(t.slug)}</span>
+    <div><h1>${t.name}</h1><small>${sub}</small></div>
+  </div>
+  ${timed ? html`<div class="tk-cut" aria-hidden="true"></div>
+  <p class="tk-row"><span>Còn</span><b data-countdown="${v.expiresAt}">--:--:--</b></p>
+  <p class="tk-row"><span>Dùng đến</span><b>${fmtLocal(v.expiresAt, ctx.settings().timezoneOffsetMin)}</b></p>` : ''}
+  ${v.deviceMatches ? '' : html`<p class="tk-warn">Slot này được nhận trên một máy khác. Mở trang này trên máy đó để dùng đầy đủ.</p>`}
+</section>`;
+}
+
+/**
+ * Checklist đăng nhập: thấy hết các bước, bước đang làm mở ra, bước xong gạch đi (app.js "Checklist", nhớ trên máy này).
+ * Bấm Chép / Mở / nút xong → sang bước sau. Không JS: mọi bước mở sẵn.
+ * steps: [{ title, body, manual? (chữ nút xong cho bước không có thao tác) }] — phần tử null bị bỏ qua.
+ */
+function checklist(v, all) {
+  const steps = all.filter(Boolean);
+  return html`<section class="steps" data-flow="${v.slotId}">
+  <h2>${steps.length} bước là vào việc</h2>
+  <ol>${steps.map((st, i) => html`
+    <li class="st" data-st>
+      <button type="button" class="st-h" data-st-go="${i}"><span class="n" aria-hidden="true">${i + 1}</span><span class="tt">${st.title}</span></button>
+      <div class="st-b">${st.body}${st.manual ? html`<button type="button" class="chip-btn" data-next>${st.manual}</button>` : ''}</div>
+    </li>`)}
+  </ol>
+  <p class="done-line" data-flow-done hidden>🎉 Xong! Giờ thì cày deadline vèo vèo thôi. <button type="button" class="link" data-st-go="0">Xem lại</button></p>
+</section>`;
+}
+
 function slotBody(ctx, v) {
   const zalo = ctx.settings().zaloUrl;
   const t = v.tool;
-  if (v.status === 'expired') {
-    return html`<section class="card center">
-      <div class="big-icon">🎉</div>
-      <h1>Hết giờ dùng thử rồi nè!</h1>
-      <p>Cảm ơn bạn đã dùng thử <b>${t.name}</b> 💛 Ưng thì dùng tiếp với giá mềm ở Tiệm nha.</p>
-      <a class="btn" href="/zalo" rel="noopener">Mua gói giá tốt qua Zalo</a></section>`;
-  }
+  if (v.status === 'expired') return endScreen(ctx, v);
   if (v.status === 'revoked' || v.status === 'rejected') {
     const text = END_TEXT[v.endReason] || (v.status === 'revoked' ? 'Slot đã bị thu hồi. Nếu có nhầm lẫn, nhắn Zalo cho Tiệm nhé.' : MSG.risk_high);
     const again = v.endReason === 'account_quarantined' || v.endReason === 'no_account';
-    return html`<section class="card center">
-      <div class="big-icon">${again ? '🙏' : '⚠️'}</div>
-      <h1>${v.status === 'revoked' ? 'Slot đã dừng' : 'Chưa nhận được slot'}</h1>
-      <p>${text}</p>
-      ${again ? html`<p>Mở lại trang của quán và bấm <b>${TAKE}</b> để chọn món khác nhé.</p>` : html`<a class="btn ghost" href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a>`}
-    </section>`;
+    return statusCard(again ? '🙏' : '⚠️', v.status === 'revoked' ? 'Slot đã dừng' : 'Chưa nhận được slot', text,
+      again ? html`<p class="sub">Mở lại trang của quán và bấm <b>${TAKE}</b> để chọn món khác nhé.</p>` : html`<a class="btn" href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a>`);
   }
 
   if (v.status === 'pending_invite') {
-    return html`<section class="card center" data-pending-invite>
-      <div class="spinner" aria-hidden="true"></div>
-      <h1>Đang mời bạn vào nhóm ${t.name}</h1>
-      <p>Lời mời gửi tới <b>${v.inviteEmail}</b>, thường trong 1–2 phút. Mở hộp thư (cả mục Quảng cáo / Spam) và bấm <b>Chấp nhận lời mời</b>.</p>
-      <p class="muted">Thời gian dùng chỉ bắt đầu tính khi đã mời xong. Trang này tự cập nhật.</p>
-      <p class="muted">Lâu quá chưa thấy? <a href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a>.</p>
-    </section>`;
+    return html`${ticket(ctx, { ...v, expiresAt: null }, 'Đang mời…')}
+<section class="steps waiting" data-pending-invite>
+  <h2>Đang mời bạn vào nhóm ${t.name}</h2>
+  <ol>
+    <li class="st now"><span class="st-h"><span class="n"><span class="spin" aria-hidden="true"></span></span><span class="tt">Tiệm đang gửi thiệp mời</span></span>
+      <div class="st-b"><p>Tới <b>${v.inviteEmail}</b>, thường trong 1–2 phút.</p></div></li>
+    <li class="st"><span class="st-h"><span class="n">2</span><span class="tt">Mở hộp thư, bấm <b>Chấp nhận lời mời</b></span></span></li>
+    <li class="st"><span class="st-h"><span class="n">3</span><span class="tt">Trang này tự cập nhật</span></span></li>
+  </ol>
+  <p class="hint">Thời gian dùng chỉ bắt đầu tính khi đã mời xong. Lâu quá chưa thấy? <a href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a>.</p>
+</section>`;
   }
 
   // active
-  const loginLink = t.login_url ? html`<a href="${t.login_url}" target="_blank" rel="noopener noreferrer">trang đăng nhập ${t.name}</a>` : html`trang đăng nhập ${t.name}`;
-  const seat = workspaceBox(v);
+  const open = t.login_url
+    ? html`<a class="btn ghost sm" href="${t.login_url}" target="_blank" rel="noopener noreferrer" data-next>Mở ${t.name} ↗</a>`
+    : html`<p>Mở ứng dụng / trang ${t.name}.</p>`;
+  const openStep = { title: 'Mở trang đăng nhập', body: html`${open}<p class="hint">Laptop hay điện thoại này đều được.</p>`, manual: t.login_url ? '' : 'Đã mở ✓' };
+  const seatStep = v.workspace ? {
+    title: `Vào ${v.workspace.name}`,
+    body: html`<p>Workspace của bạn: <b>${v.workspace.name}</b> · dùng chung ${v.seatTotal} người</p>
+    ${v.workspace.url ? html`<a class="btn ghost sm" href="${v.workspace.url}" target="_blank" rel="noopener noreferrer" data-next>Mở ${v.workspace.name} ↗</a>` : ''}`,
+    manual: v.workspace.url ? '' : `Đã vào ${v.workspace.name} ✓`,
+  } : null;
+  const mailStep = (title, manual = '') => ({ title, body: html`<p class="hint">Bấm <b>Lấy mã</b> <b>trước</b>, rồi mới bấm gửi mã bên ${t.name}.</p>${codeBox(ctx, v, 'mail')}`, manual });
+  const rules = [html`Chỉ dùng 1 máy để nhường slot cho bạn sau nhé`];
   let how;
   if (t.login_type === 'email_code') {
-    how = html`
-<section class="card">
-  <h2>Cách đăng nhập</h2>
-  <ol class="steps">
-    <li>Mở ${loginLink} — trên <b>laptop</b> hoặc ngay điện thoại này.</li>
-    <li>Nhập email: ${copyable(v.accountEmail)}</li>
-    <li>Bấm <b>Lấy mã</b> ở dưới <b>trước</b>, rồi mới bấm gửi mã bên ${t.name}.</li>
-    <li>Mã hiện ngay tại đây trong 1–2 phút. Dùng laptop thì mã vẫn hiện trên điện thoại này.</li>
-  </ol>
-  ${seat}
-  ${codeBox(ctx, v, 'mail')}
-  <p class="muted">"1 máy" nghĩa là chỉ đăng nhập ${t.name} trên 1 thiết bị. ${v.extendedDays ? 'Lấy mã trên máy này.' : v.needVoucher ? 'Lấy mã cần mã phiếu (nhận ở quán), trên máy này.' : 'Lấy mã cần đang ở quán, trên máy này — ở xa thì nhắn Zalo Tiệm.'}</p>
-</section>`;
+    rules.push(html`Không đổi email, thông tin tài khoản`);
+    how = checklist(v, [openStep, { title: 'Dán email', body: copyRow('Email', v.accountEmail) }, mailStep('Lấy mã đăng nhập'), seatStep]);
   } else if (t.login_type === 'password' || t.login_type === 'password_totp') {
     const totp = t.login_type === 'password_totp';
-    how = html`
-<section class="card">
-  <h2>Thông tin đăng nhập</h2>
-  ${v.password
-    ? html`<dl class="creds">
-    <dt>Trang đăng nhập</dt><dd>${t.login_url ? html`<a href="${t.login_url}" target="_blank" rel="noopener noreferrer">${t.login_url}</a>` : '—'}</dd>
-    <dt>Email</dt><dd>${copyable(v.accountEmail)}</dd>
-    <dt>Mật khẩu</dt><dd>${copyable(v.password)}</dd>
-  </dl>`
-    : html`<p class="warn">Mật khẩu chỉ hiện trên máy đã nhận slot.</p>`}
-  ${seat}
-  ${totp && v.password ? html`<p>Khi ${t.name} hỏi <b>mã xác thực 2 lớp</b> (6 số): bấm <b>Lấy mã 2FA</b> ở dưới rồi nhập mã đang hiện.</p>${codeBox(ctx, v, 'totp')}` : ''}
-  ${!totp && v.canMailCode && v.password ? html`<p>Nếu ${t.name} hỏi <b>mã gửi qua email</b>: bấm <b>Lấy mã</b> ở dưới <b>trước</b>, rồi mới bấm gửi mã bên ${t.name}.</p>${codeBox(ctx, v, 'mail')}` : ''}
-  <p class="warn">Đừng đổi mật khẩu, email hay ${totp ? 'tắt / đổi' : 'bật'} xác thực 2 lớp — tài khoản sẽ bị khoá và slot bị thu hồi.</p>
-</section>`;
+    rules.push(html`Không đổi mật khẩu, email, ${totp ? '2FA' : 'không bật 2FA'}`);
+    how = !v.password
+      ? statusCard('🔒', 'Mật khẩu ở máy kia', 'Mật khẩu chỉ hiện trên máy đã nhận slot.')
+      : checklist(v, [
+        openStep,
+        { title: 'Dán email và mật khẩu', body: html`${copyRow('Email', v.accountEmail)}${copyRow('Mật khẩu', v.password)}` },
+        totp ? { title: 'Nhập mã 2 lớp', body: codeBox(ctx, v, 'totp') } : null,
+        !totp && v.canMailCode ? mailStep('Nếu hỏi mã email', 'Không hỏi mã — bỏ qua') : null,
+        seatStep,
+      ]);
   } else if (t.login_type === 'team_invite') {
-    how = html`
-<section class="card">
-  <h2>Cách dùng</h2>
-  <ol class="steps">
-    <li>Mở ${loginLink}, đăng nhập bằng <b>tài khoản của chính bạn</b>: ${copyable(v.inviteEmail)}</li>
-    <li>Chưa vào nhóm thì mở thư mời của ${t.name} và bấm <b>Chấp nhận lời mời</b>.</li>
-    <li>Chọn nhóm của Tiệm ở góc trên — các tính năng Pro sẽ mở.</li>
-  </ol>
-  <p class="muted">Hết giờ Tiệm gỡ bạn khỏi nhóm. Thiết kế của bạn vẫn còn trong tài khoản của bạn, chỉ phần Pro bị khoá lại.</p>
-</section>`;
+    rules.push(html`Hết giờ: rời nhóm, thiết kế vẫn còn`);
+    how = checklist(v, [
+      { title: 'Chấp nhận lời mời', body: html`<p>Mở thư ${t.name} gửi tới <b>${v.inviteEmail}</b> → bấm <b>Chấp nhận</b>.</p>`, manual: 'Đã chấp nhận ✓' },
+      { title: `Đăng nhập ${t.name} của bạn`, body: open, manual: t.login_url ? '' : 'Xong ✓' },
+      { title: 'Chọn nhóm của Tiệm', body: html`<p class="hint">Ở góc trên. Tính năng Pro sẽ mở.</p>`, manual: 'Xong ✓' },
+    ]);
   } else if (t.login_type === 'redeem') {
-    how = html`
-<section class="card">
+    how = html`<section class="steps">
   <h2>Quà của bạn</h2>
   ${!v.redeem
     ? html`<p class="warn">Mã chỉ hiện trên máy đã nhận.</p>`
     : v.redeem.isLink
       ? html`<p>Bấm nút dưới để nhận ${t.name}. Đăng nhập bằng Gmail của chính bạn.</p>
   <a class="btn" href="${v.redeem.value}" target="_blank" rel="noopener noreferrer">Nhận ${t.name}</a>
-  <p class="muted">Link chỉ dùng được 1 lần, dành riêng cho bạn — đừng chia sẻ.</p>`
-      : html`<p>Mã nhận quà của bạn:</p>${copyable(v.redeem.value)}
+  <p class="hint">Link chỉ dùng được 1 lần, dành riêng cho bạn — đừng chia sẻ.</p>`
+      : html`${copyRow('Mã', v.redeem.value)}
   ${t.login_url ? html`<p>Mở <a href="${t.login_url}" target="_blank" rel="noopener noreferrer">trang nhập mã</a>, đăng nhập tài khoản của chính bạn và dán mã.</p>` : ''}
-  <p class="muted">Mã chỉ dùng được 1 lần, dành riêng cho bạn — đừng chia sẻ.</p>`}
+  <p class="hint">Mã chỉ dùng được 1 lần, dành riêng cho bạn — đừng chia sẻ.</p>`}
 </section>`;
   }
-  return html`
-<section class="card slot">
-  <div class="slot-head"><h1>${t.name}</h1><span class="badge ok">Đang dùng</span></div>
-  ${t.login_type === 'redeem' ? '' : html`<p class="countdown">Còn <b data-countdown="${v.expiresAt}">--:--:--</b></p>
-  <p class="muted">Dùng tới <b>${fmtLocal(v.expiresAt, ctx.settings().timezoneOffsetMin)}</b></p>
-  <p class="love">Chỉ dùng 1 máy để nhường slot cho bạn sau nhé 💛</p>`}
-  ${v.deviceMatches ? '' : html`<p class="warn">Slot này được nhận trên một máy khác. Mở trang này trên máy đó để dùng đầy đủ.</p>`}
-</section>
+  if (v.workspace) rules.push(html`Chỉ dùng ${v.workspace.name}`);
+  return html`${ticket(ctx, v, v.workspace ? html`Đang dùng · ${v.workspace.name}` : 'Đang dùng')}
 ${how}
-${extendBox(ctx, v)}
-${t.instructions ? html`<section class="card"><h2>Lưu ý</h2>${lines(t.instructions)}</section>` : ''}
-<details class="card report">
-  <summary>Không đăng nhập được? Báo Tiệm</summary>
-  <form id="report-form">
-    <label for="report-msg">Mô tả ngắn: lỗi gì, ở bước nào</label>
-    <textarea id="report-msg" name="message" maxlength="500" rows="3"></textarea>
-    <button type="submit" class="btn ghost">Gửi báo lỗi</button>
-    <p class="msg" role="status"></p>
-    <p class="muted">Cần gấp thì <a href="${zalo}" rel="noopener">nhắn Zalo Tiệm</a>.</p>
-  </form>
-</details>`;
+${t.login_type === 'redeem' ? '' : html`<details class="fold">
+  <summary>${rules.length} luật nhỏ xíu, đọc xíu nha</summary>
+  <ul>${rules.map((r) => html`<li>${r}</li>`)}</ul>
+  ${t.instructions ? lines(t.instructions) : ''}
+</details>`}
+<div class="zalo-row">
+  ${v.canExtend ? html`<a class="zbtn" href="${zalo}" rel="noopener"><b>Gia hạn</b><small>${v.extendedDays ? `đã thêm ${v.extendedDays} ngày · ` : ''}nhắn Zalo</small></a>` : ''}
+  <a class="zbtn" href="${zalo}" rel="noopener"><b>Báo lỗi</b><small>nhắn Zalo</small></a>
+</div>
+${tiemCard(ctx)}`;
 }
 
 export function mePage(ctx, { customer, view }) {
   const body = !customer
-    ? html`<section class="card center"><div class="big-icon">📱</div><h1>Bạn chưa đăng nhập</h1><p>${entryHint()}</p></section>`
-    : html`${view ? slotBody(ctx, view) : html`<section class="card center"><div class="big-icon">☕</div><h1>Bạn chưa nhận công cụ nào</h1><p>${entryHint()}</p></section>`}
-<p class="center">${hello(ctx, customer)}</p>`;
-  return page(ctx, { title: 'Slot của tôi', body, data: { page: 'me' } });
+    ? tapScreen({ title: 'Ủa, chưa thấy bạn đâu', text: entryHint() })
+    : html`${view ? slotBody(ctx, view) : tapScreen({ title: 'Chưa có món nào hết trơn', text: entryHint() })}
+${hello(ctx, customer)}`;
+  return page(ctx, { title: 'Slot của tôi', body: html`${LOGO_SYMBOLS}${body}`, data: { page: 'me' } });
 }
 
 /** "Về chúng tôi" — nằm trong phần công cụ làm việc (nút thứ 2 của khối trên trang quán). Thông tin lấy từ tiembanquyen.com. */
@@ -377,12 +458,12 @@ export function aboutPage(ctx, { shop }) {
   return page(ctx, {
     title: 'Về chúng tôi',
     body: html`
-<section class="card hero">
-  <p class="eyebrow"><span class="pill free">Về chúng tôi</span>Tiệm Bản Quyền · TBQ Space</p>
+<section class="intro">
+  <p class="eyebrow">Tiệm Bản Quyền · TBQ Space</p>
   <h1>Alo là có liền 👋</h1>
-  <p>Tiệm Bản Quyền là tiệm nhỏ chuyên các gói A.I, thiết kế, giải trí và học tập bản quyền. Giá mềm, giao nhanh, hỗ trợ tận tình qua Zalo.</p>
+  <p class="sub">Tiệm nhỏ chuyên các gói A.I, thiết kế, giải trí và học tập bản quyền. Giá mềm, giao nhanh, hỗ trợ tận tình qua Zalo.</p>
 </section>
-<section class="card">
+<section class="panel">
   <h2>Tiệm có gì?</h2>
   <ul class="facts">
     <li><b>60+ dịch vụ:</b> ChatGPT, Claude, Gemini, Canva, CapCut, Adobe, Netflix, Spotify…</li>
@@ -392,16 +473,16 @@ export function aboutPage(ctx, { shop }) {
     <li><b>Hỗ trợ 24/7</b> qua Zalo${phone ? html` ${phone}` : ''}.</li>
   </ul>
 </section>
-<section class="card">
+<section class="panel">
   <h2>Công cụ free ở quán để làm gì?</h2>
   <p>Tụi mình muốn bạn ngồi quán mà vẫn chạy deadline mượt: thử đồ xịn trước, ưng thì mới mua. Ai ngồi quán cũng nhận được, không cần làm gì thêm.</p>
-  <p class="muted">Mỗi ${idWord(ctx)} nhận 1 công cụ mỗi ngày, để ai cũng có phần. Chỉ dùng 1 máy để nhường slot cho bạn sau nhé 💛</p>
+  <p class="hint">Mỗi ${idWord(ctx)} nhận 1 công cụ mỗi ngày, để ai cũng có phần. Chỉ dùng 1 máy để nhường slot cho bạn sau nhé 💛</p>
 </section>
-<section class="card center actions">
+<div class="actions">
   <a class="btn" href="/qs${shop ? `/${shop}` : ''}">${TAKE}</a>
   <a class="btn ghost" href="https://tiembanquyen.com" target="_blank" rel="noopener">Xem bảng giá</a>
   <a class="btn ghost" href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a>
-</section>`,
+</div>`,
   });
 }
 

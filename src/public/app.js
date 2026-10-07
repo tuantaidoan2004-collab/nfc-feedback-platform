@@ -1,4 +1,4 @@
-// JS phía khách: OTP, nhận slot, đếm ngược, lấy mã, báo lỗi. Không thư viện ngoài.
+// JS phía khách (thiết kế v2 "Vé vào ca"): chọn món, bảng giữ chỗ (email → mã), nhận slot, đếm ngược, lấy mã, checklist. Không thư viện ngoài.
 (() => {
   'use strict';
   // Tiền tố khi Tiệm chạy dưới thư mục con (vd. /colap): đọc từ chính đường dẫn file này (…/static/app.js).
@@ -68,7 +68,13 @@
       try { document.execCommand('copy'); } catch { /* bỏ qua */ }
       ta.remove();
     }
-    if (btn) { const old = btn.textContent; btn.textContent = 'Đã chép ✓'; setTimeout(() => { btn.textContent = old; }, 1500); }
+    if (btn) {
+      const old = btn.dataset.label || (btn.dataset.label = btn.textContent);
+      btn.textContent = 'Đã chép';
+      btn.classList.add('ok');
+      clearTimeout(btn.copyTimer);
+      btn.copyTimer = setTimeout(() => { btn.textContent = old; btn.classList.remove('ok'); }, 1600);
+    }
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-copy]');
@@ -81,90 +87,187 @@
     location.reload();
   }));
 
-  // ---------- OTP ----------
+  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const store = (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* bỏ qua */ } };
+  const load = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch { return null; } };
+  const isEmailLike = (v) => /^\S+@\S+\.\S+$/.test(v);
+
+  // ---------- Chọn món (bước 1) ----------
+  // Chọn ô → nút đáy thành "Nhận <món>". Chưa đăng nhập → mở bảng giữ chỗ (email → mã), xác nhận xong nhận luôn món đã chọn.
+  const claimForm = $('#claim-form');
+  const sel = () => claimForm && $('input[name=toolId]:checked', claimForm);
+  const isInvite = () => sel()?.dataset.login === 'team_invite';
+  const inviteEmail = () => (claimForm?.inviteEmail?.value || '').trim();
+
+  async function claim(picked, email) {
+    const r = await api('/api/claim', { toolId: Number(picked.value), inviteEmail: picked.dataset.login === 'team_invite' ? email : undefined });
+    if (r.status === 'active' || r.status === 'pending_invite') { store('tbq-pick', null); location.href = `${BASE}/me`; return null; }
+    return r;
+  }
+
+  if (claimForm) {
+    const cta = $('[data-cta]', claimForm);
+    claimForm.classList.add('js');
+    const paint = () => {
+      const s = sel();
+      $$('.tile', claimForm).forEach((t) => t.classList.toggle('on', !!t.querySelector('input:checked')));
+      claimForm.classList.toggle('canva', isInvite());
+      if (s) $('[data-tool-name]', claimForm).textContent = s.dataset.name;
+      if (cta) { cta.disabled = !s; cta.textContent = s ? `Nhận ${s.dataset.name}` : 'Chọn 1 món đã nè'; }
+    };
+    // Quay lại sau khi xác nhận mã (tải lại trang): chọn sẵn món cũ.
+    const kept = load('tbq-pick');
+    if (kept) {
+      const r = $(`input[name=toolId][value="${CSS.escape(String(kept.toolId))}"]`, claimForm);
+      if (r) r.checked = true;
+      if (kept.inviteEmail) claimForm.inviteEmail.value = kept.inviteEmail;
+    }
+    const flash = load('tbq-msg');
+    if (flash) { say(claimForm, flash, 'err'); store('tbq-msg', null); }
+    paint();
+    claimForm.addEventListener('change', (e) => {
+      if (e.target.name !== 'toolId') return;
+      say(claimForm, '');
+      paint();
+      if (isInvite()) setTimeout(() => claimForm.inviteEmail.focus(), 200);
+    });
+    claimForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const picked = sel();
+      if (!picked) return;
+      if (isInvite() && !isEmailLike(inviteEmail())) {
+        claimForm.inviteEmail.classList.add('need');
+        claimForm.inviteEmail.focus();
+        say(claimForm, 'Bạn nhập email tài khoản để Tiệm gửi lời mời nhé.', 'err');
+        return;
+      }
+      claimForm.inviteEmail.classList.remove('need');
+      store('tbq-pick', { toolId: picked.value, inviteEmail: inviteEmail() });
+      if (!claimForm.dataset.logged) { openSheet(picked); return; }
+      cta.disabled = true;
+      say(claimForm, 'Đang giữ chỗ cho bạn…');
+      const r = await claim(picked, inviteEmail());
+      cta.disabled = false;
+      if (!r) return;
+      if (r.unauthorized) { location.reload(); return; }
+      say(claimForm, r.message || 'Chưa nhận được slot.', 'err');
+    });
+  }
+
+  // ---------- Bảng giữ chỗ: email → mã 6 số ----------
+  const sheet = $('[data-sheet]');
   const otpForm = $('#otp-form');
-  if (otpForm) {
-    const step = $('.otp-step', otpForm);
+  let lastFocus = null;
+  function openSheet(picked) {
+    if (!sheet) return;
+    const sum = $('[data-pick-sum]', sheet);
+    sum.textContent = '';
+    const ic = picked.closest('.tile')?.querySelector('.ic');
+    if (ic) sum.append(ic.cloneNode(true));
+    const t = document.createElement('span');
+    const b = document.createElement('b');
+    b.textContent = picked.dataset.name;
+    t.append('Đang giữ chỗ ', b, ' cho bạn nè');
+    sum.append(t);
+    lastFocus = document.activeElement;
+    sheet.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add('open')));
+    setTimeout(() => (otpForm.dataset.step === '2' ? otpForm.code : otpForm.phone).focus(), still ? 0 : 320);
+  }
+  function closeSheet() {
+    sheet.classList.remove('open');
+    setTimeout(() => { sheet.hidden = true; lastFocus?.focus?.(); }, still ? 0 : 300);
+  }
+  if (sheet && otpForm) {
+    const panes = $$('[data-pane]', otpForm);
+    const showPane = (n) => {
+      otpForm.dataset.step = String(n);
+      panes.forEach((p) => p.classList.toggle('now', p.dataset.pane === String(n)));
+    };
+    otpForm.classList.add('js');
+    showPane(1);
+    sheet.addEventListener('click', (e) => { if (e.target.closest('[data-sheet-close]')) closeSheet(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+
     const sendBtn = $('[data-act=send-otp]', otpForm);
     const resendBtn = $('[data-act=resend-otp]', otpForm);
+    const boxes = $('[data-otp-boxes]', otpForm);
+    const cells = $$('i', boxes);
     let busy = false;
     let cooldown = null;
     const startCooldown = (sec) => {
       let left = sec;
       resendBtn.disabled = true;
+      resendBtn.textContent = `Gửi lại sau ${left}s`;
       clearInterval(cooldown);
       cooldown = setInterval(() => {
         left -= 1;
-        resendBtn.textContent = left > 0 ? `Gửi lại mã (${left}s)` : 'Gửi lại mã';
+        resendBtn.textContent = left > 0 ? `Gửi lại sau ${left}s` : 'Gửi lại mã';
         if (left <= 0) { clearInterval(cooldown); resendBtn.disabled = false; }
       }, 1000);
+    };
+    const paintCells = () => {
+      const v = otpForm.code.value.replace(/\D/g, '').slice(0, 6);
+      if (otpForm.code.value !== v) otpForm.code.value = v;
+      cells.forEach((c, i) => { c.textContent = v[i] || ''; c.className = i < v.length ? 'f' : i === v.length ? 'c' : ''; });
+      return v;
     };
     async function send() {
       if (busy) return;
       const isEmail = otpForm.dataset.kind === 'email';
-      if (!otpForm.phone.value.trim()) { say(otpForm, isEmail ? 'Bạn nhập email nhé.' : 'Bạn nhập số điện thoại nhé.', 'err'); return; }
+      const val = otpForm.phone.value.trim();
+      if (!val) { say(otpForm, isEmail ? 'Bạn nhập email nhé.' : 'Bạn nhập số điện thoại nhé.', 'err'); otpForm.phone.focus(); return; }
+      if (!otpForm.consent.checked) {
+        otpForm.consent.closest('label').classList.add('need');
+        say(otpForm, 'Bạn tích ô đồng ý giúp Tiệm nha.', 'err');
+        return;
+      }
+      otpForm.consent.closest('label').classList.remove('need');
       busy = true; sendBtn.disabled = true;
-      say(otpForm, 'Đang gửi mã…');
-      const r = await api('/api/otp/send', { phone: otpForm.phone.value });
+      say(otpForm, 'Đang phóng mã đi…');
+      const r = await api('/api/otp/send', { phone: val });
       busy = false; sendBtn.disabled = false;
       if (!r.ok) { say(otpForm, r.message, 'err'); return; }
-      step.hidden = false;
-      sendBtn.hidden = true;
-      otpForm.code.focus();
+      $('[data-otp-to]', otpForm).textContent = val;
+      showPane(2);
+      otpForm.code.value = '';
+      paintCells();
+      setTimeout(() => otpForm.code.focus(), 60);
       startCooldown(30);
-      const ch = otpForm.dataset.channel || 'Zalo';
-      say(otpForm, r.devCode ? `(Chế độ thử) Mã của bạn: ${r.devCode}`
-        : isEmail ? 'Đã gửi mã vào email. Mở hộp thư để xem mã (không thấy thì xem cả mục Spam / Quảng cáo nhé).'
-          : `Đã gửi mã qua ${ch}. Mở ${ch === 'Zalo' ? 'Zalo' : 'tin nhắn'} để xem mã nhé.`, 'ok');
+      say(otpForm, r.devCode ? `(Chế độ thử) Mã của bạn: ${r.devCode}` : '', 'ok');
     }
     async function verify() {
       if (busy) return;
-      const code = otpForm.code.value.replace(/\D/g, '');
-      if (code.length !== 6) { say(otpForm, 'Mã gồm 6 chữ số.', 'err'); return; }
+      const code = paintCells();
+      if (code.length !== 6) { say(otpForm, 'Mã có 6 số nha.', 'err'); return; }
       busy = true;
       say(otpForm, 'Đang xác nhận…');
       const r = await api('/api/otp/verify', { phone: otpForm.phone.value, code, consent: otpForm.consent.checked });
-      busy = false;
       if (!r.ok) {
+        busy = false;
         say(otpForm, r.message, 'err');
-        if (r.code === 'consent_required') otpForm.consent.closest('label').classList.add('need');
+        if (r.code === 'consent_required') { showPane(1); otpForm.consent.closest('label').classList.add('need'); return; }
+        boxes.classList.add('bad');
+        setTimeout(() => { boxes.classList.remove('bad'); otpForm.code.value = ''; paintCells(); otpForm.code.focus(); }, 450);
         return;
       }
-      say(otpForm, 'Xác nhận xong!', 'ok');
+      // Đã đăng nhập → nhận luôn món đã chọn. Không được (vd. đã thử món này gần đây) → tải lại, báo lý do, món vẫn chọn sẵn.
+      const picked = sel();
+      if (picked) {
+        say(otpForm, 'Ngon! Đang lấy vé cho bạn…', 'ok');
+        const c = await claim(picked, inviteEmail());
+        if (!c) return;
+        if (c.message) store('tbq-msg', c.message);
+      }
       location.reload();
     }
-    otpForm.addEventListener('submit', (e) => { e.preventDefault(); if (step.hidden) send(); else verify(); });
+    otpForm.addEventListener('submit', (e) => { e.preventDefault(); if (otpForm.dataset.step === '2') verify(); else send(); });
     $('[data-act=verify-otp]', otpForm).addEventListener('click', verify);
+    $('[data-act=back-otp]', otpForm).addEventListener('click', () => { showPane(1); say(otpForm, ''); otpForm.phone.focus(); });
     resendBtn.addEventListener('click', send);
-    otpForm.code.addEventListener('input', () => { if (otpForm.code.value.replace(/\D/g, '').length === 6) verify(); });
-  }
-
-  // ---------- Nhận slot ----------
-  const claimForm = $('#claim-form');
-  if (claimForm) {
-    const btn = $('button[type=submit]', claimForm);
-    const invite = $('.invite', claimForm);
-    // Canva (mời vào nhóm): chọn thì hiện ô email tài khoản của khách.
-    claimForm.addEventListener('change', (e) => {
-      if (e.target.name !== 'toolId') return;
-      invite.hidden = e.target.dataset.login !== 'team_invite';
-      $('[data-tool-name]', invite).textContent = e.target.dataset.name;
-      if (!invite.hidden) claimForm.inviteEmail.focus();
-    });
-    claimForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const sel = $('input[name=toolId]:checked', claimForm);
-      if (!sel) { say(claimForm, 'Bạn chọn 1 công cụ nhé.', 'err'); return; }
-      btn.disabled = true;
-      say(claimForm, 'Đang xử lý…');
-      const isInvite = sel.dataset.login === 'team_invite';
-      if (isInvite && !/^\S+@\S+\.\S+$/.test(claimForm.inviteEmail.value.trim())) { say(claimForm, `Nhập email tài khoản ${sel.dataset.name} của bạn nhé.`, 'err'); claimForm.inviteEmail.focus(); return; }
-      const r = await api('/api/claim', { toolId: Number(sel.value), inviteEmail: isInvite ? claimForm.inviteEmail.value.trim() : undefined });
-      btn.disabled = false;
-      if (r.unauthorized) { location.reload(); return; }
-      if (r.status === 'active' || r.status === 'pending_invite') { location.href = `${BASE}/me`; return; }
-      say(claimForm, r.message || 'Chưa nhận được slot.', 'err');
-    });
+    otpForm.code.addEventListener('input', () => { if (paintCells().length === 6) verify(); });
+    otpForm.code.addEventListener('focus', () => boxes.classList.add('focus'));
+    otpForm.code.addEventListener('blur', () => boxes.classList.remove('focus'));
   }
 
   // ---------- Canva: chờ bot mời vào nhóm → tự tải lại khi đã mời ----------
@@ -175,7 +278,7 @@
     }, 5000);
   }
 
-  // ---------- Đếm ngược ----------
+  // ---------- Đếm ngược + vòng thời gian quanh logo ----------
   $$('[data-countdown]').forEach((el) => {
     const end = Number(el.dataset.countdown);
     if (!end) return;
@@ -187,7 +290,14 @@
     const timer = setInterval(tick, 1000);
     tick();
   });
-
+  $$('[data-ring]').forEach((el) => {
+    const start = Number(el.dataset.start);
+    const end = Number(el.dataset.end);
+    if (!start || !end || end <= start) return;
+    const draw = () => el.style.setProperty('--p', Math.max(0, Math.min(1, (end - serverNow()) / (end - start))).toFixed(3));
+    draw();
+    setInterval(draw, 30_000);
+  });
 
   // ---------- Lấy mã ----------
   const box = $('#code-box');
@@ -334,54 +444,119 @@
     if (windowId) waiting();
   }
 
-  // ---------- Gia hạn ----------
-  const extendForm = $('#extend-form');
-  if (extendForm) {
-    const panel = $('#extend');
-    extendForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const b = $('button', extendForm);
-      b.disabled = true;
-      const r = await api('/api/extend', { code: extendForm.code.value });
-      b.disabled = false;
-      if (r.unauthorized) { location.reload(); return; }
-      say(panel, r.message || (r.ok ? 'Đã gia hạn.' : 'Chưa gia hạn được.'), r.ok ? 'ok' : 'err');
-      if (r.ok) setTimeout(() => location.reload(), 1200);
+  // ---------- Checklist đăng nhập: bước đang làm mở ra, bước xong gạch đi (nhớ trên máy này) ----------
+  const flow = $('[data-flow]');
+  if (flow) {
+    const items = $$('[data-st]', flow);
+    const key = `tbq-flow-${flow.dataset.flow}`;
+    const done = $('[data-flow-done]', flow);
+    let at = 0;
+    try { at = Math.min(Number(localStorage.getItem(key)) || 0, items.length); } catch { /* bỏ qua */ }
+    const paint = () => {
+      items.forEach((li, i) => { li.classList.toggle('d', i < at); li.classList.toggle('now', i === at); });
+      done.hidden = at < items.length;
+    };
+    const go = (i) => {
+      at = Math.max(0, Math.min(items.length, i));
+      try { localStorage.setItem(key, String(at)); } catch { /* bỏ qua */ }
+      paint();
+      const li = items[at];
+      if (li && li.getBoundingClientRect().top < 70) li.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+    };
+    flow.classList.add('js');
+    paint();
+    flow.addEventListener('click', (e) => {
+      const g = e.target.closest('[data-st-go]');
+      if (g) { go(Number(g.dataset.stGo)); return; }
+      const did = e.target.closest('[data-copy], [data-next], [data-act=copy-code]');
+      const li = did?.closest('[data-st]');
+      if (!li || li !== items[at]) return;
+      if (did.matches('[data-copy]')) {
+        did.dataset.done = '1';
+        // bước có nhiều dòng (email + mật khẩu): chép đủ mới sang bước sau
+        if ($$('[data-copy]', li).some((b) => !b.dataset.done)) return;
+      }
+      setTimeout(() => go(at + 1), 650); // chờ chút cho khách thấy "Đã chép"
     });
-    const reqForm = $('#extend-request');
-    if (reqForm) {
-      reqForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const b = $('button', reqForm);
-        b.disabled = true;
-        const r = await api('/api/extend/request', { days: Number(reqForm.days.value) });
-        if (r.unauthorized) { location.reload(); return; }
-        say(panel, r.message || 'Chưa gửi được.', r.ok ? 'ok' : 'err');
-        if (r.ok) setTimeout(() => location.reload(), 1500); else b.disabled = false;
-      });
+  }
+
+  // ---------- Vé hiện ra lần đầu: giấy màu rơi 1 lần ----------
+  const tk = $('.ticket');
+  if (tk && flow && !still) {
+    const key = `tbq-yay-${flow.dataset.flow}`;
+    let seen = false;
+    try { seen = !!localStorage.getItem(key); localStorage.setItem(key, '1'); } catch { /* bỏ qua */ }
+    if (!seen) {
+      const colors = ['#ffd23f', '#ff5b2e', '#12b886', '#ffffff', '#7d2ae8'];
+      for (let i = 0; i < 18; i += 1) {
+        const c = document.createElement('i');
+        c.className = 'confetti';
+        c.style.left = `${5 + Math.random() * 90}%`;
+        c.style.background = colors[i % colors.length];
+        c.style.animationDelay = `${Math.random() * 0.35}s`;
+        tk.append(c);
+        setTimeout(() => c.remove(), 2000);
+      }
+      buzz();
     }
-    // Đang chờ Tiệm gia hạn: hỏi lại mỗi 20 giây, Tiệm bấm Gia hạn xong thì tải lại trang (đồng hồ mới).
-    if ($('#extend .ok-line')) {
-      const before = Number($('[data-countdown]')?.dataset.countdown) || 0;
-      setInterval(async () => {
-        if (document.hidden) return;
-        const r = await api('/api/me');
-        if (r.view && (r.view.expiresAt !== before || !r.view.extendRequest)) location.reload();
-      }, 20_000);
+  }
+  // ---------- Sống động: hiện dần khi cuộn (xong thì gỡ lớp .rv để trả lại hiệu ứng bấm gốc), tiêu đề lên từng chữ, vé nghiêng theo ngón tay ----------
+  // Chuyển động có mục đích (Apple HIG Motion / NN/g): cho biết nội dung từ đâu tới, phản hồi khi chạm. Giảm chuyển động → chỉ mờ dần.
+  const groups = ['.how li', '.list .tile', '.out', '.tiem', '.peek li', '.steps', '.fold', '.zalo-row', '.contact-tiem', '.stat div', '.offer', '.mini-ticket', '.panel', '.actions .btn'];
+  const items = [];
+  for (const sel of groups) $$(sel).forEach((el, i) => { el.classList.add('rv'); el.style.setProperty('--d', `${Math.min(i, 6) * 0.07}s`); items.push(el); });
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { const el = e.target; el.classList.add('in'); io.unobserve(el); setTimeout(() => el.classList.remove('rv', 'in'), 1300); } }), { rootMargin: '0px 0px -8% 0px' });
+    items.forEach((el) => io.observe(el));
+  } else items.forEach((el) => el.classList.add('in'));
+
+  if (!still) {
+    // Tiêu đề: tách chữ (giữ nguyên thẻ con như <mark>), mỗi chữ trồi lên nối nhau.
+    $$('.intro h1, .tap h1, .end h1, .state h1').forEach((h) => {
+      let k = 0;
+      const wrap = () => {
+        const s = document.createElement('span');
+        s.className = 'w';
+        s.style.setProperty('--d', `${0.08 + k++ * 0.06}s`);
+        return s;
+      };
+      [...h.childNodes].forEach((n) => {
+        if (n.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach((part) => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { frag.append(part); return; }
+            const s = wrap(); s.textContent = part; frag.append(s);
+          });
+          n.replaceWith(frag);
+        } else if (n.nodeType === 1) { const s = wrap(); n.replaceWith(s); s.append(n); }
+      });
+    });
+
+    // Vé: nghiêng 3D + ánh giấy bóng theo ngón tay / chuột.
+    const tkt = $('.ticket');
+    if (tkt) {
+      const move = (e) => {
+        const r = tkt.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        tkt.classList.add('held');
+        tkt.style.setProperty('--ry', `${(x * 10).toFixed(2)}deg`);
+        tkt.style.setProperty('--rx', `${(-y * 8).toFixed(2)}deg`);
+        tkt.style.setProperty('--mx', `${((x + 0.5) * 100).toFixed(0)}%`);
+      };
+      const leave = () => { tkt.classList.remove('held'); tkt.style.setProperty('--rx', '0deg'); tkt.style.setProperty('--ry', '0deg'); };
+      tkt.addEventListener('pointermove', move);
+      tkt.addEventListener('pointerdown', move);
+      ['pointerleave', 'pointerup', 'pointercancel'].forEach((ev) => tkt.addEventListener(ev, leave));
     }
   }
 
-  // ---------- Báo lỗi ----------
-  const report = $('#report-form');
-  if (report) {
-    report.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const b = $('button', report);
-      b.disabled = true;
-      const r = await api('/api/report', { message: report.message.value });
-      b.disabled = false;
-      say(report, r.message || (r.ok ? 'Đã gửi.' : 'Chưa gửi được.'), r.ok ? 'ok' : 'err');
-      if (r.ok) report.message.value = '';
-    });
-  }
+  // Chọn món: nảy nhẹ + rung khẽ (phản hồi "đã nhận" — ngưỡng Doherty).
+  $('#claim-form')?.addEventListener('change', (e) => {
+    const t = e.target.closest('.tile');
+    if (!t) return;
+    t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
+    try { navigator.vibrate?.(12); } catch { /* bỏ qua */ }
+  });
 })();

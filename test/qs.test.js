@@ -47,7 +47,7 @@ test('vé từ trang quán: đúng quán → link sạch → đăng nhập → n
     assert.equal(taps(ctx), 1);
 
     await login(ctx, c);
-    assert.match((await c.get('/qs/cafe-test', UA)).text, /Đã thấy bạn đang ở quán/);
+    assert.match((await c.get('/qs/cafe-test', UA)).text, /Hôm nay bạn cần món nào/);
     const ok = await c.post('/api/claim', { toolId: tools.chatgpt.id });
     assert.equal(ok.json.status, 'active', ok.text);
     const slot = get(ctx.db, 'SELECT s.cafe_id, k.kind FROM slots s JOIN cards k ON k.id = s.card_id');

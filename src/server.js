@@ -9,7 +9,7 @@ import { createCtx } from './ctx.js';
 import { createRouter, createRq, HttpError, html } from './lib/http.js';
 import { ensureDevice, loadSession } from './domain/auth.js';
 import { registerPublicRoutes } from './routes/public.js';
-import { registerHookRoutes, registerQsApi } from './routes/hooks.js';
+import { registerHookRoutes, registerQsApi, registerKhoApi } from './routes/hooks.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerWorkerRoutes } from './routes/worker.js';
 import { createOtpSender } from './services/otp.js';
@@ -41,6 +41,7 @@ export function createApp(ctx) {
   registerPublicRoutes(router);
   registerHookRoutes(router);
   registerQsApi(router);
+  registerKhoApi(router);
   registerAdminRoutes(router);
   registerWorkerRoutes(router);
   // Kiểm tra sống cho công cụ giám sát (uptime): không tạo mã máy, không ghi gì.

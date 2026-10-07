@@ -35,6 +35,9 @@ export function loadConfig(env = process.env) {
     // Trang quán QS (Tài): chủ chỉ dán link / mã quán, TBQ tự đọc tên quán từ trang này. Có thư mục cũng được.
     qsOrigin: String(env.QS_ORIGIN || 'https://quitesensational-review-bio.com').trim().replace(/\/+$/, ''),
     qsTicketKey: env.QS_TICKET_KEY || (isProd ? '' : 'dev-qs-ticket-key-change-me-0123456789'),
+    // Khoá RIÊNG cho API kho (/hooks/qs/kho — QS thêm / sửa / xem tài khoản trong kho). Khác khoá vé: lộ hay cần cắt quyền kho
+    // thì đổi khoá này, vé ở quán vẫn chạy. Trống = tắt API kho. Tạo: openssl rand -hex 32. Bên QS: NFC_EVENT_TBQ_KHO_KEY.
+    qsKhoKey: String(env.QS_KHO_KEY || (isProd ? '' : 'dev-qs-kho-key-change-me-0123456789abcdef')).trim(),
     // Mã cho bot mời / gỡ thành viên Canva chạy trên máy của chủ tiệm (API /worker). Để trống = tắt API này.
     workerToken: env.WORKER_TOKEN || (isProd ? '' : 'dev-worker-token-change-me-0123'),
     otp: {
@@ -106,6 +109,8 @@ export function validateConfig(c) {
     if (c.hubWatch.url && !c.hubWatch.url.startsWith('https://')) errors.push('HUB_WATCH_URL phải là https://');
     if (c.hubWatch.url && c.hubWatch.token.length < 24) errors.push('HUB_WATCH_TOKEN phải dài ít nhất 24 ký tự (= watch_token của hộp thư)');
     if (c.workerToken && c.workerToken.length < 24) errors.push('WORKER_TOKEN phải dài ít nhất 24 ký tự (openssl rand -base64 32)');
+    if (c.qsKhoKey && c.qsKhoKey.length < 32) errors.push('QS_KHO_KEY phải dài ít nhất 32 ký tự (openssl rand -hex 32), hoặc để trống để tắt API kho');
+    if (c.qsKhoKey && c.qsKhoKey === c.qsTicketKey) errors.push('QS_KHO_KEY phải khác QS_TICKET_KEY (để cắt quyền kho mà không hỏng vé ở quán)');
     if (!c.qsTicketKey || c.qsTicketKey.length < 32) errors.push('QS_TICKET_KEY phải dài ít nhất 32 ký tự và giống NFC_EVENT_TBQ_KEY bên QS (openssl rand -hex 32)');
   }
   let u = null;

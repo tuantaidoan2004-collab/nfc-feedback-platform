@@ -300,7 +300,7 @@ test('trang chọn công cụ: công cụ khách đã thử gần đây hiện "
   assert.equal(toolAvailability(ctx, other.customer).find((x) => x.tool.slug === 'capcut').blocked, null);
   const cafe = get(ctx.db, 'SELECT * FROM cafes LIMIT 1');
   const page = String(cardPage(ctx, { cafe, customer: g.customer, tools: toolAvailability(ctx, g.customer), view: null, atCafe: true }));
-  assert.match(page, /data-name="CapCut Pro"[^>]* disabled>/);
+  assert.doesNotMatch(page, /data-name="CapCut Pro"/, 'không còn lượt → không có ô chọn, chỉ là chip "Tạm hết"');
   assert.match(page, /Đã thử đủ lần/);
 });
 

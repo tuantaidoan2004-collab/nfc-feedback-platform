@@ -1,64 +1,78 @@
-/* Giao diện khách — thiết kế riêng của Tiệm Bản Quyền, theo nhận diện tiembanquyen.com:
- * giấy ấm, mực, vàng đồng; chữ có chân; góc bo 4px; khối tiêu đề nền mực với dòng chữ hoa vàng và vạch vàng mảnh.
- * Không tài nguyên ngoài (CSP 'self'): Lora / Cormorant Garamond dùng khi máy có sẵn, còn lại là Georgia / Times New Roman
- * (đủ dấu tiếng Việt). Mobile-first. */
+/* Giao diện khách Tiệm Bản Quyền — phong cách TEM PHIẾU / NHÃN DÁN (phiên 32): tươi, vui nhưng có cá tính "tiệm",
+ * tránh kiểu web AI (không gradient, không nền loang, ít emoji). Giấy kem có chấm mờ; khối màu phẳng, viền mực 2px,
+ * bóng đổ cứng lệch (bấm thì lún xuống); thẻ slot là tấm vé có răng xé; "Miễn phí" là con dấu.
+ * Chữ bo tròn của máy (iPhone: SF Rounded). Phần ghi đè chính nằm CUỐI file ("Tem phiếu").
+ * Không tài nguyên ngoài (CSP 'self'), không font tải về. Mobile-first; laptop = 1 cột giữa ~560px. */
 :root {
-  --paper: #f4f1ea; --surface: #faf8f3; --wash: #eae5da;
-  --ink: #1c1b19; --ink-2: #2b2926; --stone: #5e5a52; --line: #d6d0c4; --line-strong: #b9b1a2;
-  --gold: #b38b45; --gold-light: #d9be86; --gold-600: #9a743a; --gold-700: #76561f; --gold-50: #f8eedb;
-  --green: #467249; --green-50: #eef3ee; --red: #a8402f; --red-50: #f9ecea;
+  --paper: #fffaf1; --surface: #ffffff; --wash: #fff3dc;
+  --ink: #1f1d2b; --ink-2: #34313f; --stone: #6b6577; --line: #f0e6d4; --line-strong: #e3d4b8;
+  --gold: #ffb020; --gold-light: #ffd66b; --gold-600: #f59e0b; --gold-700: #b45309; --gold-50: #fff4d6;
+  --sun: #ffd84d; --peach: #ff9a76; --mint: #43cf9c; --sky: #5bbcff; --lilac: #a98bff; --pink: #ff7eb6;
+  --green: #138a5b; --green-50: #e6f8ef; --red: #e0443e; --red-50: #ffeceb;
   --muted: var(--stone);
-  --radius: 4px;
-  --shadow: 0 1px 2px rgba(45, 43, 43, .10);
-  --font-body: 'Lora', Georgia, 'Times New Roman', serif;
-  --font-head: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(31, 29, 43, .05), 0 10px 26px -14px rgba(31, 29, 43, .22);
+  --font-body: ui-rounded, 'SF Pro Rounded', 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-head: var(--font-body);
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   color-scheme: light;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0; background: var(--paper); color: var(--ink); min-height: 100dvh;
-  font: 16px/1.6 var(--font-body); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  position: relative; margin: 0; background: var(--paper); color: var(--ink); min-height: 100dvh;
+  font: 15.5px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
 }
-a { color: inherit; text-decoration-color: var(--gold); text-underline-offset: 3px; }
-h1, h2, h3 { font-family: var(--font-head); font-weight: 500; letter-spacing: -.02em; }
-h1 { font-size: clamp(30px, 8.6vw, 40px); line-height: 1.12; margin: .1em 0 .3em; }
-h2 { font-size: 25px; line-height: 1.2; margin: 0 0 .5em; }
+a { color: inherit; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+h1, h2, h3 { font-family: var(--font-head); font-weight: 800; letter-spacing: -.025em; }
+h1 { font-size: clamp(26px, 7vw, 34px); line-height: 1.12; margin: .1em 0 .3em; }
+h2 { font-size: 21px; line-height: 1.2; margin: 0 0 .5em; }
 p { margin: .45em 0; }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-code { font-family: var(--font-mono); font-size: .9em; background: var(--wash); padding: .1em .4em; border-radius: var(--radius); word-break: break-all; }
+:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+code { font-family: var(--font-mono); font-size: .9em; background: var(--wash); padding: .1em .4em; border-radius: 6px; word-break: break-all; }
 
-/* Thanh trên: giấy, vạch mảnh, dấu "TBQ" mực–vàng */
-.top { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--paper); }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: var(--font-head); font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
-.logo { display: inline-grid; place-items: center; min-width: 40px; height: 28px; padding: 0 6px; background: var(--ink); color: var(--gold-light);
-  border-radius: var(--radius); font-family: var(--font-body); font-size: 11px; letter-spacing: .12em; }
-.wrap { max-width: 520px; margin: 0 auto; padding: 16px 14px 24px; }
+/* Thanh trên: logo tròn bật ra, tên "tiembanquyen.com" trượt ra từ sau logo (mẫu "Round Logo: Sliding Name") */
+.top { position: sticky; top: 0; z-index: 20; padding: 10px 16px; background: rgba(255, 250, 241, .78);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(240, 230, 212, .8); }
+.top-in { display: flex; align-items: center; justify-content: space-between; max-width: 560px; margin: 0 auto; }
+.brand { display: inline-flex; align-items: center; color: var(--ink); text-decoration: none; font-weight: 800; font-size: 17px; letter-spacing: -.02em; }
+.logo { position: relative; z-index: 1; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
+  background: var(--sun); color: var(--ink); font-size: 11px; font-weight: 900; letter-spacing: .04em;
+  box-shadow: 0 0 0 3px #fff, 0 6px 14px -6px rgba(31, 29, 43, .45); animation: logo-pop .7s cubic-bezier(.3, 1.6, .5, 1) both; }
+.brand-name { overflow: hidden; margin-left: -6px; padding-left: 14px; }
+.brand-name span { display: block; animation: name-slide .8s .35s cubic-bezier(.2, .9, .2, 1) both; }
+.brand:hover .logo { animation: logo-spin .6s ease; }
+.top-zalo { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: #fff;
+  font-size: 13px; font-weight: 700; text-decoration: none; }
+@keyframes logo-pop { from { transform: scale(0) rotate(-120deg); } }
+@keyframes name-slide { from { transform: translateX(-110%); opacity: 0; } }
+@keyframes logo-spin { to { transform: rotate(360deg); } }
+.wrap { max-width: 560px; margin: 0 auto; padding: 16px 14px 24px; }
 .foot { text-align: center; color: var(--stone); font-size: 13px; padding: 8px 0 28px; }
 .foot a { color: var(--stone); }
 
-/* Thẻ: giấy sáng, viền mảnh */
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 20px; margin: 0 0 14px; box-shadow: var(--shadow); }
+/* Khối: trắng, bo 20px, bóng mềm — mọi khối cùng 1 kiểu */
+.card { background: var(--surface); border: 1px solid rgba(240, 230, 212, .9); border-radius: 20px; padding: 20px 18px; margin: 0 0 14px; box-shadow: var(--shadow); }
 .card.center, .center { text-align: center; }
 .big-icon { font-size: 2.4rem; line-height: 1; margin: 4px 0 10px; }
 .muted { color: var(--stone); font-size: 14px; }
 .hello { margin-top: 0; }
 
-/* Khối tiêu đề nền mực — giống phần đầu tiembanquyen.com */
-.hero { background: var(--ink); color: var(--paper); border-color: var(--ink); padding: 28px 22px 26px; }
-.hero h1 { color: var(--paper); }
-.hero h1::after { content: ''; display: block; width: 96px; height: 1px; margin-top: 16px; background: var(--gold); }
-.hero p { color: #d8d4cb; }
-.hero .muted { color: #a9a49a; }
-.hero.compact h1 { font-size: clamp(28px, 7.8vw, 36px); }
+/* Khối đầu trang: nắng → đào, chữ đậm, icon bay quanh */
+.hero { position: relative; overflow: hidden; border: 0; color: var(--ink); padding: 22px 20px 22px;
+  background: radial-gradient(120% 90% at 50% 0%, #fff6c9 0%, rgba(255, 246, 201, 0) 60%), linear-gradient(160deg, #ffe066 0%, #ffc38a 55%, #ffa3a3 100%); }
+.hero h1 { color: var(--ink); }
+.hero h1::after { content: ''; display: block; width: 56px; height: 5px; margin-top: 12px; border-radius: 99px; background: var(--ink); }
+.hero p { color: #3c3446; }
+.hero .muted { color: #5b4f55; }
+.hero.compact h1 { font-size: clamp(24px, 6.6vw, 30px); }
 .eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 6px; color: var(--stone);
   font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
-.hero .eyebrow { color: var(--gold-light); }
+.hero .eyebrow { color: #6a4b2a; font-weight: 700; }
 .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line-strong);
   font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--stone); }
 .pill.free { border-color: var(--gold); color: var(--gold-700); background: var(--gold-50); }
-.hero .pill.free { color: var(--gold-light); background: transparent; }
+.hero .pill.free { color: var(--ink); background: rgba(255, 255, 255, .6); border-color: transparent; }
 
 .warn { background: var(--gold-50); color: var(--gold-700); padding: 10px 12px; border-radius: var(--radius); font-size: 14px; border: 1px solid #ecdcb9; }
 .ok-line { color: var(--green); font-weight: 600; }
@@ -76,19 +90,24 @@ label.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 40
 label.check input { margin-top: 4px; width: 20px; height: 20px; flex: none; accent-color: var(--ink); }
 label.check.need { color: var(--red); }
 
-/* Nút: mực, bo 4px, cao 52px — như các thẻ giá trên tiembanquyen.com */
+/* Nút: viên thuốc màu đậm, nhấn nảy nhẹ, rê chuột sáng viền nắng; emoji trong nút lắc nhẹ (.emo) */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin-top: 16px;
-  padding: 10px 22px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--ink); color: var(--paper);
-  font: inherit; font-size: 16px; font-weight: 500; letter-spacing: .01em; text-align: center; text-decoration: none; cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
+  padding: 10px 22px; border: 0; border-radius: 999px; background: var(--ink); color: #fff;
+  font: inherit; font-size: 16px; font-weight: 800; letter-spacing: -.005em; text-align: center; text-decoration: none; cursor: pointer;
+  box-shadow: 0 10px 20px -10px rgba(31, 29, 43, .7); transition: transform .18s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s ease, background .2s ease;
 }
-.btn:hover { background: var(--ink-2); border-color: var(--gold); }
+.btn:hover { background: var(--ink-2); box-shadow: 0 0 0 4px rgba(255, 216, 77, .55), 0 12px 24px -10px rgba(31, 29, 43, .7); }
+.btn:active { transform: scale(.97); }
+.btn:hover .emo, .btn:focus-visible .emo { animation: emo-wiggle .6s ease; }
+@keyframes emo-wiggle { 25% { transform: rotate(-14deg) scale(1.15); } 60% { transform: rotate(10deg); } }
+.emo { display: inline-block; }
 .btn:disabled { opacity: .5; cursor: default; }
-.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
-.btn.ghost:hover { border-color: var(--gold); }
-.btn-mini { font: inherit; font-size: 13px; min-height: 34px; padding: 4px 12px; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
-.btn-mini:hover { border-color: var(--gold); }
+.btn.ghost { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 2px var(--line-strong); }
+.btn.ghost:hover { box-shadow: inset 0 0 0 2px var(--ink); }
+.btn-mini { font: inherit; font-size: 13px; font-weight: 700; min-height: 36px; padding: 4px 14px; border-radius: 999px; border: 0; background: var(--wash); color: var(--ink); cursor: pointer; transition: transform .15s ease; }
+.btn-mini:active { transform: scale(.95); }
+.btn-mini:hover { background: var(--sun); }
 .link { background: none; border: 0; padding: 4px 0; font: inherit; color: var(--stone); text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 3px; cursor: pointer; }
 .msg { min-height: 1.2em; margin-top: 10px; font-weight: 600; font-size: 14px; }
 .msg.err { color: var(--red); }
@@ -148,7 +167,7 @@ label.check.need { color: var(--red); }
 
 /* "Về chúng tôi" — nằm trong phần công cụ làm việc. Giao diện chi tiết theo từng quán làm sau. */
 .about-link { display: inline-block; margin-top: 8px; font-size: 15px; }
-.hero .about-link { color: var(--gold-light); }
+.hero .about-link { color: var(--ink); font-weight: 700; }
 .facts { margin: 0; padding-left: 1.1em; }
 .facts li { margin: .35em 0; }
 .actions { display: grid; gap: 10px; }
@@ -163,3 +182,367 @@ label.check.need { color: var(--red); }
 .extend form.row input { flex: 1 1 140px; letter-spacing: .2em; text-transform: uppercase; font-size: 1rem; }
 .extend form.row select { width: auto; }
 .seat .btn { margin-top: 2px; }
+
+/* Luật ngắn dạng chip */
+.rules { padding: 14px 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.chips li { padding: 7px 12px; border-radius: 999px; background: var(--gold-50); color: #7a4a0c; font-size: 13.5px; font-weight: 600; }
+.more { margin-top: 10px; font-size: 14px; color: var(--stone); }
+.more summary { cursor: pointer; }
+
+/* Gia hạn / Báo lỗi → Zalo */
+.zalo-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.zbtn { display: grid; justify-items: center; gap: 2px; padding: 14px 10px; border-radius: 20px; background: #fff; color: var(--ink); text-decoration: none; box-shadow: var(--shadow); transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); }
+.zbtn:hover { transform: translateY(-3px); }
+.zbtn:hover span { animation: emo-wiggle .6s ease; }
+.zbtn span { display: inline-block; font-size: 24px; line-height: 1; }
+.zbtn b { font-weight: 800; }
+.zbtn small { color: var(--stone); font-size: 12px; }
+
+/* Web Tiệm nổi bật */
+.tiem-web { display: grid; gap: 6px; border: 0; color: var(--ink); text-decoration: none; background: linear-gradient(150deg, #a8e6ff 0%, #c9b8ff 55%, #ffc2df 100%); }
+.tiem-web .eyebrow { color: #3f3570; font-weight: 700; }
+.tw-title { font-weight: 800; font-size: 24px; line-height: 1.15; letter-spacing: -.02em; }
+.tw-text { color: #3c3555; font-size: 15px; }
+.tw-url { justify-self: start; margin-top: 8px; padding: 10px 18px; border-radius: 999px; background: var(--ink); color: #fff; font-weight: 800; }
+.foot-web { display: inline-block; margin-bottom: 6px; color: var(--ink) !important; font-weight: 800; font-size: 15px; }
+
+/* Ô chọn món (trang quán) — trong deck được tô màu thương hiệu, xem cuối file */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { position: relative; display: grid; align-content: space-between; gap: 6px; min-height: 92px; margin: 0; padding: 14px; border: 1px solid var(--line-strong);
+  border-radius: 10px; background: #fffdf9; cursor: pointer; transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.tile input { position: absolute; opacity: 0; pointer-events: none; }
+.tile-name { font-size: 18px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; }
+.tile-sub { font-size: 13px; color: var(--stone); }
+.tile:hover { border-color: var(--gold); }
+.tile:has(input:checked) { border-color: var(--gold); background: var(--gold-50); box-shadow: 0 0 0 3px var(--gold-50); }
+.tile:has(input:checked)::after { content: '✓'; position: absolute; top: 10px; right: 12px; width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--ink); color: var(--gold-light); font-size: 12px; }
+.tile:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+.tile:active { transform: scale(.98); }
+.tiles.mini { margin-top: 12px; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; }
+.tiles.mini .tile { min-height: 0; padding: 8px 10px; gap: 0; border-style: dashed; background: transparent; cursor: default; opacity: .6; }
+.tiles.mini .tile-name { font-size: 13.5px; font-weight: 700; }
+.tiles.mini .tile-sub { font-size: 11px; color: var(--stone); }
+.pick-sum { margin: 0; font-size: 16px; }
+input.need { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-50); }
+.pick .contact-tiem { margin-top: 6px; }
+
+/* Icon bay quanh ở đầu trang (toolSwirl trong public.js, chuyển động trong app.js "Icon bay quanh").
+ * Vòng trắng giữa (viền cầu vồng chạy quanh, quầng sáng đổi màu theo logo đang ở giữa, sóng toả ra mỗi lần đổi),
+ * nhãn "Miễn phí" ở đáy vòng; 6 logo cắt đúng hình xoáy theo elip nghiêng (xa = nhỏ, mờ, nhạt; gần = to, rõ, phát sáng). */
+.swirl { --glow: #ffb020; position: relative; height: 220px; margin: -8px -8px 6px; overflow: hidden; pointer-events: none; user-select: none; }
+.hero.compact .swirl { height: 196px; }
+.swirl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.swirl-halo { position: absolute; left: 50%; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%;
+  background: var(--glow); opacity: .28; filter: blur(44px); transition: background-color .9s ease; }
+.swirl-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .75); }
+.swirl-orbit.o2 { border-style: dashed; border-color: rgba(255, 255, 255, .5); }
+.swirl-ring { position: absolute; left: 50%; top: 50%; width: 116px; height: 116px; margin: -58px 0 0 -58px; z-index: 5; border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #ffffff, #fff6e3 75%);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, .45), 0 14px 30px -10px rgba(31, 29, 43, .35), 0 0 40px -4px var(--glow);
+  transition: box-shadow .9s ease; }
+.hero.compact .swirl-ring { width: 100px; height: 100px; margin: -50px 0 0 -50px; }
+.swirl-ring::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; padding: 3px;
+  background: conic-gradient(from 0deg, var(--sun), var(--peach), var(--pink), var(--lilac), var(--sky), var(--mint), var(--sun));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: swirl-spin 4s linear infinite; }
+.swirl-wave { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--glow); opacity: 0; }
+.swirl-wave.go { animation: swirl-wave 1s ease-out; }
+.swirl-center { position: absolute; inset: 0; }
+.swirl-c { position: absolute; left: 22%; top: 22%; width: 56%; height: 56%; display: none; }
+.swirl-c.on { display: block; animation: swirl-pop .75s cubic-bezier(.3, 1.6, .5, 1) both; }
+.swirl-c.out { display: block; animation: swirl-out .35s ease-in both; }
+.swirl-c svg, .swirl-c img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 4px 10px rgba(31, 29, 43, .18)); }
+.swirl-tag { position: absolute; left: 50%; top: calc(50% + 47px); z-index: 9; transform: translateX(-50%) rotate(-3deg); white-space: nowrap;
+  padding: 3px 12px; border-radius: 999px; background: var(--ink); color: #fff;
+  font: 800 11px/1.6 var(--font-body); letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 6px 14px -6px rgba(31, 29, 43, .6); }
+.hero.compact .swirl-tag { top: calc(50% + 40px); }
+.swirl-ic { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; display: none; will-change: transform, opacity, filter; }
+.swirl.on .swirl-ic { display: block; }
+.swirl-ic svg, .swirl-ic img { display: block; width: 100%; height: 100%; }
+.ic-img { border-radius: 50%; object-fit: cover; }
+.ic-svg { overflow: visible; }
+@keyframes swirl-pop { 0% { transform: scale(.2) rotate(-30deg); opacity: 0; filter: blur(6px); } 55% { opacity: 1; filter: none; } 100% { transform: none; opacity: 1; } }
+@keyframes swirl-out { to { transform: scale(1.5); opacity: 0; filter: blur(8px); } }
+@keyframes swirl-wave { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(1.9); opacity: 0; } }
+@keyframes swirl-spin { to { transform: rotate(360deg); } }
+
+/* Ánh sao lấp lánh trắng + giấy màu */
+.spark { position: absolute; width: 12px; height: 12px; background: #fff; opacity: 0;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); animation: twinkle 2.8s ease-in-out infinite; }
+.spark:nth-of-type(1) { left: 9%; top: 16%; }
+.spark:nth-of-type(2) { left: 86%; top: 22%; width: 9px; height: 9px; background: #fff; animation-delay: -.9s; }
+.spark:nth-of-type(3) { left: 18%; top: 80%; width: 8px; height: 8px; animation-delay: -1.7s; animation-duration: 3.4s; }
+.spark:nth-of-type(4) { left: 74%; top: 84%; animation-delay: -2.3s; }
+.spark:nth-of-type(5) { left: 36%; top: 6%; width: 7px; height: 7px; background: #fff; animation-delay: -.4s; animation-duration: 3.1s; }
+.spark:nth-of-type(6) { left: 64%; top: 10%; width: 10px; height: 10px; animation-delay: -1.3s; animation-duration: 2.4s; }
+.spark:nth-of-type(7) { left: 94%; top: 64%; width: 7px; height: 7px; animation-delay: -2s; }
+.spark:nth-of-type(8) { left: 4%; top: 54%; width: 9px; height: 9px; background: #fff; animation-delay: -2.6s; animation-duration: 3.6s; }
+@keyframes twinkle { 0%, 100% { transform: scale(.2) rotate(0deg); opacity: 0; } 50% { transform: scale(1) rotate(45deg); opacity: .95; } }
+.confetti { position: absolute; width: 7px; height: 7px; border-radius: 2px; background: var(--sky); opacity: .9; animation: confetti 8s ease-in-out infinite; }
+.confetti:nth-of-type(1) { left: 26%; top: 24%; }
+.confetti:nth-of-type(2) { left: 80%; top: 44%; background: var(--mint); border-radius: 50%; animation-delay: -2s; animation-duration: 9s; }
+.confetti:nth-of-type(3) { left: 46%; top: 92%; background: var(--lilac); animation-delay: -4s; }
+.confetti:nth-of-type(4) { left: 14%; top: 40%; background: var(--pink); border-radius: 50%; animation-delay: -6s; animation-duration: 10s; }
+@keyframes confetti {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(6px, -10px) rotate(70deg); }
+  66% { transform: translate(-5px, 6px) rotate(150deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti, .spark, .swirl-c.on, .swirl-ring::before { animation: none; }
+  .spark { opacity: .6; transform: scale(.7); }
+}
+
+/* ===== Màn hình nối tiếp (deck() trong public.js, điều khiển app.js "Màn hình nối tiếp") — kiểu màn làm quen của Jitter =====
+ * Khung bo tròn, nền màu theo màn (vàng đồng / mực / đất nung / giấy / lá), tiêu đề to trồi lên, chữ phụ hiện dần;
+ * đáy: đường sóng + vòng tròn emoji trượt sang chỗ mới mỗi lần đổi màn; trên: thanh tab tiến độ (tự chạy thì vạch chạy dần). */
+.deck { --bg: #ffe27a; --glow: rgba(255, 252, 235, .85); --fg: var(--ink); --sub: #5a4a2c; --wave: #fff; --track: rgba(31, 29, 43, .14);
+  position: relative; isolation: isolate; margin: 0 0 14px; border-radius: 24px; overflow: hidden; color: var(--fg);
+  background: radial-gradient(130% 70% at 50% 108%, var(--glow) 0, transparent 62%), var(--bg);
+  box-shadow: 0 1px 2px rgba(31, 29, 43, .05), 0 22px 44px -24px rgba(31, 29, 43, .45); transition: background-color .6s ease; }
+/* Tông màu (tên class giữ nguyên để khỏi đổi code): gold = nắng · ink = trời · rose = đào · paper = trắng · sage = bạc hà */
+.deck.t-ink { --bg: #b9e3ff; --glow: rgba(240, 250, 255, .85); --sub: #2f4a63; }
+.deck.t-rose { --bg: #ffc6ae; --glow: rgba(255, 244, 238, .85); --sub: #6a3a28; }
+.deck.t-paper { --bg: #ffffff; --glow: rgba(255, 236, 190, .7); --sub: var(--stone); --wave: var(--sun); }
+.deck.t-sage { --bg: #bff0d9; --glow: rgba(244, 255, 249, .85); --sub: #2e5a46; }
+.deck.t-lilac { --bg: #ddd1ff; --glow: rgba(250, 247, 255, .85); --sub: #45397a; }
+.deck-tabs { display: flex; gap: 6px; padding: 14px 20px 0; }
+.deck:not([data-auto]) .deck-tabs { pointer-events: none; }
+.deck-tabs button { flex: 1; height: 14px; padding: 0; border: 0; cursor: pointer; background: linear-gradient(var(--track), var(--track)) center / 100% 4px no-repeat; }
+.deck-tabs b { display: block; width: 0; height: 4px; border-radius: 99px; background: var(--fg); }
+.deck-tabs .done b, .deck-tabs .now b { width: 100%; }
+.deck-tabs .now.play b { width: 0; animation: tab-fill linear forwards; }
+@keyframes tab-fill { to { width: 100%; } }
+.deck-stage { position: relative; padding: 18px 22px 16px; transition: height .5s cubic-bezier(.4, 0, .2, 1); }
+.deck.js .scr { display: none; }
+.deck.js .scr.now, .deck.js .scr.leave { display: block; }
+.deck:not(.js) .scr + .scr { margin-top: 28px; }
+.scr.leave { position: absolute; top: 18px; left: 22px; right: 22px; pointer-events: none; }
+.scr.leave.to-l { animation: scr-out-l .42s ease forwards; }
+.scr.leave.to-r { animation: scr-out-r .42s ease forwards; }
+.scr.enter.from-r { animation: scr-in-r .56s cubic-bezier(.2, .8, .2, 1); }
+.scr.enter.from-l { animation: scr-in-l .56s cubic-bezier(.2, .8, .2, 1); }
+@keyframes scr-out-l { to { opacity: 0; transform: translateX(-48px); filter: blur(4px); } }
+@keyframes scr-out-r { to { opacity: 0; transform: translateX(48px); filter: blur(4px); } }
+@keyframes scr-in-r { from { opacity: 0; transform: translateX(48px); } }
+@keyframes scr-in-l { from { opacity: 0; transform: translateX(-48px); } }
+.scr-eye { display: flex; justify-content: space-between; gap: 10px; margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); }
+.scr-eye span { font-family: var(--font-mono); letter-spacing: .04em; }
+.scr-h { margin: 8px 0 8px; padding-bottom: .1em; overflow: hidden; font-family: var(--font-head); font-weight: 800; color: var(--fg);
+  font-size: clamp(24px, 6.4vw, 31px); line-height: 1.12; letter-spacing: -.025em; }
+.scr-h span { display: inline-block; }
+.scr-p { margin: 0 0 14px; color: var(--sub); font-size: 15px; line-height: 1.5; }
+.scr-p b { color: var(--fg); }
+.deck.js .scr.now .scr-h span { animation: h-up .75s cubic-bezier(.2, .9, .2, 1) both; }
+.deck.js .scr.now .scr-p { animation: fade-up .6s .12s cubic-bezier(.2, .8, .2, 1) both; }
+.deck.js .scr.now .scr-body { animation: fade-up .6s .22s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes h-up { from { transform: translateY(108%) rotate(2deg); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } }
+.scr-body > :first-child { margin-top: 0; }
+.scr-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin: 12px 0 0; }
+.deck .link { color: var(--sub); }
+.deck .muted { color: var(--sub); }
+.next-pill { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; padding: 0 22px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-weight: 800; font-size: 15px; color: var(--fg); background: rgba(255, 255, 255, .7); border: 0; box-shadow: 0 6px 14px -8px rgba(31, 29, 43, .45);
+  transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); }
+.next-pill:hover { transform: translateX(3px); }
+.next-pill:active { transform: scale(.96); }
+.deck input:not([type=checkbox]):not([type=radio]) { border-radius: 16px; background: #fff; border: 2px solid transparent; min-height: 54px; box-shadow: 0 4px 12px -8px rgba(31, 29, 43, .4); }
+.deck input:focus { border-color: var(--ink); box-shadow: 0 0 0 4px rgba(255, 255, 255, .6); }
+.deck label.check { color: var(--sub); }
+.deck-foot { position: relative; z-index: 1; padding: 0 22px; }
+.deck-foot .msg:empty { min-height: 0; margin: 0; }
+.deck-foot .hello { margin: 12px 0 0; font-size: 13px; color: var(--sub); }
+.deck-foot .hello .link { font-size: 13px; padding: 0; }
+.deck .contact-tiem { margin-top: 8px; padding: 10px 14px; font-size: 13px; border: 0; border-radius: 14px; background: rgba(255, 255, 255, .6); }
+.deck .contact-tiem b { color: var(--ink); }
+.deck-wave { position: relative; height: 72px; margin-top: 2px; }
+.deck-wave svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.deck-wave path { fill: none; stroke: var(--wave); stroke-width: 2.5; stroke-linecap: round; opacity: .95; }
+.deck-node { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; font-size: 24px; line-height: 1;
+  background: #fff; border: 3px solid var(--wave); box-shadow: 0 10px 20px -10px rgba(31, 29, 43, .55);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: node-bob 2.6s ease-in-out infinite; }
+.deck:not(.js) .deck-node { left: 50%; top: 9px; margin-left: -27px; }
+.deck.ready .deck-node { transition: transform .85s cubic-bezier(.55, 0, .2, 1), border-color .4s ease; }
+.deck-node.pop { animation: node-pop .7s cubic-bezier(.3, 1.6, .5, 1), node-bob 2.6s ease-in-out infinite; }
+@keyframes node-bob { 50% { translate: 0 -4px; } }
+@keyframes node-pop { 0% { scale: .55; } 100% { scale: 1; } }
+
+/* Trong deck: ô chọn món = thẻ pastel theo màu hãng, logo trong vòng tròn trắng (kiểu "Where would you like to start?") */
+.deck .tiles { gap: 10px; }
+.deck .tile { --tile: #fff1c9; min-height: 0; grid-template-rows: auto 1fr auto; align-content: stretch; gap: 3px; padding: 14px; border: 0; border-radius: 20px;
+  color: var(--ink); background: var(--tile); box-shadow: 0 10px 22px -16px rgba(31, 29, 43, .6); transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s ease; }
+.deck .tile .tile-name { align-self: end; color: var(--ink); }
+.deck .tile .tile-sub { color: rgba(31, 29, 43, .62); }
+.tile-logo { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 12px; border-radius: 50%; background: #fff;
+  box-shadow: 0 6px 14px -8px rgba(31, 29, 43, .5); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.tile-logo svg, .tile-logo img { display: block; width: 26px; height: 26px; }
+.tile-logo img { width: 46px; height: 46px; border-radius: 50%; }
+.tile-emoji { font-size: 24px; line-height: 1; }
+.deck .tile:hover .tile-logo { transform: rotate(-8deg) scale(1.08); }
+.deck .tile.b-claude { --tile: #ffe3d6; }
+.deck .tile.b-chatgpt { --tile: #d3f5e6; }
+.deck .tile.b-capcut { --tile: #e8e9f2; }
+.deck .tile.b-canva { --tile: #e5dbff; }
+.deck .tile.b-gemini { --tile: #dbe9ff; }
+.deck .tile.b-adobe { --tile: #ffe0e2; }
+.deck .tile:has(input:checked) { transform: translateY(-4px); box-shadow: 0 0 0 3px var(--ink), 0 18px 28px -14px rgba(31, 29, 43, .6); background: var(--tile); }
+.deck .tile:has(input:checked)::after { background: var(--ink); color: #fff; }
+.tiles-off { margin: 16px 0 6px; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--sub); }
+.deck .tiles.mini { margin-top: 0; }
+.deck .tiles.mini .tile { min-height: 0; padding: 8px 10px; border: 2px dashed rgba(31, 29, 43, .15); border-radius: 14px; background: transparent; box-shadow: none; color: var(--sub); }
+.deck .tiles.mini .tile-name { color: var(--fg); font-size: 14px; }
+.deck .tiles.mini .tile-sub { color: var(--sub); }
+.deck .pick-sum { font-size: 17px; color: var(--sub); }
+.deck .pick-sum b { color: var(--fg); font-weight: 800; font-size: 22px; }
+
+/* Trong deck: dòng sao chép + ô lấy mã */
+.scr-body .copy-row { width: 100%; }
+.scr-body .copy-row code { flex: 1 1 auto; font-size: 15px; padding: 12px 14px; border-radius: 14px; background: #fff; border: 0; box-shadow: 0 4px 12px -8px rgba(31, 29, 43, .4); }
+.scr-body .copy-row .btn-mini { min-height: 46px; padding: 4px 18px; border-radius: 999px; background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.scr-body .code-box { margin-top: 10px; border-radius: 18px; background: rgba(255, 255, 255, .75); border: 0; }
+.scr-body .code-actions .btn { margin: 0; }
+.scr-body .btn.fgo { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .deck-node, .deck-node.pop { animation: none; }
+}
+
+/* Laptop vừa: khoảng cách rộng hơn chút */
+@media (min-width: 720px) {
+  .wrap { padding-top: 28px; }
+  .card { padding: 24px 24px; }
+  .deck-stage { padding: 22px 28px 16px; }
+  .deck-tabs { padding: 16px 28px 0; }
+  .deck-foot { padding: 0 28px; }
+  .scr.leave { left: 28px; right: 28px; top: 22px; }
+}
+/* Máy tính (≥ 960px): 2 cột thay vì cột điện thoại kéo ra giữa.
+ * Trang có khối đầu (.hero): trái = khối đầu đứng yên khi cuộn, phải = các màn thao tác.
+ * Trang slot (.slot): trái = vé + luật + Zalo + web Tiệm, phải = các bước đăng nhập. Trang chữ (chính sách) giữ 1 cột 720px. */
+@media (min-width: 960px) {
+  .top-in, .wrap { max-width: 1080px; }
+  .top { padding: 10px 0; }
+  .top-in { padding: 0 24px; }
+  .wrap { padding: 36px 24px 32px; }
+  .wrap:has(> .hero), .wrap:has(> .slot) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 500px); column-gap: 40px; align-items: start; }
+  .wrap:has(> .hero) > * { grid-column: 2; }
+  .wrap:has(> .hero) > .hero { grid-column: 1; grid-row: 1 / span 12; position: sticky; top: 96px; padding: 32px 34px; }
+  .hero .swirl { height: 300px; }
+  .hero.compact .swirl { height: 280px; }
+  .hero h1, .hero.compact h1 { font-size: 44px; }
+  .hero p { font-size: 17px; }
+  .wrap:has(> .slot) > * { grid-column: 1; }
+  .wrap:has(> .slot) > [data-flow] { grid-column: 2; grid-row: 1 / span 12; position: sticky; top: 96px; }
+  .wrap:not(:has(> .hero)):not(:has(> .slot)) { max-width: 720px; }
+  .scr-h { font-size: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo, .brand-name span { animation: none; }
+}
+
+/* ===================== Tem phiếu (ghi đè cuối — giữ ở cuối file) ===================== */
+:root { --edge: 2px solid var(--ink); --hard: 4px 4px 0 var(--ink); --tomato: #ff5a36; --sun: #ffd23f; --cobalt: #3a6df0; }
+body { background-color: #fbf5e8; background-image: radial-gradient(rgba(31, 29, 43, .07) 1px, transparent 1.2px); background-size: 18px 18px; }
+.top { background: #fbf5e8; border-bottom: var(--edge); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.logo { border: var(--edge); box-shadow: 2px 2px 0 var(--ink); }
+.top-zalo { border: var(--edge); background: var(--sun); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+.top-zalo:active { transform: translate(2px, 2px); box-shadow: none; }
+
+/* Khối */
+.card { border: var(--edge); border-radius: 16px; box-shadow: var(--hard); }
+.hero { background: var(--sun); border: var(--edge); box-shadow: var(--hard); }
+.hero h1::after { width: 64px; height: 6px; background: var(--tomato); border: 0; border-radius: 0; transform: skewX(-18deg); }
+.hero p, .hero .muted { color: var(--ink); }
+
+/* Nút: đỏ cà chua, viền mực, bóng cứng — bấm lún xuống */
+.btn { border: var(--edge); border-radius: 14px; background: var(--tomato); color: #fff; box-shadow: var(--hard);
+  transition: transform .08s ease, box-shadow .08s ease; }
+.btn:hover { background: #ff6a49; box-shadow: 5px 5px 0 var(--ink); }
+.btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+.btn.ghost { background: #fff; color: var(--ink); box-shadow: var(--hard); }
+.btn-mini { border: var(--edge); background: #fff; box-shadow: 2px 2px 0 var(--ink); transition: transform .08s ease, box-shadow .08s ease; }
+.btn-mini:hover { background: var(--sun); }
+.btn-mini:active { transform: translate(2px, 2px); box-shadow: none; }
+.next-pill { border: var(--edge); border-radius: 12px; background: #fff; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s ease, box-shadow .08s ease; }
+.next-pill:hover { transform: none; background: var(--sun); }
+.next-pill:active { transform: translate(3px, 3px); box-shadow: none; }
+input[type=tel], input[type=email], input[type=text], input:not([type]), input[inputmode], textarea, select { border: var(--edge); border-radius: 12px; background: #fff; }
+.deck input:not([type=checkbox]):not([type=radio]) { border: var(--edge); border-radius: 12px; box-shadow: none; }
+.deck input:focus, input:focus { border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+label.check input { accent-color: var(--tomato); }
+
+/* Icon bay quanh: vòng giấy trắng viền mực, quỹ đạo nét mực, con dấu "Miễn phí" */
+.swirl-halo { display: none; }
+.swirl-orbit { border: 1.5px solid rgba(31, 29, 43, .35); }
+.swirl-orbit.o2 { border: 1.5px dashed rgba(31, 29, 43, .22); }
+.swirl-ring { background: #fff; border: var(--edge); box-shadow: 4px 4px 0 var(--ink); }
+.swirl-ring::before { inset: 6px; padding: 0; border: 1.5px dashed rgba(31, 29, 43, .3); background: none; -webkit-mask: none; mask: none; animation: swirl-spin 18s linear infinite; }
+.swirl-wave { border-color: var(--ink); }
+.swirl-c svg, .swirl-c img { filter: none; }
+.swirl-tag { padding: 2px 10px; border: 2px solid var(--tomato); border-radius: 6px; background: #fff; color: var(--tomato); box-shadow: none;
+  font-weight: 900; letter-spacing: .12em; transform: translateX(-50%) rotate(-7deg); }
+.spark { background: var(--ink); }
+.confetti { border: 1.5px solid var(--ink); width: 9px; height: 9px; opacity: 1; }
+.confetti:nth-of-type(1) { background: var(--cobalt); }
+.confetti:nth-of-type(2) { background: var(--mint); }
+.confetti:nth-of-type(3) { background: #fff; }
+.confetti:nth-of-type(4) { background: var(--tomato); }
+
+/* Màn hình nối tiếp: màu phẳng, viền mực, bóng cứng; sóng + vòng tròn nét mực */
+.deck { border: var(--edge); border-radius: 20px; box-shadow: 5px 5px 0 var(--ink); background: var(--bg); }
+.deck { --bg: #ffe066; --track: rgba(31, 29, 43, .18); --wave: var(--ink); }
+.deck.t-ink { --bg: #a9d4ff; }
+.deck.t-rose { --bg: #ffb59a; }
+.deck.t-paper { --bg: #ffffff; --wave: var(--ink); }
+.deck.t-sage { --bg: #a6eccc; }
+.deck.t-lilac { --bg: #d3c4ff; }
+.deck-tabs b { background: var(--ink); }
+.deck-wave path { stroke: var(--ink); stroke-width: 2; opacity: 1; stroke-dasharray: 2 7; }
+.deck-node { background: #fff; border: var(--edge); box-shadow: 3px 3px 0 var(--ink); }
+.scr-eye { letter-spacing: .06em; }
+.deck .contact-tiem { border: 2px dashed rgba(31, 29, 43, .35); background: transparent; }
+.scr-body .copy-row code { border: var(--edge); border-radius: 12px; box-shadow: none; }
+.scr-body .copy-row .btn-mini { border-radius: 12px; background: var(--ink); color: #fff; }
+.scr-body .code-box { border: 2px dashed var(--ink); background: #fff; }
+
+/* Ô món: nhãn dán phẳng theo màu hãng */
+.deck .tile { border: var(--edge); border-radius: 16px; box-shadow: 3px 3px 0 var(--ink); transition: transform .12s ease, box-shadow .12s ease; }
+.deck .tile:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.deck .tile:has(input:checked) { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.deck .tile:has(input:checked)::after { background: var(--tomato); color: #fff; border: var(--edge); width: 26px; height: 26px; }
+.tile-logo { border: var(--edge); box-shadow: none; }
+.deck .tile.b-claude { --tile: #ffd9c7; }
+.deck .tile.b-chatgpt { --tile: #b8f0d6; }
+.deck .tile.b-capcut { --tile: #e4e4ee; }
+.deck .tile.b-canva { --tile: #d9ccff; }
+.deck .tile.b-gemini { --tile: #c6dcff; }
+.deck .tile.b-adobe { --tile: #ffd0d3; }
+.deck .tiles.mini .tile { border: 2px dashed rgba(31, 29, 43, .3); box-shadow: none; }
+
+/* Thẻ slot = tấm vé: vạch xé + 2 khuyết hai bên */
+.card.slot { background: #fff; }
+.badge.ok { background: var(--mint); color: var(--ink); border: var(--edge); font-weight: 800; letter-spacing: .06em; }
+.slot .countdown { position: relative; margin-top: 16px; padding-top: 14px; border-top: 2px dashed var(--ink); }
+.slot .countdown::before, .slot .countdown::after { content: ''; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%;
+  background: #fbf5e8; border: var(--edge); }
+.slot .countdown::before { left: -31px; clip-path: inset(0 0 0 50%); }
+.slot .countdown::after { right: -31px; clip-path: inset(0 50% 0 0); }
+
+/* Luật: gạch đầu dòng dấu mực, không viên pastel */
+.chips { display: grid; gap: 6px; }
+.chips li { position: relative; padding: 0 0 0 22px; background: none; border: 0; border-radius: 0; color: var(--ink); font-weight: 600; font-size: 14.5px; }
+.chips li::before { content: ''; position: absolute; left: 2px; top: .45em; width: 10px; height: 10px; background: var(--tomato); border: 1.5px solid var(--ink); transform: rotate(45deg); }
+
+/* Gia hạn / Báo lỗi + web Tiệm */
+.zbtn { border: var(--edge); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); transition: transform .08s ease, box-shadow .08s ease; }
+.zbtn:hover { transform: none; background: var(--sun); }
+.zbtn:active { transform: translate(3px, 3px); box-shadow: none; }
+.zbtn b { font-size: 16px; }
+.tiem-web { background: var(--cobalt); color: #fff; border: var(--edge); box-shadow: var(--hard); }
+.tiem-web .eyebrow { color: #dfe7ff; }
+.tw-text { color: #e8eeff; }
+.tw-url { background: var(--sun); color: var(--ink); border: var(--edge); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); }
+.foot-web { text-decoration-color: var(--tomato); }
+a { text-decoration-color: var(--tomato); }

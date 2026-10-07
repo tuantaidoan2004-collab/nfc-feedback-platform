@@ -48,7 +48,7 @@ function renderEntry(rq, cafe, entry, shop) {
   const customer = rq.state.customer;
   rq.sendHtml(200, cardPage(ctx, {
     cafe, customer,
-    tools: customer ? toolAvailability(ctx, customer) : [],
+    tools: entry || customer ? toolAvailability(ctx, customer) : [], // chọn món trước, đăng nhập sau
     view: customer ? currentSlotView(ctx, customer.id, rq.state.deviceId) : null,
     atCafe: !!entry,
     shop,

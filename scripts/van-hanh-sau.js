@@ -147,8 +147,12 @@ async function login(dev, phone = newPhone()) {
   return { ok: !!v.data?.ok, ...v.data };
 }
 // Đọc cả thẻ <input> (không phụ thuộc thứ tự thuộc tính — phiên 19 thêm data-login cho Canva và bộ đọc cũ không còn thấy "disabled").
-const toolIds = (html) => Object.fromEntries([...html.matchAll(/<input type="radio" name="toolId"[^>]*>/g)].map(([tag]) => [
-  /data-name="([^"]+)"/.exec(tag)?.[1], { id: Number(/value="(\d+)"/.exec(tag)?.[1]), disabled: /\sdisabled(?=[\s>])/.test(tag) }]));
+// v2: món không nhận được không còn ô chọn (radio disabled) mà là chip "Tạm hết" <span data-off="Tên"> → coi như disabled.
+const toolIds = (html) => Object.fromEntries([
+  ...[...html.matchAll(/<span data-off="([^"]+)"/g)].map(([, name]) => [name, { id: null, disabled: true }]),
+  ...[...html.matchAll(/<input type="radio" name="toolId"[^>]*>/g)].map(([tag]) => [
+    /data-name="([^"]+)"/.exec(tag)?.[1], { id: Number(/value="(\d+)"/.exec(tag)?.[1]), disabled: /\sdisabled(?=[\s>])/.test(tag) }]),
+]);
 async function claim(dev, cafe, toolName, { card, inviteEmail } = {}) {
   const page = await enter(dev, cafe, card);
   const t = toolIds(page.text)[toolName];

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 2 48 52" width="48" height="52">
+  <title>Tiệm Bản Quyền — TBQ Space</title>
+  <!-- Nhãn giá treo: thân mực, viền trong vàng, chữ T serif vẽ bằng path (không phụ thuộc font) -->
+  <path fill="#201f1d" stroke="#b68235" stroke-width="1" fill-rule="evenodd"
+        d="M20 4 L36 16 V50 Q36 53 33 53 H7 Q4 53 4 50 V16 Z M20 11.5 a2.5 2.5 0 1 0 0.01 0 Z"/>
+  <path fill="none" stroke="#b68235" stroke-width="0.9" d="M20 8.6 L32.6 18 V49 Q32.6 50 31.6 50 H8.4 Q7.4 50 7.4 49 V18 Z"/>
+  <path fill="#d4a35a" d="M11.5 24 H28.5 V29 H27 V26.8 H21.7 V43.6 H24.6 V45.6 H15.4 V43.6 H18.3 V26.8 H13 V29 H11.5 Z"/>
+</svg>

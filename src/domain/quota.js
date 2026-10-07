@@ -167,7 +167,7 @@ export function toolUsedToday(ctx, toolId) {
 /**
  * Công cụ đang bật kèm số chỗ trống (đã trừ giới hạn lượt/ngày và tài khoản dự phòng đang giữ). reserved: số chỗ của tài khoản dự phòng.
  * expiring: số tài khoản tự hết hạn (account_days) trong 24 giờ tới.
- * customer → thêm `blocked` (khách này không nhận được, hoặc công cụ đang nghỉ nhận trước giờ hết). → [{tool, free, reserved, expiring, blocked}]
+ * blocked: công cụ đang nghỉ nhận trước giờ hết; có customer thì thêm lý do riêng của khách này (đã thử gần đây…). → [{tool, free, reserved, expiring, blocked}]
  */
 export function toolAvailability(ctx, customer = null) {
   const tools = all(ctx.db, 'SELECT * FROM tools WHERE enabled = 1 ORDER BY sort, id');
@@ -185,6 +185,6 @@ export function toolAvailability(ctx, customer = null) {
     const expiring = tool.account_days == null ? 0 : get(ctx.db,
       `SELECT COUNT(*) AS n FROM accounts WHERE tool_id = ? AND status != 'retired' AND created_at > ? AND created_at <= ?`,
       tool.id, ctx.now() - tool.account_days * DAY, ctx.now() - (tool.account_days - 1) * DAY).n;
-    return { tool, free, reserved, expiring, blocked: customer ? customerToolBlock(ctx, customer, tool) || toolClosing(ctx, tool) : null };
+    return { tool, free, reserved, expiring, blocked: (customer && customerToolBlock(ctx, customer, tool)) || toolClosing(ctx, tool) };
   });
 }

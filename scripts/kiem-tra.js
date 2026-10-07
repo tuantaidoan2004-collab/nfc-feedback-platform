@@ -81,6 +81,10 @@ for (const a of avail) {
 }
 if (avail.length && empty.length === avail.length) bad('Kho trống hết — nhập kho ở Quản trị › Kho tài khoản trước khi mở');
 
+// ---------- API kho cho QS (Tài) ----------
+if (config.qsKhoKey) ok('API kho cho QS đang bật (QS_KHO_KEY) — Tài thêm / sửa kho qua /hooks/qs/kho');
+else ok('API kho cho QS đang tắt (QS_KHO_KEY trống) — kho chỉ nhập ở trang quản trị');
+
 // ---------- Canva: bot trên máy Mac ----------
 const canva = tools.find((t) => t.login_type === 'team_invite');
 if (canva) {
@@ -114,8 +118,13 @@ if (needMail) {
     warn('Chưa bật kiểm thư về nhầm hộp thư (HUB_WATCH_URL / HUB_WATCH_TOKEN) — địa chỉ kho quên tạo quy tắc Cloudflare thì khách không lấy được mã mà không ai biết');
   } else if (net) {
     try {
-      const found = (await queryHub(config, watched.map((a) => a.email))).filter((x) => x.messages > 0).map((x) => x.email);
-      if (found.length) showBad(found); else ok(`Thư về đúng chỗ: ${watched.length} địa chỉ kho không có thư nào rơi vào hộp thư chung`);
+      const hits = (await queryHub(config, watched.map((a) => a.email))).filter((x) => x.messages > 0);
+      // Thư cũ trong hộp thư chung (giữ vài ngày) mà sau đó TBQ đã nhận thư của địa chỉ này → quy tắc đã sửa, không báo đỏ nữa.
+      const lastGood = (email) => Number(ctx.db.prepare('SELECT MAX(received_at) AS t FROM mails WHERE lower(to_addr) = ?').get(String(email).toLowerCase())?.t || 0);
+      const fixed = hits.filter((x) => lastGood(x.email) > Number(x.last_at)).map((x) => x.email);
+      const found = hits.filter((x) => !fixed.includes(x.email)).map((x) => x.email);
+      if (found.length) showBad(found);
+      else ok(`Thư về đúng chỗ: ${watched.length} địa chỉ kho${fixed.length ? ` (${fixed.join(', ')}: chỉ còn thư cũ trước khi có quy tắc, thư mới đã về TBQ)` : ' không có thư nào rơi vào hộp thư chung'}`);
     } catch (err) { bad(`Không hỏi được hộp thư ma.tiembanquyen.site: ${err.message}`); }
   } else {
     const st = JSON.parse(get(db, "SELECT value FROM kv WHERE key = 'mailroute_status'")?.value || 'null');

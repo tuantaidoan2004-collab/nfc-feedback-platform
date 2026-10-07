@@ -20,47 +20,14 @@ import { statsSince, cafeReport } from '../domain/stats.js';
 import { freeTextProblem, POLICY_MESSAGE } from '../lib/policy.js';
 import { QS_EVENT } from '../qs-event.js';
 import { createCafe, shopFromInput, qsPageInfo } from '../domain/presence.js';
+import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes } from '../domain/stock.js';
 import {
   adminPage, csrfField, postButton, table, t, sev, badge, tile, csvFile, eventSummary,
   EVENT_LABEL, SLOT_STATUS, ACCOUNT_STATUS, LOGIN_TYPE, TASK_KIND, TASK_REASON, END_REASON, REUSE, ALERT_HINT,
 } from '../views/admin.js';
 
 const SESSION_HOURS = 12;
-const MAX_WORKSPACES = 8; // ChatGPT: tối đa 8 Project (workspace) / tài khoản — chủ chọn 06/10
 const BY = 'web';
-const EMAIL_RE = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[a-z]{2,}$/i;
-// Tên đăng nhập cho loại mật khẩu (có hãng dùng username thay vì email).
-const USERNAME_RE = /^[^\s|]{3,120}$/;
-
-/** 1 dòng nhập kho → các ô. Có "|" thì chỉ tách theo "|" (mật khẩu có thể chứa dấu phẩy); không thì tab, rồi "," ";". */
-function splitLine(line) {
-  const sep = line.includes('|') ? '|' : line.includes('\t') ? '\t' : /[,;]/;
-  return line.split(sep).map((x) => x.trim());
-}
-
-/**
- * Đọc 1 dòng nhập kho theo kiểu đăng nhập của công cụ. → {email, password, totp, max} | {error}
- *  email_code:               email | (bỏ trống) | số khách     — email là hộp thư nhận mã
- *  password:                 email | mật khẩu | số khách
- *  password_totp:            email | mật khẩu | khoá 2FA | số khách
- */
-function parseAccountLine(tool, line) {
-  const f = splitLine(line);
-  const totp = tool.login_type === 'password_totp';
-  const pw = tool.login_type === 'password' || totp;
-  // Mật khẩu: email|mật khẩu|(2FA)|số khách. Không mật khẩu (mã qua email, Canva nhóm): email|số khách.
-  const email = f[0];
-  const password = pw ? f[1] : null;
-  const max = int(totp ? f[3] : pw ? f[2] : f[1]);
-  if (pw ? !USERNAME_RE.test(email || '') : !EMAIL_RE.test(email || '')) return { error: `${email || line}: ${pw ? 'tên đăng nhập' : 'email'} không hợp lệ` };
-  if (pw && !password) return { error: `${email}: thiếu mật khẩu` };
-  let secret = null;
-  if (totp) {
-    secret = parseTotpSecret(f[2]);
-    if (!secret) return { error: `${email}: khoá 2FA không hợp lệ (cần chuỗi chữ A–Z, số 2–7, hoặc link otpauth://)` };
-  }
-  return { email, password: password || null, totp: secret, max: max == null || Number.isNaN(max) ? null : max };
-}
 
 // ---------- Đăng nhập & bao bọc handler ----------
 
@@ -801,40 +768,13 @@ ${table(['#', 'Công cụ', 'Nhãn', 'Email / tên đăng nhập', 'Trạng thá
     const tool = get(ctx.db, 'SELECT * FROM tools WHERE id = ?', Number(f.tool_id) || 0);
     if (!tool) return go('/admin/accounts', 'Chọn công cụ.');
     const lines = String(f.lines || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    let added = 0;
-    const errors = [];
-    if (tool.login_type === 'redeem') {
-      // Mỗi dòng 1 mã hoặc 1 link nhận quà (dùng 1 lần).
-      tx(ctx.db, () => {
-        for (const value of lines) {
-          if (value.length > 500 || /\s/.test(value)) { errors.push(`${value.slice(0, 40)}: không hợp lệ (1 mã / 1 link mỗi dòng)`); continue; }
-          if (/^http:\/\//i.test(value)) { errors.push(`${value.slice(0, 40)}: link phải là https://`); continue; }
-          const r = run(ctx.db, "INSERT OR IGNORE INTO redeem_codes(tool_id, value, label, status, created_at) VALUES(?, ?, ?, 'ready', ?)",
-            tool.id, value, f.label?.trim() || null, ctx.now());
-          if (r.changes) added++; else errors.push(`${value.slice(0, 40)}: đã có trong kho`);
-        }
-      });
-      logEvent(ctx, { type: 'redeem_imported', data: { tool: tool.slug, added, by: BY } });
-      return go(`/admin/accounts?tool=${tool.id}`, `Đã thêm ${added} mã / link.${errors.length ? ' Bỏ qua: ' + errors.slice(0, 5).join('; ') : ''}`);
-    }
-    tx(ctx.db, () => {
-      for (const line of lines) {
-        const a = parseAccountLine(tool, line);
-        if (a.error) { errors.push(a.error); continue; }
-        if (get(ctx.db, 'SELECT 1 FROM accounts WHERE login_email = ?', a.email)) { errors.push(`${a.email}: đã có trong kho`); continue; }
-        // Bot ChatGPT tạo Project "Slot 1…N" trước khi giao (ô tick khi nhập kho) → tài khoản chờ bot, xong mới sẵn sàng.
-        const setup = !!tool.workspace_bot && f.setup === '1';
-        let max = Math.max(1, a.max ?? tool.holders_default ?? 1);
-        if (tool.workspace_bot) max = Math.min(MAX_WORKSPACES, max);
-        const accountId = run(ctx.db, 'INSERT INTO accounts(tool_id, label, login_email, password_enc, totp_enc, max_holders, status, status_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          tool.id, f.label?.trim() || null, a.email.toLowerCase(), a.password ? encrypt(a.password, ctx.config.dataKey) : null,
-          a.totp ? encrypt(a.totp, ctx.config.dataKey) : null, max, setup ? 'needs_rotation' : 'ready', setup ? 'Chờ bot tạo Project' : null, ctx.now()).lastInsertRowid;
-        if (setup) createTask(ctx, { accountId, slotId: null, kind: 'rotate', reason: 'setup', detail: null });
-        added++;
-      }
-    });
-    logEvent(ctx, { type: 'accounts_imported', data: { tool: tool.slug, added, by: BY } });
-    return go(`/admin/accounts?tool=${tool.id}`, `Đã thêm ${added} tài khoản.${errors.length ? ' Bỏ qua: ' + errors.slice(0, 5).join('; ') : ''}`);
+    const label = f.label?.trim() || null;
+    const r = tool.login_type === 'redeem'
+      ? addRedeemCodes(ctx, { tool, values: lines, label, by: BY })
+      : addAccounts(ctx, { tool, items: lines.map((l) => parseAccountLine(tool, l)), label, setup: f.setup === '1', by: BY });
+    const errors = r.skipped.map((x) => `${x.email}: ${x.message}`);
+    const what = tool.login_type === 'redeem' ? 'mã / link' : 'tài khoản';
+    return go(`/admin/accounts?tool=${tool.id}`, `Đã thêm ${r.added} ${what}.${errors.length ? ' Bỏ qua: ' + errors.slice(0, 5).join('; ') : ''}`);
   }));
 
   router.get('/admin/accounts/:id', P((rq) => {

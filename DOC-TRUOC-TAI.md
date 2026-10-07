@@ -1,4 +1,24 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 1.3.1 ngày 07/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.0 ngày 08/10/2026
+
+## Mới ở 2.0.0 — Giao diện khách mới "Vé vào ca" (chỉ đổi phía khách, API giữ nguyên)
+
+- Phong cách Bamos × TBQ × Apple, chỉ cho điện thoại: nền đêm giống trang quán, nút viên thuốc màu kem giống nút khối "Công cụ làm việc",
+  vàng đồng TBQ làm điểm nhấn, logo thẻ treo TBQ. Thiết kế + lý do: `docs/thiet-ke-v2.md`.
+- Luồng: chọn món TRƯỚC (hàng danh sách) → bảng trượt email + mã 6 số → tự nhận món đã chọn → vé + checklist đăng nhập → trang "Hết ca rồi!".
+- **Không đổi gì cho QS:** đường dẫn `/qs/<mã quán>?t=<vé>`, `/c/<thẻ>`, `/hooks/qs/*`, chữ ký vé, API kho, `/api/*` — y như 1.4.
+- Kỹ thuật: CSS khách mới `src/public/ui.css` (trang Quản trị vẫn `style.css`), favicon `src/public/logo.svg`.
+  Trang quán hiện món ngay cả khi khách chưa đăng nhập (`toolAvailability(ctx, null)` vẫn báo món đang nghỉ nhận).
+  Món hết suất là chip `<span data-off="Tên">` (không còn radio disabled).
+
+
+## Mới ở 1.4.0 — API kho cho QS
+
+Kho dùng chung mọi quán ở TBQ, giao diện từng quán là khối của QS. Tài quản lý kho qua API, khỏi vào trang quản trị TBQ.
+- `POST /hooks/qs/kho` — `summary` / `list` / `get` / `add` / `update`. Ký giống `/hooks/qs/quan` nhưng bằng **khoá riêng `QS_KHO_KEY`**
+  (Long gửi riêng, không gửi qua chat công khai). Mật khẩu / 2FA chỉ gửi vào, không bao giờ trả ra. Hợp đồng: `docs/phoi-hop-voi-QS.md` mục 11.
+- `status` của `/hooks/qs/quan` có thêm `tools:[{slug, name, available, reason}]` → khối trên trang quán hiện "Tạm hết" đúng lúc (mục 10, "Mới ở 1.4").
+- Code: `src/domain/stock.js` (trang quản trị và API dùng chung), `src/routes/hooks.js` (`registerKhoApi`), bài kiểm `test/api-kho-qs.test.js`.
+
 
 ## Mới ở 1.3.1 — Long tắt máy Mac, Tài tự làm tiếp
 

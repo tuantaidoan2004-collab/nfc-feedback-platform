@@ -300,7 +300,7 @@ test('gia hạn: không quá hạn tài khoản (Claude 7 ngày) và không quá
     assert.equal(requestExtension(ctx, { customerId: third.customer.id, days: 3 }).ok, true, 'xin lại → sửa số ngày, không tạo trùng');
     assert.equal(all(ctx.db, "SELECT * FROM extend_requests WHERE status = 'pending'").length, 1);
     assert.equal(ctx.alerts('extend_requested').length, 1);
-    assert.match(String(mePage(ctx, { customer: byId(ctx, 'customers', third.customer.id), view: third.view() })), /Đã gửi yêu cầu thêm 3 ngày/);
+    assert.match(String(mePage(ctx, { customer: byId(ctx, 'customers', third.customer.id), view: third.view() })), /<b>Gia hạn<\/b><small>nhắn Zalo<\/small>/, "gia hạn = nhắn Zalo");
 
     const admin = srv.client();
     const login = await admin.postForm('/admin/login', { password: ctx.config.adminPassword });

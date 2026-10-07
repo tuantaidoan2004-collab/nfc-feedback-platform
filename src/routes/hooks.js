@@ -10,7 +10,8 @@ import { cafeByShop, createCafe, qsPageInfo } from '../domain/presence.js';
 import { issueQsVoucher, formatCode } from '../domain/vouchers.js';
 import { get, run } from '../db/index.js';
 import { startOfLocalDay } from '../lib/time.js';
-import { COUNTED } from '../domain/quota.js';
+import { COUNTED, toolAvailability, toolClosing } from '../domain/quota.js';
+import { addAccounts, addRedeemCodes, validateAccount, parseAccountLine, listAccounts, stockSummary, updateAccount, publicAccount, ACCOUNT_STATUSES } from '../domain/stock.js';
 
 /** Chữ ký: header X-Signature = sha256=<HMAC(MAIL_WEBHOOK_SECRET, nguyên body)> (Cloudflare Email Worker trong extras/ tự ký). */
 function verifyMailAuth(rq, raw) {
@@ -67,21 +68,20 @@ export function registerHookRoutes(router) {
 //   → 200 {ok:true, code:"ABCD-EFGH", expiresAt:<ms>, tools:["chatgpt","claude"], text:"…"} · 401 sai chữ ký / ts lệch / nonce lặp
 //   → 404 {ok:false, code:"shop_unknown"} · 409 {ok:false, code:"cafe_paused"} · 429 {ok:false, code:"cafe_limit"}
 const QS_SKEW_SEC = 120;
-export function verifyQsSignature(ctx, rq, raw) {
-  const key = ctx.config.qsTicketKey;
+export function verifyQsSignature(ctx, rq, raw, key = ctx.config.qsTicketKey) {
   const sig = String(rq.req.headers['x-tbq-signature'] || '');
   return !!key && sig.startsWith('sha256=') && safeEqual(sig.slice(7), hmac(key, raw));
 }
 
 /** Nội dung đã ký của QS: đúng chữ ký, ts lệch ≤ 2 phút, nonce chưa dùng. Sai → 401 (+ báo vàng, có giới hạn). → body JSON */
-async function qsSignedBody(rq) {
+async function qsSignedBody(rq, { key = rq.ctx.config.qsTicketKey, maxBytes = 4_000 } = {}) {
   const { ctx } = rq;
-  const raw = await rq.body(4_000);
+  const raw = await rq.body(maxBytes);
   const deny = (why) => {
     if (hit(ctx, `qsapifail:${rq.ip}`, 5, 10 * MIN).ok) logEvent(ctx, { type: 'qs_api_unauthorized', severity: 'yellow', ip: rq.ip, data: { reason: why } });
     throw new HttpError(401, 'Sai chữ ký');
   };
-  if (!verifyQsSignature(ctx, rq, raw)) deny('chữ ký');
+  if (!verifyQsSignature(ctx, rq, raw, key)) deny('chữ ký');
   let body;
   try { body = JSON.parse(raw.toString('utf8')); } catch { throw new HttpError(400, 'JSON không hợp lệ'); }
   const ts = Number(body?.ts);
@@ -100,6 +100,13 @@ function cafeStatus(ctx, cafe) {
   return {
     shop: cafe.qs_slug, name: cafe.name, status: cafe.status, pausedBy: cafe.paused_by || null,
     dailyQuota: cafe.daily_quota, usedToday: used, link: `${ctx.config.baseUrl}/qs/${cafe.qs_slug}`,
+    // Khối "Công cụ làm việc" trên trang quán hiện "Tạm hết" đúng lúc: công cụ nào khách ở quán này nhận được ngay bây giờ.
+    // Chỉ có / không — không số tài khoản, không email. Kho dùng chung mọi quán nên `available` = quán còn suất + kho còn chỗ.
+    tools: toolAvailability(ctx).map(({ tool, free }) => {
+      const closing = toolClosing(ctx, tool);
+      const open = cafe.status === 'active' && used < cafe.daily_quota;
+      return { slug: tool.slug, name: tool.name, available: open && free > 0 && !closing, reason: cafe.status !== 'active' ? 'cafe_paused' : !open ? 'cafe_full' : closing ? 'tool_closing' : free > 0 ? null : 'sold_out' };
+    }),
   };
 }
 
@@ -164,5 +171,85 @@ export function registerQsApi(router) {
       ok: true, code: formatCode(r.voucher.code), expiresAt: r.voucher.expires_at, tools: tools ? tools.split(',') : [],
       text: 'Mã phiếu lấy mã đăng nhập — nhập ở ô "Mã phiếu" trên trang công cụ.',
     });
+  });
+}
+
+// ---------- API kho cho QS (Tài): thêm / sửa / xem tài khoản trong kho dùng chung ----------
+// Hợp đồng: docs/phoi-hop-voi-QS.md mục 11. Ký GIỐNG /hooks/qs/quan (X-TBQ-Signature, ts, nonce) nhưng bằng khoá RIÊNG QS_KHO_KEY.
+// Mật khẩu / khoá 2FA chỉ gửi vào, không lệnh nào trả ra. Mọi lần thêm / sửa ghi sự kiện (Theo dõi), by = 'qs-api'.
+//   body: {"action":"summary"|"list"|"get"|"add"|"update", ...,"ts","nonce"}
+const KHO_BY = 'qs-api';
+const MAX_ADD = 500;
+
+function toolBySlug(ctx, slug) {
+  return get(ctx.db, 'SELECT * FROM tools WHERE slug = ?', String(slug ?? '').trim().toLowerCase()) || null;
+}
+
+function accountRef(ctx, body) {
+  if (body.id != null) return get(ctx.db, 'SELECT * FROM accounts WHERE id = ?', Number.parseInt(body.id, 10) || 0);
+  if (body.email) return get(ctx.db, 'SELECT * FROM accounts WHERE login_email = ?', String(body.email).trim().toLowerCase());
+  return null;
+}
+
+export function registerKhoApi(router) {
+  router.post('/hooks/qs/kho', async (rq) => {
+    const { ctx } = rq;
+    if (!ctx.config.qsKhoKey) return rq.sendJson(503, { ok: false, code: 'api_off', message: 'API kho đang tắt (chưa có QS_KHO_KEY).' });
+    if (!hit(ctx, `qskho:${rq.ip}`, 300, 10 * MIN).ok) return rq.sendJson(429, { ok: false, code: 'too_many', message: 'Gọi quá nhiều, thử lại sau ít phút.' });
+    const body = await qsSignedBody(rq, { key: ctx.config.qsKhoKey, maxBytes: 512_000 });
+    const action = String(body.action || '');
+    const bad = (code, message, status = 400) => rq.sendJson(status, { ok: false, code, message });
+
+    if (action === 'summary') return rq.sendJson(200, { ok: true, tools: stockSummary(ctx) });
+
+    if (action === 'list') {
+      const tool = body.tool ? toolBySlug(ctx, body.tool) : null;
+      if (body.tool && !tool) return bad('tool_unknown', 'Không có công cụ này.', 404);
+      if (body.status && !ACCOUNT_STATUSES.includes(body.status)) return bad('bad_status', `status: ${ACCOUNT_STATUSES.join(' | ')}`);
+      const limit = Number.parseInt(body.limit, 10) || 200;
+      const offset = Number.parseInt(body.offset, 10) || 0;
+      return rq.sendJson(200, { ok: true, accounts: listAccounts(ctx, { tool, status: body.status || null, limit, offset }) });
+    }
+
+    if (action === 'get') {
+      const a = accountRef(ctx, body);
+      return a ? rq.sendJson(200, { ok: true, account: publicAccount(ctx, a) }) : bad('not_found', 'Không có tài khoản này.', 404);
+    }
+
+    if (action === 'add') {
+      const tool = toolBySlug(ctx, body.tool);
+      if (!tool) return bad('tool_unknown', 'Không có công cụ này (xem action summary để biết mã công cụ).', 404);
+      const label = String(body.label ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120) || null;
+      const dryRun = body.dryRun === true;
+      let r;
+      if (tool.login_type === 'redeem') {
+        const values = Array.isArray(body.codes) ? body.codes : Array.isArray(body.lines) ? body.lines : null;
+        if (!values) return bad('no_items', 'Công cụ mã / link nhận quà: gửi codes: ["…"].');
+        if (values.length > MAX_ADD) return bad('too_many_items', `Tối đa ${MAX_ADD} mục mỗi lần.`);
+        r = addRedeemCodes(ctx, { tool, values, label, by: KHO_BY, dryRun });
+      } else {
+        // accounts: [{email, password?, totp?, holders?}] hoặc lines: ["email|mật khẩu|…"] (dòng chép từ Google Sheet, giống ô nhập ở trang quản trị).
+        const items = Array.isArray(body.accounts) ? body.accounts.map((x) => validateAccount(tool, x && typeof x === 'object' ? x : {}))
+          : Array.isArray(body.lines) ? body.lines.map((l) => String(l ?? '').trim()).filter(Boolean).map((l) => parseAccountLine(tool, l)) : null;
+        if (!items) return bad('no_items', 'Gửi accounts: [{email, password, totp, holders}] hoặc lines: ["email|mật khẩu"].');
+        if (items.length > MAX_ADD) return bad('too_many_items', `Tối đa ${MAX_ADD} tài khoản mỗi lần.`);
+        // Công cụ "làm mới mỗi ngày" (ChatGPT): mặc định chờ tạo Project rồi mới giao, giống ô tick ở trang quản trị.
+        r = addAccounts(ctx, { tool, items, label, setup: body.setup !== false, by: KHO_BY, dryRun });
+      }
+      if (!dryRun && r.added) logEvent(ctx, { type: 'qs_api_stock_added', data: { tool: tool.slug, added: r.added, skipped: r.skipped.length } });
+      return rq.sendJson(dryRun ? 200 : r.added ? 201 : 200, { ok: true, dryRun, tool: tool.slug, ...r });
+    }
+
+    if (action === 'update') {
+      const a = accountRef(ctx, body);
+      if (!a) return bad('not_found', 'Không có tài khoản này.', 404);
+      const patch = {};
+      for (const k of ['label', 'holders', 'password', 'totp', 'keepPassword', 'status']) if (Object.hasOwn(body, k)) patch[k] = body[k];
+      if (!Object.keys(patch).length) return bad('nothing', 'Không có gì để sửa (label, holders, password, totp, status).');
+      const r = updateAccount(ctx, a.id, patch, KHO_BY);
+      return r.ok ? rq.sendJson(200, r) : bad(r.code, r.message, r.code === 'not_found' ? 404 : r.code === 'task_rejected' || r.code === 'not_usable' ? 409 : 400);
+    }
+
+    return bad('bad_action', 'action phải là summary, list, get, add hoặc update.');
   });
 }
