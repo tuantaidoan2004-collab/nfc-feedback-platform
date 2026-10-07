@@ -1,4 +1,12 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.1 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.3 ngày 08/10/2026
+
+## Mới ở 2.0.2–2.0.3 — chỉ đổi phía khách, API giữ nguyên
+
+- Trang quán: khối **Collab** đầu trang (logo quán ✕ thẻ treo TBQ Space, chữ COLLAB, "Miễn phí tại quán") thay dòng "☕ tên quán · Miễn phí".
+  Logo + màu dấu X theo mã quán QS trong `CAFE_BRAND` (`src/views/public.js`); Bamos `8ugdc` → `src/public/quan-8ugdc.png`. Quán chưa có logo → vòng chữ cái đầu.
+- Món không nhận được: mỗi món 1 dòng mờ (logo xám, tên, nhãn lý do), 2 nhóm "Hôm nay cháy hàng" / "Chưa nhận được lúc này"; hết sạch → tiêu đề "Hôm nay cháy hàng rồi".
+  Phần tử vẫn có `data-off="<tên món>"` nếu bên QS có đọc.
+- Trang vé `/me`: gọn trong 1 màn điện thoại (vé + bước + nút), vé nằm thẳng, màn "Xong" có ✓ + nút "Mở <món> ↗"; email trong ô chép xuống dòng trước @.
 
 ## Mới ở 2.0.1 — Thư mã chia bước + trang vé mỗi bước một màn (chỉ đổi phía khách, API giữ nguyên)
 

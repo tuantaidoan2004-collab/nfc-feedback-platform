@@ -154,11 +154,25 @@ function tileMeta(tool, free, blocked) {
   return `${time}${tool.login_type === 'team_invite' ? ' · mời vào nhóm' : ''}`;
 }
 
+/** Món không chọn được: mỗi món 1 dòng gọn (logo nhỏ xám + tên), mờ, nhãn lý do bên phải (Tạm hết / Mở lại lúc 6h / Đã thử đủ lần). */
+function offGroup(title, aside, items) {
+  if (!items.length) return '';
+  return html`<div class="out">
+    <p class="out-h">${title}${aside ? html`<small>${aside}</small>` : ''}</p>
+    <div class="list">${items.map(({ tool, free, blocked }) => html`<div class="tile off" data-off="${tool.name}">
+      ${icon(tool.slug)}
+      <span class="tx"><b>${tool.name}</b></span>
+      <span class="sold">${tileMeta(tool, free, blocked)}</span>
+    </div>`)}</div>
+  </div>`;
+}
+
 /** Lưới chọn món + ô email Canva + nút dính đáy. Không đăng nhập thì nút mở bảng giữ chỗ trước. */
 function pickForm(ctx, { tools, customer }) {
   const ok = ({ free, blocked }) => free > 0 && !blocked;
   const on = tools.filter(ok);
-  const off = tools.filter((x) => !ok(x));
+  const sold = tools.filter((x) => !ok(x) && !x.blocked); // hết suất — ai cũng thấy hết
+  const held = tools.filter((x) => x.blocked); // còn hàng nhưng khách này chưa nhận được (đã thử, đang nghỉ nhận…)
   const tile = ({ tool, free, blocked }) => {
     const meta = tileMeta(tool, free, blocked);
     return html`<label class="tile">
@@ -169,9 +183,9 @@ function pickForm(ctx, { tools, customer }) {
     </label>`;
   };
   return html`<form id="claim-form" class="pick" novalidate${customer ? html` data-logged="1"` : ''}>
-  ${on.length ? html`<div class="list">${on.map(tile)}</div>`
-    : html`<p class="empty">Hôm nay cháy hàng sạch trơn rồi. Mai ghé sớm nha 💛</p>`}
-  ${off.length ? html`<p class="out">Hôm nay cháy hàng: ${off.map(({ tool, free, blocked }) => html`<span data-off="${tool.name}">${tool.name}<small> · ${tileMeta(tool, free, blocked)}</small></span>`)}</p>` : ''}
+  ${on.length ? html`<div class="list">${on.map(tile)}</div>` : ''}
+  ${offGroup(on.length ? 'Hôm nay cháy hàng' : 'Các món hôm nay', on.length ? 'Mai ghé sớm nha' : '', sold)}
+  ${offGroup('Chưa nhận được lúc này', '', held)}
   <div class="invite" data-invite>
     <label for="invite-email">Email <span data-tool-name>tài khoản</span> của bạn</label>
     <input id="invite-email" name="inviteEmail" type="email" autocomplete="email" inputmode="email" placeholder="ban@gmail.com">
@@ -206,12 +220,58 @@ ${tiemCard(ctx)}`,
 }
 
 /**
+ * Logo + 2 màu dấu X riêng của quán (theo mã quán QS) cho khối collab. Logo = chữ của quán, nền trong suốt (cắt từ ảnh đại diện trang QS).
+ * Quán chưa có ở đây → vòng tròn chữ cái đầu tên quán, X nâu cà phê + vàng TBQ.
+ */
+const CAFE_BRAND = {
+  '8ugdc': { logo: 'quan-8ugdc.png', tagline: 'Coffee & Tea', x: ['#c08a5b', '#62b8cc'] }, // Bamos — logo chữ mảnh từ banner collab (Gemini 07/10), tô sáng cho nền đêm; X nâu đồng + teal
+};
+/** "Quán của @tai" → "T", "Bamos Coffee" → "B". */
+const monogram = (name) => (String(name || '')
+  .replace(/^\s*(quán\s+của|quán|cafe|café|cà\s*phê|coffee)\s+/i, '')
+  .match(/[\p{L}\p{N}]/u)?.[0] || '☕').toUpperCase();
+
+/**
+ * Dấu X kiểu banner collab: 4 cánh nhọn như tia chớp (mỗi cánh 1 lưỡi dài + 1 lưỡi ngắn lệch bên), 2 màu chéo nhau,
+ * hạt cà phê trong vòng tròn ở tâm. Màu đặt bằng thuộc tính fill (CSP chặn style="" nội tuyến).
+ */
+function collabX([c1, c2]) {
+  const arm = (deg, c) => `<g transform="rotate(${deg})" fill="${c}"><path d="M-5 -9.5L4.4 -9.5L0 -48Z"/><path d="M5 -14L11.2 -16.8L13.8 -40Z" opacity=".85"/><path d="M-5.6 -12.5L-10.4 -15L-11 -32Z" opacity=".6"/></g>`;
+  return raw(`<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true"><g transform="translate(50 50)">`
+    + arm(-45, c1) + arm(135, c1) + arm(45, c2) + arm(-135, c2)
+    + `<circle r="9.5" class="hole"/><g class="bean"><circle r="7" fill="${c1}"/><path d="M-1.6 -5.6Q2.6 -1.2 -0.4 2.2Q-2.6 4.6 1.4 6" fill="none"/></g></g></svg>`);
+}
+
+/**
+ * Khối "collab" đầu trang quán, theo banner Bamos × TBQ: nằm thẳng trên nền đêm (cùng màu trang), màu sáng cho tương phản, [chữ quán] ✕ [thẻ treo TBQ Space], chữ COLLAB dưới cùng.
+ * Mở trang: dấu X xoay vào, hạt cà phê bật, 2 bên trượt vào giữa (ui.css "Collab").
+ */
+function collab(cafe) {
+  const b = CAFE_BRAND[String(cafe.qs_slug || '').toLowerCase()] || {};
+  return html`<div class="collab">
+  <div class="cb-row">
+    <figure class="cb-side cafe">
+      ${b.logo ? html`<img src="${asset(b.logo)}" alt="${cafe.name}" width="120" height="36">` : html`<span class="cb-mono">${monogram(cafe.name)}</span>`}
+      <figcaption>${b.tagline || cafe.name}</figcaption>
+    </figure>
+    <div class="cb-x">${collabX(b.x || ['#c08a5b', '#d4b06a'])}</div>
+    <figure class="cb-side tbq">
+      ${raw(TBQ_TAG)}
+      <figcaption><b>TBQ Space</b><small>Tiệm Bản Quyền</small></figcaption>
+    </figure>
+  </div>
+  <p class="cb-word">Collab</p>
+  <p class="cb-free">Miễn phí tại quán</p>
+</div>`;
+}
+
+/**
  * Trang nhận công cụ của 1 quán (/qs/<mã quán QS>). atCafe = máy này vừa vào bằng vé từ trang quán (thẻ / QR trên bàn).
  * Chưa có vé thì không hiện ô email / số điện thoại: khỏi tốn tin OTP cho người không nhận được.
  * Thứ tự: chọn món trước → (chưa đăng nhập) bảng giữ chỗ: email → mã → nhận luôn món đã chọn.
  */
 export function cardPage(ctx, { cafe, customer, tools, view, atCafe }) {
-  const eyebrow = html`<p class="eyebrow"><span aria-hidden="true">☕</span><span>${cafe.name}</span><span class="free">Miễn phí</span></p>`;
+  const eyebrow = collab(cafe);
   let body;
   if (customer && HOLDING.includes(view?.status)) {
     body = html`<section class="intro">${progress(3)}${eyebrow}<h1>Bạn có vé rồi nè</h1><p class="sub">Mỗi ngày 1 món thôi nha. Mở vé vào cày tiếp nè.</p></section>
@@ -223,9 +283,14 @@ ${holdingCard(view)}${hello(ctx, customer)}`;
       note: `Mỗi lần chạm dùng được ${ctx.settings().entryTtlMin} phút, trên đúng điện thoại đã chạm.`,
     })}${tiemCard(ctx)}`;
   } else {
+    // không còn món nào chọn được → nói thẳng ở tiêu đề, khỏi bảo khách "chọn 1 món"
+    const none = !tools.some(({ free, blocked }) => free > 0 && !blocked);
+    const [h, sub] = !none ? ['Hôm nay bạn cần món nào?', 'Đồ Pro xịn sò, free 100%. Chọn 1 món — 1 phút là vào việc.']
+      : tools.some(({ blocked }) => blocked) ? ['Lúc này chưa có món cho bạn', 'Lý do ghi ở từng món bên dưới nha. Cần gấp thì nhắn Tiệm.']
+        : ['Hôm nay cháy hàng rồi', 'Đồ Pro free nên đắt khách quá. Mai ghé sớm nha — cần gấp thì nhắn Tiệm.'];
     body = html`<section class="intro">${progress(1)}${eyebrow}
-  <h1>Hôm nay bạn cần món nào?</h1>
-  <p class="sub">Đồ Pro xịn sò, free 100%. Chọn 1 món — 1 phút là vào việc.</p>
+  <h1>${h}</h1>
+  <p class="sub">${sub}</p>
 </section>
 ${pickForm(ctx, { tools, customer })}
 ${customer ? hello(ctx, customer) : otpSheet(ctx)}
@@ -285,8 +350,14 @@ function codeBox(ctx, v, mode) {
   </div>`;
 }
 
+/** Email dài: cho xuống dòng ngay trước @ thay vì bẻ giữa chữ ("tiembanqu / yen.site"). */
+const breakable = (value) => {
+  const v = String(value ?? '');
+  const at = v.indexOf('@');
+  return at > 0 ? html`${v.slice(0, at)}<wbr>${v.slice(at)}` : v;
+};
 /** 1 dòng cần chép: nhãn + giá trị + nút Chép. */
-const copyRow = (label, value) => html`<span class="cp"><small>${label}</small><code>${value}</code><button type="button" class="chip-btn" data-copy="${value}">Chép</button></span>`;
+const copyRow = (label, value) => html`<span class="cp"><small>${label}</small><code>${breakable(value)}</code><button type="button" class="chip-btn" data-copy="${value}">Chép</button></span>`;
 
 /** Khung báo trạng thái (dừng, chưa nhận…). */
 const statusCard = (emoji, title, text, action = '') => html`<section class="state"><div class="state-ic" aria-hidden="true">${emoji}</div><h1>${title}</h1><p class="sub">${text}</p>${action}</section>`;
@@ -342,6 +413,7 @@ function ticket(ctx, v, sub) {
  */
 function checklist(v, all) {
   const steps = all.filter(Boolean);
+  const t = v.tool;
   const n = steps.length;
   return html`<section class="steps pager" data-flow="${v.slotId}">
   <div class="pg-top">
@@ -355,9 +427,11 @@ function checklist(v, all) {
       <div class="st-b">${st.body}${st.manual ? html`<button type="button" class="chip-btn" data-next>${st.manual}</button>` : ''}</div>
     </li>`)}
     <li class="st pg-done" data-flow-done hidden>
-      <p class="pg-yay" aria-hidden="true">🎉</p>
+      <svg class="done-ok" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="25"/><path d="M17 29l7.5 7.5L40 21"/></svg>
       <h3>Xong! Vào việc thôi</h3>
-      <p class="sub">Giờ thì cày deadline vèo vèo. Cần làm lại bước nào thì bấm Quay lại nha.</p>
+      <p class="sub">Đăng nhập ngon lành rồi đó. Cày deadline vèo vèo nha!</p>
+      ${t.login_url ? html`<a class="btn sm" href="${t.login_url}" target="_blank" rel="noopener noreferrer">Mở ${t.name} ↗</a>` : ''}
+      <button type="button" class="link" data-st-go="0">Xem lại các bước</button>
     </li>
   </ol>
   <nav class="pg-nav" data-pg-nav hidden>

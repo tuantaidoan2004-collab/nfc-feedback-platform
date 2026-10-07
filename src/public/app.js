@@ -466,6 +466,7 @@
       });
       bars.forEach((b, i) => { b.classList.toggle('d', i < at); b.classList.toggle('now', i === at); });
       const end = at >= steps.length;
+      flow.classList.toggle('at-end', end);
       count.textContent = end ? 'Xong hết rồi' : `Bước ${at + 1}/${steps.length}`;
       prev.disabled = at === 0;
       next.hidden = end;
@@ -478,7 +479,23 @@
       at = to;
       try { localStorage.setItem(key, String(at)); } catch { /* bỏ qua */ }
       paint(dir);
+      if (at === steps.length && dir > 0) cheer(items[at]);
       if (flow.getBoundingClientRect().top < 0) flow.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+    };
+    // tới màn Xong: giấy màu rơi + rung khẽ
+    const cheer = (el) => {
+      if (still) return;
+      const colors = ['#5fd3a2', '#d4b06a', '#f0ebe0', '#ff7b72', '#7d97c9'];
+      for (let i = 0; i < 16; i += 1) {
+        const c = document.createElement('i');
+        c.className = 'confetti';
+        c.style.left = `${10 + Math.random() * 80}%`;
+        c.style.background = colors[i % colors.length];
+        c.style.animationDelay = `${0.35 + Math.random() * 0.3}s`;
+        el.append(c);
+        setTimeout(() => c.remove(), 2400);
+      }
+      try { navigator.vibrate?.([12, 40, 12]); } catch { /* bỏ qua */ }
     };
     flow.classList.add('js');
     $('[data-pg-bar]', flow).hidden = false;
@@ -535,7 +552,7 @@
   }
   // ---------- Sống động: hiện dần khi cuộn (xong thì gỡ lớp .rv để trả lại hiệu ứng bấm gốc), tiêu đề lên từng chữ, vé nghiêng theo ngón tay ----------
   // Chuyển động có mục đích (Apple HIG Motion / NN/g): cho biết nội dung từ đâu tới, phản hồi khi chạm. Giảm chuyển động → chỉ mờ dần.
-  const groups = ['.how li', '.list .tile', '.out', '.tiem', '.peek li', '.steps', '.fold', '.zalo-row', '.contact-tiem', '.stat div', '.offer', '.mini-ticket', '.panel', '.actions .btn'];
+  const groups = ['.how li', '.list .tile', '.out-h', '.tiem', '.peek li', '.steps', '.fold', '.zalo-row', '.contact-tiem', '.stat div', '.offer', '.mini-ticket', '.panel', '.actions .btn'];
   const items = [];
   for (const sel of groups) $$(sel).forEach((el, i) => { el.classList.add('rv'); el.style.setProperty('--d', `${Math.min(i, 6) * 0.07}s`); items.push(el); });
   if ('IntersectionObserver' in window) {
