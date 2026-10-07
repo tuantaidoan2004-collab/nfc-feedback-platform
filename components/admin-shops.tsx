@@ -5,6 +5,8 @@ import { buttonClass } from './platform/ui';
 
 import { PLACE_ID_FINDER } from '@/lib/google/place-id';
 import { PLANS, viDate, type Billing } from '@/lib/billing/plans';
+import { EVENTS, EVENT_KEYS, type EventKey } from '@/lib/events/catalog';
+import type { OrganizerReply } from '@/lib/events/organizer';
 
 export type ShopRow = {
   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
@@ -16,6 +18,8 @@ export type ShopRow = {
   edits_published: number;
   /** Gói và hạn (kịch bản mục 3b). */
   billing: Billing;
+  /** The organizers' events open for this shop (khúc B): shown on every live page of the shop, nothing for its owner to do. */
+  events: EventKey[];
 };
 const PLAN_NAMES = Object.fromEntries(PLANS.map(plan => [plan.key, plan.name])) as Record<string, string>;
 /** One line for the operator: which plan, until when, and what the shop's guests see now. */
@@ -127,6 +131,28 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
   };
 
+  // Khúc B: open an organizer's event for a shop that agreed to it; it shows on the shop's pages at once, between the first
+  // section and the rest, and closing takes it off at once. The shop's owner has nothing to do.
+  const switchEvent = async (row: ShopRow, event: EventKey, open: boolean) => {
+    if (!open && !window.confirm(`Đóng "${EVENTS[event].name}" cho ${row.name}? Khối này biến mất khỏi mọi trang của quán ngay.`)) return;
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/gov/api/shops/events', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shopId: row.id, event, open }) });
+      if (response.status === 409) { setError('Database chưa có bảng shop_events: tạo bảng một lần (câu CREATE TABLE cuối db/schema.sql) rồi bấm lại.'); return; }
+      if (!response.ok) { setError(failed(response.status)); return; }
+      const { organizer } = await response.json() as { organizer: OrganizerReply | null };
+      const there = EVENTS[event].organizer;
+      const note = !EVENTS[event].hook ? '' : !organizer ? ` Chưa báo được ${there} (thiếu khoá hoặc lỗi mạng): bấm lại sau, hoặc nhờ bên đó thêm tay.`
+        : !organizer.ok ? ` ${there} từ chối (${organizer.code}): bấm lại sau, hoặc nhờ bên đó xem.`
+        : organizer.pausedBy === 'admin' ? ` ${there} đang tự dừng ở quán này: khối vẫn hiện, nhưng khách vào sẽ thấy "tạm dừng".`
+        : open ? ` ${there}: ${organizer.created ? 'đã tạo quán' : 'quán đang chạy'}.` : ` ${there}: đã tạm dừng quán.`;
+      setError((open ? `Đã mở "${EVENTS[event].name}" cho ${row.name}: khối hiện ngay trên mọi trang của quán.`
+        : `Đã đóng "${EVENTS[event].name}" cho ${row.name}.`) + note);
+      await refresh();
+    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+  };
+
   const endStandIn = async () => {
     setBusy(true); setError('');
     try {
@@ -229,7 +255,7 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
         <button type="button" className={buttonClass('secondary')} onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
       <div className={styles.wide}>
         <table className={styles.table}>
-          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Gói</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
+          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Gói</th><th>Hỗ trợ</th><th>Sự kiện</th><th>Hoạt động</th><th/></tr></thead>
           <tbody>
             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
               <td data-label="Shop" className={styles.shopCell}>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
@@ -243,6 +269,11 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
               <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
               <td data-label="Gói" data-billing-state={row.billing.state}>{row.is_template ? '—' : billingText(row.billing)}</td>
               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
+              <td data-label="Sự kiện" data-shop-events>{row.is_template ? '—' : EVENT_KEYS.map(event => {
+                const open = (row.events ?? []).includes(event);
+                return <button key={event} type="button" className={buttonClass(open ? 'secondary' : 'quiet')} disabled={busy} data-event={event} aria-pressed={open}
+                  title={EVENTS[event].summary.vi} onClick={() => void switchEvent(row, event, !open)}>{EVENTS[event].title.vi}: {open ? 'đang mở · Đóng' : 'Mở'}</button>;
+              })}</td>
               <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
               <td className={styles.rowActions}><div>{!row.is_template && !row.billing.main &&
                 <button className={buttonClass('secondary')} disabled={busy} onClick={() => { setError(''); setPlanFor(row); setTimeout(() => document.querySelector('[data-plan-form]')?.scrollIntoView({ block: 'start' }), 0); }}>Đặt gói</button>}
@@ -251,7 +282,7 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
                 <button className={buttonClass('caution')} disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
               </>}</div></td>
             </tr>)}
-            {!shops.length && <tr><td colSpan={11} className={styles.muted}>Chưa có shop nào.</td></tr>}
+            {!shops.length && <tr><td colSpan={12} className={styles.muted}>Chưa có shop nào.</td></tr>}
           </tbody>
         </table>
       </div>

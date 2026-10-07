@@ -2399,3 +2399,18 @@ CREATE TABLE join_requests (
 );
 CREATE UNIQUE INDEX join_requests_one_open ON join_requests (shop_id, user_id) WHERE decided_at IS NULL;
 CREATE INDEX join_requests_shop_open ON join_requests (shop_id, created_at) WHERE decided_at IS NULL;
+
+--
+-- Khúc B (07/10/2026): sự kiện của bên tổ chức trên trang quán (lib/events/catalog.ts). Chỉ /gov mở / đóng cho từng quán;
+-- khối hiện trên mọi trang đang chạy của quán, giữa khúc đầu và phần còn lại (components/canvas/event.tsx). Chủ quán không
+-- phải làm gì. Không nằm trong bản phát hành nào, nên mở / đóng không phải phát hành lại. Thiếu bảng thì mọi quán coi như
+-- không có sự kiện (trang khách vẫn chạy), /gov báo thiếu bảng.
+--
+
+CREATE TABLE shop_events (
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    event_key text NOT NULL CHECK (event_key ~ '^[a-z][a-z0-9-]{0,31}$'::text),
+    opened_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    opened_by uuid REFERENCES platform_admins(id),
+    PRIMARY KEY (shop_id, event_key)
+);

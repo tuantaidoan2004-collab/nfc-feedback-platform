@@ -189,7 +189,7 @@ function DeckView({ el, cls, box, mode }: { el: DeckEl; cls: string; box: Vars; 
   </div>;
 }
 
-const SectionView = memo(function SectionView({ section, index, mode }: { section: Section; index: number; mode: GuestMode }) {
+export const SectionView = memo(function SectionView({ section, index, mode }: { section: Section; index: number; mode: GuestMode }) {
   // The first section fills the first screen: its background runs to the bottom of the phone, whatever its height in units.
   return <section className="cv-sec" data-section={section.id} data-wait={index > 0 ? '' : undefined} data-first={index === 0 ? '' : undefined} aria-label={section.name}>
     {section.bg && <BackgroundView bg={section.bg} id={`bg-${section.id}`} className="cv-sec-bg" haze={!!section.bg.src} />}

@@ -12,8 +12,9 @@ import type { Pool } from 'pg';
  *   - it is shape, never content. Which star, which layout, which button, how many milliseconds. Never the
  *     message, never the phone number. The column is capped at 512 bytes so nobody can quietly widen that later.
  */
-export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned';
-const NAMES: readonly GuestEventName[] = ['page_opened', 'google_tapped', 'card_opened', 'star_chosen', 'feedback_sent', 'card_abandoned'];
+export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned' | 'event_tapped';
+// `event_tapped` (khúc B): a guest opened one of an organizer's links; detail is `{ event, item }`, two catalog keys.
+const NAMES: readonly GuestEventName[] = ['page_opened', 'google_tapped', 'card_opened', 'star_chosen', 'feedback_sent', 'card_abandoned', 'event_tapped'];
 
 /** One event as the browser sends it. Everything else is filled in on the server, where it cannot be forged. */
 export type GuestEvent = { name: GuestEventName; sinceOpenMs: number; detail?: Record<string, unknown> };

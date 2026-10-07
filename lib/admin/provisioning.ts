@@ -10,6 +10,7 @@ import { BILLING_COLUMNS, billingRow } from '../billing/plans';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 import { shortCode, withShortCode } from '../short-code';
+import { ShopEvents } from '../events/shop-events';
 import { DEFAULT_TEMPLATE, pageFromTemplate, pageTemplate } from '../canvas/templates';
 import { pageLabel } from '../owner/page-names';
 
@@ -207,8 +208,10 @@ export class ShopProvisioning {
   async list() {
     const shops = await this.shopRows();
     const pages = (await this.pool.query('SELECT shop_id,count(*)::int n FROM pages GROUP BY shop_id')).rows as { shop_id: string; n: number }[];
+    // The organizers' events open for each shop (khúc B), switched in the same table.
+    const events = await new ShopEvents(this.pool).byShop();
     return shops.map(({ billing_plan, billing_paid_until, billing_today, billing_activate_by, billing_main_slug, billing_main_name, ...shop }) =>
-      ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0,
+      ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0, events: events.get(shop.id) ?? [],
         billing: billingRow({ billing_plan, billing_paid_until, billing_today, billing_activate_by, billing_main_slug, billing_main_name }) }));
   }
   private async shopRows() {

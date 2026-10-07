@@ -23,7 +23,8 @@ const plain = fold;
 const REVIEW = ['google', 'danh gia', 'nhan xet', 'review', 'rating', 'sao', 'star'];
 /** What may never be offered for one. */
 const REWARD = ['qua', 'tang', 'mien phi', 'giam gia', 'khuyen mai', 'voucher', 'uu dai', 'coupon', 'the cao', 'boc tham', 'quay thuong', 'tich diem',
-  'gift', 'free', 'discount', 'reward', 'prize', 'voucher', 'points'];
+  // An account or a trial of a paid tool is a gift too (TBQ found "Đánh giá 5 sao để nhận tài khoản" got through, 07/10).
+  'tai khoan', 'dung thu', 'gift', 'account', 'trial', 'free', 'discount', 'reward', 'prize', 'voucher', 'points'];
 /** Naming a person to mention, which rule 5 and 7 both forbid. */
 const NAMING = ['nhac ten', 'ghi ten', 'ten nhan vien', 'ten ban', 'mention', 'name the staff', 'name our'];
 

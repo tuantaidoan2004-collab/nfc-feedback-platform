@@ -119,7 +119,7 @@ test('F-013: free text refuses a review traded for something, in either language
   for (const text of [
     'Đánh giá 5 sao nhận quà', 'danh gia 5 sao nhan qua', 'DANH GIA GOOGLE TANG NUOC',
     'Review us for a free coffee', 'Nhận xét tốt được giảm giá', 'Đánh giá xong nhớ nhắc tên nhân viên',
-    'Mention our staff in your review',
+    'Mention our staff in your review', 'Đánh giá 5 sao để nhận tài khoản', 'Review us to get a free trial account',
   ]) expect(freeTextProblem(text), text).not.toBeNull();
   // A neutral invitation, the shop's own name, and words that only look alarming apart must all pass.
   for (const text of [

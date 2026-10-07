@@ -14,6 +14,7 @@ import PageThumb from '@/components/canvas/thumb';
 import styles from './tabs.module.css';
 import Icon, { type IconName } from '../icons';
 import { HowItWorks, PageSheet, StateTag, TemplateSheet, usePages } from './pages-ui';
+import { EVENTS, EVENT_KEYS } from '@/lib/events/catalog';
 
 type Section = 'home' | 'template' | 'su-kien';
 const SECTIONS: [Section, string, IconName][] = [['home', 'Home', 'home'], ['template', 'Template', 'template'], ['su-kien', 'Sự kiện', 'event']];
@@ -111,13 +112,14 @@ function Templates({ templates, groups, name, onPick }: { templates: TemplateCar
 }
 
 function Events() {
+  // Khúc B: sự kiện do admin mở cho quán ở /gov (lib/events/shop-events.ts); khối tự hiện dưới khúc đầu của mọi trang.
   return <section className={styles.grid}>
     <h2>Sự kiện</h2>
-    <p className="qs-muted qs-small">Sự kiện mở cho quán đã đăng ký gói sự kiện đó. Bấm Add để đưa sự kiện vào khúc B của một trang. Mọi khách đều thấy và nhận được — không bao giờ gắn với việc đánh giá Google.</p>
-    <article className={styles.card} style={{ display: 'grid', gap: 10 }}>
-      <div className={styles.row}><h3>Trải nghiệm A.I free 1 ngày</h3><span className="qs-pill free">Free</span></div>
-      <p className="qs-muted qs-small">Khách nhận một tài khoản dùng A.I miễn phí trong 1 ngày; phần còn lại do bên tổ chức sự kiện lo.</p>
-      <button type="button" className="qs-btn small" disabled>Add — chờ link của nhà tổ chức</button>
-    </article>
+    <p className="qs-muted qs-small">Sự kiện do admin mở cho quán đã đồng ý tham gia. Khi mở, khối sự kiện tự hiện ngay dưới khúc đầu của mọi trang — bạn không phải thêm hay phát hành lại gì. Mọi khách đều thấy và nhận được — không bao giờ gắn với việc đánh giá Google.</p>
+    {EVENT_KEYS.map(key => <article key={key} className={styles.card} style={{ display: 'grid', gap: 10 }}>
+      <div className={styles.row}><h3>{EVENTS[key].title.vi}</h3><span className="qs-pill free">Free</span></div>
+      <p className="qs-muted qs-small">{EVENTS[key].summary.vi}</p>
+      <p className="qs-muted qs-small">Do {EVENTS[key].organizer} tổ chức. Muốn tham gia hoặc tạm dừng: nhắn admin.</p>
+    </article>)}
   </section>;
 }

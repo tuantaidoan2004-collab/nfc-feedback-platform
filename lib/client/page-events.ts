@@ -11,7 +11,7 @@
  *     which `sendBeacon` also does -- but sendBeacon cannot set a header, and moving the capability into the body
  *     just to please it would give this one call a different way of authenticating than everything else.
  */
-export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned';
+export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned' | 'event_tapped';
 type Queued = { name: GuestEventName; sinceOpenMs: number; detail?: Record<string, string | number | boolean> };
 type Ports = { fetch?: typeof fetch; listen?: (event: string, run: () => void) => void };
 /** The server refuses more than twenty in one call, so the queue flushes before it can build one. */

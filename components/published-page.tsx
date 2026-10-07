@@ -5,6 +5,9 @@ import { publicPage } from '@/server/publishing-runtime';
 import { PublishingError } from '@/lib/publishing/config';
 import { ShopUnpaid } from '@/lib/publishing/repository';
 import CanvasPage from './canvas/render';
+import EventSections from './canvas/event';
+import { eventBlock } from '@/lib/events/catalog';
+import { issueTicket, throughCard } from '@/lib/events/ticket';
 
 type Target = {slug:string}|{code:string}|{previewToken:string};
 // One read per request: the tab title and the page itself both need the published page (lát S0). `cache` keys on its
@@ -39,5 +42,11 @@ export default async function PublishedPage({target}:{target:Target}) {
     return <main className="dashboard-wrap"><h1>Trang chưa sẵn sàng</h1><p>Vui lòng thử lại sau. / Please try again later.</p></main>;
   }
   // The page is the shop's canvas document (đợt ②); the Google button always takes the shop's own review link.
-  return <CanvasPage doc={page.config.doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}/>;
+  // Khúc B: the organizers' events /gov opened for the shop, their links finished on the server (address and key are
+  // configuration) and keyed by the shop's link. A guest who came through the shop's card also carries a fresh ticket: that
+  // is how the organizer knows they are in the shop, without asking the shop for anything (lib/events/ticket.ts).
+  const card = throughCard(page.context);
+  const events = page.events.map(key => eventBlock(key, page.shopSlug, card ? issueTicket(key, page.shopSlug) : null));
+  return <CanvasPage doc={page.config.doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}
+    afterFirst={<EventSections doc={page.config.doc} blocks={events} />}/>;
 }

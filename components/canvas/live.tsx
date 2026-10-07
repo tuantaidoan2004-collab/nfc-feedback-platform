@@ -246,3 +246,16 @@ export function SoundToggle({ src, volume }: { src: string; volume: number }) {
         <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4Z" fill="currentColor" />{on ? <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /> : <path d="m16 9.5 5 5m0-5-5 5" />}</svg>
     </button></>;
 }
+
+/**
+ * Khúc B (components/canvas/event.tsx): counts a guest opening one of an organizer's links as `event_tapped`, with the two
+ * catalog keys and nothing else. The links stay plain links drawn on the server; this only listens on the way through.
+ */
+export function EventTaps({ event, items, children }: { event: string; items: { key: string; href: string }[]; children: ReactNode }) {
+  const guest = useGuest();
+  return <div style={{ display: 'contents' }} data-event={event} onClickCapture={click => {
+    const href = (click.target as Element).closest('a')?.getAttribute('href');
+    const item = items.find(i => i.href === href);
+    if (item) guest.event('event_tapped', { event, item: item.key });
+  }}>{children}</div>;
+}

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 export { PublishingError } from './config';
 import { PublishingError, TEMPLATE_ROW, validateConfig, type PageConfig } from './config';
+import { openEvents } from '../events/shop-events';
 import { assertPublishable } from './policy';
 import { bindShop, placeholderLinks } from '../canvas/slots';
 import { readProfile } from '../shop/profile';
@@ -232,11 +233,11 @@ export class PublishingResolver {
     // The page as published, and the shop's Google link: the Google button always leads to the shop's own review page (its
     // Place ID), never to a link written into the page, so a link fixed today reaches every page at once.
     const row = 'slug' in target
-      ? (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+      ? (await this.pool.query(`SELECT s.id,s.slug shop_slug,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
           tv.template_key,tv.version template_version,NULL::uuid tag_id,${BILLING_COLUMNS('s')} FROM pages p JOIN shops s ON s.id=p.shop_id
         JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
         WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
-      : (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+      : (await this.pool.query(`SELECT s.id,s.slug shop_slug,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
           tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state,${BILLING_COLUMNS('s')} FROM tags t
         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
         JOIN template_versions tv ON tv.id=r.template_version_id WHERE t.public_code=$1`, [target.code])).rows[0];
@@ -247,19 +248,22 @@ export class PublishingResolver {
     if (row.page_state === 'paused') error('PAGE_PAUSED');
     if (row.page_state !== 'active') error('PAGE_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : row.entry_key };
-    return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
+    // The organizers' events /gov has opened for the shop (khúc B): not part of any release, so opening or closing one
+    // changes every page of the shop at once, with nothing to publish.
+    return { slug: row.slug as string, shopSlug: row.shop_slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
       config: shownConfig(validateConfig(row.config_snapshot), { name: row.shop_name, profile: row.profile, is_template: row.is_template }),
-      googleUrl: row.google_url as string | null, context };
+      googleUrl: row.google_url as string | null, context,
+      events: await openEvents(this.pool, row.id) };
   }
   async preview(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
-    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
+    const row = (await this.pool.query(`SELECT v.*,p.slug,s.slug shop_slug,p.state page_state,s.publishing_state,s.google_url,s.name shop_name,s.profile,s.is_template,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
       JOIN shops s ON s.id=v.shop_id JOIN pages p ON p.id=v.page_id JOIN template_versions tv ON tv.id=v.template_version_id
       LEFT JOIN tags t ON t.shop_id=v.shop_id AND t.id=v.tag_id WHERE v.token_hash=$1 AND v.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled' || row.page_state === 'closed') error('PREVIEW_UNAVAILABLE');
     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
-    return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
+    return { slug: row.slug as string, shopSlug: row.shop_slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
       config: shownConfig(validateConfig(row.config_snapshot), { name: row.shop_name, profile: row.profile, is_template: row.is_template }),
-      googleUrl: row.google_url as string | null, context, expiresAt: row.expires_at as Date };
+      googleUrl: row.google_url as string | null, context, expiresAt: row.expires_at as Date, events: await openEvents(this.pool, row.shop_id) };
   }
 }
