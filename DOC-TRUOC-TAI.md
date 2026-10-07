@@ -1,4 +1,11 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.0 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.1 ngày 08/10/2026
+
+## Mới ở 2.0.1 — Thư mã chia bước + trang vé mỗi bước một màn (chỉ đổi phía khách, API giữ nguyên)
+
+- Thư mã xác nhận (`src/services/otp.js` → `otpEmail()`): logo PNG `src/public/logo-email.png`, mã 6 số to, 3 bước (chép mã → quay lại trang → nhập 6 ô).
+  Tiêu đề thư bắt đầu bằng mã để iPhone gợi ý tự điền. Ảnh logo lấy theo `BASE_URL` → máy chủ phải mở `/static/` ra ngoài (đã có sẵn).
+- Trang `/me`: các bước đăng nhập thành từng màn (thanh tiến độ, "‹ Quay lại" / "Tiếp ›", tự qua bước sau khi chép, vuốt ngang, màn "Xong").
+  Không JS thì vẫn hiện danh sách như cũ. Đã chạy thật trên máy của Tiệm từ 23:08 07/10.
 
 ## Mới ở 2.0.0 — Giao diện khách mới "Vé vào ca" (chỉ đổi phía khách, API giữ nguyên)
 

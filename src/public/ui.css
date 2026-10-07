@@ -243,13 +243,40 @@ input.need { border-color: var(--red); }
 .st-b { padding: 10px 0 4px 40px; font-size: 15px; color: var(--text-2); }
 .st-b b { color: var(--text); }
 .st-b > * + * { margin-top: 10px; }
-.steps.js .st:not(.now) .st-b { display: none; }
 .st.d .n { background: var(--mint); border-color: var(--mint); color: var(--ink); font-size: 0; }
 .st.d .n::before { content: '✓'; font-size: 14px; font-weight: 800; }
 .st.d .tt { color: var(--text-3); }
 .st.now .n { background: var(--gold); border-color: var(--gold); color: var(--ink); box-shadow: 0 0 0 5px var(--gold-50); }
 .steps.waiting .st.now .n { background: none; border-color: var(--line-2); box-shadow: none; }
-.done-line { padding: 14px 0 10px; font-weight: 600; text-align: center; }
+/* Từng màn (có JS): 1 bước/màn, thanh tiến độ, nút Quay lại / Tiếp */
+.pg-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.pg-count { font-size: 13px; font-weight: 600; color: var(--gold); font-variant-numeric: tabular-nums; }
+.pg-bar { display: flex; gap: 6px; width: 100%; margin: 12px 0 4px; }
+.pg-bar button { flex: 1; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; position: relative; }
+.pg-bar button::before { content: ''; position: absolute; left: 0; right: 0; top: 9px; height: 4px; border-radius: 2px; background: var(--line-2); transition: background .3s var(--ease); }
+.pg-bar button.d::before { background: var(--mint); }
+.pg-bar button.now::before { background: var(--gold); }
+.pager.js .st { border: 0; padding: 14px 0 6px; min-height: 230px; }
+.pager.js .st-h { flex-direction: column; align-items: flex-start; gap: 12px; cursor: default; }
+.pager.js .st-h .n { width: 40px; height: 40px; font-size: 16px; }
+.pager.js .st-h .tt { font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.pager.js .st-b { padding: 14px 0 4px; font-size: 16px; }
+.pager.js .st-b .chip-btn { min-height: 44px; padding: 10px 18px; font-size: 15px; }
+.pager.js .cp { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; padding: 10px 6px 10px 14px; }
+.pager.js .cp small { grid-column: 1 / -1; width: auto; }
+.pager.js .cp code { font-size: 15px; }
+.pg-done { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pg-yay { font-size: 44px; line-height: 1; margin-bottom: 12px; }
+.pg-done h3 { font-size: 26px; }
+.pg-nav { display: flex; gap: 10px; padding: 8px 0 12px; }
+.pg-nav .btn { min-height: 50px; padding: 0 16px; font-size: 16px; }
+.pg-nav .btn.ghost { flex: 0 0 auto; width: auto; }
+.pg-nav .btn.ghost[disabled] { opacity: .35; background: transparent; color: var(--cream); }
+.pg-nav .btn[data-pg-next] { flex: 1; }
+.st.in-r { animation: pg-in-r .38s var(--ease) both; }
+.st.in-l { animation: pg-in-l .38s var(--ease) both; }
+@keyframes pg-in-r { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+@keyframes pg-in-l { from { opacity: 0; transform: translateX(-36px); } to { opacity: 1; transform: none; } }
 .cp { display: flex; align-items: center; gap: 10px; background: var(--bg-2); border-radius: 14px; padding: 6px 6px 6px 14px; }
 .cp + .cp { margin-top: 8px; }
 .cp small { flex: none; width: 66px; font-size: 12px; color: var(--text-3); }

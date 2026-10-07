@@ -335,21 +335,35 @@ function ticket(ctx, v, sub) {
 }
 
 /**
- * Checklist đăng nhập: thấy hết các bước, bước đang làm mở ra, bước xong gạch đi (app.js "Checklist", nhớ trên máy này).
- * Bấm Chép / Mở / nút xong → sang bước sau. Không JS: mọi bước mở sẵn.
+ * Các bước đăng nhập — MỖI BƯỚC MỘT MÀN (app.js "Từng màn"): thanh tiến độ, nút "‹ Quay lại" / "Tiếp ›", màn sau trượt vào,
+ * chép / mở / bấm nút xong thì tự qua bước kế; hết bước → màn "Xong". Bước đang ở nhớ trên máy này.
+ * Không JS: hiện hết các bước thành danh sách.
  * steps: [{ title, body, manual? (chữ nút xong cho bước không có thao tác) }] — phần tử null bị bỏ qua.
  */
 function checklist(v, all) {
   const steps = all.filter(Boolean);
-  return html`<section class="steps" data-flow="${v.slotId}">
-  <h2>${steps.length} bước là vào việc</h2>
-  <ol>${steps.map((st, i) => html`
+  const n = steps.length;
+  return html`<section class="steps pager" data-flow="${v.slotId}">
+  <div class="pg-top">
+    <h2>${n} bước là vào việc</h2>
+    <p class="pg-count" data-pg-count aria-live="polite" hidden></p>
+    <div class="pg-bar" data-pg-bar hidden>${steps.map((st, i) => html`<button type="button" data-st-go="${i}" aria-label="Bước ${i + 1}: ${st.title}"></button>`)}</div>
+  </div>
+  <ol class="pg-view">${steps.map((st, i) => html`
     <li class="st" data-st>
-      <button type="button" class="st-h" data-st-go="${i}"><span class="n" aria-hidden="true">${i + 1}</span><span class="tt">${st.title}</span></button>
+      <div class="st-h"><span class="n" aria-hidden="true">${i + 1}</span><span class="tt">${st.title}</span></div>
       <div class="st-b">${st.body}${st.manual ? html`<button type="button" class="chip-btn" data-next>${st.manual}</button>` : ''}</div>
     </li>`)}
+    <li class="st pg-done" data-flow-done hidden>
+      <p class="pg-yay" aria-hidden="true">🎉</p>
+      <h3>Xong! Vào việc thôi</h3>
+      <p class="sub">Giờ thì cày deadline vèo vèo. Cần làm lại bước nào thì bấm Quay lại nha.</p>
+    </li>
   </ol>
-  <p class="done-line" data-flow-done hidden>🎉 Xong! Giờ thì cày deadline vèo vèo thôi. <button type="button" class="link" data-st-go="0">Xem lại</button></p>
+  <nav class="pg-nav" data-pg-nav hidden>
+    <button type="button" class="btn ghost" data-pg-prev>‹ Quay lại</button>
+    <button type="button" class="btn" data-pg-next>Tiếp ›</button>
+  </nav>
 </section>`;
 }
 

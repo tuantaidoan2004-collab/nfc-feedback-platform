@@ -444,30 +444,53 @@
     if (windowId) waiting();
   }
 
-  // ---------- Checklist đăng nhập: bước đang làm mở ra, bước xong gạch đi (nhớ trên máy này) ----------
+  // ---------- Từng màn: mỗi bước đăng nhập 1 màn, trượt qua lại; chép / mở / xong → tự qua bước kế (nhớ trên máy này) ----------
   const flow = $('[data-flow]');
   if (flow) {
-    const items = $$('[data-st]', flow);
+    const steps = $$('[data-st]', flow);
+    const items = [...steps, $('[data-flow-done]', flow)]; // phần tử cuối = màn "Xong"
     const key = `tbq-flow-${flow.dataset.flow}`;
-    const done = $('[data-flow-done]', flow);
+    const bars = $$('[data-pg-bar] button', flow);
+    const count = $('[data-pg-count]', flow);
+    const prev = $('[data-pg-prev]', flow);
+    const next = $('[data-pg-next]', flow);
     let at = 0;
-    try { at = Math.min(Number(localStorage.getItem(key)) || 0, items.length); } catch { /* bỏ qua */ }
-    const paint = () => {
-      items.forEach((li, i) => { li.classList.toggle('d', i < at); li.classList.toggle('now', i === at); });
-      done.hidden = at < items.length;
+    try { at = Math.min(Number(localStorage.getItem(key)) || 0, steps.length); } catch { /* bỏ qua */ }
+    const paint = (dir = 0) => {
+      items.forEach((li, i) => {
+        const on = i === at;
+        li.hidden = !on;
+        li.classList.toggle('now', on);
+        li.classList.remove('in-l', 'in-r');
+        if (on && dir && !still) { void li.offsetWidth; li.classList.add(dir > 0 ? 'in-r' : 'in-l'); }
+      });
+      bars.forEach((b, i) => { b.classList.toggle('d', i < at); b.classList.toggle('now', i === at); });
+      const end = at >= steps.length;
+      count.textContent = end ? 'Xong hết rồi' : `Bước ${at + 1}/${steps.length}`;
+      prev.disabled = at === 0;
+      next.hidden = end;
+      next.textContent = at === steps.length - 1 ? 'Xong ✓' : 'Tiếp ›';
     };
     const go = (i) => {
-      at = Math.max(0, Math.min(items.length, i));
+      const to = Math.max(0, Math.min(steps.length, i));
+      if (to === at) return;
+      const dir = Math.sign(to - at);
+      at = to;
       try { localStorage.setItem(key, String(at)); } catch { /* bỏ qua */ }
-      paint();
-      const li = items[at];
-      if (li && li.getBoundingClientRect().top < 70) li.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+      paint(dir);
+      if (flow.getBoundingClientRect().top < 0) flow.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
     };
     flow.classList.add('js');
+    $('[data-pg-bar]', flow).hidden = false;
+    $('[data-pg-nav]', flow).hidden = false;
+    count.hidden = false;
     paint();
+    let timer = 0;
     flow.addEventListener('click', (e) => {
       const g = e.target.closest('[data-st-go]');
       if (g) { go(Number(g.dataset.stGo)); return; }
+      if (e.target.closest('[data-pg-prev]')) { clearTimeout(timer); go(at - 1); return; }
+      if (e.target.closest('[data-pg-next]')) { clearTimeout(timer); go(at + 1); return; }
       const did = e.target.closest('[data-copy], [data-next], [data-act=copy-code]');
       const li = did?.closest('[data-st]');
       if (!li || li !== items[at]) return;
@@ -476,8 +499,18 @@
         // bước có nhiều dòng (email + mật khẩu): chép đủ mới sang bước sau
         if ($$('[data-copy]', li).some((b) => !b.dataset.done)) return;
       }
-      setTimeout(() => go(at + 1), 650); // chờ chút cho khách thấy "Đã chép"
+      const from = at;
+      clearTimeout(timer);
+      timer = setTimeout(() => { if (at === from) go(at + 1); }, 750); // chờ chút cho khách thấy "Đã chép"
     });
+    // vuốt ngang để qua lại (không vướng ô chép / nút)
+    let sx = 0; let sy = 0;
+    const view = $('.pg-view', flow);
+    view.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+    view.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - sx; const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { clearTimeout(timer); go(at + (dx < 0 ? 1 : -1)); }
+    }, { passive: true });
   }
 
   // ---------- Vé hiện ra lần đầu: giấy màu rơi 1 lần ----------
