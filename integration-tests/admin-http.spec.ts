@@ -115,11 +115,11 @@ test('generate a shop, hand over the link, and the shop signs in on its own',asy
  await page.getByLabel('Tài khoản chủ shop',{exact:true}).fill('caphe-banmai');
  await page.getByLabel('Email chủ shop',{exact:true}).fill('chu@example.com');
  await page.getByLabel('Place ID (bỏ trống nếu chưa có)',{exact:true}).fill('ChIJN1t_tDeuEmsRUsoyG83frY4');
- // The canvas templates (đợt ②, Tấm thiệp 06/10); the plainest is preselected, so a hurried operator still gets a clean page.
+ // The hidden start page first and preselected (Tài 06/10: the library is empty), then the templates — here the test fixtures.
  const choice=page.locator('select[data-template-choice]');
- await expect(choice.locator('option')).toHaveText(['Basic 1','Không gian thật','Hiện đại','Nút đơn','Interactive card · Party','Illustrate · Nha khoa','Khách sạn',
+ await expect(choice.locator('option')).toHaveText(['Trang đầu (trống)','Không gian thật','Hiện đại','Nút đơn','Basic 1','Interactive card · Party','Illustrate · Nha khoa','Khách sạn',
   'Dynamic movement','Nền cà phê đơn giản','Hair styling','Tấm thiệp']);
- await expect(choice).toHaveValue('basic-1');
+ await expect(choice).toHaveValue('trang-dau');
  await choice.selectOption('party');
  await page.getByRole('button',{name:'Tạo shop',exact:true}).click();
 

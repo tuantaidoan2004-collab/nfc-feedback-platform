@@ -33,7 +33,9 @@ const passed = Object.fromEntries(['CI', 'CHROME_PATH', 'DISPLAY', 'XAUTHORITY']
 // The picture store the dev apps upload into: the local app's own (scripts/local/store.ts), on 3328, files in the temp copy.
 const storeFixture = { STORAGE_ENDPOINT: 'http://127.0.0.1:3328', STORAGE_REGION: 'auto', R2_BUCKET: 'nfc-media', R2_ACCESS_KEY_ID: 'harness',
   R2_SECRET_ACCESS_KEY: randomBytes(32).toString('hex'), MEDIA_PUBLIC_ORIGIN: 'http://127.0.0.1:3328/nfc-media' };
-const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1', ...passed };
+// The deleted templates as fixtures (lib/canvas/templates.ts): the app the harness builds and the tests both see them.
+const fixtureTemplates = { NFC_TEMPLATE_DIR: join(root, 'tests/fixtures/templates') };
+const safeEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: temp, TMPDIR: tmpdir(), NEXT_TELEMETRY_DISABLED: '1', ...passed, ...fixtureTemplates };
 async function run(args, cwd, env) {
   return new Promise((yes, no) => {
     const child = spawn(process.execPath, args, { cwd, env, stdio: 'inherit' });

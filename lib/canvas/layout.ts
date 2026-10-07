@@ -123,8 +123,8 @@ export function linkRuleProblem(doc: PageDoc): string | null {
 
 /** The uploads a page shows: each must pass the image review before the page publishes (media-gate.ts). */
 export function mediaOf(doc: PageDoc): string[] {
-  const found = [doc.backdrop?.src, ...doc.sections.map(s => s.bg?.src)];
-  for (const el of walk(doc)) if (el.t === 'image') found.push(el.src);
+  const found = [doc.backdrop?.src, ...doc.sections.map(s => s.bg?.src), doc.fonts?.chinh, doc.fonts?.dacBiet, doc.sound?.src];
+  for (const el of walk(doc)) if (el.t === 'image') found.push(el.src, ...(el.flip ?? []));
   // Everything but the app's own pictures: an address that is not built in must be an approved upload of the shop.
   return [...new Set(found.filter((src): src is string => typeof src === 'string' && !src.startsWith('art:') && !src.startsWith('/tpl/')))];
 }

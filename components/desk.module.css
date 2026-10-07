@@ -49,3 +49,19 @@
 .message { flex: 1; min-width: 0; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--p-sunken); font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
 .error { color: var(--p-danger, #c62828); font-size: 14px; }
 .sticky { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, var(--p-bg, #fff) 30%); display: grid; }
+
+/* Chọn nhanh cho ghi chú. */
+.choices { border: 1px solid var(--line, rgba(127, 127, 127, .25)); border-radius: 12px; padding: 8px 12px; }
+.choices summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.choiceGroup { display: grid; gap: 6px; margin-top: 10px; }
+.choiceGroup > span { font-size: 12px; opacity: .7; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: 1px solid var(--line, rgba(127, 127, 127, .3)); background: none; color: inherit; border-radius: 999px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.chips button:active { transform: scale(.96); }
+
+/* Ô thả theo vai. */
+.zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.zone { display: grid; gap: 4px; padding: 12px; border: 1.5px dashed var(--line, rgba(127, 127, 127, .4)); border-radius: 12px; cursor: pointer; min-height: 72px; align-content: center; }
+.zone[data-over='true'] { border-style: solid; background: rgba(127, 127, 255, .08); }
+.zone strong { font-size: 14px; } .zone span { font-size: 12px; opacity: .7; }
+.fileIcon { display: grid; place-items: center; width: 100%; aspect-ratio: 1; font-size: 28px; font-weight: 700; border-radius: 8px; background: rgba(127, 127, 127, .12); }

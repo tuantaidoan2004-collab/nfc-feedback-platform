@@ -61,6 +61,7 @@ export default function Landing({ templates }: { templates: TemplateCard[] }) {
         <p>Bạn có thể là người đầu tiên đi cùng chúng tôi từ những ngày đầu, hãy sử dụng thử các tính năng hữu ích ngay nhé</p>
         <Link href="/bat-dau" className={styles.start}>Bắt đầu</Link></div>}
       {open === 'template' && <div style={{ display: 'grid', gap: 16 }}>
+        {templates.length === 0 && <p style={{ textAlign: 'center' }}>Loạt mẫu mới đang được làm, sắp có.</p>}
         <div className={styles.megaGrid}>{templates.slice(0, 6).map(card =>
           <Link key={card.key} href={`/templates/${card.key}`} className={styles.templateTile}>
             <PageThumb src={`/templates/${card.key}?anh=1`} title={`Mẫu ${card.name}`} /><span>{card.name}</span></Link>)}</div>

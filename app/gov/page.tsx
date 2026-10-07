@@ -54,6 +54,6 @@ export default async function Page() {
     <AdminIncidents initial={incidents} origin={process.env.APP_ORIGIN ?? null}/>
     <AdminMedia initial={media}/>
     <AdminShops initial={shops} origin={process.env.APP_ORIGIN ?? null}
-      templates={templateCards().map(({ key, name }) => ({ key, name })).sort((a, b) => Number(b.key === DEFAULT_TEMPLATE) - Number(a.key === DEFAULT_TEMPLATE))}/>
+      templates={[{ key: DEFAULT_TEMPLATE, name: 'Trang đầu (trống)' }, ...templateCards().map(({ key, name }) => ({ key, name }))]}/>
   </main>;
 }

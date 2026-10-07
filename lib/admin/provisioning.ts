@@ -10,7 +10,7 @@ import { BILLING_COLUMNS, billingRow } from '../billing/plans';
 import { recordAdminAction } from './audit';
 import { AdminError } from './auth';
 import { shortCode, withShortCode } from '../short-code';
-import { DEFAULT_TEMPLATE, canvasTemplate, pageFromTemplate } from '../canvas/templates';
+import { DEFAULT_TEMPLATE, pageFromTemplate, pageTemplate } from '../canvas/templates';
 import { pageLabel } from '../owner/page-names';
 
 // Opaque and short (lib/short-code.ts). A slug is a name only in the sense that it appears in a URL: a shop can be
@@ -28,8 +28,8 @@ export type ProvisionedShop = {
 
 export type ProvisionInput = { name?: unknown; ownerUsername?: unknown; ownerEmail?: unknown; placeId?: unknown; templateKey?: unknown };
 
-/** A canvas template's key (lib/canvas/templates.ts); absent means the plainest one. */
-const chosenTemplate = (value: unknown): string | null => value === undefined ? DEFAULT_TEMPLATE : canvasTemplate(value)?.key ?? null;
+/** A canvas template's key (lib/canvas/templates.ts); absent means the hidden start page. */
+const chosenTemplate = (value: unknown): string | null => value === undefined ? DEFAULT_TEMPLATE : pageTemplate(value)?.key ?? null;
 
 const printable = (value: string) => ![...value].some(character => (character.codePointAt(0) ?? 0) < 32 || '<>'.includes(character));
 export const shopName = (value: unknown) =>

@@ -3,7 +3,10 @@ import type { Pool } from 'pg';
 import { AdminError } from './auth';
 import { EditDesk, deskShop, readDetails, type Desk, type DeskDetails } from './desk';
 import { CANVAS_TEMPLATES, canvasTemplate } from '../canvas/templates';
-import { DOC_SPEC, TEMPLATE_RULES } from '../canvas/spec.generated';
+import { DOC_SPEC, TASTE, TEMPLATE_RULES } from '../canvas/spec.generated';
+import INVITATIONS from '../canvas/loi-moi.json' with { type: 'json' };
+import { BRUSHES, LIGHTS, STICKERS } from '../canvas/doc';
+import { FILE_ROLES } from './file-roles';
 import { CanvasError, validateDoc, walk } from '../canvas/validate';
 import { googleProblems } from '../canvas/layout';
 import { bindShop, placeholderLinks } from '../canvas/slots';
@@ -49,6 +52,14 @@ ${DOC_SPEC}
 # Luật mẫu (templates/README.md)
 ${TEMPLATE_RULES}
 
+# Gu của Tài (templates/taste.md) — dựng theo đúng gu này
+${TASTE}
+
+# Câu mời theo ngành (lib/canvas/loi-moi.json) — chọn đúng ngành của quán, dùng nguyên câu hoặc sửa nhẹ cho hợp quán, giữ trung lập
+${JSON.stringify(INVITATIONS)}
+
+# Kho chi tiết: shape là một trong ${JSON.stringify(Object.keys(STICKERS))}, cọ bột phấn ${JSON.stringify(Object.keys(BRUSHES))}, ánh sáng ${JSON.stringify(LIGHTS)}
+
 # Thư viện mẫu
 ${JSON.stringify(CANVAS_TEMPLATES)}`;
 
@@ -93,8 +104,8 @@ export function proposalProblems(answer: Answer, desk: Desk): { problems: string
 async function pictures(desk: Desk, fetcher: typeof fetch): Promise<Anthropic.Beta.BetaContentBlockParam[]> {
   const blocks: Anthropic.Beta.BetaContentBlockParam[] = [];
   for (const [i, file] of desk.files.entries()) {
-    const label = `Tệp ${i + 1} (${file.role === 'logo' ? 'logo' : file.role === 'video' ? 'video' : 'ảnh'}, "${file.name}"): ${file.url}`;
-    if (file.kind !== 'image') { blocks.push({ type: 'text', text: `${label} — video, không xem được nội dung; dùng được làm nguồn video nếu mẫu có.` }); continue; }
+    const label = `Tệp ${i + 1} (vai "${FILE_ROLES[file.role].name}", "${file.name}"): ${file.url}`;
+    if (file.kind !== 'image') { blocks.push({ type: 'text', text: `${label} — ${file.kind === 'video' ? 'video' : file.kind === 'font' ? 'font' : 'âm thanh'}, không xem được nội dung; dùng theo vai của nó.` }); continue; }
     const response = await fetcher(file.url);
     if (!response.ok) { blocks.push({ type: 'text', text: `${label} — không tải được.` }); continue; }
     const type = (response.headers.get('content-type') ?? '').split(';')[0];

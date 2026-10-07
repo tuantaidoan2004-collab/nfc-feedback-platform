@@ -16,7 +16,7 @@ export default function Page() {
     </header>
     <div style={{ textAlign: 'center', display: 'grid', gap: 12, maxWidth: 720 }}>
       <h1 style={{ fontSize: 'clamp(36px, 6vw, 72px)', letterSpacing: '-.05em' }}>Template</h1>
-      <p className="qs-muted">{cards.length} mẫu, mỗi mẫu một cách chạy riêng. Tất cả đều Free trong giai đoạn trải nghiệm.</p>
+      <p className="qs-muted">{cards.length ? `${cards.length} mẫu, mỗi mẫu một cách chạy riêng. Tất cả đều Free trong giai đoạn trải nghiệm.` : 'Loạt mẫu mới đang được làm, sắp có.'}</p>
     </div>
     <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', width: 'min(1100px, 100%)' }}>
       {cards.map(card => <Link key={card.key} href={`/templates/${card.key}`} style={{ display: 'grid', gap: 6, textDecoration: 'none' }} data-template={card.key}>

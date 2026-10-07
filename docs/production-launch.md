@@ -293,6 +293,29 @@ COMMIT;
 SQL
 ```
 
+**Tệp theo vai, font và âm thanh của quán (07/10):** ô thả theo vai ở Bàn dựng (Poster, Nền, Logo, Logo phụ, Ảnh quán, Ảnh phụ,
+Video, Font chính, Font đặc biệt, Âm thanh nền), kho nhận font và âm thanh. Chỉ nới ràng buộc, không đổi dữ liệu cũ; lược đồ
+`addf0479f510d1d7` lên `fbdc7b9a546eac90`. Chạy **trước** khi đẩy code (code mới gửi vai và loại tệp mới; lược đồ cũ sẽ từ chối).
+
+```bash
+cd ~/Desktop/QuiteSensational && export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)" && awk '/^\*\*Tệp theo vai, font và âm thanh/{f=1} f&&/<<.SQL.$/{p=1;next} p&&/^SQL$/{exit} p' docs/production-launch.md | /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1; unset DATABASE_URL
+```
+
+```sql
+-- <<'SQL'
+BEGIN;
+DO $$ DECLARE h text := (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1); BEGIN
+  IF h IS DISTINCT FROM 'addf0479f510d1d7' THEN RAISE EXCEPTION 'production đang ở lược đồ %', h; END IF; END $$;
+ALTER TABLE media_assets DROP CONSTRAINT media_assets_content_type_check, DROP CONSTRAINT media_assets_kind_check,
+  ADD CONSTRAINT media_assets_content_type_check CHECK (((content_type IS NULL) OR (content_type = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text, 'video/mp4'::text, 'font/woff2'::text, 'font/ttf'::text, 'font/otf'::text, 'audio/mpeg'::text, 'audio/mp4'::text])))),
+  ADD CONSTRAINT media_assets_kind_check CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text, 'font'::text, 'audio'::text])));
+ALTER TABLE edit_request_files DROP CONSTRAINT edit_request_files_role_check,
+  ADD CONSTRAINT edit_request_files_role_check CHECK (role = ANY (ARRAY['poster'::text, 'nen'::text, 'logo'::text, 'logo-phu'::text, 'anh'::text, 'anh-phu'::text, 'video'::text, 'font-chinh'::text, 'font-dac-biet'::text, 'am-thanh'::text]));
+INSERT INTO applied_schema(hash) VALUES ('fbdc7b9a546eac90');
+COMMIT;
+SQL
+```
+
 ## Đăng nhập bằng Google (D4c, 28/09)
 
 OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:

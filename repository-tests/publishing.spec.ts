@@ -4,13 +4,14 @@ import { randomUUID, createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import { PublishingAdmin, PublishingResolver, previewHash, type PageRef } from '../lib/publishing/repository';
 import type { PageConfig } from '../lib/publishing/config';
-import { DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
+import { pageFromTemplate } from '../lib/canvas/templates';
 import { walk } from '../lib/canvas/validate';
 import { publishingVisitPolicy } from '../lib/publishing/visit-policy';
 import { VisitRatingRepository } from '../lib/repositories/visit-ratings';
 import type { RenderContext } from '../lib/publishing/proof';
 /** A page from the default template carrying `name` (đợt ②: a page is a canvas document). */
-const defaultConfig=(name='YOUR SHOP')=>pageFromTemplate(DEFAULT_TEMPLATE,name);
+// A page with buttons and the platform's sample sentence: the fixture basic-1 (tests/fixtures/templates), as the start page has neither.
+const defaultConfig=(name='YOUR SHOP')=>pageFromTemplate('basic-1',name);
 /** The same page with one element changed in place. */
 function changed(config:PageConfig,find:(el:ReturnType<typeof walk> extends Generator<infer T> ? T : never)=>boolean,change:(el:Record<string,unknown>)=>void){
  const copy=structuredClone(config);const el=[...walk(copy.doc)].find(find);if(!el)throw Error('no such element');change(el as unknown as Record<string,unknown>);return copy;

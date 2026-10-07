@@ -137,3 +137,30 @@ test('Nhờ Claude: a page that fails the platform\'s checks goes back with the 
  expect(await code(askClaude(f.db,f.adminId,id,{client:stubborn.client,fetcher:(async()=>new Response(JPEG)) as typeof fetch,desk:f.desks}))).toBe('CLAUDE_PAGE_REFUSED');
  expect((await f.desks.load(id)).draft.revision).toBe(after.draft.revision);
 });
+
+test('files go to the drop zone they were dropped in, fonts and sound included; a file nobody uses leaves the store, one a page uses stays',async({f})=>{
+ const {id}=await opened(f);
+ const WOFF2=Buffer.concat([Buffer.from('wOF2'),Buffer.alloc(100,1)]),MP3=Buffer.concat([Buffer.from('ID3'),Buffer.alloc(100,1)]);
+ await f.desks.addFile(f.adminId,id,{type:'font/woff2',name:'chu.woff2',role:'font-dac-biet',bytes:WOFF2});
+ await f.desks.addFile(f.adminId,id,{type:'audio/mpeg',name:'nhac.mp3',role:'am-thanh',bytes:MP3});
+ // A role that does not take the file's kind falls back to the kind's own zone: a picture never becomes the background sound.
+ let desk=(await f.desks.addFile(f.adminId,id,{type:'image/jpeg',name:'nen.jpg',role:'am-thanh',bytes:JPEG})).desk!;
+ expect(desk.files.map(x=>[x.name,x.kind,x.role])).toEqual([['chu.woff2','font','font-dac-biet'],['nhac.mp3','audio','am-thanh'],['nen.jpg','image','anh']]);
+ expect(await code(f.desks.act(f.adminId,id,{op:'file',mediaId:desk.files[2].mediaId,role:'am-thanh'}))).toBe('INVALID_INPUT');
+ desk=(await f.desks.act(f.adminId,id,{op:'file',mediaId:desk.files[2].mediaId,role:'nen'})).desk!;
+ expect(desk.files[2].role).toBe('nen');
+ // Dropped: unused anywhere, so its row and its object go.
+ const song=desk.files[1];f.sent.length=0;
+ desk=(await f.desks.act(f.adminId,id,{op:'file',mediaId:song.mediaId,remove:true})).desk!;
+ expect(desk.files.map(x=>x.name)).toEqual(['chu.woff2','nen.jpg']);
+ expect((await f.db.query('SELECT 1 FROM media_assets WHERE id=$1',[song.mediaId])).rowCount).toBe(0);
+ expect(f.sent).toEqual([`DELETE /nfc-media/${new URL(song.url).pathname.replace(/^\//,'')}`]);
+ // The picture goes into the draft, then is dropped from the desk: a draft still shows it, so it stays.
+ const picture=desk.files[1],doc=structuredClone(desk.draft.config.doc);
+ doc.sections[0].bg={src:picture.url,fit:'cover'};
+ await f.db.query(`UPDATE page_drafts d SET config=jsonb_set(config,'{doc}',$1::jsonb) FROM pages p WHERE p.id=d.page_id AND p.slug=$2`,[JSON.stringify(doc),desk.page.slug]);
+ f.sent.length=0;
+ await f.desks.act(f.adminId,id,{op:'file',mediaId:picture.mediaId,remove:true});
+ expect((await f.db.query('SELECT 1 FROM media_assets WHERE id=$1',[picture.mediaId])).rowCount).toBe(1);
+ expect(f.sent).toEqual([]);
+});

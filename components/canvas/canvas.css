@@ -26,6 +26,12 @@
    everything else), and blurred to the edges of the screen and below the design, so a tall phone or a wide desktop never shows a seam. */
 .cv-sec-bg .cv-haze { position: absolute; inset: -40px; filter: blur(26px) saturate(1.1); opacity: .9; }
 .cv-art-bg { position: absolute; inset: 0; overflow: hidden; }
+/* doc.ts `extend: 'blur'`: the picture at its own shape on top, fading into a blurred copy that fills the rest of the section. */
+.cv-extend-blur { position: absolute; inset: calc(-30 * var(--u, 1px)); filter: blur(22px) saturate(1.05); }
+.cv-extend-blur > .cv-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cv-extend-top { position: absolute; inset: 0 0 auto; }
+.cv-extend-top > .cv-media { position: relative; display: block; width: 100%; height: auto; -webkit-mask-image: linear-gradient(#000 82%, transparent);
+  mask-image: linear-gradient(#000 82%, transparent); }
 .cv-col { position: relative; width: min(100%, 480px); margin: 0 auto; container-type: inline-size; }
 .cv-art { --u: calc(100cqw / 390); position: relative; height: calc(var(--sec-h) * var(--u)); }
 /* A band behind every section, the whole page's height (mẫu hair styling). */
@@ -64,10 +70,14 @@
 @keyframes cv-reveal-in { from { opacity: 0; transform: translateY(14px) scale(.94); } }
 
 /* Hiệu ứng vào. */
-.cv-in { animation: var(--in) .9s cubic-bezier(.2, .85, .25, 1) both; animation-delay: var(--at, 0ms); }
+/* `backwards`, not `both`: once played, an entrance leaves nothing behind. A finished `both` keeps a transform on the element, and Chrome
+   then stops blurring the glass inside it (backdrop-filter, operations-gotchas.md 06/10). */
+.cv-in { animation: var(--in) .9s cubic-bezier(.2, .85, .25, 1) backwards; animation-delay: var(--at, 0ms); }
 /* A lower section plays its entrance when it comes on screen. Only once the page's script is alive (SectionWatch marks <html>):
    without it, everything simply plays at once, so no content can stay hidden. */
 html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name: none; opacity: 0; }
+/* An element off screen waits, and plays again each time it comes back (SectionWatch). */
+html[data-cv-watch] .cv-in[data-later]:not([data-seen]) { animation-name: none; opacity: 0; }
 @keyframes cv-fade { from { opacity: 0; } }
 @keyframes cv-rise { from { opacity: 0; transform: translateY(calc(18 * var(--u))); } }
 @keyframes cv-drop { from { opacity: 0; transform: translateY(calc(-18 * var(--u))); } }
@@ -96,6 +106,33 @@ html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name:
 @keyframes cv-bob { 50% { transform: translateY(calc(-2.5 * var(--u))); } }
 @keyframes cv-glow { 50% { filter: drop-shadow(0 0 calc(10 * var(--u)) rgba(255, 255, 255, .55)); } }
 @keyframes cv-shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+/* Hiệu ứng lấy từ uiverse.io (MIT, docs/nguon-hieu-ung.md), viết lại cho trang canvas và cho điện thoại: chạy tự động, không cần hover. */
+/* Đồng xu (JohnnyCSilva/black-rabbit-68): lật một vòng rồi nghỉ. */
+.cv-loop-xu { animation: cv-xu 7s cubic-bezier(.45, 0, .2, 1) infinite 1.5s; transform-style: preserve-3d; }
+/* Mặt sau của đồng xu để trống (Tài 07/10): mặt trước ẩn khi quay lưng, một đĩa trơn màu kem nằm sẵn ở mặt sau. */
+.cv-loop-xu > * { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.cv-loop-xu::before { content: ''; position: absolute; inset: 3%; border-radius: 50%; background: var(--xu-back, #f1ece0); box-shadow: inset 0 0 0 calc(3 * var(--u)) rgba(0, 0, 0, .55);
+  transform: rotateY(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* Ảnh lật (FlipCard): nghiêng mép ở giữa vòng quay, ảnh sau thế chỗ, rồi một vệt sáng lướt qua khi ảnh nằm xuống. */
+.cv-flip { position: relative; width: 100%; height: 100%; }
+.cv-flip[data-turning] { animation: cv-lat var(--turn) cubic-bezier(.5, 0, .3, 1); }
+@keyframes cv-lat { 0% { transform: perspective(calc(700 * var(--u))) rotateY(0); } 50% { transform: perspective(calc(700 * var(--u))) rotateY(90deg) scale(1.04); }
+  100% { transform: perspective(calc(700 * var(--u))) rotateY(0); } }
+.cv-flip-glint { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.cv-flip[data-turning] .cv-flip-glint::after { content: ''; position: absolute; top: -20%; bottom: -20%; left: -50%; width: 40%; transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 245, 225, .75), transparent); animation: cv-glint .9s ease-out calc(var(--turn) * .55) both; }
+@keyframes cv-glint { to { left: 130%; } }
+@keyframes cv-xu { 0%, 74% { transform: perspective(calc(600 * var(--u))) rotateY(0); } 100% { transform: perspective(calc(600 * var(--u))) rotateY(360deg); } }
+/* Vệt sáng đôi quét qua nút (Ashon-G/rotten-frog-52). */
+.cv-quet { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.cv-quet i { position: absolute; top: -10%; bottom: -10%; left: -30%; width: calc(14 * var(--u)); transform: skewX(-22deg);
+  background: linear-gradient(90deg, var(--quet) 0 36%, transparent 36% 64%, var(--quet) 64% 80%, transparent 80%); animation: cv-quet 5.5s ease-in-out infinite 2s; }
+@keyframes cv-quet { 0% { left: -30%; } 22%, 100% { left: 115%; } }
+/* Hạt nổi bay lên (vinh_8995/tame-lionfish-65). */
+.cv-hat-bay { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.cv-hat-bay i { position: absolute; top: 100%; width: calc(var(--s) * var(--u)); height: calc(var(--s) * var(--u)); border-radius: 50%; background: var(--c);
+  animation: cv-hat-bay var(--d) ease-in-out infinite var(--l); }
+@keyframes cv-hat-bay { 0% { top: 100%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: .7; } 100% { top: -4%; opacity: 0; } }
 
 /* Chữ. */
 .cv-text { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; font-size: calc(var(--fs) * var(--u));
@@ -122,7 +159,9 @@ html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name:
 /* Hình. */
 .cv-shape { width: 100%; height: 100%; border-radius: calc(var(--radius, 0) * var(--u)); }
 .cv-shape[data-shape='circle'] { border-radius: 50%; }
-.cv-edge { border: calc(var(--ew) * var(--u)) solid transparent; background-clip: padding-box, border-box; background-origin: padding-box, border-box; }
+.cv-shape.cv-edge { position: relative; }
+.cv-edge::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: calc(var(--ew) * var(--u)); background: var(--edge); pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
 
 /* Biểu tượng. */
 .cv-icon { display: block; }
@@ -146,6 +185,15 @@ html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name:
 .cv-btn-soft { flex-direction: row; border-radius: calc(16 * var(--u)); background: var(--bg, linear-gradient(180deg, #fff, #f2f2f0));
   border: 1px solid rgba(0, 0, 0, .1); box-shadow: 0 calc(2 * var(--u)) calc(6 * var(--u)) rgba(0, 0, 0, .06); padding: 0 calc(5 * var(--u)); gap: calc(5 * var(--u)); --is: 20; }
 .cv-btn-tail { justify-content: flex-start; padding: 0; gap: 0; }
+/* Dòng danh sách (mẫu Card Stack): biểu tượng, chữ bên trái, mũi tên bên phải. */
+/* Link tới website của quán luôn gạch chân (Tài 07/10), ở mọi kiểu nút. */
+.cv-web .cv-btn-label { text-decoration: underline; text-underline-offset: .18em; text-decoration-thickness: .07em; }
+.cv-btn-row { justify-content: flex-start; border-radius: calc(12 * var(--u)); background: var(--bg, rgba(255, 255, 255, .05)); color: var(--fg, #fff);
+  border: calc(var(--ew, 1) * var(--u)) solid var(--edge, rgba(255, 255, 255, .14)); padding: 0 calc(12 * var(--u)); gap: calc(12 * var(--u)); --is: 28; }
+.cv-btn-row .cv-btn-label { flex: 1; text-align: left; }
+.cv-arrow { flex: none; width: calc(16 * var(--u)); height: calc(16 * var(--u)); opacity: .8; }
+.cv-google[data-arrow] { justify-content: flex-start; padding: 0 calc(14 * var(--u)); }
+.cv-google[data-arrow] .cv-google-label { flex: 1; text-align: left; }
 .cv-btn-tail .cv-btn-icon { position: relative; z-index: 1; width: calc(var(--h) * var(--u) + 4px); height: calc(var(--h) * var(--u) + 4px); margin-right: calc(-14 * var(--u)); }
 .cv-btn-tail .cv-btn-label { flex: 1; height: 100%; display: flex; align-items: center; padding-left: calc(20 * var(--u)); border-radius: 0 999px 999px 0;
   background: var(--bg, linear-gradient(90deg, #fff 70%, rgba(255, 255, 255, .85))); color: var(--fg, #222); font-weight: var(--fw, 500); }
@@ -154,12 +202,26 @@ html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name:
 .cv-btn-text { padding: 0; color: var(--fg, #fff); font-weight: var(--fw, 400); }
 .cv-btn-text .cv-btn-label { text-decoration: none; }
 .cv-btn-box { border: calc(var(--ew, 1.2) * var(--u)) solid var(--edge, #fff); border-radius: 0; color: var(--fg, #fff); font-weight: var(--fw, 400); }
-.cv-btn-tag { padding: 0; gap: 0; justify-content: flex-start; }
-.cv-btn-tag .cv-tag { position: relative; z-index: 1; height: 112%; display: flex; align-items: center; padding: 0 calc(16 * var(--u)) 0 calc(18 * var(--u)); color: #fff; font-weight: 800;
-  background: var(--bg, #e3121b); clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); box-shadow: 0 calc(3 * var(--u)) 0 rgba(0, 0, 0, .25); }
-.cv-btn-tag .cv-btn-label { flex: 1; height: 82%; display: flex; align-items: center; margin-left: calc(-12 * var(--u)); padding-left: calc(20 * var(--u)); background: #fff;
-  color: var(--fg, #c4161c); text-decoration: underline; text-underline-offset: .15em; border-radius: 0 calc(6 * var(--u)) calc(6 * var(--u)) 0; }
-.cv-btn-tag .cv-btn-icon { position: absolute; right: calc(-8 * var(--u)); top: 30%; }
+.cv-btn-tag { padding: 0; gap: 0; justify-content: flex-start; transform: skewX(-12deg); }
+.cv-btn-tag > span { transform: skewX(12deg); }
+/* Thẻ "Click here" nghiêng, sắc cạnh (Tài 07/10): khối đỏ hình bình hành đè lên dải trắng nghiêng, chữ gạch chân đỏ, con trỏ ở đuôi. */
+.cv-btn-tag .cv-tag { position: relative; z-index: 1; height: 118%; display: flex; align-items: center; padding: 0 calc(18 * var(--u)); color: #fff; font-weight: 800;
+  letter-spacing: .01em; background: linear-gradient(180deg, color-mix(in srgb, var(--bg, #e3121b) 82%, #fff), var(--bg, #e3121b) 55%, color-mix(in srgb, var(--bg, #e3121b) 80%, #000));
+  transform: none; box-shadow: calc(3 * var(--u)) calc(3 * var(--u)) 0 rgba(0, 0, 0, .35); }
+.cv-btn-tag .cv-btn-label { flex: 1; height: 86%; display: flex; align-items: center; margin-left: calc(-4 * var(--u)); padding-left: calc(14 * var(--u)); background: #fff;
+  color: var(--fg, #c4161c); text-decoration: underline; text-underline-offset: .15em; text-decoration-thickness: .08em; transform: none;
+  box-shadow: inset 0 calc(-3 * var(--u)) 0 color-mix(in srgb, var(--bg, #e3121b) 25%, transparent); }
+.cv-btn-tag .cv-btn-icon { display: none; }
+.cv-btn-tag .cv-tag-cursor { position: absolute; right: calc(-6 * var(--u)); bottom: calc(-10 * var(--u)); width: calc(26 * var(--u)); height: calc(26 * var(--u)); color: var(--bg, #e3121b);
+  transform: skewX(12deg) rotate(-12deg); filter: drop-shadow(0 calc(2 * var(--u)) calc(2 * var(--u)) rgba(0, 0, 0, .4)); animation: cv-bob 1.6s ease-in-out infinite; }
+/* TikTok (glitch): nền trắng, hai mép lệch xanh ngọc và đỏ như logo, hơi nghiêng. */
+.cv-btn-glitch { border-radius: 999px; background: var(--bg, #fff); color: var(--fg, #111); transform: skewX(-8deg);
+  box-shadow: calc(-2.5 * var(--u)) calc(-1.5 * var(--u)) 0 #25f4ee, calc(2.5 * var(--u)) calc(1.5 * var(--u)) 0 #fe2c55; }
+.cv-btn-glitch > span { transform: skewX(8deg); }
+.cv-btn-glitch:active { transform: skewX(-8deg) scale(.96); }
+/* Zalo OA (card): ô trắng gần vuông, viền xanh thương hiệu, bóng nhẹ. */
+.cv-btn-card { border-radius: calc(8 * var(--u)); background: var(--bg, #fff); color: var(--fg, #0b1220); border: calc(var(--ew, 2) * var(--u)) solid var(--edge, #0068ff);
+  box-shadow: 0 calc(6 * var(--u)) calc(14 * var(--u)) rgba(0, 104, 255, .28); --is: 26; }
 .cv-btn-note { border-radius: 999px; background: var(--bg, #ececd8); color: var(--fg, #3c4a2a); font-family: var(--cv-brush), cursive; font-weight: 600;
   box-shadow: 0 calc(4 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, .25); flex-direction: column; gap: 0; line-height: 1.05; }
 
@@ -175,6 +237,13 @@ html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name:
 .cv-google-maps[data-shadow='hard'] { box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--hard, #8c8c8c); }
 .cv-google-maps .cv-bar { position: absolute; left: calc(-14 * var(--u)); top: -12%; bottom: -12%; width: calc(2.2 * var(--u)); background: var(--bar, #fff); }
 .cv-google-g { background: var(--bg, #fff); box-shadow: 0 calc(8 * var(--u)) calc(20 * var(--u)) rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .35); }
+/* Bóng nút Google (doc.ts GOOGLE_SHADOWS, núm ở Bàn dựng), giống nhau ở mọi kiểu nút. */
+.cv-google[data-shadow='none'] { box-shadow: none; }
+.cv-google[data-shadow='lift'] { box-shadow: 0 1px 1px rgba(0, 0, 0, .06), 0 calc(4 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, .12),
+  0 calc(14 * var(--u)) calc(30 * var(--u)) calc(-4 * var(--u)) rgba(0, 0, 0, .34); }
+.cv-google[data-shadow='halo'] { box-shadow: 0 0 calc(10 * var(--u)) calc(1 * var(--u)) color-mix(in srgb, var(--hard, #fff) 55%, transparent),
+  0 0 calc(34 * var(--u)) calc(4 * var(--u)) color-mix(in srgb, var(--hard, #fff) 28%, transparent), 0 calc(10 * var(--u)) calc(24 * var(--u)) rgba(0, 0, 0, .45); }
+.cv-google[data-shadow='hard'] { box-shadow: calc(6 * var(--u)) calc(6 * var(--u)) 0 var(--hard, #8c8c8c); }
 .cv-google-g .cv-gdisc { flex: none; width: calc(var(--is, 30) * var(--u)); height: calc(var(--is, 30) * var(--u)); border-radius: 50%; background: #fff; display: grid; place-items: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
 .cv-google-g .cv-gdisc svg { width: 64%; height: 64%; }
@@ -272,3 +341,43 @@ html[data-cv-watch] .cv-sec[data-wait]:not([data-seen]) .cv-in { animation-name:
   .cv *, .cv *::before, .cv *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 .cv[data-mode='still'] *, .cv[data-mode='still'] *::before, .cv[data-mode='still'] *::after { animation: none !important; transition: none !important; }
+
+/* Vé (shapes.tsx `ve`, uiverse.io zeeshan_2112/shy-rattlesnake-3, MIT). */
+.cv-ve { position: relative; width: 100%; height: 100%; border-radius: calc(12 * var(--u)); overflow: hidden; isolation: isolate;
+  background: radial-gradient(circle at 70% 0, transparent calc(8 * var(--u)), #1c1e26 calc(8.4 * var(--u))) top / 100% 51% no-repeat,
+    radial-gradient(circle at 70% 100%, transparent calc(8 * var(--u)), #1c1e26 calc(8.4 * var(--u))) bottom / 100% 51% no-repeat;
+  filter: drop-shadow(0 calc(12 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, .6)) drop-shadow(0 0 calc(6 * var(--u)) color-mix(in srgb, var(--acc) 35%, transparent)); }
+.cv-ve-grid { position: absolute; inset: -50% 30% -50% -10%; opacity: .55; pointer-events: none;
+  background-image: linear-gradient(color-mix(in srgb, var(--acc) 30%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--acc) 30%, transparent) 1px, transparent 1px);
+  background-size: calc(16 * var(--u)) calc(16 * var(--u)); transform: perspective(calc(400 * var(--u))) rotateX(28deg); animation: cv-ve-grid 14s linear infinite; }
+@keyframes cv-ve-grid { to { background-position: 0 calc(32 * var(--u)); } }
+.cv-ve-perf { position: absolute; left: 70%; top: calc(10 * var(--u)); bottom: calc(10 * var(--u)); border-left: calc(1.5 * var(--u)) dashed rgba(255, 255, 255, .2); }
+.cv-ve-sheen { position: absolute; inset: 0; mix-blend-mode: overlay; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .12) 45%, rgba(255, 255, 255, .4) 50%, rgba(255, 255, 255, .12) 55%, transparent 60%) 100% 100% / 250% 250%;
+  animation: cv-ve-sheen 6s ease-in-out infinite; }
+@keyframes cv-ve-sheen { 0%, 55% { background-position: 100% 100%; } 85%, 100% { background-position: 0 0; } }
+
+/* Các nút của quán, tự sinh (LinksView). */
+.cv-links { width: 100%; height: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: calc(var(--lg) * var(--u)); }
+.cv-links a { display: flex; align-items: center; gap: calc(8 * var(--u)); color: inherit; text-decoration: none; transition: transform .18s ease; }
+.cv-links a:active { transform: scale(.92); }
+.cv-links-mark { width: calc(var(--ls) * var(--u)); height: calc(var(--ls) * var(--u)); flex: none; }
+.cv-links[data-style='dac'] .cv-links-mark { color: inherit; }
+.cv-links-pills a { padding: calc(6 * var(--u)) calc(12 * var(--u)); border-radius: 999px; background: var(--lbg, rgba(255, 255, 255, .9)); font-weight: 650; font-size: calc(12.5 * var(--u)); }
+.cv-links-rows { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+.cv-links-rows a { padding: calc(10 * var(--u)) calc(14 * var(--u)); border-radius: calc(12 * var(--u)); background: var(--lbg, rgba(255, 255, 255, .06));
+  border: 1px solid rgba(255, 255, 255, .14); font-weight: 600; font-size: calc(13 * var(--u)); }
+.cv-links-rows .cv-btn-label { flex: 1; }
+
+/* Nút âm thanh nền (SoundToggle): góc trên trái, nhỏ, kính mờ; khi đang phát thì thở nhẹ. */
+.cv-sound { position: fixed; z-index: 31; top: calc(12px + env(safe-area-inset-top)); left: 12px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(20, 20, 26, .45); color: #fff; display: grid; place-items: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: pointer; }
+.cv-sound[data-on] { animation: cv-pulse 2.4s ease-in-out infinite; }
+
+/* Mây trôi / sao trôi (shapes.tsx): mỗi lớp là hai bản giống nhau nối đuôi, trôi đúng một bản rồi lặp lại, nên không có chỗ nối. */
+.cv-troi { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.cv-troi-lop { position: absolute; inset: 0; display: flex; }
+.cv-troi-ngang { width: 200%; animation: cv-troi-ngang var(--d) linear infinite; }
+.cv-troi-len .cv-troi-lop { flex-direction: column; height: 200%; animation: cv-troi-len var(--d) linear infinite; }
+@keyframes cv-troi-ngang { to { transform: translateX(-50%); } }
+@keyframes cv-troi-len { to { transform: translateY(-50%); } }

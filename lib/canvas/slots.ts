@@ -38,6 +38,9 @@ const capitalised = (text: { caps?: boolean; words: Words }) => text.caps || tex
 const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 /** A label that is itself an address ("tenquan.vn", "TENQUAN.VN – HẬU MÃI") is the sample's, and takes the shop's own. */
 const looksLikeAddress = (label: string) => /[a-z0-9-]\.[a-z]{2,}\b/i.test(label);
+/** The order a shop's buttons come in when a page names none: where guests go most, then the rest. */
+export const LINKS_ORDER: LinkSlot[] = ['facebook', 'instagram', 'tiktok', 'zalo', 'youtube', 'website', 'menu', 'booking', 'maps', 'email', 'phone'];
+const SAMPLE = Object.fromEntries(LINKS_ORDER.map(slot => [slot, slot === 'phone' ? 'tel:+84900000000' : slot === 'email' ? 'mailto:quan@example.com' : 'https://example.com/'])) as Record<LinkSlot, string>;
 /** The first page a handle button leads to: the shop's social pages in the order guests most often follow them. */
 const SOCIAL_ORDER = ['instagram', 'tiktok', 'facebook', 'youtube', 'zalo'] as const;
 
@@ -55,7 +58,9 @@ function fillLeaf(el: Leafy, shop: ShopData, width: number, mode: 'live' | 'samp
   if (mode === 'sample') return;
   if (slot === 'handle') {
     const lead = SOCIAL_ORDER.map(key => profile.links[key]?.url).find(Boolean);
-    const words: Words = { vi: `@${profile.handle}` };
+    // Written as the design writes it (Tài 06/10: the page adds nothing the design does not show): "@name" only where the sample has the "@".
+    const sample = el.t === 'text' ? el.words.vi : el.t === 'button' ? el.label.vi : '@';
+    const words: Words = { vi: `${sample.trim().startsWith('@') ? '@' : ''}${profile.handle}` };
     if (el.t === 'text') { show(!!profile.handle); if (profile.handle) el.words = words; }
     if (el.t === 'button') { show(!!profile.handle && !!lead); if (profile.handle && lead) { el.label = words; el.link = lead; } }
     return;
@@ -87,6 +92,14 @@ function labelled(el: { label: Words }, link: { url: string; label?: string }) {
 export function bindShop(doc: PageDoc, shop: ShopData, mode: 'live' | 'sample' = 'live'): PageDoc {
   const out = structuredClone(doc);
   for (const section of out.sections) for (const el of section.els) {
+    if (el.t === 'links') {
+      // One button per link the shop has; in a preview of an empty template, every kind once, so the look can be judged.
+      const order = el.order ?? LINKS_ORDER;
+      el.items = mode === 'sample' ? order.map(slot => ({ slot, url: SAMPLE[slot] }))
+        : order.flatMap(slot => { const link = shop.profile.links[slot]; return link ? [{ slot, url: link.url, ...(link.label ? { label: link.label } : {}) }] : []; });
+      if (el.items.length) delete el.hide; else el.hide = true;
+      continue;
+    }
     fillLeaf(el, shop, el.w, mode);
     const column = el.t === 'stack' ? { kids: el.kids, inner: el.w - 2 * (el.pad ?? 0) } : el.t === 'deck' ? { kids: el.front.kids, inner: el.w - 2 * (el.front.pad ?? 0) } : null;
     for (const kid of column?.kids ?? []) {
@@ -116,6 +129,7 @@ function* shownLinks(doc: PageDoc): Generator<{ id: string; link: string }> {
     if (el.hide) continue;
     yield* one(el);
     if (el.t === 'stack') for (const kid of el.kids) yield* one(kid);
+    if (el.t === 'links') for (const item of el.items ?? []) yield { id: `${el.id}.${item.slot}`, link: item.url };
     if (el.t === 'deck') {
       for (const kid of el.front.kids) yield* one(kid);
       for (const [i, card] of el.cards.entries()) if (!card.hide) yield { id: `${el.id}.${i}`, link: card.link };

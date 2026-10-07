@@ -1,0 +1,120 @@
+[
+ {
+  "nhom": "Mức sát ảnh mẫu",
+  "chon": [
+   "Giống từng điểm ảnh",
+   "Lấy khung, đổi màu theo quán",
+   "Chỉ lấy tinh thần, tự sáng tạo"
+  ]
+ },
+ {
+  "nhom": "Màu ánh sáng",
+  "chon": [
+   "Theo màu logo/thương hiệu (mặc định)",
+   "Theo ảnh mẫu",
+   "Ấm: cam, vàng (thân thiện, retro)",
+   "Cam đỏ (mạnh mẽ, premium)",
+   "Lạnh: xanh (công nghệ, sạch)",
+   "Trắng trung tính"
+  ]
+ },
+ {
+  "nhom": "Mức ánh sáng",
+  "chon": [
+   "Tinh tế, một góc",
+   "Sau vật chính (logo, xe, món, biển hiệu)",
+   "Toàn cảnh, kịch tính",
+   "Có đèn thở (sáng lên tối xuống)",
+   "Không ánh sáng"
+  ]
+ },
+ {
+  "nhom": "Cầu vồng, vệt sáng",
+  "chon": [
+   "Không",
+   "1–2 dải mảnh, sắc",
+   "Có dải làm mờ",
+   "Vệt sáng mảnh chéo"
+  ]
+ },
+ {
+  "nhom": "Nền",
+  "chon": [
+   "Ảnh tôi gửi",
+   "Lấy đúng màu nền ảnh mẫu",
+   "Tối sang trọng",
+   "Sáng sạch",
+   "Bột phấn theo màu quán",
+   "Hạt phim retro"
+  ]
+ },
+ {
+  "nhom": "Vật chính trong ảnh",
+  "chon": [
+   "Giữ nguyên",
+   "Làm sáng viền / tách khỏi nền",
+   "Đen trắng",
+   "Lật nhiều ảnh trong khung polaroid"
+  ]
+ },
+ {
+  "nhom": "Chữ và tên quán",
+  "chon": [
+   "Giữ logo ảnh",
+   "Viết lại tên: chữ mảnh, giãn rộng (sang)",
+   "Đậm, nghiêng (mạnh)",
+   "Viết tay",
+   "Font riêng tôi gửi"
+  ]
+ },
+ {
+  "nhom": "Nút",
+  "chon": [
+   "Như ảnh mẫu",
+   "Trắng nổi bóng",
+   "Kính mờ",
+   "Viền màu thương hiệu",
+   "Dạng dòng có mũi tên"
+  ]
+ },
+ {
+  "nhom": "Icon",
+  "chon": [
+   "Màu thật",
+   "Nét mảnh theo màu chữ",
+   "Đặc một màu",
+   "Tròn / vuông"
+  ]
+ },
+ {
+  "nhom": "Hiệu ứng",
+  "chon": [
+   "Nhẹ: vào trang + vuốt",
+   "Vệt sáng quét nút Google",
+   "Logo lật đồng xu",
+   "Hạt sáng bay lên",
+   "Không hiệu ứng lặp"
+  ]
+ },
+ {
+  "nhom": "Khúc B (vuốt xuống)",
+  "chon": [
+   "Không có",
+   "Bảng giá",
+   "Menu",
+   "Dịch vụ",
+   "Ảnh không gian",
+   "Sự kiện",
+   "Có mũi tên mời vuốt xuống"
+  ]
+ },
+ {
+  "nhom": "Giọng chữ phụ",
+  "chon": [
+   "Theo ngành, tự chọn",
+   "Trang trọng",
+   "Thân mật",
+   "Vui, trẻ"
+  ]
+ }
+]

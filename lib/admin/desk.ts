@@ -11,8 +11,9 @@ import { turnKnobs, type Choice } from '../canvas/knobs';
 import { bindShop } from '../canvas/slots';
 import { parseProfile, readProfile, type ShopProfile } from '../shop/profile';
 import { parsePlaceId } from '../google/place-id';
-import { presignObject, storageSettings, type StorageSettings } from '../media/storage';
-import type { PageDoc, Words } from '../canvas/doc';
+import { presignObject, removeObject, storageSettings, uploadKey, type StorageSettings } from '../media/storage';
+import { GOOGLE_SHADOWS, type PageDoc, type Words } from '../canvas/doc';
+import { walk } from '../canvas/validate';
 
 /**
  * Bàn dựng (Tài 06/10, kịch bản 9b): everything about one "Nhờ Admin Tài dựng" request on one screen of /gov, made to work from
@@ -34,7 +35,8 @@ const clean = (text: string) => text.replace(/[<>]/g, '').replace(/\r\n?/g, '\n'
 export const PREVIEW_DAYS = 7;
 const previewHash = (token: string) => createHash('sha256').update(`nfc-desk-preview\0${token}`).digest('hex');
 
-export type DeskFile = { mediaId: string; url: string; kind: 'image' | 'video'; role: 'logo' | 'anh' | 'video'; name: string };
+export type MediaKind = 'image' | 'video' | 'font' | 'audio';
+export type DeskFile = { mediaId: string; url: string; kind: MediaKind; role: FileRole; name: string };
 export type DeskNote = { id: string; who: 'khach' | 'tai' | 'claude'; body: string; at: string };
 export type DeskDetails = { name?: string; profile?: ShopProfile; placeId?: string };
 export type Desk = {
@@ -53,13 +55,40 @@ export function deskShop(desk: Pick<Desk, 'shop' | 'details'>) {
 /** The draft as the shop's guests would see it after "Phát hành": the waiting details in their places, empty ones hidden. */
 export const deskDoc = (desk: Pick<Desk, 'shop' | 'details' | 'draft'>): PageDoc => bindShop(desk.draft.config.doc, deskShop(desk), 'live');
 
-const TYPES = new Map<string, { kind: 'image' | 'video'; ext: string; max: number; magic: (b: Buffer) => boolean }>([
+/**
+ * Tệp không ai dùng thì không giữ (Tài 07/10: "lưu lại chỗ nó cần, không giữ lại để nặng nền tảng"). Of the given uploads, the ones no
+ * draft, no release (releases are history and must keep their pictures) and no open request of the shop still points at: their rows
+ * go now, inside the caller's transaction; their objects are removed from the store once it has committed (`removeStored`).
+ */
+async function unusedMedia(db: PoolClient, shopId: string, ids: string[]) {
+  if (!ids.length) return [];
+  return (await db.query(`DELETE FROM media_assets m WHERE m.id = ANY($1) AND m.shop_id=$2
+      AND NOT EXISTS (SELECT 1 FROM edit_request_files f WHERE f.media_id=m.id)
+      AND NOT EXISTS (SELECT 1 FROM page_drafts d JOIN pages p ON p.id=d.page_id WHERE p.shop_id=m.shop_id AND strpos(d.config::text, m.url) > 0)
+      AND NOT EXISTS (SELECT 1 FROM page_releases r WHERE r.shop_id=m.shop_id AND strpos(r.config_snapshot::text, m.url) > 0)
+    RETURNING m.url`, [ids, shopId])).rows.map(row => row.url as string);
+}
+
+const TYPES = new Map<string, { kind: MediaKind; ext: string; max: number; magic: (b: Buffer) => boolean }>([
   ['image/jpeg', { kind: 'image', ext: 'jpg', max: 5 << 20, magic: b => b[0] === 0xff && b[1] === 0xd8 }],
   ['image/png', { kind: 'image', ext: 'png', max: 5 << 20, magic: b => b.subarray(1, 4).toString() === 'PNG' }],
   ['image/webp', { kind: 'image', ext: 'webp', max: 5 << 20, magic: b => b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP' }],
   // A clip passes through this app (no signed link to the store from the browser), so it is held under Vercel's body limit.
   ['video/mp4', { kind: 'video', ext: 'mp4', max: 4 << 20, magic: b => b.subarray(4, 8).toString() === 'ftyp' }],
+  // A shop's own fonts and its background sound (Tài 07/10: ô "Font đặc biệt", "Font chính", "Âm thanh nền").
+  ['font/woff2', { kind: 'font', ext: 'woff2', max: 2 << 20, magic: b => b.subarray(0, 4).toString() === 'wOF2' }],
+  ['font/ttf', { kind: 'font', ext: 'ttf', max: 2 << 20, magic: b => b.readUInt32BE(0) === 0x00010000 || b.subarray(0, 4).toString() === 'true' }],
+  ['font/otf', { kind: 'font', ext: 'otf', max: 2 << 20, magic: b => b.subarray(0, 4).toString() === 'OTTO' }],
+  ['audio/mpeg', { kind: 'audio', ext: 'mp3', max: 4 << 20, magic: b => b.subarray(0, 3).toString() === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) }],
+  ['audio/mp4', { kind: 'audio', ext: 'm4a', max: 4 << 20, magic: b => b.subarray(4, 8).toString() === 'ftyp' }],
 ]);
+import { FILE_ROLES, type FileRole } from './file-roles';
+export { FILE_ROLES, type FileRole };
+const roleFor = (wanted: string, kind: string): FileRole => {
+  const role = (Object.keys(FILE_ROLES) as FileRole[]).find(key => key === wanted);
+  if (role && (FILE_ROLES[role].kinds as readonly string[]).includes(kind)) return role;
+  return kind === 'video' ? 'video' : kind === 'font' ? 'font-chinh' : kind === 'audio' ? 'am-thanh' : 'anh';
+};
 
 export class EditDesk {
   constructor(private pool: Pool, private store: StorageSettings | null = storageSettings(), private fetcher: typeof fetch = fetch) {}
@@ -96,6 +125,7 @@ export class EditDesk {
     if (!isObj(body) || typeof body.op !== 'string') bad();
     const input = body as Record<string, unknown>;
     let preview: string | null = null;
+    const gone: string[] = [];
     await transaction(this.pool, async db => {
       const desk = await this.load(id, db);
       await db.query('INSERT INTO edit_desks(request_id) VALUES($1) ON CONFLICT DO NOTHING', [desk.request.id]);
@@ -119,9 +149,12 @@ export class EditDesk {
         }
         case 'file': {
           if (typeof input.mediaId !== 'string' || !desk.files.some(f => f.mediaId === input.mediaId)) bad();
-          if (input.remove === true) await db.query('DELETE FROM edit_request_files WHERE request_id=$1 AND media_id=$2', [desk.request.id, input.mediaId]);
-          else {
-            if (!['logo', 'anh', 'video'].includes(input.role as string)) bad();
+          if (input.remove === true) {
+            await db.query('DELETE FROM edit_request_files WHERE request_id=$1 AND media_id=$2', [desk.request.id, input.mediaId]);
+            gone.push(...await unusedMedia(db, desk.shop.id, [input.mediaId as string]));
+          } else {
+            const file = desk.files.find(f => f.mediaId === input.mediaId)!;
+            if (roleFor(String(input.role), file.kind) !== input.role) bad();
             await db.query('UPDATE edit_request_files SET role=$3 WHERE request_id=$1 AND media_id=$2', [desk.request.id, input.mediaId, input.role]);
           }
           break;
@@ -141,6 +174,18 @@ export class EditDesk {
           await core.saveDraft(ref, desk.draft.revision, { ...desk.draft.config, doc }).catch(fail);
           await db.query('UPDATE edit_desks SET knobs=$2,updated_at=clock_timestamp() WHERE request_id=$1', [desk.request.id, JSON.stringify(next)]);
           await log('knobs');
+          break;
+        }
+        case 'google': {
+          // A knob on every page, whatever it was made from: how far the Google button stands off the page (doc.ts GOOGLE_SHADOWS).
+          const shadow = (GOOGLE_SHADOWS as readonly unknown[]).includes(input.shadow) ? input.shadow as typeof GOOGLE_SHADOWS[number] : bad();
+          const shade = input.shade === undefined ? undefined : typeof input.shade === 'string' && /^#[0-9a-fA-F]{6}$/.test(input.shade) ? input.shade : bad();
+          const doc = structuredClone(desk.draft.config.doc);
+          let found = false;
+          for (const el of walk(doc)) if (el.t === 'google') { el.shadow = shadow; if (shade) el.shade = shade; found = true; }
+          if (!found) bad('NO_GOOGLE');
+          await core.saveDraft(ref, desk.draft.revision, { ...desk.draft.config, doc }).catch(fail);
+          await log('google', { shadow });
           break;
         }
         case 'details': {
@@ -170,11 +215,16 @@ export class EditDesk {
           await db.query('UPDATE edit_desks SET details=NULL,preview_hash=NULL,preview_expires_at=NULL,updated_at=clock_timestamp() WHERE request_id=$1', [desk.request.id]);
           await recordAdminAction(db, adminId, { action: 'page.edit_request.publish', shopId: desk.shop.id,
             detail: { request: desk.request.id, page: desk.page.id, revision, release: published.releaseId, via: 'desk' } });
+          // The request is done: what it brought and the page did not use leaves the store.
+          await db.query('DELETE FROM edit_request_files WHERE request_id=$1', [desk.request.id]);
+          gone.push(...await unusedMedia(db, desk.shop.id, desk.files.map(f => f.mediaId)));
           break;
         }
         default: bad();
       }
     });
+    // Objects leave the store only after their rows are gone for good; a failed removal leaves a stray object, never a broken page.
+    if (this.store) for (const url of gone) { const key = uploadKey(this.store, url); if (key) await removeObject(this.store, key, this.fetcher).catch(() => false); }
     if (input.op === 'publish') return { desk: null };
     return { desk: await this.load(id), ...(preview ? { preview } : {}) };
   }
@@ -184,7 +234,7 @@ export class EditDesk {
     const rule = TYPES.get(file.type) ?? bad('UNSUPPORTED_MEDIA');
     if (!file.bytes.length || file.bytes.length > rule.max) throw new AdminError(413, 'MEDIA_TOO_LARGE');
     if (!rule.magic(file.bytes)) bad('UNSUPPORTED_MEDIA');
-    const role = rule.kind === 'video' ? 'video' : file.role === 'logo' ? 'logo' : 'anh';
+    const role = roleFor(file.role, rule.kind);
     const name = clean(file.name).slice(0, 120) || `tep.${rule.ext}`;
     const desk = await this.load(id);
     const settings = this.store ?? (() => { throw new AdminError(503, 'UPLOADS_NOT_CONFIGURED'); })();

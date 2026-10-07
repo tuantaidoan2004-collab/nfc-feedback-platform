@@ -44,7 +44,9 @@ const HANDLE = /^@?([A-Za-z0-9._]{1,40})$/;
 
 /** One link slot's address, from what Tài was sent: a URL, a phone number (Zalo, phone), a handle (Instagram, TikTok). */
 function address(slot: LinkSlot, value: unknown, at: string): string {
-  if (slot === 'phone') { const phone = vnPhone(value); return phone ? `tel:+84${phone.slice(1)}` : fail(at); }
+  // Stored as "tel:+84…": read back from the store it must parse again, or the phone silently drops off every page.
+  if (slot === 'phone') { const phone = vnPhone(String(value ?? '').replace(/^tel:/i, '')); return phone ? `tel:+84${phone.slice(1)}` : fail(at); }
+  if (slot === 'email') { const mail = String(value ?? '').trim().replace(/^mailto:/i, ''); return linkProblem(`mailto:${mail}`) ? fail(at) : `mailto:${mail}`; }
   if (typeof value !== 'string') fail(at);
   let url = (value as string).trim();
   if (slot === 'zalo') { const phone = vnPhone(url); if (phone) url = `https://zalo.me/${phone}`; }

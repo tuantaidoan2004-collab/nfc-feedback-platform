@@ -7,7 +7,7 @@
  * Luật 0.1 ở phía trình duyệt: những thứ nổi cố định (máy bay giấy, mũi tên gợi ý) tự lùi đúng lúc chúng có thể đè lên nút
  * Google, nên không gì che được nút — cả hình lẫn vùng bấm.
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { DeckCard, FeedbackEl, GoogleEl, LangEl, LegalEl } from '@/lib/canvas/doc';
 import { paint } from '@/lib/canvas/paint';
 import CanvasIcon from './icons';
@@ -44,20 +44,27 @@ function useAwayFromGoogle(ref: RefObject<HTMLElement | null>, active = true) {
 }
 
 function GoogleG() { return <CanvasIcon icon="google" id="g" />; }
+/** The arrow at the right end of a list row or a Google button that asks for one. */
+export function Arrow() {
+  return <svg className="cv-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>;
+}
 
 /** The review button. The words are the platform's (the same for every guest); the look is the template's. */
 export function GoogleButton({ el }: { el: Omit<GoogleEl, 'x' | 'y' | 'w'> & { w?: number } }) {
   const guest = useGuest(), label = guestCopy[guest.lang].google;
-  const style: Vars = { '--bg': el.bg ? paint(el.bg) : undefined, '--fg': el.fg, '--bar': el.bar };
+  const style: Vars = { '--bg': el.bg ? paint(el.bg) : undefined, '--fg': el.fg, '--bar': el.bar, '--hard': el.shade, '--fs': el.size,
+    ...(el.radius !== undefined ? { '--gr': el.radius, borderRadius: `calc(${el.radius} * var(--u))` } : {}) };
+  const mark = (fallback: 'maps' | 'google') => <CanvasIcon icon={el.mark ?? fallback} id={`${el.id}-mark`} />;
   const content = el.look === 'maps' ? <>{el.bar && <span className="cv-bar" aria-hidden="true" />}<span className="cv-google-label">{label}</span>
-    <span className="cv-gicon"><CanvasIcon icon="maps" id={`${el.id}-pin`} /></span></>
-    : el.look === 'g' ? <><span className="cv-gdisc"><GoogleG /></span><span className="cv-google-label">{label}</span></>
-    : el.look === 'glass' ? <><span className="cv-gicon"><GoogleG /></span><span className="cv-google-label">{label}</span>
+    <span className="cv-gicon">{mark('maps')}</span></>
+    : el.look === 'g' ? <><span className="cv-gdisc">{mark('google')}</span><span className="cv-google-label">{label}</span>{el.arrow && <Arrow />}</>
+    : el.look === 'glass' ? <><span className="cv-gicon">{mark('google')}</span><span className="cv-google-label">{label}</span>
       <span className="cv-hand" aria-hidden="true"><CanvasIcon icon="hand" id={`${el.id}-hand`} /></span></>
     : <RingFace label={label} color={el.ring ?? '#ffffff'} id={el.id} />;
-  const common = { className: `cv-google cv-google-${el.look}`, style, 'data-google': '', 'data-shadow': el.shadow ?? (el.look === 'maps' ? 'soft' : undefined), 'aria-label': label };
-  if (!guest.google.href) return <span {...common} role="link" aria-disabled="true">{content}</span>;
-  return <a {...common} href={guest.google.href} target={guest.google.target} rel={guest.google.rel} onClick={guest.google.onClick}>{content}</a>;
+  const shine = el.shine && <span className="cv-quet" aria-hidden="true" style={{ '--quet': el.shine } as Vars}><i /></span>;
+  const common = { className: `cv-google cv-google-${el.look}`, style, 'data-arrow': el.arrow ? '' : undefined, 'data-google': '', 'data-shadow': el.shadow ?? (el.look === 'maps' ? 'soft' : undefined), 'aria-label': label };
+  if (!guest.google.href) return <span {...common} role="link" aria-disabled="true">{content}{shine}</span>;
+  return <a {...common} href={guest.google.href} target={guest.google.target} rel={guest.google.rel} onClick={guest.google.onClick}>{content}{shine}</a>;
 }
 
 /** The round button of mẫu "Nút đơn": the words run around a ring, Google's G in the middle, a finger tapping. */
@@ -99,7 +106,7 @@ function useBottomHint() {
 export function FeedbackPlane({ el }: { el: FeedbackEl }) {
   const guest = useGuest(), p = guestCopy[guest.lang], ref = useRef<HTMLDivElement>(null), away = useAwayFromGoogle(ref);
   const hint = useBottomHint();
-  return <div ref={ref} className="guest-float" data-away={away || undefined}>
+  return <div ref={ref} className="guest-float" data-away={away || undefined} data-side={el.side === 'right' ? 'right' : undefined}>
     <button type="button" id="private-feedback" className="guest-plane" aria-label={p.title} aria-haspopup="dialog" aria-expanded={guest.feedbackOpen}
       aria-controls="private-card" data-icon={el.icon} onClick={guest.openFeedback}>
       <svg viewBox="0 0 24 24" width="46" height="46" aria-hidden="true">
@@ -184,7 +191,58 @@ export function SectionWatch() {
     const watch = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) { entry.target.setAttribute('data-seen', ''); watch.unobserve(entry.target); } }),
       { threshold: .12 });
     sections.filter(s => !s.hasAttribute('data-seen')).forEach(s => watch.observe(s));
-    return () => { watch.disconnect(); document.documentElement.removeAttribute('data-cv-watch'); };
+    // Every swipe moves the page (Tài 06/10: "hiệu ứng luôn phải có khi vuốt lên xuống"): an element with an entrance plays it each time it
+    // comes back on screen, after it has left it entirely. The Google button never hides (luật 0.1).
+    const elements = [...document.querySelectorAll<HTMLElement>('.cv-in')].filter(el => !el.closest('.cv-top'));
+    const replay = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting, intersectionRatio }) => {
+      if (isIntersecting && intersectionRatio > 0) target.setAttribute('data-seen', '');
+      else { target.setAttribute('data-later', ''); target.removeAttribute('data-seen'); }
+    }), { threshold: [0, .15] });
+    elements.forEach(el => { if (!visible(el) || el.getBoundingClientRect().bottom < 0) el.setAttribute('data-later', ''); replay.observe(el); });
+    return () => { watch.disconnect(); replay.disconnect(); document.documentElement.removeAttribute('data-cv-watch'); };
   }, []);
   return null;
+}
+
+/**
+ * Ảnh lật (Tài 07/10): a picture with more photos turns over every few seconds — edge on at the half-way point, where the next
+ * photo takes its place — and a glint crosses it as it lands. FlipCard turns the whole frame; FlipMedia shows the photo it is on.
+ * The turn is driven by a shared clock on the page's root (the `cv-flip-tick` event), so a card and its photo never drift apart.
+ */
+const FLIP_MS = 4600, TURN_MS = 760;
+function useFlipTick(on: boolean) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!on || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => setTick(t => t + 1), FLIP_MS);
+    return () => window.clearInterval(timer);
+  }, [on]);
+  return tick;
+}
+const FlipContext = createContext<{ tick: number; shown: number }>({ tick: 0, shown: 0 });
+export function FlipCard({ children }: { children: ReactNode }) {
+  const tick = useFlipTick(true), [shown, setShown] = useState(0);
+  useEffect(() => { if (!tick) return; const swap = window.setTimeout(() => setShown(tick), TURN_MS / 2); return () => window.clearTimeout(swap); }, [tick]);
+  return <div className="cv-flip" key={tick} data-turning={tick ? '' : undefined} style={{ '--turn': `${TURN_MS}ms` } as Vars}>
+    <FlipContext.Provider value={{ tick, shown }}>{children}</FlipContext.Provider><span className="cv-flip-glint" aria-hidden="true" /></div>;
+}
+export function FlipMedia({ srcs, fit = 'cover', focus, gray }: { srcs: string[]; fit?: 'cover' | 'contain'; focus?: [number, number]; gray?: boolean }) {
+  const { shown } = useContext(FlipContext), now = srcs[shown % srcs.length], next = srcs[(shown + 1) % srcs.length];
+  const style = { objectFit: fit, objectPosition: focus ? `${focus[0]}% ${focus[1]}%` : undefined };
+  return <><img className={`cv-media ${gray ? 'cv-gray' : ''}`} src={now} alt="" decoding="async" style={style} />
+    {/* The next photo loads early, out of sight, so the turn never shows an empty frame. */}
+    <link rel="prefetch" as="image" href={next} /></>;
+}
+
+/** Âm thanh nền (doc.sound): a small speaker in the top corner, silent until tapped; the guest's choice is not remembered. */
+export function SoundToggle({ src, volume }: { src: string; volume: number }) {
+  const ref = useRef<HTMLAudioElement>(null), [on, setOn] = useState(false);
+  const flip = () => { const audio = ref.current; if (!audio) return; audio.volume = volume;
+    if (on) { audio.pause(); setOn(false); } else void audio.play().then(() => setOn(true)).catch(() => setOn(false)); };
+  return <>
+    <audio ref={ref} src={src} loop preload="none" />
+    <button type="button" className="cv-sound" data-on={on || undefined} onClick={flip} aria-pressed={on} aria-label={on ? 'Tắt nhạc' : 'Bật nhạc'}>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4Z" fill="currentColor" />{on ? <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /> : <path d="m16 9.5 5 5m0-5-5 5" />}</svg>
+    </button></>;
 }

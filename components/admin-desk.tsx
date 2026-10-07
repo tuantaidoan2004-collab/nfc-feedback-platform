@@ -4,8 +4,11 @@ import { useRef, useState, type ReactNode } from 'react';
 import styles from './desk.module.css';
 import { buttonClass } from './platform/ui';
 import type { Desk, DeskFile } from '@/lib/admin/desk';
+import { FILE_ROLES, type FileRole } from '@/lib/admin/file-roles';
 import type { Knobs } from '@/lib/canvas/knobs';
-import { LINK_SLOTS, type LinkSlot } from '@/lib/canvas/doc';
+import { GOOGLE_SHADOWS, LINK_SLOTS, type LinkSlot, type PageDoc } from '@/lib/canvas/doc';
+import { walk } from '@/lib/canvas/validate';
+import CHOICES from '@/lib/canvas/prompt-choices.json' with { type: 'json' };
 
 /**
  * Bàn dựng (Tài 06/10, kịch bản 9b): one request, one screen, made for Tài's phone while he talks to the shop on Zalo. The page's
@@ -31,7 +34,7 @@ const explain = (code: string) => {
   return ERRORS[head] ? `${ERRORS[head]}${at ? ` (${at})` : ''}` : `Chưa làm được (${code}).`;
 };
 const SLOT_NAMES: Record<LinkSlot, string> = { zalo: 'Zalo (số hoặc link)', facebook: 'Facebook', instagram: 'Instagram (@tên hoặc link)', tiktok: 'TikTok (@tên hoặc link)',
-  youtube: 'YouTube', website: 'Website', menu: 'Menu', booking: 'Đặt lịch', phone: 'Số điện thoại', maps: 'Chỉ đường (link Google Maps)' };
+  youtube: 'YouTube', website: 'Website', menu: 'Menu', booking: 'Đặt lịch', phone: 'Số điện thoại', maps: 'Chỉ đường (link Google Maps)', email: 'Email' };
 const WHO = { khach: 'Khách', tai: 'Tài', claude: 'Claude' } as const;
 const time = (iso: string) => new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 
@@ -58,7 +61,7 @@ function Copy({ text, plain }: { text: string; plain?: boolean }) {
 
 export default function AdminDesk({ initial, templates, origin }: { initial: Desk; templates: DeskTemplate[]; origin: string }) {
   const [desk, setDesk] = useState(initial), [busy, setBusy] = useState(''), [error, setError] = useState(''), [stamp, setStamp] = useState(0);
-  const [note, setNote] = useState(''), [who, setWho] = useState<'khach' | 'tai'>('khach'), [role, setRole] = useState<'anh' | 'logo'>('anh'), [over, setOver] = useState(false);
+  const [note, setNote] = useState(''), [who, setWho] = useState<'khach' | 'tai'>('khach'), [over, setOver] = useState('');
   const [preview, setPreview] = useState(''), [published, setPublished] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const id = desk.request.id, template = templates.find(t => t.key === desk.draft.templateKey);
@@ -77,17 +80,19 @@ export default function AdminDesk({ initial, templates, origin }: { initial: Des
   const act = (label: string, body: Record<string, unknown>) =>
     call(label, `/gov/api/ban-dung/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-  async function upload(list: FileList | File[]) {
+  async function upload(list: FileList | File[], role: FileRole) {
     for (const file of Array.from(list)) {
-      const video = file.type === 'video/mp4';
+      // A font or a song often comes with no type from the browser: its name says what it is.
+      const ext = file.name.toLowerCase().split('.').pop() ?? '';
+      const type = file.type || ({ woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf', mp3: 'audio/mpeg', m4a: 'audio/mp4' } as Record<string, string>)[ext] || '';
       let body: Blob;
-      try { body = video ? file : await shrink(file); } catch { setError(`Không đọc được ${file.name}.`); continue; }
-      const kind = body.type || file.type;
-      const ok = await call(`tệp ${file.name}`, `/gov/api/ban-dung/${id}/tep?vai=${video ? 'video' : role}&ten=${encodeURIComponent(file.name)}`,
-        { method: 'POST', headers: { 'Content-Type': kind }, body });
+      try { body = type.startsWith('image/') ? await shrink(file) : file; } catch { setError(`Không đọc được ${file.name}.`); continue; }
+      const ok = await call(`tệp ${role}`, `/gov/api/ban-dung/${id}/tep?vai=${role}&ten=${encodeURIComponent(file.name)}`,
+        { method: 'POST', headers: { 'Content-Type': body.type || type }, body });
       if (!ok) return;
     }
   }
+
 
   if (published) return <Card title="Đã phát hành">
     <p>Trang /{desk.page.slug} của {desk.shop.name} đã lên mạng, yêu cầu đã đóng.</p>
@@ -124,6 +129,7 @@ export default function AdminDesk({ initial, templates, origin }: { initial: Des
         </ul>
         <label className={styles.field}>{who === 'khach' ? 'Tin của khách' : 'Ghi chú của bạn'}
           <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={who === 'khach' ? 'Dán tin Zalo…' : 'vd: khách thích nút to, không dùng TikTok'} /></label>
+        <QuickChoices add={line => setNote(n => (n.trim() ? `${n.trimEnd()}\n` : '') + line)} />
         <div className={styles.row}>
           <button type="button" className={buttonClass(who === 'khach' ? 'primary' : 'secondary')} onClick={() => setWho('khach')}>Khách</button>
           <button type="button" className={buttonClass(who === 'tai' ? 'primary' : 'secondary')} onClick={() => setWho('tai')}>Ghi chú</button>
@@ -132,21 +138,19 @@ export default function AdminDesk({ initial, templates, origin }: { initial: Des
         </div>
       </Card>
 
-      <Card title="Ảnh, logo, video" hint="Lưu ảnh từ Zalo vào máy rồi chọn ở đây (chọn nhiều một lần). Ảnh tự thu nhỏ; video MP4 tối đa 4 MB.">
-        <div className={styles.row}>
-          <span className={styles.hint}>Tệp sắp thêm là:</span>
-          <button type="button" className={buttonClass(role === 'anh' ? 'primary' : 'secondary')} onClick={() => setRole('anh')}>Ảnh quán</button>
-          <button type="button" className={buttonClass(role === 'logo' ? 'primary' : 'secondary')} onClick={() => setRole('logo')}>Logo</button>
-        </div>
-        <label className={styles.drop} data-over={over} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-          onDrop={e => { e.preventDefault(); setOver(false); void upload(e.dataTransfer.files); }}>
-          {busy.startsWith('tệp') ? `Đang gửi ${busy.slice(4)}…` : 'Bấm để chọn, hoặc kéo thả tệp vào đây'}
-          <input ref={picker} type="file" multiple accept="image/*,video/mp4" hidden onChange={e => { if (e.target.files) void upload(e.target.files); e.target.value = ''; }} />
-        </label>
+      <Card title="Tệp của quán" hint="Mỗi ô một vai: thả tệp vào đúng ô, trang biết đặt nó ở đâu. Ảnh tự thu nhỏ; video MP4 và âm thanh tối đa 4 MB, font tối đa 2 MB. Tệp bỏ đi hay không dùng tới sẽ tự xoá khỏi kho.">
+        <div className={styles.zones}>{(Object.keys(FILE_ROLES) as FileRole[]).filter(key => key !== 'video').map(key => <label key={key} className={styles.zone} data-over={over === key}
+          onDragOver={e => { e.preventDefault(); setOver(key); }} onDragLeave={() => setOver('')}
+          onDrop={e => { e.preventDefault(); setOver(''); void upload(e.dataTransfer.files, key); }}>
+          <strong>{FILE_ROLES[key].name}</strong>
+          <span>{busy === `tệp ${key}` ? 'Đang gửi…' : `${desk.files.filter(f => f.role === key).length || ''} ${ZONE_HINT[key]}`}</span>
+          <input type="file" multiple={key === 'anh' || key === 'anh-phu'} accept={ACCEPT[key]} hidden onChange={e => { if (e.target.files) void upload(e.target.files, key); e.target.value = ''; }} />
+        </label>)}</div>
         {desk.files.length > 0 && <div className={styles.files}>{desk.files.map((f: DeskFile) => <div key={f.mediaId} className={styles.file}>
-          {f.kind === 'image' ? <img src={f.url} alt={f.name} /> : <video src={f.url} muted playsInline />}
-          <select value={f.role} disabled={f.kind === 'video'} onChange={e => void act('file', { op: 'file', mediaId: f.mediaId, role: e.target.value })}>
-            <option value="anh">Ảnh quán</option><option value="logo">Logo</option>{f.kind === 'video' && <option value="video">Video</option>}</select>
+          {f.kind === 'image' ? <img src={f.url} alt={f.name} /> : f.kind === 'video' ? <video src={f.url} muted playsInline />
+            : <span className={styles.fileIcon}>{f.kind === 'font' ? 'Aa' : '♪'}</span>}
+          <select value={f.role} onChange={e => void act('file', { op: 'file', mediaId: f.mediaId, role: e.target.value })}>
+            {(Object.keys(FILE_ROLES) as FileRole[]).filter(key => (FILE_ROLES[key].kinds as readonly string[]).includes(f.kind)).map(key => <option key={key} value={key}>{FILE_ROLES[key].name}</option>)}</select>
           <button type="button" className={buttonClass('quiet')} onClick={() => void act('file', { op: 'file', mediaId: f.mediaId, remove: true })}>Bỏ</button>
         </div>)}</div>}
       </Card>
@@ -155,6 +159,7 @@ export default function AdminDesk({ initial, templates, origin }: { initial: Des
         <label className={styles.field}>Mẫu của bản nháp
           <select value={desk.draft.templateKey} disabled={!!busy} onChange={e => { if (confirm('Làm lại bản nháp từ mẫu này?')) void act('template', { op: 'template', key: e.target.value }); }}>
             {templates.map(t => <option key={t.key} value={t.key}>{t.name}{t.knobs ? ' · có núm' : ''}</option>)}</select></label>
+        <GoogleKnob doc={desk.draft.config.doc} busy={!!busy} save={(shadow, shade) => void act('google', { op: 'google', shadow, shade })} />
         {template?.knobs && <>
           <div className={styles.swatches}>{template.knobs.palettes.map((p, i) => <button key={p.name} type="button" className={styles.swatch} aria-pressed={(desk.knobs.palette ?? 0) === i}
             disabled={!!busy} onClick={() => void act('knobs', { op: 'knobs', knobs: { palette: i } })}>
@@ -232,3 +237,35 @@ function Details({ desk, busy, save }: { desk: Desk; busy: boolean; save: (detai
     <div className={styles.row}><button type="button" className={buttonClass('secondary')} disabled={busy} onClick={() => void submit()}>Lưu vào bản nháp</button></div>
   </Card>;
 }
+
+const SHADOW_NAMES: Record<typeof GOOGLE_SHADOWS[number], string> = { none: 'Không bóng', soft: 'Bóng nhẹ', lift: 'Nổi hẳn lên', hard: 'Bóng khối (màu riêng)', halo: 'Phát sáng (màu riêng)' };
+/** Bóng nút Google: một núm có ở mọi trang (lib/admin/desk.ts op 'google'). */
+function GoogleKnob({ doc, busy, save }: { doc: PageDoc; busy: boolean; save: (shadow: string, shade?: string) => void }) {
+  const google = [...walk(doc)].find(el => el.t === 'google');
+  if (!google || google.t !== 'google') return null;
+  const now = google.shadow ?? (google.look === 'maps' ? 'soft' : 'none');
+  return <div className={styles.row}>
+    <label className={styles.field}>Bóng nút Google
+      <select value={now} disabled={busy} onChange={e => save(e.target.value, e.target.value === 'hard' || e.target.value === 'halo' ? google.shade ?? (e.target.value === 'halo' ? '#ffffff' : '#8c8c8c') : undefined)}>
+        {GOOGLE_SHADOWS.map(key => <option key={key} value={key}>{SHADOW_NAMES[key]}</option>)}</select></label>
+    {(now === 'hard' || now === 'halo') && <label className={styles.field}>Màu bóng
+      <input type="color" defaultValue={google.shade ?? '#8c8c8c'} disabled={busy} onBlur={e => save(now, e.target.value)} /></label>}
+  </div>;
+}
+
+/**
+ * Chọn nhanh (Tài 07/10): what a page is usually decided by, from what was learnt building pages (lib/canvas/prompt-choices.json),
+ * so whoever writes the note — Tài now, the shop later — picks instead of guessing what to say. A pick adds "Nhóm: lựa chọn".
+ */
+function QuickChoices({ add }: { add: (line: string) => void }) {
+  return <details className={styles.choices}><summary>Chọn nhanh: ánh sáng, nền, chữ, nút, hiệu ứng, khúc B…</summary>
+    {CHOICES.map(group => <div key={group.nhom} className={styles.choiceGroup}><span>{group.nhom}</span>
+      <div className={styles.chips}>{group.chon.map(option => <button key={option} type="button" onClick={() => add(`${group.nhom}: ${option}`)}>{option}</button>)}</div></div>)}
+  </details>;
+}
+
+const IMAGE = 'image/jpeg,image/png,image/webp', FONT = '.woff2,.ttf,.otf,font/woff2,font/ttf,font/otf', AUDIO = '.mp3,.m4a,audio/mpeg,audio/mp4';
+const ACCEPT: Record<FileRole, string> = { poster: `${IMAGE},video/mp4`, nen: `${IMAGE},video/mp4`, logo: IMAGE, 'logo-phu': IMAGE, anh: IMAGE, 'anh-phu': IMAGE,
+  video: 'video/mp4', 'font-chinh': FONT, 'font-dac-biet': FONT, 'am-thanh': AUDIO };
+const ZONE_HINT: Record<FileRole, string> = { poster: 'ảnh/video lớn đầu trang', nen: 'ảnh/video nền', logo: 'logo chính', 'logo-phu': 'dấu nhỏ, biểu tượng',
+  anh: 'ảnh quán', 'anh-phu': 'ảnh nhỏ để lật', video: 'video', 'font-chinh': 'không có thì tự chọn', 'font-dac-biet': 'chữ tên, tiêu đề', 'am-thanh': 'nếu có' };

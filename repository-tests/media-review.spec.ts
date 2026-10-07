@@ -16,7 +16,8 @@ import { DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
 /** A shop's page whose hero picture (and, if given, its first section's background) is an upload at `url`. */
 const pictured=(name:string,url:string,background?:string)=>{
  const page=pageFromTemplate(DEFAULT_TEMPLATE,name),first=page.doc.sections[0];
- first.els=first.els.map(el=>el.id==='anh-chinh'&&el.t==='image'?{...el,src:url}:el);
+ // The start page has no picture of its own (06/10): the shop's picture is added as one element.
+ first.els=[{id:'anh-chinh',t:'image',src:url,x:40,y:20,w:310,h:120},...first.els];
  if(background)first.bg={...first.bg,src:background};
  return page;
 };

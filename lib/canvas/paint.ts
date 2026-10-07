@@ -4,7 +4,7 @@ import type { Background, Fill, Shadow } from './doc';
 export function paint(fill: Fill): string {
   if (typeof fill === 'string') return fill;
   const stops = fill.stops.map(([color, at]) => `${color} ${at}%`).join(', ');
-  return fill.kind === 'linear' ? `linear-gradient(${fill.angle}deg, ${stops})` : `radial-gradient(circle at ${fill.x}% ${fill.y}%, ${stops})`;
+  return fill.kind === 'linear' ? `linear-gradient(${fill.angle}deg, ${stops})` : `radial-gradient(ellipse at ${fill.x}% ${fill.y}%, ${stops})`;
 }
 /** The fill's first colour: where only one colour can be drawn (an SVG stroke). */
 export const firstColor = (fill: Fill) => typeof fill === 'string' ? fill : fill.stops[0][0];

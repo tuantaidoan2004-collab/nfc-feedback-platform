@@ -38,7 +38,7 @@ test('one call builds a live page, a card that is not live yet, and an owner who
  await expect(f.auth.login('quan-caphe','any-password-at-all')).rejects.toThrow('LOGIN_FAILED');
 
  const audit=(await f.db.query('SELECT action,shop_id,detail FROM admin_audit ORDER BY id')).rows;
- expect(audit).toEqual([{action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe',templateKey:'basic-1'}}]);
+ expect(audit).toEqual([{action:'shop.create',shop_id:made.shopId,detail:{slug:made.slug,tagCode:made.tagCode,ownerUsername:'quan-caphe',templateKey:'trang-dau'}}]);
 });
 
 test('the link the operator hands over is what opens the account',async({f})=>{

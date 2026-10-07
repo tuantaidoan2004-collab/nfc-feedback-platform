@@ -172,6 +172,33 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
+**07/10 chiều — nút theo thông tin quán, ô thả theo vai, font/âm thanh của quán.** Phần tử `links` sinh một nút cho mỗi link quán
+có (ô `email` mới, `mailto:`). Bàn dựng: ô thả Poster/Nền/Logo/Logo phụ/Ảnh quán/Ảnh phụ/Font chính/Font đặc biệt/Âm thanh nền;
+nhận font (woff2/ttf/otf ≤2 MB) và âm thanh (mp3/m4a ≤4 MB). Trang: `doc.fonts` (font của quán, CSP `font-src` thêm kho ảnh),
+`doc.sound` (nút loa). **Lược đồ đổi** (`media_assets` kind/content_type, `edit_request_files.role`): lên production cần bước
+lược đồ — ghi vào `production-launch.md` trước khi đẩy. Sửa kèm: số điện thoại lưu dạng `tel:` bị bỏ khi đọc lại (nút gọi chưa từng
+hiện) — test mới trong `slots.spec.ts`. Mẫu thứ 5: Nhẹ Tênh (local `/fh9gu`).
+
+**07/10 — kho chi tiết nhỏ + nền bột phấn (Tài).** `lib/canvas/stickers.json`: 21 hình (sao, tim, mặt cười, dấu vẽ tay) dùng như
+`shape`, đổi màu theo quán, `grain` cho chất sáp màu; cọ bột phấn `bot-*` (kiểu Sentry) chỉ lưu thông số trong `lib/canvas/brushes.json`,
+vẽ vảy hạt bằng canvas, màu theo quán; ánh sáng `cau-vong`, `cau-vong-xoan`, `vet-sang` + `glow` với `blend`; câu mời theo 20 ngành
+`lib/canvas/loi-moi.json` (test luật Google); xem tất cả ở `/gov/kho`. Mẫu thứ 3: 4RAU từ bản Canva của Tài (local `/xkvs7`). **Tệp tải lên không giữ thừa:** Bàn dựng đã thu nhỏ ảnh trên trình duyệt
+(≤1600 px); nay bấm "Bỏ" một tệp, hoặc phát hành xong yêu cầu, thì tệp nào không bản nháp/bản phát hành/yêu cầu nào dùng bị xoá
+khỏi `media_assets` và khỏi kho (sau khi giao dịch xong). Chưa có test riêng (bộ edit-desk đang chờ viết lại vì gọi mẫu đã xoá).
+Mẫu thứ 2: Card Stack (khung mẫu 05 = bộ bài Party cũ) màu Bamos, quán thử local `/wsj5t`.
+
+**06/10 khuya — dựng từ ảnh Canva + `templates/taste.md` (Tài).** Không làm thư viện mẫu sẵn nữa: Tài gửi ảnh chụp thiết kế Canva + ảnh
+gốc, agent dựng đúng như ảnh (đo điểm ảnh, tự so trước khi gửi). Gu của Tài ghi ở `templates/taste.md` — gốc của mọi trang, "Nhờ
+Claude" đọc kèm; mỗi lần Tài sửa là một luật mới. Mẫu đầu: Eid (quán thử local `/3kgdv`). Khung trang thêm: bóng nút Google
+`none/soft/lift/hard` + màu `shade` (núm "Bóng nút Google" ở Bàn dựng, mọi trang), nền nối mờ `extend: "blur"`, hình làm mềm `blur`,
+máy bay chọn góc `side`, viền gradient vẽ thành vòng (thẻ kính không lộ gradient), hiệu ứng vào chạy lại mỗi lần vuốt, kho tệp
+trang trí `public/tpl/` (ruy băng Eid). Việc kế (chờ Tài): kho font, chỗ tải font riêng của khách, kho sticker.
+
+**06/10 khuya — xoá hết mẫu (Tài).** Cả 11 thư mục `templates/` đã xoá (chưa commit); `CANVAS_TEMPLATES` rỗng; quán mới bắt
+đầu bằng trang đầu ẩn `lib/canvas/start-page.ts` (khoá `trang-dau`, không hiện ở Library/landing/`/templates`). Trang các quán
+đã phát hành là bản sao nên vẫn chạy. **Trước khi đẩy:** viết lại các test đang gọi mẫu cũ (`basic-1`, `party`, `nut-don`,
+`tam-thiep`…) sang trang đầu hoặc mẫu riêng của test.
+
 **06/10 tối — mô hình kinh doanh mới (Lát 0, chỉ tài liệu).** Sau buổi phản biện "góc nhìn người ngoài", Tài chốt: ba gói
 **Cơ bản 50k (có nhân viên, phân quyền) · Sự kiện 70k · VIP 120k (mọi địa chỉ quán, một giá)** (+ Chuỗi lớn thoả thuận), collab 100k một lần, không giới hạn số trang; quán Tài đi chào
 được "tặng đến ngày…", vào bằng link đặt mật khẩu một lần qua Zalo; khách tự đến quét **10k** kích hoạt (trừ tháng đầu), **Tài

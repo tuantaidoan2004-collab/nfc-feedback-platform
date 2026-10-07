@@ -28,6 +28,8 @@
 /* Luật 0.1 on a canvas page, where the Google button may stand anywhere in the first screen: while the plane would lie over
    it, the plane steps aside, so nothing covers the button -- neither its picture nor where a finger lands. */
 .guest-float[data-away] { opacity: 0; transition: opacity .25s ease; }
+/* The right-hand corner, when the page's art leaves the left one busy (doc.ts FeedbackEl `side`); the plane itself is unchanged. */
+.guest-float[data-side='right'] { left: auto; right: max(14px, env(safe-area-inset-right)); flex-direction: row-reverse; }
 .guest-float[data-away] > * { pointer-events: none; }
 .guest-float .guest-plane {
   pointer-events: auto; width: 60px; height: 60px; padding: 0; border: 0; background: none; display: grid; place-items: center;

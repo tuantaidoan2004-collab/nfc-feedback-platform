@@ -26,11 +26,42 @@ const ICON: Record<IconKey, (id: string) => ReactNode> = {
     <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6Z" />
     <path fill="#FBBC05" d="M10.4 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.9-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.8-6.1Z" />
     <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.7-4.1-13.6-9.8l-7.8 6.1C6.6 42.6 14.6 48 24 48Z" /></g>,
-  maps: id => <>
+  // Zalo OA kiểu mới: ô trắng, bong bóng chữ viền xanh, chữ "Zalo" xanh đậm (Tài 07/10: logo cũ "cổ lổ sỉ").
+  'zalo-oa': () => <><rect x=".75" y=".75" width="22.5" height="22.5" rx="5.5" fill="#fff" stroke="#0068FF" strokeWidth="1.5" />
+    <path d="M5 5.5h14a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H11l-4.4 3v-3H5a1.8 1.8 0 0 1-1.8-1.8V7.3A1.8 1.8 0 0 1 5 5.5Z" fill="none" stroke="#0068FF" strokeWidth="1.4" strokeLinejoin="round" />
+    <text x="12" y="13.6" textAnchor="middle" fontSize="6" fontWeight="900" fontFamily="Arial Rounded MT Bold, Arial, sans-serif" fill="#0068FF" letterSpacing="-.2">Zalo</text></>,
+  'zalo-net': () => line(<><path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3v-3H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z" /><path d="M8 9.5h3.5L8 14h3.5M14 9.5V14h2.5" strokeWidth="1.5" /></>),
+  'facebook-net': () => line(<path d="M14.5 21v-7.5h2.6l.4-3h-3V8.7c0-.9.3-1.5 1.5-1.5h1.6V4.5a20 20 0 0 0-2.4-.1c-2.4 0-4 1.4-4 4.1v2h-2.7v3h2.7V21" />),
+  'youtube-net': () => line(<><rect x="2.5" y="5.5" width="19" height="13" rx="4" /><path d="m10.2 9.3 4.6 2.7-4.6 2.7Z" /></>),
+  'maps-giay': id => <>
     <defs><clipPath id={`${id}-pin`}><path d="M12 1.2c-4.4 0-7.9 3.4-7.9 7.7 0 5.6 6.4 11.8 7.4 13.4.3.4.8.4 1 0 1-1.6 7.4-7.8 7.4-13.4 0-4.3-3.5-7.7-7.9-7.7Z" /></clipPath></defs>
     <g clipPath={`url(#${id}-pin)`}><rect width="24" height="24" fill="#34A853" /><path d="M0 0h12L6 9.5 0 13Z" fill="#1A73E8" /><path d="M12 0h12v11L12 9.5 7 7Z" fill="#EA4335" />
       <path d="M24 9 12 12.5 9 24h15Z" fill="#FBBC04" /><path d="M0 13 12 9.5 3 24H0Z" fill="#4285F4" /></g>
     <circle cx="12" cy="8.9" r="3.1" fill="#fff" /></>,
+  // Ghim Maps sạch (Tài 07/10: ghim cũ "đẹp nhưng như xé vá", giữ làm `maps-giay` cho kiểu paper).
+  maps: () => <><path d="M12 1.3c-4.3 0-7.8 3.4-7.8 7.6 0 5.4 6.2 11.5 7.2 13.1.3.4.9.4 1.2 0 1-1.6 7.2-7.7 7.2-13.1 0-4.2-3.5-7.6-7.8-7.6Z" fill="#EA4335" />
+    <path d="M12 1.3c-4.3 0-7.8 3.4-7.8 7.6 0 1.4.4 2.9 1.1 4.3L12 1.3Z" fill="#fff" opacity=".12" /><circle cx="12" cy="8.9" r="2.9" fill="#A50E0E" /></>,
+  'maps-mau': id => <>
+    <defs><clipPath id={`${id}-mp`}><path d="M12 1.3c-4.3 0-7.8 3.4-7.8 7.6 0 5.4 6.2 11.5 7.2 13.1.3.4.9.4 1.2 0 1-1.6 7.2-7.7 7.2-13.1 0-4.2-3.5-7.6-7.8-7.6Z" /></clipPath></defs>
+    <g clipPath={`url(#${id}-mp)`}><rect width="24" height="24" fill="#34A853" /><path d="M0 0h13.5L6.2 13.4 0 16Z" fill="#1A73E8" /><path d="M13.5 0H24v8.6L6.2 13.4Z" fill="#EA4335" />
+      <path d="M24 8.6v6L5 24H0v-4.4L6.2 13.4Z" fill="#FBBC04" /></g><circle cx="12" cy="8.9" r="2.9" fill="#fff" /></>,
+  'maps-net': () => line(<><path d="M12 21.5s-7-6.4-7-12.3a7 7 0 0 1 14 0c0 5.9-7 12.3-7 12.3Z" /><circle cx="12" cy="9.2" r="2.6" /></>),
+  'google-net': () => line(<path d="M20 12h-7.5M20 12a8 8 0 1 1-2.4-5.7" />, 2.2),
+  'google-tron': () => <><circle cx="12" cy="12" r="12" fill="#fff" /><g transform="translate(5 5) scale(.29)">
+    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.2l7.8 6.1C12.3 13.6 17.7 9.5 24 9.5Z" />
+    <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6Z" />
+    <path fill="#FBBC05" d="M10.4 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.9-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.8-6.1Z" />
+    <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.7-4.1-13.6-9.8l-7.8 6.1C6.6 42.6 14.6 48 24 48Z" /></g></>,
+  'instagram-net': () => line(<><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="3.8" /><circle cx="17" cy="7" r=".6" fill="currentColor" /></>),
+  'instagram-dac': () => <path fillRule="evenodd" fill="currentColor" d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm5 5.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6Zm0 2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6ZM17.3 5.4a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6Z" />,
+  'tiktok-net': () => line(<path d="M14 3.5v11.2a3.6 3.6 0 1 1-3.6-3.6M14 3.5c.4 2.7 2.3 4.6 5 4.9" />, 2),
+  'tiktok-vuong': () => <><rect width="24" height="24" rx="6.5" fill="#111" />
+    <path d="M13.6 5.5v8.7a2.6 2.6 0 1 1-2.6-2.6" fill="none" stroke="#25F4EE" strokeWidth="2" strokeLinecap="round" transform="translate(-.6 -.4)" />
+    <path d="M13.6 5.5v8.7a2.6 2.6 0 1 1-2.6-2.6" fill="none" stroke="#FE2C55" strokeWidth="2" strokeLinecap="round" transform="translate(.6 .4)" />
+    <path d="M13.6 5.5v8.7a2.6 2.6 0 1 1-2.6-2.6M13.6 5.5c.3 2 1.7 3.4 3.8 3.6" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></>,
+  web: () => <><circle cx="12" cy="12" r="11" fill="currentColor" /><g fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" opacity=".95">
+    <path d="M3.5 12h17M12 3.2c2.3 2.4 3.4 5.4 3.4 8.8s-1.1 6.4-3.4 8.8c-2.3-2.4-3.4-5.4-3.4-8.8S9.7 5.6 12 3.2Z" /></g></>,
+  'web-tro': () => line(<><rect x="2.5" y="4" width="19" height="14" rx="2.5" /><path d="M2.5 8h19" /><path d="m13 12 6.5 2.4-2.9 1 1.9 3.3-1.4.8-1.9-3.3-2.2 2Z" fill="currentColor" strokeWidth="1.2" /></>),
   globe: () => line(<><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3Z" /></>),
   link: () => line(<><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" /><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" /></>, 2),
   wifi: () => line(<><path d="M2.5 9.2a14 14 0 0 1 19 0M5.6 12.6a9.4 9.4 0 0 1 12.8 0M8.7 15.9a4.8 4.8 0 0 1 6.6 0" /><circle cx="12" cy="19.2" r=".9" fill="currentColor" /></>, 2),

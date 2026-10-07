@@ -17,12 +17,15 @@ import type { TextEl } from '../../lib/canvas/doc';
 const folders = readdirSync('templates', { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name);
 const text = (doc: ReturnType<typeof pageFromTemplate>['doc'], id: string) => [...walk(doc)].find(el => el.id === id) as TextEl | undefined;
 
-test('the list is generated from the folders as they are now, ordered by number', () => {
+test('the list is generated from the folders as they are now (plus the test fixtures), ordered by number; new shops start from the hidden start page', () => {
   execFileSync(process.execPath, ['scripts/templates.mjs', '--check'], { stdio: 'pipe' });
-  expect(CANVAS_TEMPLATES.map(t => t.key).sort()).toEqual([...folders].sort());
+  const fixtures = readdirSync('tests/fixtures/templates').map(file => file.replace(/\.json$/, ''));
+  expect(CANVAS_TEMPLATES.map(t => t.key).sort()).toEqual([...folders, ...fixtures].sort());
   expect(CANVAS_TEMPLATES.map(t => t.number)).toEqual([...CANVAS_TEMPLATES.map(t => t.number)].sort((a, b) => a - b));
   expect(new Set(CANVAS_TEMPLATES.map(t => t.number)).size).toBe(CANVAS_TEMPLATES.length);
-  expect(canvasTemplate(DEFAULT_TEMPLATE)).not.toBeNull();
+  // Tài 06/10: the start page is no template of the library, and never shows there.
+  expect(canvasTemplate(DEFAULT_TEMPLATE)).toBeNull();
+  expect(() => assertPublishable(pageFromTemplate(DEFAULT_TEMPLATE, 'Quán Mới'))).not.toThrow();
 });
 
 test('every template is a page the platform accepts: valid, within the Google rules, publishable under any shop name', () => {

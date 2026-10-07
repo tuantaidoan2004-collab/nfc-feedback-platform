@@ -160,7 +160,10 @@ async function publish(slug: string, dry: boolean) {
     const doc = saved.config.doc;
     for (const section of doc.sections) if (section.bg && local(section.bg.src)) section.bg.src = await swap(section.bg.src!);
     if (doc.backdrop && local(doc.backdrop.src)) doc.backdrop.src = await swap(doc.backdrop.src!);
-    for (const el of walk(doc)) if (el.t === 'image' && local(el.src)) el.src = await swap(el.src);
+    for (const el of walk(doc)) if (el.t === 'image') {
+      if (local(el.src)) el.src = await swap(el.src);
+      if (el.flip) for (const [i, src] of el.flip.entries()) if (local(src)) el.flip[i] = await swap(src);
+    }
     try { validateDoc(doc); } catch (error) { if (error instanceof CanvasError) fail(`Tài liệu trang sai ở ${error.at}.`); throw error; }
     // The page's tab title follows the shop's name, as its name slots do.
     const config = validateConfig({ ...saved.config, name: typeof saved.ten === 'string' && saved.ten.trim() ? saved.ten.trim() : saved.config.name });

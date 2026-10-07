@@ -34,9 +34,10 @@ export const CANVAS_TEMPLATES: readonly CanvasTemplate[] = ${JSON.stringify(temp
 `;
 // What "Nhờ Claude" in Bàn dựng reads as the page format and the template rules (lib/admin/desk-claude.ts): the source itself, so
 // the two never drift apart.
-const spec = `// Sinh bởi \`node scripts/templates.mjs\` từ lib/canvas/doc.ts và templates/README.md — đừng sửa tay.
+const spec = `// Sinh bởi \`node scripts/templates.mjs\` từ lib/canvas/doc.ts, templates/README.md và templates/taste.md — đừng sửa tay.
 export const DOC_SPEC = ${JSON.stringify(readFileSync(join(root, 'lib/canvas/doc.ts'), 'utf8'))};
 export const TEMPLATE_RULES = ${JSON.stringify(readFileSync(join(dir, 'README.md'), 'utf8'))};
+export const TASTE = ${JSON.stringify(readFileSync(join(dir, 'taste.md'), 'utf8'))};
 `;
 const outputs = [[join(root, 'lib/canvas/templates.generated.ts'), text], [join(root, 'lib/canvas/spec.generated.ts'), spec]];
 for (const [output, content] of outputs) {

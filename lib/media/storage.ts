@@ -19,7 +19,7 @@ export function uploadKey(settings: StorageSettings, url: string): string | null
   const prefix = `${settings.publicOrigin}/`;
   if (!url.startsWith(prefix)) return null;
   const key = url.slice(prefix.length), id = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-  return new RegExp(`^shops/${id}/${id}\\.(jpg|png|webp|mp4)$`).test(key) ? key : null;
+  return new RegExp(`^shops/${id}/${id}\\.(jpg|png|webp|mp4|woff2|ttf|otf|mp3|m4a)$`).test(key) ? key : null;
 }
 
 /** Removes one object with a signed DELETE. Gone, or never sent (404), is removed; any other answer throws. */

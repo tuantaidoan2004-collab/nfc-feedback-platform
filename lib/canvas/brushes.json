@@ -1,0 +1,97 @@
+{
+ "bot-may": {
+  "name": "Mây phấn (kiểu Sentry)",
+  "about": "Đám mây xịt sơn: vảy hạt dày ở giữa, thưa dần ra mép, vài vảy lạc xa; lớp mờ rất nhẹ bên dưới.",
+  "flakes": 110,
+  "size": [
+   0.7,
+   2.2
+  ],
+  "spread": 0.34,
+  "clumps": 5,
+  "clumpSpread": 0.22,
+  "haze": 0.2,
+  "stretch": 1,
+  "alpha": [
+   0.15,
+   0.65
+  ],
+  "stray": 0.08
+ },
+ "bot-xit": {
+  "name": "Xịt thưa",
+  "about": "Lớp xịt mỏng, hạt to nhỏ lẫn lộn, thấy rõ từng vảy; dùng phủ một vùng rộng cho có chất liệu.",
+  "flakes": 32,
+  "size": [
+   0.7,
+   2.8
+  ],
+  "spread": 0.42,
+  "clumps": 7,
+  "clumpSpread": 0.3,
+  "haze": 0.06,
+  "stretch": 1,
+  "alpha": [
+   0.15,
+   0.6
+  ],
+  "stray": 0.15
+ },
+ "bot-vet": {
+  "name": "Vệt cọ",
+  "about": "Một nhát cọ kéo ngang: hạt dồn theo vệt, hai đầu thưa; xoay `r` để đổi hướng.",
+  "flakes": 85,
+  "size": [
+   0.7,
+   2
+  ],
+  "spread": 0.3,
+  "clumps": 9,
+  "clumpSpread": 0.16,
+  "haze": 0.12,
+  "stretch": 3.2,
+  "alpha": [
+   0.18,
+   0.75
+  ],
+  "stray": 0.05
+ },
+ "bot-cham": {
+  "name": "Chấm phấn",
+  "about": "Một lần chấm cọ nhỏ, đặc ở lõi; chồng nhiều chấm to nhỏ để dựng nền như trang điểm phấn.",
+  "flakes": 150,
+  "size": [
+   0.7,
+   2
+  ],
+  "spread": 0.26,
+  "clumps": 3,
+  "clumpSpread": 0.14,
+  "haze": 0.22,
+  "stretch": 1,
+  "alpha": [
+   0.2,
+   0.8
+  ],
+  "stray": 0.04
+ },
+ "bot-hat": {
+  "name": "Hạt lấp lánh",
+  "about": "Chỉ có hạt, không lớp mờ: rắc lên ảnh hoặc nền tối để có độ nhám như giấy.",
+  "flakes": 14,
+  "size": [
+   0.6,
+   1.8
+  ],
+  "spread": 0.5,
+  "clumps": 6,
+  "clumpSpread": 0.35,
+  "haze": 0,
+  "stretch": 1,
+  "alpha": [
+   0.3,
+   0.9
+  ],
+  "stray": 0.2
+ }
+}

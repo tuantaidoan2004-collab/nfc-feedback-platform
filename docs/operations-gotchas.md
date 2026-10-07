@@ -840,3 +840,44 @@ Khoá ở máy nằm trong `.env.local` (gitignore, Tài tự ghi bằng lệnh 
 Nút "Tiếp tục với Google" trên màn đăng ký "không đứng yên" (hiệu ứng) tới hết 60 giây. Chạy lại bộ admin trên worktree tạm ở `ceb4e82`
 (trước Bàn dựng) cũng đỏ đúng ca này, nên không do Bàn dựng; cùng họ với ca chập chờn ghi ở trên (Chrome tự cập nhật). Đợt Bàn dựng
 đẩy lên với ca này đỏ, ghi rõ ở đây; chưa sửa code sản phẩm.
+
+## Kính mờ thành trong suốt sau hiệu ứng vào (06/10, mẫu Eid)
+Thẻ kính (`glass`, `backdrop-filter`) nằm trong phần tử có hiệu ứng vào: hiệu ứng chạy với `animation-fill-mode: both` thì sau khi
+xong vẫn giữ `transform` trên phần tử, và Chrome thôi làm mờ phía sau — thẻ thành tấm kính trong. Đã đổi `.cv-in` sang `backwards`
+(chạy xong không để lại gì). Kiểm bằng cách chụp, không bằng `getComputedStyle` (giá trị `backdrop-filter` vẫn đúng).
+
+## Ảnh chụp từ khung trình duyệt của app không tin được khi khung đang ẩn (06/10)
+`document.visibilityState` là `hidden` thì khung không vẽ khung hình mới: ảnh chụp là khung cũ (phần tử đang giữa hiệu ứng, ảnh chưa
+tải, cuộn không đổi). Để so với ảnh Canva, chụp bằng Chrome chạy nền qua Playwright (`channel: 'chrome'`, khổ 411×699, tỉ lệ 2), đợi
+~3,5 giây cho hiệu ứng xong.
+
+## `sua-trang.mjs dang … | head -1` làm lệnh dừng giữa chừng (07/10)
+Ống bị `head` đóng sau dòng đầu, lần ghi kế tiếp của script (`↑ tệp → …`) văng `EPIPE` và Node thoát giữa lúc tải ảnh / phát hành.
+Lần đó may là đã phát hành xong; chạy lại `dang` là đủ. Đừng cắt đầu ra của `sua-trang`: dùng `> /dev/null` hoặc để nguyên. Dòng cuối
+in ra có một dòng trống sau, nên `tail -1` cũng không thấy gì dù lệnh đã chạy xong.
+
+## Số điện thoại của quán không bao giờ hiện trên trang (phát hiện 07/10)
+`parseProfile` lưu số dạng `tel:+84…`, nhưng `readProfile` đọc lại bằng chính `parseProfile`, và nhánh điện thoại chỉ nhận số trần
+→ số bị coi là sai và lặng lẽ bỏ đi mỗi lần trang hiện ra. Nút/chữ có `slot: "phone"` chưa từng hiện. Đã sửa (bỏ tiền tố `tel:` trước
+khi đọc), test ở `tests/contracts/slots.spec.ts`. Bài học: dữ liệu đã lưu phải đọc lại được bằng đúng hàm kiểm khi lưu — viết test vòng
+lưu → đọc cho mọi trường.
+
+## Đổi tên hình trong kho làm hỏng trang đã lưu (07/10)
+`dust` → `bot-*`, `xe-net` → `xe-mau`: bản nháp và bản phát hành cũ còn tên cũ thì không qua kiểm, lệnh `dang` dừng ("Tài liệu trang
+sai dạng"); bản phát hành không sửa được. Trên máy đã sửa bản nháp bằng SQL và đăng qua lõi phát hành. Từ nay tên hình là vĩnh viễn —
+muốn đổi thì thêm tên mới, giữ tên cũ.
+
+## Vòng `for m in "a b c"; set -- $m` không tách chữ trong zsh (07/10, lỗi của agent)
+Shell của máy Tài là zsh: `set -- $m` giữ nguyên cả chuỗi, nên lệnh integration chạy thành `run-local.mjs --build` (không chọn bộ,
+sai chế độ) suốt ~12 phút trước khi bị phát hiện. Chạy 4 bộ integration bằng 4 dòng lệnh viết thẳng như `.github/workflows/ci.yml`,
+không gói vào vòng lặp tách chữ.
+
+## Màn trình duyệt lấy giá trị từ tệp chỉ chạy ở máy chủ → build production hỏng (07/10, lỗi của agent)
+`components/admin-desk.tsx` ('use client') import giá trị `FILE_ROLES` từ `lib/admin/desk.ts`, tệp dùng `node:crypto` và (qua
+`templates.ts`) `node:fs`. `tsc` và `next dev` không báo; chỉ `next build` (harness `--build`) đỏ với "UnhandledSchemeError: node:…".
+Bảng dùng chung giờ ở `lib/admin/file-roles.ts`. Luật: màn trình duyệt chỉ `import type` từ `lib/admin/*`, giá trị dùng chung đặt tệp riêng.
+
+## Ca "impersonation" (bộ admin) chập chờn ở bước chủ quán tự đăng nhập (07/10)
+Đăng nhập trả 200, trình duyệt gọi `/app/<quán>` nhưng layout nhận `401 LOGIN_REQUIRED` rồi đẩy về form đăng nhập. Chạy riêng ca này ở chế
+độ dev **trên HEAD `7e8526c`** cũng đỏ y hệt, trong khi cả bộ `--build` có lần xanh lần đỏ — chập chờn có sẵn, không do đợt dựng từ ảnh.
+Lần chạy cuối cùng trước khi đẩy (07/10) ca này xanh. Chưa tìm ra gốc (nghi: phiên mới ghi chưa kịp đọc khi `router.replace` gọi ngay).

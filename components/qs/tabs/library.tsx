@@ -86,6 +86,11 @@ function Templates({ templates, groups, name, onPick }: { templates: TemplateCar
   const chips = useMemo(() => [ALL, ...groups.filter(name => templates.some(card => card.groups.includes(name)))], [templates, groups]);
   const shown = useMemo(() => templates.filter(card => fold(`${card.name} ${card.about} ${card.groups.join(' ')}`).includes(fold(search.trim()))
     && (group === ALL || card.groups.includes(group))), [templates, search, group]);
+  // Tài 06/10: every old template deleted while the new set is made.
+  if (templates.length === 0) return <section className={styles.grid}>
+    <HowItWorks />
+    <p className="qs-muted" data-no-templates>Loạt mẫu mới đang được làm, sắp có. Cần trang ngay thì nhắn Admin Tài.</p>
+  </section>;
   return <section className={styles.grid}>
     <HowItWorks />
     <div className={styles.search}><Icon name="search" size={18} /><input className={`qs-input ${styles.searchInput}`} placeholder="Tìm template" value={search} onChange={event => setSearch(event.target.value)} aria-label="Tìm template" /></div>

@@ -102,3 +102,9 @@ test('a slot only where the shop\'s data can show; a hidden element and what is 
   stack.hide = true;
   expect(placeholderLinks(doc)).toEqual([]);
 });
+
+test('a phone and an email read back from the store stay on the page (07/10: the stored "tel:" form used to drop the phone)', () => {
+  const stored = parseProfile({ links: { phone: '0912 345 678', email: 'xinchao@quan.vn' } });
+  expect(stored.links).toEqual({ phone: { url: 'tel:+84912345678' }, email: { url: 'mailto:xinchao@quan.vn' } });
+  expect(readProfile(JSON.parse(JSON.stringify(stored))).links).toEqual(stored.links);
+});

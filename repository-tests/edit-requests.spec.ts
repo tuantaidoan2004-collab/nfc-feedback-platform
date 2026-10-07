@@ -141,10 +141,11 @@ test('the publishing core refuses a page that still leads to a sample, whoever p
  const back=pageFromTemplate('hien-dai','x').doc;delete button(back,'hau-mai').slot;
  const again=await f.core.saveDraft(page,fixed+1,{schemaVersion:4,name:'x',doc:back});
  expect(await code(f.core.publish(page,again))).toBe('PAGE_NOT_SYNCED');
- // The sample shop that shows the dashboard publishes the template as it is, samples and all.
+ // The sample shop that shows the dashboard publishes its page as it is, its sample name and all (since 06/10 the hidden start
+ // page, which carries no sample link).
  const sample=await new ShopProvisioning(f.db).ensureTemplate(f.adminId);
  const shown=(await f.resolver.live({slug:sample.slug})).config.doc;
- expect(button(shown,'zalo')).toMatchObject({link:'https://zalo.me/'});expect(JSON.stringify(shown)).toContain('YOUR SHOP');
+ expect(JSON.stringify(shown)).toContain('YOUR SHOP');expect([...walk(shown)].some(el=>el.t==='google')).toBe(true);
 });
 
 test('the shop\'s details are checked against every live page before they are saved, and refused by where the problem is',async({f})=>{

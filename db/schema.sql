@@ -311,8 +311,8 @@ CREATE TABLE media_assets (
     CONSTRAINT media_assets_check CHECK (((state = 'pending'::text) = (reviewed_at IS NULL))),
     CONSTRAINT media_assets_check1 CHECK (((state <> 'rejected'::text) OR (reason IS NOT NULL))),
     CONSTRAINT media_assets_check2 CHECK (((state = 'rejected'::text) OR (reason IS NULL))),
-    CONSTRAINT media_assets_content_type_check CHECK (((content_type IS NULL) OR (content_type = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text, 'video/mp4'::text])))),
-    CONSTRAINT media_assets_kind_check CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text]))),
+    CONSTRAINT media_assets_content_type_check CHECK (((content_type IS NULL) OR (content_type = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text, 'video/mp4'::text, 'font/woff2'::text, 'font/ttf'::text, 'font/otf'::text, 'audio/mpeg'::text, 'audio/mp4'::text])))),
+    CONSTRAINT media_assets_kind_check CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text, 'font'::text, 'audio'::text]))),
     CONSTRAINT media_assets_reason_check CHECK (((reason IS NULL) OR (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 300)) AND (reason !~ '[[:cntrl:]<>]'::text)))),
     CONSTRAINT media_assets_size_bytes_check CHECK (((size_bytes IS NULL) OR (size_bytes > 0))),
     CONSTRAINT media_assets_state_check CHECK ((state = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text]))),
@@ -2326,7 +2326,7 @@ CREATE INDEX edit_request_notes_request ON edit_request_notes (request_id, creat
 CREATE TABLE edit_request_files (
     request_id uuid NOT NULL REFERENCES edit_requests(id) ON DELETE CASCADE,
     media_id uuid NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
-    role text NOT NULL CHECK (role = ANY (ARRAY['logo'::text, 'anh'::text, 'video'::text])),
+    role text NOT NULL CHECK (role = ANY (ARRAY['poster'::text, 'nen'::text, 'logo'::text, 'logo-phu'::text, 'anh'::text, 'anh-phu'::text, 'video'::text, 'font-chinh'::text, 'font-dac-biet'::text, 'am-thanh'::text])),
     name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120 AND name !~ '[<>]'::text),
     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
     PRIMARY KEY (request_id, media_id)

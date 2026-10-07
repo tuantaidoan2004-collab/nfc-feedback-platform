@@ -40,7 +40,8 @@ export function contentSecurityPolicy(pathname: string, inputs: PolicyInputs) {
     ['style-src', ["'self'", "'unsafe-inline'"]],
     ['img-src', pictures],
     ['media-src', pictures.filter(source => source !== 'data:')],
-    ['font-src', ["'self'", 'data:']],
+    // A shop's own fonts come from its store (Bàn dựng, ô "Font chính" / "Font đặc biệt"), like its pictures.
+    ['font-src', ["'self'", 'data:', ...(media ? [media] : [])]],
     // The page's own API, and the store the owner's browser uploads straight into (a signed PUT).
     ['connect-src', ["'self'", ...(store ? [store] : [])]],
     ['frame-src', ["'self'"]],

@@ -5,7 +5,7 @@ import { PublishingAdmin, templateVersionRow, type PageRef } from '../lib/publis
 import type { PageConfig } from '../lib/publishing/config';
 import type { PageDoc } from '../lib/canvas/doc';
 import { walk } from '../lib/canvas/validate';
-import { CANVAS_TEMPLATES, DEFAULT_TEMPLATE, pageFromTemplate } from '../lib/canvas/templates';
+import { CANVAS_TEMPLATES, pageFromTemplate } from '../lib/canvas/templates';
 import { FACES } from '../lib/faces';
 const uri = process.env.NFC_TEST_DATABASE_URL, schema = process.env.NFC_TEST_SCHEMA;
 if (uri !== 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test' || !/^nfc_ui_test_[a-f0-9]{32}$/.test(schema ?? '')) throw Error('Isolated harness required');
@@ -17,7 +17,8 @@ const GOOGLE = 'https://maps.google.com/?cid=42', SHOP_GOOGLE = 'https://maps.go
  * slot shows the shop's name whatever the page (lib/canvas/slots.ts, Tài 06/10), so the page also writes `name` on a line of its
  * own (`loi-moi`, when the template has it): that line tells which release is on screen.
  */
-function canvas(name: string, change?: (doc: PageDoc) => void, key = DEFAULT_TEMPLATE): PageConfig {
+// The fixture basic-1 (tests/fixtures/templates): a page with a picture and buttons, which the start page does not have.
+function canvas(name: string, change?: (doc: PageDoc) => void, key = 'basic-1'): PageConfig {
   const config = pageFromTemplate(key, name);
   if ([...walk(config.doc)].some(e => e.id === 'loi-moi')) set(config.doc, 'loi-moi', { words: { vi: name } });
   change?.(config.doc); return config;
@@ -422,7 +423,7 @@ test('what the customer did reaches the log, through the published page, without
 // stays as it was, for the guest to come back to.
 const googleTab = (page: Page) => page.context().route('https://maps.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
 test('with thanks before Google: a tap thanks the guest, the count runs out, Google opens in a new tab and this page stays', async ({ page, fixture: f }) => {
-  const shop = await templateShop(f, DEFAULT_TEMPLATE, 'hai', doc => { doc.fx = { thanks: 4 }; }); await googleTab(page);
+  const shop = await templateShop(f, 'basic-1', 'hai', doc => { doc.fx = { thanks: 4 }; }); await googleTab(page);
   await page.goto('/hai'); await loaded(page);
   const google = page.locator('[data-google]');
   // The count opens the tab itself, so the link does not ask the browser for one.
@@ -495,7 +496,7 @@ test('a guest page is titled with its own name and never indexed; the front page
 
 // Lát P4: a paused page says so, with nothing of the page behind it; a closed page's link no longer exists.
 test('a paused page tells the guest it is paused; a closed page answers 404, for its link and its cards alike', async ({ page, fixture: f }) => {
-  const shop = await templateShop(f, DEFAULT_TEMPLATE, 'dung');
+  const shop = await templateShop(f, 'basic-1', 'dung');
   const tag = await f.admin.createTag(shop, 'dung-card'); await f.admin.setTagState(shop, tag, 'active');
   await f.admin.pausePage(shop, 'admin');
   for (const path of ['/dung', '/t/dung-card']) {

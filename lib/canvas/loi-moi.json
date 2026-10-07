@@ -1,0 +1,427 @@
+{
+ "chung": {
+  "name": "Dùng chung",
+  "group": "Chung",
+  "moment": "Khi chưa rõ ngành.",
+  "above": [
+   {
+    "vi": "Thật tuyệt nếu nhận được đánh giá của bạn trên:",
+    "en": "We would love to hear your review on:"
+   },
+   {
+    "vi": "Cảm nhận của bạn giúp quán tốt hơn mỗi ngày:",
+    "en": "Your thoughts help us get better every day:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Khen hay góp ý, quán đều đọc từng dòng.",
+    "en": "Praise or suggestions, we read every line."
+   }
+  ]
+ },
+ "ca-phe": {
+  "name": "Cà phê, trà sữa, tiệm bánh",
+  "group": "Ăn uống",
+  "moment": "Gọi món ở quầy → ra chỗ ngồi chờ nước 3–7 phút → nhân viên mang nước tới. Thẻ ở bàn, cạnh số thứ tự.",
+  "above": [
+   {
+    "vi": "Nước đang lên, chờ xíu nha ☕",
+    "en": "Your drink is on its way ☕"
+   },
+   {
+    "vi": "Khi đã nhâm nhi xong, cảm nhận của bạn về quán ở đây:",
+    "en": "Once you've had a sip, your thoughts on the café go here:"
+   },
+   {
+    "vi": "Ngồi thêm chút nhé. Khi rảnh tay, cảm nhận của bạn về quán ở đây:",
+    "en": "Stay a while. When you have a moment, your thoughts on the café go here:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Ảnh đẹp thì giữ làm kỷ niệm, hay đăng kèm khi viết cảm nhận cũng được.",
+    "en": "Keep the photo for yourself, or add it when you write about us — either way."
+   },
+   {
+    "vi": "Viết lúc nào cũng được, không cần vội.",
+    "en": "Whenever you like, no rush."
+   }
+  ],
+  "tamLy": "Lúc chạm thẻ khách vừa ngồi xuống, đang chờ nước: xếp chỗ, đi vệ sinh, hoặc rảnh tay và hơi chán, cầm điện thoại. Họ chưa uống gì nên chưa có gì để đánh giá — đừng cảm ơn như thể họ sắp về. Hãy cho họ việc vui để làm lúc chờ: quán hôm nay đẹp, góc này lên ảnh đẹp, tạo dáng một tấm. Lời mời viết cảm nhận để nhẹ, cho lúc sau khi đã uống, không ép ngay.",
+  "trinhBay": "Câu chào theo đúng lúc chờ nước (thay \"cảm ơn đã ghé\"). Một khối \"Góc đẹp hôm nay\": ảnh không gian quán (khung polaroid, lật nhiều ảnh nếu có) + chữ viết tay rủ tạo dáng chụp. Lời mời viết cảm nhận nằm quanh nút Google, trung lập, ghi rõ là lúc nào tiện; ảnh chỉ là gợi ý \"nếu thích\", không bắt buộc.",
+  "photo": [
+   {
+    "vi": "Góc đẹp hôm nay ✦\nTạo dáng một tấm nha!",
+    "en": "Today's prettiest corner ✦\nStrike a pose!"
+   },
+   {
+    "vi": "Trong lúc chờ nước, góc này đang lên ảnh đẹp lắm.",
+    "en": "While you wait, this corner photographs beautifully."
+   }
+  ]
+ },
+ "nha-hang": {
+  "name": "Nhà hàng, quán ăn gia đình",
+  "group": "Ăn uống",
+  "moment": "3–5 phút chờ hoá đơn; thẻ trên kẹp hoá đơn.",
+  "above": [
+   {
+    "vi": "Cảm ơn cả bàn đã dùng bữa cùng quán. Cảm nhận của mọi người ở đây:",
+    "en": "Thank you for dining with us. Your table's thoughts go here:"
+   },
+   {
+    "vi": "Trong lúc chờ hoá đơn, nếu tiện, chia sẻ trải nghiệm bữa ăn trên:",
+    "en": "While the bill comes, if you like, share your meal on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Mọi cảm nhận, khen hay góp ý, bếp đều đọc.",
+    "en": "Every note, praise or suggestion, reaches the kitchen."
+   }
+  ]
+ },
+ "quan-nhau": {
+  "name": "Quán nhậu, bar, pub",
+  "group": "Ăn uống",
+  "moment": "Đầu buổi, khi khách còn hào hứng; standee trên bàn hoặc quầy tính tiền.",
+  "above": [
+   {
+    "vi": "Cảm ơn đã ghé chơi tối nay. Cảm nhận của bạn về quán ở đây:",
+    "en": "Thanks for coming out tonight. Your thoughts on the bar go here:"
+   },
+   {
+    "vi": "Không khí tối nay thế nào? Viết trên:",
+    "en": "How's the night going? Write on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Uống vui, về nhà an toàn nhé.",
+    "en": "Have fun, and get home safe."
+   }
+  ]
+ },
+ "via-he": {
+  "name": "Quán vỉa hè, kiosk mang đi",
+  "group": "Ăn uống",
+  "moment": "2–3 phút chờ món; mã in trên túi, hộp, quầy chờ.",
+  "above": [
+   {
+    "vi": "Chờ món chút xíu nhé. Cảm nhận của bạn giúp quán nhỏ đi xa hơn:",
+    "en": "Your food's almost ready. Your thoughts help a small stall go further:"
+   },
+   {
+    "vi": "Cảm ơn bạn đã ủng hộ quán. Trang của quán ở đây:",
+    "en": "Thanks for stopping by. Our page is here:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Ăn ngon miệng nhé!",
+    "en": "Enjoy your food!"
+   }
+  ]
+ },
+ "toc": {
+  "name": "Salon tóc, tiệm barber",
+  "group": "Làm đẹp",
+  "moment": "Lúc thợ vừa xong, khách đang ngắm gương; thẻ ở góc gương hoặc quầy lễ tân.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã ngồi ghế của tiệm hôm nay. Cảm nhận của bạn ở đây:",
+    "en": "Thanks for taking a seat with us today. Your thoughts go here:"
+   },
+   {
+    "vi": "Mỗi lần ghé là một lần tiệm học thêm. Bạn có thể viết trên:",
+    "en": "Every visit teaches us something. You can write on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Khen hay góp ý, tiệm đều đọc từng dòng.",
+    "en": "Praise or suggestions, we read every line."
+   }
+  ]
+ },
+ "spa": {
+  "name": "Nail, mi, spa, massage",
+  "group": "Làm đẹp",
+  "moment": "Lúc khách thư giãn ở sofa chờ, trước khi thanh toán.",
+  "above": [
+   {
+    "vi": "Thư giãn thêm chút nhé. Khi sẵn sàng, cảm nhận của bạn ở đây:",
+    "en": "Relax a little longer. When you're ready, your thoughts go here:"
+   },
+   {
+    "vi": "Cảm ơn bạn đã dành thời gian cho mình ở tiệm. Chia sẻ trải nghiệm trên:",
+    "en": "Thank you for taking time for yourself with us. Share your visit on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Không cần vội, lúc nào tiện cũng được.",
+    "en": "No hurry, whenever suits you."
+   }
+  ]
+ },
+ "phong-kham": {
+  "name": "Phòng khám, nha khoa, thẩm mỹ",
+  "group": "Làm đẹp",
+  "moment": "Tin nhắn hỏi thăm sau 24 giờ; trang mở từ link trong tin.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã tin tưởng phòng khám. Trải nghiệm của bạn giúp người sau yên tâm hơn:",
+    "en": "Thank you for trusting us. Your experience helps the next patient feel at ease:"
+   },
+   {
+    "vi": "Nếu tiện, chia sẻ trải nghiệm thăm khám của bạn trên:",
+    "en": "If you like, share your visit on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Chúc bạn mau hồi phục.",
+    "en": "Wishing you a quick recovery."
+   }
+  ]
+ },
+ "thoi-trang": {
+  "name": "Thời trang, giày dép, phụ kiện",
+  "group": "Mua sắm",
+  "moment": "Trong phòng thử hoặc khi mở túi ở nhà; thẻ trên gương, tag cảm ơn.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã ghé shop. Cảm nhận của bạn về shop ở đây:",
+    "en": "Thanks for visiting. Your thoughts on the shop go here:"
+   },
+   {
+    "vi": "Cảm nhận của bạn giúp shop chọn đồ tốt hơn mỗi mùa:",
+    "en": "Your thoughts help us choose better every season:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Mặc đẹp mỗi ngày nhé.",
+    "en": "Look good every day."
+   }
+  ]
+ },
+ "my-pham": {
+  "name": "Mỹ phẩm, nước hoa",
+  "group": "Mua sắm",
+  "moment": "Khi khách mở hộp ở nhà; thiệp cảm ơn trong hộp.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã chọn sản phẩm của tiệm. Trải nghiệm của bạn ở đây:",
+    "en": "Thanks for choosing us. Your experience goes here:"
+   },
+   {
+    "vi": "Dùng một thời gian rồi cho tiệm biết cảm nhận của bạn trên:",
+    "en": "After a while of using it, let us know your thoughts on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Mọi cảm nhận đều giúp tiệm tốt hơn.",
+    "en": "Every note helps us improve."
+   }
+  ]
+ },
+ "tap-hoa": {
+  "name": "Siêu thị mini, tạp hoá, trái cây",
+  "group": "Mua sắm",
+  "moment": "Khi khách xem lại hoá đơn; mã ở chân hoá đơn.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã mua sắm ở tiệm. Cảm nhận của bạn giúp tiệm phục vụ tốt hơn:",
+    "en": "Thanks for shopping with us. Your thoughts help us serve you better:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Hẹn gặp lại bạn lần sau.",
+    "en": "See you next time."
+   }
+  ]
+ },
+ "hoa": {
+  "name": "Hoa tươi, cửa hàng đồ lưu niệm",
+  "group": "Mua sắm",
+  "moment": "Sau khi gửi khách ảnh sản phẩm hoàn thiện, qua tin nhắn.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã chọn hoa ở tiệm. Cảm nhận của bạn ở đây:",
+    "en": "Thanks for choosing our flowers. Your thoughts go here:"
+   },
+   {
+    "vi": "Mỗi bó hoa là một câu chuyện. Tiệm muốn nghe bạn trên:",
+    "en": "Every bouquet has a story. We'd love to hear yours on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Chúc người nhận một ngày thật đẹp.",
+    "en": "Wishing the recipient a lovely day."
+   }
+  ]
+ },
+ "garage": {
+  "name": "Garage ô tô, sửa xe máy",
+  "group": "Sửa chữa",
+  "moment": "Lúc bàn giao chìa khoá, xe đã chạy thử; standee ở quầy bàn giao.",
+  "above": [
+   {
+    "vi": "Xe đã sẵn sàng. Cảm ơn bạn đã tin giao xe cho xưởng. Cảm nhận của bạn ở đây:",
+    "en": "Your vehicle is ready. Thanks for trusting us with it. Your thoughts go here:"
+   },
+   {
+    "vi": "Minh bạch là điều xưởng giữ. Trải nghiệm của bạn trên:",
+    "en": "We keep things transparent. Your experience on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Thượng lộ bình an.",
+    "en": "Drive safe."
+   }
+  ]
+ },
+ "sua-may": {
+  "name": "Sửa điện thoại, laptop",
+  "group": "Sửa chữa",
+  "moment": "Lúc khách nhận máy, thử lại các chức năng.",
+  "above": [
+   {
+    "vi": "Máy đã về tay bạn. Cảm nhận về lần sửa này, bạn viết trên:",
+    "en": "Your device is back with you. Your thoughts on this repair go on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Có gì chưa ổn, nhắn riêng cho tiệm ở góc dưới.",
+    "en": "Anything not right? Message us privately at the bottom."
+   }
+  ]
+ },
+ "tho-tai-nha": {
+  "name": "Sửa chữa tại nhà",
+  "group": "Sửa chữa",
+  "moment": "Sau khi thợ dọn dẹp và nghiệm thu; link qua tin nhắn.",
+  "above": [
+   {
+    "vi": "Cảm ơn anh chị đã đón thợ hôm nay. Cảm nhận của anh chị ở đây:",
+    "en": "Thank you for having us today. Your thoughts go here:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Chúc nhà mình mọi thứ chạy êm.",
+    "en": "Hope everything at home runs smoothly."
+   }
+  ]
+ },
+ "khach-san": {
+  "name": "Khách sạn, homestay",
+  "group": "Lưu trú",
+  "moment": "Lúc trả phòng hoặc vài giờ sau khi khách đi.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã lưu trú cùng chúng tôi. Chuyến đi của bạn thế nào? Chia sẻ trên:",
+    "en": "Thank you for staying with us. How was your trip? Share it on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Chúc bạn thượng lộ bình an.",
+    "en": "Safe travels."
+   }
+  ]
+ },
+ "the-thao": {
+  "name": "Gym, yoga, pilates, sân cầu lông, pickleball",
+  "group": "Lưu trú",
+  "moment": "Lúc nghỉ sau buổi tập; thẻ ở tủ đồ hoặc quầy nước.",
+  "above": [
+   {
+    "vi": "Buổi tập hôm nay thế nào? Cảm nhận của bạn ở đây:",
+    "en": "How was today's session? Your thoughts go here:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Nhớ uống đủ nước nhé.",
+    "en": "Remember to hydrate."
+   }
+  ]
+ },
+ "net": {
+  "name": "Quán net, cyber game",
+  "group": "Lưu trú",
+  "moment": "Lúc đăng xuất, đứng dậy ra về.",
+  "above": [
+   {
+    "vi": "GG! Trước khi về, nếu tiện, để lại cảm nhận về tiệm trên:",
+    "en": "GG! Before you go, if you like, leave your thoughts on:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Hẹn gặp lại trận sau.",
+    "en": "See you next match."
+   }
+  ]
+ },
+ "giao-duc": {
+  "name": "Trung tâm tiếng Anh, kỹ năng, ký túc xá",
+  "group": "Giáo dục",
+  "moment": "Cuối kỳ, sau khi học viên nhận kết quả; link trong nhóm lớp.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã học cùng trung tâm. Cảm nhận của bạn giúp lớp sau tốt hơn:",
+    "en": "Thanks for learning with us. Your thoughts help the next class:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Chúc bạn tiếp tục tiến bộ.",
+    "en": "Keep up the progress."
+   }
+  ]
+ },
+ "studio": {
+  "name": "Studio ảnh cưới, ảnh nghệ thuật",
+  "group": "Giáo dục",
+  "moment": "Khi gửi khách trọn bộ ảnh đã hậu kỳ.",
+  "above": [
+   {
+    "vi": "Cảm ơn bạn đã để studio lưu lại khoảnh khắc này. Cảm nhận của bạn ở đây:",
+    "en": "Thank you for letting us keep this moment. Your thoughts go here:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Mong những bức ảnh này theo bạn thật lâu.",
+    "en": "May these photos stay with you for years."
+   }
+  ]
+ },
+ "giat-ui": {
+  "name": "Giặt ủi, rửa xe tự động",
+  "group": "Giáo dục",
+  "moment": "20–30 phút khách ngồi chờ máy chạy.",
+  "above": [
+   {
+    "vi": "Máy đang chạy, bạn cứ thư giãn. Khi tiện, cảm nhận của bạn ở đây:",
+    "en": "The machine's running, so relax. When you like, your thoughts go here:"
+   }
+  ],
+  "below": [
+   {
+    "vi": "Đồ sạch, ngày nhẹ nhàng.",
+    "en": "Clean clothes, easy day."
+   }
+  ]
+ }
+}

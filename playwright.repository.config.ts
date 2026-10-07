@@ -1,4 +1,6 @@
 import { defineConfig } from '@playwright/test';
+// The deleted templates, kept as test fixtures (lib/canvas/templates.ts).
+process.env.NFC_TEMPLATE_DIR ??= `${process.cwd()}/tests/fixtures/templates`;
 
 // One worker, not two. Cases isolate with a schema, but owner and administrator login each take an advisory
 // lock scoped to the whole database so that only one KDF runs at a time. Two cases logging in at once — in one

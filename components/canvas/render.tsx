@@ -5,16 +5,17 @@
  * ứng vào đều là CSS (canvas.css), nên trang hiện đủ và đúng chỗ trước khi JavaScript kịp chạy.
  */
 import { memo, type CSSProperties, type ReactNode } from 'react';
-import type { Background, El, Kid, Leaf, PageDoc, RowEl, Section, StackEl, Words, DeckEl, Edge } from '@/lib/canvas/doc';
-import { paint } from '@/lib/canvas/paint';
+import { BRUSHES, type IconKey, type LinksEl, type Background, type El, type Kid, type Leaf, type PageDoc, type RowEl, type Section, type StackEl, type Words, type DeckEl, type Edge } from '@/lib/canvas/doc';
+import { firstColor, paint } from '@/lib/canvas/paint';
 import { walk } from '@/lib/canvas/validate';
 import { FONT_STACK, fontVariables } from './fonts';
 import Art from './art';
 import Shape from './shapes';
+import Powder from './powder';
 import CanvasIcon from './icons';
 import GuestCore, { LegalLine, type GuestMode } from '../guest/core';
 import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
-import { DeckCards, FeedbackPlane, GoogleButton, LangSwitch, LegalSpot, ScrollHint, SectionWatch, WifiButton } from './live';
+import { Arrow, DeckCards, FlipCard, FlipMedia, SoundToggle, FeedbackPlane, GoogleButton, LangSwitch, LegalSpot, ScrollHint, SectionWatch, WifiButton } from './live';
 import { WordsView } from './words';
 import './canvas.css';
 
@@ -44,7 +45,11 @@ export function Media({ src, fit = 'cover', focus, id, gray, top }: { src: strin
 }
 
 const BackgroundView = memo(function BackgroundView({ bg, id, className, haze }: { bg: Background; id: string; className: string; haze?: boolean }) {
-  const picture = bg.src && <div className={haze ? 'cv-haze' : undefined} style={haze ? undefined : { position: 'absolute', inset: 0, filter: bg.blur ? `blur(${bg.blur}px)` : undefined }}>
+  // A picture shorter than its section: sharp at its own shape on top, the rest continued in a blurred copy (doc.ts `extend`).
+  const extended = !haze && bg.src && bg.extend === 'blur' && <>
+    <div className="cv-extend-blur"><Media src={bg.src} id={`${id}-blur`} gray={bg.gray} /></div>
+    <div className="cv-extend-top"><Media src={bg.src} fit="contain" focus={[50, 0]} id={id} gray={bg.gray} top /></div></>;
+  const picture = extended || bg.src && <div className={haze ? 'cv-haze' : undefined} style={haze ? undefined : { position: 'absolute', inset: 0, filter: bg.blur ? `blur(${bg.blur}px)` : undefined }}>
     <Media src={bg.src} fit={bg.fit} focus={bg.focus ?? (haze ? undefined : [50, 0])} id={haze ? `${id}-haze` : id} gray={bg.gray} top={!haze} /></div>;
   return <div className={className} style={{ background: bg.fill ? paint(bg.fill) : undefined }} aria-hidden="true">
     {picture}
@@ -59,7 +64,8 @@ const ArtBackground = memo(function ArtBackground({ bg, id }: { bg: Background; 
 const edgeStyle = (edge: Edge | undefined, fill: string | undefined): Vars => {
   if (!edge) return { background: fill };
   if (typeof edge.color === 'string') return { background: fill, border: `calc(${edge.w} * var(--u)) solid ${edge.color}` };
-  return { '--ew': edge.w, backgroundImage: `${fill?.includes('gradient') ? fill : `linear-gradient(${fill ?? 'transparent'}, ${fill ?? 'transparent'})`}, ${paint(edge.color)}` } as Vars;
+  // A gradient edge is drawn as a ring over the element (canvas.css `.cv-edge`), so a see-through fill (glass) never shows the gradient through it.
+  return { background: fill, '--ew': edge.w, '--edge': paint(edge.color) } as Vars;
 };
 
 function LeafView({ el }: { el: Leaf | Extract<Kid, { t: Leaf['t'] }> }): ReactNode {
@@ -68,29 +74,35 @@ function LeafView({ el }: { el: Leaf | Extract<Kid, { t: Leaf['t'] }> }): ReactN
     case 'text': {
       const style: Vars = { '--fs': el.size, fontFamily: FONT_STACK[el.font], fontWeight: el.weight, color: el.color, textAlign: el.align ?? 'center',
         letterSpacing: el.spacing ? `${el.spacing / 100}em` : undefined, lineHeight: el.line, fontStyle: el.italic ? 'italic' : undefined,
-        textTransform: el.caps ? 'uppercase' : undefined, textShadow: shadow(el.shadow), textDecoration: el.underline ? 'underline' : undefined,
+        textTransform: el.caps ? 'uppercase' : undefined, textShadow: shadow(el.shadow), textDecoration: el.underline || el.slot === 'website' ? 'underline' : 'none',
         WebkitTextStroke: el.stroke ? `calc(${el.stroke.w} * var(--u)) ${el.stroke.color}` : undefined,
         alignItems: el.align === 'left' ? 'flex-start' : el.align === 'right' ? 'flex-end' : 'center' };
       if (el.disc) Object.assign(style, { borderRadius: '50%', ...edgeStyle(el.disc.edge, paint(el.disc.fill)) });
+      if (el.paint) Object.assign(style, { backgroundImage: paint(el.paint), WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' });
       const body = el.arc ? <ArcText words={el.words} w={w || 300} h={el.h} size={el.size} radius={el.arc} color={el.color} font={FONT_STACK[el.font]} weight={el.weight}
         spacing={el.spacing} id={`arc-${el.id}`} /> : <span><WordsView words={el.words} colors={el.colors} /></span>;
       return el.link ? <a className="cv-text" style={style} href={el.link} target="_blank" rel="noopener noreferrer">{body}</a> : <div className="cv-text" style={style}>{body}</div>;
     }
     case 'image': {
       const frame = el.frame === 'polaroid' ? 'cv-polaroid' : el.frame === 'gilded' ? 'cv-gilded' : '';
-      const inner = <div className={`cv-img cv-mask-${el.mask ?? 'none'}`} style={{ '--radius': el.radius, ...edgeStyle(el.edge, undefined), boxShadow: frame ? undefined : shadow(el.shadow) } as Vars}>
-        <Media src={el.src} fit={el.fit} focus={el.focus} id={el.id} gray={el.gray} /></div>;
+      const inner = <div className={`cv-img cv-mask-${el.mask ?? 'none'}${el.edge && typeof el.edge.color !== 'string' ? ' cv-edge' : ''}`} style={{ '--radius': el.radius, ...edgeStyle(el.edge, undefined), boxShadow: frame ? undefined : shadow(el.shadow) } as Vars}>
+        {el.flip ? <FlipMedia srcs={[el.src, ...el.flip]} fit={el.fit} focus={el.focus} gray={el.gray} /> : <Media src={el.src} fit={el.fit} focus={el.focus} id={el.id} gray={el.gray} />}</div>;
       const framed = frame ? <div className={`cv-img ${frame}`} style={{ boxShadow: shadow(el.shadow) }}>{inner}
         {el.caption && <span className="cv-caption"><WordsView words={el.caption} /></span>}</div> : inner;
-      return el.link ? <a className="cv-icon-link" href={el.link} target="_blank" rel="noopener noreferrer">{framed}</a> : framed;
+      const turning = el.flip ? <FlipCard>{framed}</FlipCard> : framed;
+      return el.link ? <a className="cv-icon-link" href={el.link} target="_blank" rel="noopener noreferrer">{turning}</a> : turning;
     }
     case 'shape': {
       if (el.shape === 'rect' || el.shape === 'circle' || el.shape === 'line') {
         const fill = el.fill ? paint(el.fill) : undefined, gradientEdge = el.edge && typeof el.edge.color !== 'string';
         const style: Vars = { '--radius': el.radius, '--blur': el.glass?.blur, boxShadow: shadow(el.shadow), ...edgeStyle(el.edge, el.glass ? el.glass.tint : fill) };
+        if (el.blur) style.filter = `blur(calc(${el.blur} * var(--u)))`;
         return <div className={`cv-shape ${el.glass ? 'cv-glass' : ''} ${gradientEdge ? 'cv-edge' : ''}`} data-shape={el.shape} style={style} />;
       }
-      return <Shape shape={el.shape} fill={el.fill} stroke={el.edge && typeof el.edge.color === 'string' ? { w: el.edge.w, color: el.edge.color } : undefined} id={el.id} />;
+      if (BRUSHES[el.shape]) return <Powder brush={el.shape} color={el.fill ? firstColor(el.fill) : '#fff'} id={el.id} />;
+      const drawn = <Shape shape={el.shape} fill={el.fill} stroke={el.edge && typeof el.edge.color === 'string' ? { w: el.edge.w, color: el.edge.color } : undefined} id={el.id}
+        w={w || el.h} grain={el.grain} />;
+      return el.blur ? <div className="cv-fill" style={{ filter: `blur(calc(${el.blur} * var(--u)))` }}>{drawn}</div> : drawn;
     }
     case 'icon': {
       const icon = <CanvasIcon icon={el.icon} color={el.color} id={el.id} />;
@@ -104,9 +116,11 @@ function LeafView({ el }: { el: Leaf | Extract<Kid, { t: Leaf['t'] }> }): ReactN
         {el.icon && el.look !== 'note' && <span className="cv-btn-icon"><CanvasIcon icon={el.icon} id={`${el.id}-i`} /></span>}
         <span className="cv-btn-label"><WordsView words={el.label} /></span>
         {el.icon && el.look === 'note' && <span className="cv-btn-icon" style={{ '--is': 18 } as Vars}><CanvasIcon icon={el.icon} id={`${el.id}-i`} /></span>}
+        {(el.look === 'row') && <Arrow />}
+        {el.look === 'tag' && <span className="cv-tag-cursor" aria-hidden="true"><CanvasIcon icon="cursor" id={`${el.id}-c`} /></span>}
       </>;
       if (el.wifi) return <WifiButton className={`cv-btn cv-btn-${el.look}`} style={style} wifi={el.wifi}>{content}</WifiButton>;
-      return <a className={`cv-btn cv-btn-${el.look}`} style={style} href={el.link} target={el.link?.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{content}</a>;
+      return <a className={`cv-btn cv-btn-${el.look}${el.slot === 'website' ? ' cv-web' : ''}`} style={style} href={el.link} target={el.link?.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{content}</a>;
     }
     case 'google': return <GoogleButton el={el} />;
     case 'lang': return <LangSwitch el={el} />;
@@ -149,7 +163,9 @@ const holdsGoogle = (el: El) => el.t === 'google' || ((el.t === 'stack' || el.t 
 const ElementView = memo(function ElementView({ el, z, mode }: { el: El; z: number; mode: GuestMode }) {
   if (el.hide) return null;
   const top = holdsGoogle(el);
-  const box: Vars = { '--x': el.x, '--y': el.y, '--w': el.w, '--h': el.h, '--r': deg(el.r), zIndex: top ? undefined : z, ...motionVars(el) };
+  const box: Vars = { '--x': el.x, '--y': el.y, '--w': el.w, '--h': el.h, '--r': deg(el.r), zIndex: top ? undefined : z, ...motionVars(el),
+    // Blending works against what lies under the element in the section, so it is set on the element's own box (doc.ts `blend`).
+    mixBlendMode: el.t === 'shape' ? el.blend : undefined };
   const cls = `cv-el${motionClass(el)}${top ? ' cv-top' : ''}`;
   // The paper plane floats over the whole page, drawn once by the page (FeedbackPlane), never in a section's layout.
   if (el.t === 'feedback') return null;
@@ -159,6 +175,7 @@ const ElementView = memo(function ElementView({ el, z, mode }: { el: El; z: numb
     {el.kids.map((kid, i) => <KidView key={kid.id} kid={kid} gap={el.gap} mode={mode} reveal={el.reveal} index={i} />)}
   </div>;
   if (el.t === 'deck') return <DeckView el={el} cls={cls} box={box} mode={mode} />;
+  if (el.t === 'links') return <div className={cls} data-id={el.id} style={box}><LinksView el={el} /></div>;
   return <div className={cls} data-id={el.id} style={box}><Loop el={el}><LeafView el={el} /></Loop></div>;
 });
 
@@ -206,6 +223,9 @@ export default function CanvasPage({ doc, mode, slug, googleUrl, render, afterFi
   return <GuestCore mode={mode} slug={slug} render={render} googleUrl={googleUrl} thanksSeconds={doc.fx?.thanks ?? 0} layout="canvas"
     className={fontVariables}
     style={{ background: doc.backdrop ? 'transparent' : pageColor(doc) }}>
+    {doc.fonts && <style>{[doc.fonts.chinh && `@font-face{font-family:'cv-rieng-chinh';src:url("${doc.fonts.chinh}");font-display:swap}`,
+      doc.fonts.dacBiet && `@font-face{font-family:'cv-rieng-dac-biet';src:url("${doc.fonts.dacBiet}");font-display:swap}`].filter(Boolean).join('')}</style>}
+    {doc.sound && mode !== 'still' && <SoundToggle src={doc.sound.src} volume={doc.sound.volume ?? .6} />}
     {doc.backdrop && <BackgroundView bg={doc.backdrop} id="backdrop" className="cv-backdrop" />}
     {doc.band && <div className="cv-band-layer" aria-hidden="true"><div className="cv-col"><div className="cv-band-u">
       <div className="cv-band" style={{ '--x': doc.band.x, '--w': doc.band.w, background: paint(doc.band.fill),
@@ -221,4 +241,21 @@ export default function CanvasPage({ doc, mode, slug, googleUrl, render, afterFi
     {doc.fx?.hint && doc.sections.length > 1 && mode !== 'still' && <ScrollHint after={doc.fx.hint} />}
     <SectionWatch />
   </GuestCore>;
+}
+
+/** Các nút của quán (doc.ts LinksEl): one per link the shop has, in its brand mark or a line in the page's colour. */
+const LINK_MARKS: Record<string, [IconKey, IconKey, string]> = {
+  zalo: ['zalo-oa', 'zalo-net', 'Zalo'], facebook: ['facebook', 'facebook-net', 'Facebook'], instagram: ['instagram', 'instagram-net', 'Instagram'],
+  tiktok: ['tiktok', 'tiktok-net', 'TikTok'], youtube: ['youtube', 'youtube-net', 'YouTube'], website: ['web', 'globe', 'Website'], menu: ['menu', 'menu', 'Menu'],
+  booking: ['calendar', 'calendar', 'Đặt chỗ'], maps: ['maps', 'maps-net', 'Chỉ đường'], email: ['mail', 'mail', 'Email'], phone: ['phone', 'phone', 'Gọi'],
+};
+function LinksView({ el }: { el: LinksEl }) {
+  const style: Vars = { '--lg': el.gap ?? 14, '--ls': el.size ?? 26, color: el.color, '--lbg': el.bg ? paint(el.bg) : undefined };
+  return <div className={`cv-links cv-links-${el.look}`} data-style={el.style ?? 'mau'} style={style}>
+    {(el.items ?? []).map(item => { const [brand, thin, name] = LINK_MARKS[item.slot]; const label = item.label ?? name;
+      return <a key={item.slot} className={item.slot === 'website' ? 'cv-web' : undefined} href={item.url} target={/^(tel|mailto):/.test(item.url) ? undefined : '_blank'}
+        rel="noopener noreferrer" aria-label={label} data-slot={item.slot}>
+        <span className="cv-links-mark"><CanvasIcon icon={el.style === 'net' || el.style === 'dac' ? thin : brand} id={`${el.id}-${item.slot}`} /></span>
+        {el.look !== 'icons' && <span className="cv-btn-label">{label}</span>}{el.look === 'rows' && <Arrow />}</a>; })}
+  </div>;
 }

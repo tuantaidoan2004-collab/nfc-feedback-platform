@@ -1,4 +1,4 @@
-import { ARTBOARD, ARTS, BUTTON_LOOKS, DECK_LOOKS, FONTS, GOOGLE_LOOKS, ICONS, LINK_SLOTS, MAX_ELEMENTS, MAX_SECTION_H, MAX_SECTIONS, MOTIONS_IN, MOTIONS_LOOP,
+import { ARTBOARD, ARTS, BLENDS, LINKS_LOOKS, BUTTON_LOOKS, DECK_LOOKS, FONTS, GOOGLE_LOOKS, GOOGLE_MARKS, GOOGLE_SHADOWS, ICONS, LINK_SLOTS, MAX_ELEMENTS, MAX_SECTION_H, MAX_SECTIONS, MOTIONS_IN, MOTIONS_LOOP,
   SHAPES, SLOTS, type PageDoc } from './doc';
 
 /**
@@ -42,6 +42,7 @@ function words(v: unknown, at: string, max = 400) { keys(v, at, ['vi'], ['en']);
 export function linkProblem(value: unknown): boolean {
   if (typeof value !== 'string' || value.length > 2048 || /[\u0000-\u001f\u007f<>\s]/.test(value)) return true;
   if (/^tel:\+?[0-9]{3,15}$/.test(value)) return false;
+  if (/^mailto:[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/.test(value)) return false;
   try { const url = new URL(value); return url.protocol !== 'https:' || !!url.username || !!url.password; } catch { return true; }
 }
 const link = (v: unknown, at: string) => { if (linkProblem(v)) fail(at); };
@@ -111,7 +112,8 @@ function leaf(v: unknown, at: string, inStack: boolean, depth: number) {
   if (!isObj(v)) fail(at);
   const t = (v as Obj).t;
   if (t === 'text') {
-    own(v, at, ['words', 'font', 'size', 'color'], ['weight', 'colors', 'align', 'spacing', 'line', 'italic', 'caps', 'shadow', 'stroke', 'underline', 'arc', 'link', 'disc'], inStack);
+    own(v, at, ['words', 'font', 'size', 'color'], ['weight', 'colors', 'align', 'spacing', 'line', 'italic', 'caps', 'shadow', 'stroke', 'underline', 'arc', 'link', 'disc', 'paint'], inStack);
+    opt(v, 'paint', fill, at);
     words(v.words, `${at}.words`, 600); oneOf(FONTS)(v.font, `${at}.font`); num(v.size, `${at}.size`, 4, 240); color(v.color, `${at}.color`);
     opt(v, 'weight', (n, a) => { num(n, a, 100, 900); if (Number(n) % 100) fail(a); }, at);
     opt(v, 'colors', (list, a) => { if (!Array.isArray(list) || !list.length || list.length > 8) fail(a); (list as unknown[]).forEach((c, i) => color(c, `${a}.${i}`)); }, at);
@@ -121,15 +123,16 @@ function leaf(v: unknown, at: string, inStack: boolean, depth: number) {
     opt(v, 'arc', (n, a) => { num(n, a, -2000, 2000); if (Math.abs(Number(n)) < 20) fail(a); }, at); opt(v, 'link', link, at);
     opt(v, 'disc', (d, a) => { keys(d, a, ['fill'], ['edge']); fill(d.fill, `${a}.fill`); opt(d, 'edge', edge, a); }, at);
   } else if (t === 'image') {
-    own(v, at, ['src'], ['fit', 'focus', 'mask', 'radius', 'edge', 'shadow', 'gray', 'frame', 'caption', 'link'], inStack);
+    own(v, at, ['src'], ['fit', 'focus', 'mask', 'radius', 'edge', 'shadow', 'gray', 'frame', 'caption', 'link', 'flip'], inStack);
+    opt(v, 'flip', (list, a) => { if (!Array.isArray(list) || !list.length || list.length > 6) fail(a); (list as unknown[]).forEach((s, i) => source(s, `${a}.${i}`)); }, at);
     source(v.src, `${at}.src`); opt(v, 'fit', oneOf(['cover', 'contain']), at); opt(v, 'focus', focus, at);
     opt(v, 'mask', oneOf(['none', 'circle', 'clover', 'arch', 'blob']), at); opt(v, 'radius', (n, a) => num(n, a, 0, 400), at);
     opt(v, 'edge', edge, at); opt(v, 'shadow', shadow, at); opt(v, 'gray', bool, at); opt(v, 'frame', oneOf(['polaroid', 'gilded']), at);
     opt(v, 'caption', (w, a) => words(w, a, 80), at); opt(v, 'link', link, at);
   } else if (t === 'shape') {
-    own(v, at, ['shape'], ['fill', 'edge', 'radius', 'glass', 'shadow', 'link'], inStack);
+    own(v, at, ['shape'], ['fill', 'edge', 'radius', 'glass', 'shadow', 'link', 'blur', 'grain', 'blend'], inStack); opt(v, 'grain', bool, at); opt(v, 'blend', oneOf(BLENDS), at);
     oneOf(SHAPES)(v.shape, `${at}.shape`); opt(v, 'fill', fill, at); opt(v, 'edge', edge, at); opt(v, 'radius', (n, a) => num(n, a, 0, 400), at);
-    opt(v, 'glass', glass, at); opt(v, 'shadow', shadow, at); opt(v, 'link', link, at);
+    opt(v, 'glass', glass, at); opt(v, 'shadow', shadow, at); opt(v, 'link', link, at); opt(v, 'blur', (n, a) => num(n, a, 0, 40), at);
   } else if (t === 'icon') {
     own(v, at, ['icon'], ['color', 'link'], inStack); oneOf(ICONS)(v.icon, `${at}.icon`); opt(v, 'color', color, at); opt(v, 'link', link, at);
   } else if (t === 'button') {
@@ -143,8 +146,9 @@ function leaf(v: unknown, at: string, inStack: boolean, depth: number) {
     opt(v, 'font', oneOf(FONTS), at); opt(v, 'size', (n, a) => num(n, a, 6, 60), at); opt(v, 'shadow', shadow, at);
     opt(v, 'weight', (n, a) => { num(n, a, 100, 900); if (Number(n) % 100) fail(a); }, at); opt(v, 'spacing', (n, a) => num(n, a, -10, 100), at);
   } else if (t === 'google') {
-    own(v, at, ['look'], ['bg', 'fg', 'shadow', 'bar', 'ring'], inStack);
-    oneOf(GOOGLE_LOOKS)(v.look, `${at}.look`); opt(v, 'bg', fill, at); opt(v, 'fg', color, at); opt(v, 'shadow', oneOf(['soft', 'hard', 'none']), at);
+    own(v, at, ['look'], ['bg', 'fg', 'shadow', 'shade', 'bar', 'ring', 'radius', 'arrow', 'size', 'shine', 'mark'], inStack); opt(v, 'shine', color, at); opt(v, 'mark', oneOf(GOOGLE_MARKS), at);
+    opt(v, 'radius', (n, a) => num(n, a, 0, 60), at); opt(v, 'arrow', bool, at); opt(v, 'size', (n, a) => num(n, a, 10, 24), at);
+    oneOf(GOOGLE_LOOKS)(v.look, `${at}.look`); opt(v, 'bg', fill, at); opt(v, 'fg', color, at); opt(v, 'shadow', oneOf(GOOGLE_SHADOWS), at); opt(v, 'shade', color, at);
     opt(v, 'bar', color, at); opt(v, 'ring', color, at);
   } else if (t === 'lang') {
     own(v, at, ['look', 'color'], ['bg', 'label'], inStack); oneOf(['select', 'chip'])(v.look, `${at}.look`); color(v.color, `${at}.color`);
@@ -171,8 +175,17 @@ function element(v: unknown, at: string) {
   if (!isObj(v)) fail(at);
   const t = (v as Obj).t;
   if (t === 'feedback') {
-    own(v, at, ['icon', 'color', 'edge'], [], false); slotFits(v, at);
-    oneOf(['plane', 'chat', 'mail'])(v.icon, `${at}.icon`); color(v.color, `${at}.color`); color(v.edge, `${at}.edge`);
+    own(v, at, ['icon', 'color', 'edge'], ['side'], false); slotFits(v, at);
+    oneOf(['plane', 'chat', 'mail'])(v.icon, `${at}.icon`); color(v.color, `${at}.color`); color(v.edge, `${at}.edge`); opt(v, 'side', oneOf(['left', 'right']), at);
+  } else if (t === 'links') {
+    own(v, at, ['look'], ['style', 'color', 'bg', 'gap', 'size', 'order', 'items'], false);
+    oneOf(LINKS_LOOKS)(v.look, `${at}.look`); opt(v, 'style', oneOf(['mau', 'net', 'dac']), at); opt(v, 'color', color, at); opt(v, 'bg', fill, at);
+    opt(v, 'gap', (n, a) => num(n, a, 0, 60), at); opt(v, 'size', (n, a) => num(n, a, 8, 60), at);
+    opt(v, 'order', (list, a) => { if (!Array.isArray(list) || list.length > LINK_SLOTS.length) fail(a); (list as unknown[]).forEach((s, i) => oneOf(LINK_SLOTS)(s, `${a}.${i}`)); }, at);
+    // Only ever written by slots.ts when the page is shown; checked like any link the page carries.
+    opt(v, 'items', (list, a) => { if (!Array.isArray(list) || list.length > LINK_SLOTS.length) fail(a);
+      (list as unknown[]).forEach((item, i) => { keys(item, `${a}.${i}`, ['slot', 'url'], ['label']); oneOf(LINK_SLOTS)((item as Obj).slot, `${a}.${i}.slot`); link((item as Obj).url, `${a}.${i}.url`);
+        opt(item, 'label', (w, b) => text(w, b, 60), `${a}.${i}`); }); }, at);
   } else if (t === 'stack') {
     own(v, at, ['kids', 'gap'], ['pad', 'align', 'panel', 'reveal'], false); slotFits(v, at);
     kids(v.kids, `${at}.kids`, 1); num(v.gap, `${at}.gap`, 0, 200); opt(v, 'pad', (n, a) => num(n, a, 0, 120), at);
@@ -193,7 +206,7 @@ function element(v: unknown, at: string) {
 }
 
 function background(v: unknown, at: string) {
-  keys(v, at, [], ['fill', 'src', 'fit', 'focus', 'gray', 'blur', 'dim']);
+  keys(v, at, [], ['fill', 'src', 'fit', 'focus', 'gray', 'blur', 'dim', 'extend']); opt(v, 'extend', oneOf(['blur']), at);
   opt(v, 'fill', fill, at); opt(v, 'src', source, at); opt(v, 'fit', oneOf(['cover', 'contain']), at); opt(v, 'focus', focus, at);
   opt(v, 'gray', bool, at); opt(v, 'blur', (n, a) => num(n, a, 0, 40), at); opt(v, 'dim', (n, a) => num(n, a, 0, .95), at);
 }
@@ -209,7 +222,9 @@ export function* walk(doc: PageDoc) {
 
 /** The page as stored: the same object, deep-copied, or an error naming where it went wrong. */
 export function validateDoc(value: unknown): PageDoc {
-  keys(value, 'doc', ['v', 'sections'], ['backdrop', 'band', 'fx']);
+  keys(value, 'doc', ['v', 'sections'], ['backdrop', 'band', 'fx', 'fonts', 'sound']);
+  opt(value, 'fonts', (f, a) => { keys(f, a, [], ['chinh', 'dacBiet']); opt(f, 'chinh', source, a); opt(f, 'dacBiet', source, a); }, 'doc');
+  opt(value, 'sound', (s, a) => { keys(s, a, ['src'], ['volume']); source(s.src, `${a}.src`); opt(s, 'volume', (n, b) => num(n, b, 0, 1), a); }, 'doc');
   if (value.v !== 1) fail('doc.v');
   opt(value, 'backdrop', background, 'doc');
   opt(value, 'band', (b, a) => { keys(b, a, ['x', 'w', 'fill'], ['blur']); num(b.x, `${a}.x`, -100, ARTBOARD); num(b.w, `${a}.w`, 1, ARTBOARD + 200); fill(b.fill, `${a}.fill`);
