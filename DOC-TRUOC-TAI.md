@@ -1,4 +1,11 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.3 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.6 ngày 08/10/2026
+
+## Mới ở 2.0.4–2.0.6 — chỉ đổi phía khách, API giữ nguyên
+
+- Sửa lỗi trên Chrome iPhone: trang quán mở ra bị lệch giữa, che logo, kéo lên thì Chrome tải lại trang. Lý do: trang chỉ dài hơn màn một chút,
+  Chrome thu thanh địa chỉ khi cuộn → hết chỗ cuộn mà vẫn kẹt lệch. Giờ trang khách là khung 1 màn: `html`/`body` cao 100dvh, không cuộn;
+  thanh TBQ đứng yên; `main` + chân trang nằm trong `<div class="page" data-scroll>` tự cuộn (`src/views/layout.js`, đầu `src/public/ui.css`).
+  Nếu QS nhúng hay đọc trang TBQ: cuộn trang là cuộn `[data-scroll]`, không phải `window`.
 
 ## Mới ở 2.0.2–2.0.3 — chỉ đổi phía khách, API giữ nguyên
 

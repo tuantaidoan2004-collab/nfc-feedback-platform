@@ -88,6 +88,13 @@
   }));
 
   const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- Khung không cuộn (ui.css .page): bàn phím iPhone có thể đẩy cả tài liệu lên; gõ xong kéo về chỗ cũ ----------
+  const typing = () => document.activeElement?.matches?.('input, textarea, select, [contenteditable]');
+  const settle = () => { if (!typing() && (window.scrollY || document.documentElement.scrollTop)) window.scrollTo(0, 0); };
+  window.addEventListener('focusout', () => setTimeout(settle, 150));
+  window.visualViewport?.addEventListener('resize', () => setTimeout(settle, 150));
+  window.addEventListener('pageshow', settle);
   const store = (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* bỏ qua */ } };
   const load = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch { return null; } };
   const isEmailLike = (v) => /^\S+@\S+\.\S+$/.test(v);
@@ -480,7 +487,8 @@
       try { localStorage.setItem(key, String(at)); } catch { /* bỏ qua */ }
       paint(dir);
       if (at === steps.length && dir > 0) cheer(items[at]);
-      if (flow.getBoundingClientRect().top < 0) flow.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      // đầu khung bước đã trôi khuất dưới thanh TBQ (mép trên vùng cuộn) → cuộn lên cho thấy
+      if (flow.getBoundingClientRect().top < ($('[data-scroll]')?.getBoundingClientRect().top || 0)) flow.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
     };
     // tới màn Xong: giấy màu rơi + rung khẽ
     const cheer = (el) => {

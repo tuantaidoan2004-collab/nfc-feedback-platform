@@ -23,10 +23,12 @@ ${bare ? '' : html`<header class="top"><div class="top-in">
   <a href="https://tiembanquyen.com" class="brand" target="_blank" rel="noopener" aria-label="Tiệm Bản Quyền — tiembanquyen.com">${raw(TBQ_TAG)}<span class="wordmark"><b>TBQ Space</b><small>Tiệm Bản Quyền</small></span></a>
   <a class="top-zalo" href="${zalo}" rel="noopener">Zalo</a>
 </div></header>`}
+<div class="page" data-scroll>
 <main class="wrap">
 ${body}
 </main>
 ${bare ? '' : html`<footer class="foot"><a href="https://tiembanquyen.com" target="_blank" rel="noopener">tiembanquyen.com</a><a href="/privacy">Chính sách dữ liệu</a><a href="${zalo}" rel="noopener">Nhắn Zalo Tiệm</a></footer>`}
+</div>
 ${script ? html`<script src="${asset(script)}" defer></script>` : ''}
 </body>
 </html>`;

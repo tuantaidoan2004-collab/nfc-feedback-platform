@@ -18,8 +18,11 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; background: var(--bg); }
-body { position: relative; margin: 0; min-height: 100dvh; color: var(--text); font: 17px/1.47 var(--f); letter-spacing: -.01em;
+/* Khung kiểu ứng dụng: TÀI LIỆU KHÔNG CUỘN, chỉ vùng .page dưới thanh TBQ cuộn. Lý do (Chrome trên iPhone): tài liệu cuộn → Chrome thu thanh địa chỉ,
+ * màn cao thêm ~100px; trang chỉ dài hơn màn chút xíu thì hết chỗ cuộn mà vẫn kẹt lệch (che logo), kéo xuống lại thành "Tải lại". */
+html { -webkit-text-size-adjust: 100%; background: var(--bg); height: 100%; overflow: hidden; overscroll-behavior: none; }
+body { position: relative; margin: 0; height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+  color: var(--text); font: 17px/1.47 var(--f); letter-spacing: -.01em;
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   background: radial-gradient(120% 60% at 70% -10%, rgba(212, 176, 106, .16), transparent 60%), var(--bg); }
 /* bụi vàng lấp lánh (giống nền trang quán Bamos) */
@@ -45,7 +48,8 @@ code { font-family: var(--mono); }
 .ok-line { color: var(--mint); font-size: 15px; font-weight: 600; }
 
 /* ---------- Khung ---------- */
-.top { position: sticky; top: 0; z-index: 20; background: rgba(25, 25, 20, .72); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+.page { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+.top { flex: none; position: relative; z-index: 20; background: rgba(25, 25, 20, .72); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--line); }
 .top-in { display: flex; align-items: center; justify-content: space-between; max-width: 480px; margin: 0 auto; padding: 0 20px; height: 58px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
