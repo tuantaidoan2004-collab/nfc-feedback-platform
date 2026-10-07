@@ -1,0 +1,82 @@
+/* Trang quản trị: dùng chung biến màu với style.css (giấy, mực, vàng đồng của Tiệm Bản Quyền); chữ không chân cho bảng số liệu. */
+body.admin { background: var(--paper); font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.anav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 8px 12px; background: var(--ink); position: sticky; top: 0; z-index: 5; }
+.anav a { color: var(--gold-light); text-decoration: none; padding: 6px 10px; border-radius: var(--radius); font-size: .9rem; }
+.anav a.on, .anav a:hover { background: var(--gold-700); color: #fff; }
+.anav form { margin-left: auto; }
+.anav .link { color: var(--gold-light); }
+.awrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
+.awrap h1 { font-size: 1.9rem; }
+.awrap h2 { margin-top: 1.4em; }
+.flash { background: var(--green-50); border: 1px solid #cfdfd0; color: var(--green); padding: 10px 14px; border-radius: var(--radius); font-weight: 600; }
+.acard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 12px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.acard.login { max-width: 380px; margin: 12vh auto; }
+.acard-head { margin-bottom: 6px; }
+.warn-left { border-left: 4px solid var(--gold); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; align-items: end; }
+.grid .btn, .grid h3, .grid .check { grid-column: 1 / -1; }
+.grid .btn { width: auto; justify-self: start; }
+.field { display: block; margin: 6px 0; font-weight: 600; font-size: .9rem; }
+.field > span { display: block; margin-bottom: 4px; }
+.field small { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.field input, .field select, .field textarea { padding: 9px 11px; border-radius: 9px; font-size: .95rem; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.row input, .row select { width: auto; padding: 7px 10px; border-radius: 9px; }
+/* Việc tay (đổi mật khẩu): ô mật khẩu / khoá 2FA đủ rộng trên điện thoại, không cắt chữ gợi ý. */
+.acard .row input:not([type=checkbox]) { flex: 1 1 240px; min-width: 0; }
+form.inline { display: inline-flex; gap: 6px; align-items: center; margin: 2px 4px 2px 0; }
+form.inline input { width: auto; padding: 6px 9px; border-radius: 8px; font-size: .88rem; letter-spacing: normal; text-align: left; }
+.btn-mini.ok { background: var(--green); color: #fff; border-color: var(--green); }
+.btn-mini.danger { color: #b91c1c; border-color: #fecaca; }
+.btn-mini.danger:hover { background: #fee2e2; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.tile b { display: block; font-size: 1.5rem; }
+.tile span { color: var(--muted); font-size: .85rem; }
+.tile.red { background: var(--red-50); } .tile.red b { color: var(--red); }
+.tile.yellow { background: var(--gold-50); } .tile.yellow b { color: var(--gold-700); }
+.tscroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f1f1; vertical-align: top; }
+th { background: var(--wash); font-weight: 600; white-space: nowrap; }
+.sev { font-size: .72rem; font-weight: 800; padding: 2px 6px; border-radius: 6px; }
+.sev-red { background: var(--red-50); color: var(--red); }
+.sev-yellow { background: var(--gold-50); color: var(--gold-700); }
+.sev-info { background: #f3f4f6; color: #4b5563; }
+code.break { word-break: break-all; }
+.mail-body { white-space: pre-wrap; word-break: break-word; background: #fff; padding: 14px; border-radius: 12px; max-height: 60vh; overflow: auto; font-size: .88rem; }
+.live-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.live-head h1 { margin: 0; }
+.alert-item { display: flex; gap: 8px; padding: 8px 10px; background: #fff; border-radius: 10px; margin-bottom: 6px; font-size: .9rem; }
+.alert-item.red { border-left: 4px solid var(--red); }
+.alert-item.yellow { border-left: 4px solid var(--gold); }
+.alert-item .at { color: var(--muted); white-space: nowrap; }
+@media (max-width: 640px) { .awrap { padding: 10px; } .anav a { padding: 5px 7px; } }
+.hbar { -webkit-appearance: none; appearance: none; width: 100%; min-width: 120px; height: 12px; border: 0; border-radius: 6px; background: #eef2f0; overflow: hidden; }
+.hbar::-webkit-progress-bar { background: #eef2f0; border-radius: 6px; }
+.hbar::-webkit-progress-value { background: var(--green); border-radius: 6px; }
+.hbar::-moz-progress-bar { background: var(--green); border-radius: 6px; }
+@media print {
+  .anav, .noprint, .flash { display: none !important; }
+  body.admin { background: #fff; }
+  .tile, .tscroll, .acard { box-shadow: none; border: 1px solid #e5e7eb; }
+  h2 { break-after: avoid; }
+  tr { break-inside: avoid; }
+}
+/* Một ô chiếm cả hàng trong .grid (vd. ô dán danh sách tài khoản). */
+.grid .wide { grid-column: 1 / -1; }
+.grid .wide textarea { font-family: var(--font-mono); font-size: .85rem; }
+/* Form một hàng xuống dòng được trên điện thoại (khoá khách, ghi vi phạm…). */
+form.inline { flex-wrap: wrap; max-width: 100%; }
+form.inline input { min-width: 0; flex: 1 1 150px; }
+
+/* Theo dõi: kho hôm nay */
+.stock-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.stock { flex: 1 1 150px; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line, #e4dccd); border-radius: 10px; background: #fffdf9; text-decoration: none; color: inherit; font-size: .9rem; }
+.stock b { font-size: .95rem; }
+.stock.yellow { border-color: #d9a441; background: #fdf4e1; }
+.stock.red { border-color: #a3322b; background: #fbeae8; }
+.stock .warn-text { color: #a3322b; font-size: .85rem; }
+.alert-item .hint { font-size: .85rem; margin-top: 3px; color: #5a4a2a; }
+td form.inline { white-space: nowrap; }
+.num-mini { width: 72px !important; flex: 0 0 auto !important; }

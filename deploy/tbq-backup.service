@@ -1,0 +1,11 @@
+# /etc/systemd/system/tbq-backup.service — sao lưu database (an toàn cả khi app đang ghi) vào /opt/tbq-trial/data/backup,
+# giữ 30 ngày. Bản sao không chứa DATA_KEY: cất DATA_KEY ở nơi khác, và nên chép bản sao ra ngoài máy chủ định kỳ.
+[Unit]
+Description=Sao lưu database TBQ
+
+[Service]
+Type=oneshot
+User=tbq
+WorkingDirectory=/opt/tbq-trial
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/backup.js
+ExecStartPost=/usr/bin/find /opt/tbq-trial/data/backup -name 'tbq-*.sqlite' -mtime +30 -delete

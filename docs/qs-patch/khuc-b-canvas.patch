@@ -1,0 +1,834 @@
+diff --git a/app/gov/api/shops/events/route.ts b/app/gov/api/shops/events/route.ts
+new file mode 100644
+index 0000000..3d07cf0
+--- /dev/null
++++ b/app/gov/api/shops/events/route.ts
+@@ -0,0 +1,14 @@
++import { AdminAuth } from '@/lib/admin/auth';
++import { ShopEvents } from '@/lib/events/shop-events';
++import { database } from '@/server/db';
++import { adminFailure, adminGate, adminInput, adminJson, adminOrigin, adminSessionToken } from '@/server/admin';
++
++// Khúc B: open or close an organizer's event for one shop (`{ shopId, event, open }`). Opening shows the block on every live
++// page of the shop at once (between the first section and the rest); closing takes it off. The shop's owner does nothing.
++export async function POST(request: Request) {
++  try {
++    adminGate(); adminOrigin(request);
++    const principal = await new AdminAuth(database()).access(await adminSessionToken());
++    return adminJson(await new ShopEvents(database()).set(principal.adminId, await adminInput(request)));
++  } catch (error) { return adminFailure(error); }
++}
+diff --git a/components/admin-shops.tsx b/components/admin-shops.tsx
+index 0c23e4b..5e902af 100644
+--- a/components/admin-shops.tsx
++++ b/components/admin-shops.tsx
+@@ -4,6 +4,7 @@ import styles from './admin.module.css';
+ import { buttonClass } from './platform/ui';
+ 
+ import { PLACE_ID_FINDER } from '@/lib/google/place-id';
++import { EVENTS, EVENT_KEYS, type EventKey } from '@/lib/events/catalog';
+ 
+ export type ShopRow = {
+   id: string; slug: string; name: string; publishing_state: string; is_template: boolean;
+@@ -12,6 +13,8 @@ export type ShopRow = {
+   support_level: 'off' | 'view' | 'edit' | 'full';
+   /** Pages, and what they would cost a month (lát P5, nothing charged yet). */
+   pages: number;
++  /** The organizers' events open for this shop (khúc B): shown on every live page of the shop, nothing for its owner to do. */
++  events: EventKey[];
+ };
+ /** The owner's four positions, as the operator sees them (migration 012). */
+ /** What each publishing state means to the operator (migration 003); the raw word stays on data-publishing-state. */
+@@ -104,6 +107,22 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
+     } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
+   };
+ 
++  // Khúc B: open an organizer's event for a shop that agreed to it; it shows on the shop's pages at once, between the first
++  // section and the rest, and closing takes it off at once. The shop's owner has nothing to do.
++  const switchEvent = async (row: ShopRow, event: EventKey, open: boolean) => {
++    if (!open && !window.confirm(`Đóng "${EVENTS[event].name}" cho ${row.name}? Khối này biến mất khỏi mọi trang của quán ngay.`)) return;
++    setBusy(true); setError('');
++    try {
++      const response = await fetch('/gov/api/shops/events', { method: 'POST', credentials: 'same-origin',
++        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shopId: row.id, event, open }) });
++      if (response.status === 409) { setError('Database chưa có bảng shop_events: tạo bảng một lần (câu CREATE TABLE cuối db/schema.sql) rồi bấm lại.'); return; }
++      if (!response.ok) { setError(failed(response.status)); return; }
++      setError(open ? `Đã mở "${EVENTS[event].name}" cho ${row.name}: khối hiện ngay trên mọi trang của quán.`
++        : `Đã đóng "${EVENTS[event].name}" cho ${row.name}.`);
++      await refresh();
++    } catch { setError('Không thể kết nối. Vui lòng thử lại.'); } finally { setBusy(false); }
++  };
++
+   const endStandIn = async () => {
+     setBusy(true); setError('');
+     try {
+@@ -191,7 +210,7 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
+         <button type="button" className={buttonClass('secondary')} onClick={() => { void navigator.clipboard.writeText(templateLink).then(() => setError('Đã sao chép link.'), () => setError('Giữ lâu vào link để sao chép.')); }}>Sao chép</button></p>}
+       <div className={styles.wide}>
+         <table className={styles.table}>
+-          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Hoạt động</th><th/></tr></thead>
++          <thead><tr><th>Shop</th><th>Trang khách</th><th>Dashboard</th><th>Chủ shop</th><th>Thẻ</th><th>Trang</th><th>Trạng thái</th><th>Hỗ trợ</th><th>Sự kiện</th><th>Hoạt động</th><th/></tr></thead>
+           <tbody>
+             {shops.map(row => <tr key={row.id} data-template={row.is_template || undefined}>
+               <td data-label="Shop" className={styles.shopCell}>{row.is_template && <><strong>TEMPLATE</strong> · </>}{row.name}<br/><code>{row.slug}</code></td>
+@@ -204,13 +223,18 @@ export default function AdminShops({ initial, origin, templates }: { initial: Sh
+               <td data-label="Trang">{row.pages} trang</td>
+               <td data-label="Trạng thái" data-publishing-state={row.publishing_state}>{STATES[row.publishing_state] ?? row.publishing_state}</td>
+               <td data-label="Hỗ trợ" data-support-level={row.support_level}>{row.is_template ? '—' : LEVELS[row.support_level]}</td>
++              <td data-label="Sự kiện" data-shop-events>{row.is_template ? '—' : EVENT_KEYS.map(event => {
++                const open = (row.events ?? []).includes(event);
++                return <button key={event} type="button" className={buttonClass(open ? 'secondary' : 'quiet')} disabled={busy} data-event={event} aria-pressed={open}
++                  title={EVENTS[event].summary.vi} onClick={() => void switchEvent(row, event, !open)}>{EVENTS[event].title.vi}: {open ? 'đang mở · Đóng' : 'Mở'}</button>;
++              })}</td>
+               <td data-label="Hoạt động">{row.last_seen ? new Date(row.last_seen).toLocaleDateString('vi-VN') : 'chưa có lượt nào'}</td>
+               <td className={styles.rowActions}><div>{row.owner_user_id && !row.is_template && <>
+                 <button className={buttonClass('secondary')} disabled={busy} onClick={() => reissue(row)}>Phát lại liên kết</button>
+                 <button className={buttonClass('caution')} disabled={busy || row.publishing_state !== 'active'} onClick={() => { setError(''); setStandIn(row); window.scrollTo(0, 0); }}>Mạo danh</button>
+               </>}</div></td>
+             </tr>)}
+-            {!shops.length && <tr><td colSpan={9} className={styles.muted}>Chưa có shop nào.</td></tr>}
++            {!shops.length && <tr><td colSpan={10} className={styles.muted}>Chưa có shop nào.</td></tr>}
+           </tbody>
+         </table>
+       </div>
+diff --git a/components/canvas/event.tsx b/components/canvas/event.tsx
+new file mode 100644
+index 0000000..ad6df24
+--- /dev/null
++++ b/components/canvas/event.tsx
+@@ -0,0 +1,17 @@
++/**
++ * Khúc B trên trang khách: mỗi sự kiện /gov đã mở cho quán thành một khúc canvas (lib/events/section.ts), vẽ bằng đúng
++ * SectionView của trang, đặt giữa khúc đầu và phần còn lại (render.tsx `afterFirst`). Mọi khách đều thấy, không phụ thuộc
++ * việc bấm Google (luật 4 và 8).
++ */
++import type { PageDoc } from '@/lib/canvas/doc';
++import type { EventBlock } from '@/lib/events/catalog';
++import { eventSection } from '@/lib/events/section';
++import { SectionView } from './render';
++import { EventTaps } from './live';
++
++export default function EventSections({ doc, blocks }: { doc: PageDoc; blocks: EventBlock[] }) {
++  if (!blocks.length) return null;
++  return <>{blocks.map(block => <EventTaps key={block.key} event={block.key} items={block.items}>
++    <SectionView section={eventSection(doc, block)} index={1} mode="live" />
++  </EventTaps>)}</>;
++}
+diff --git a/components/canvas/live.tsx b/components/canvas/live.tsx
+index b1a1616..9c6f8f0 100644
+--- a/components/canvas/live.tsx
++++ b/components/canvas/live.tsx
+@@ -188,3 +188,16 @@ export function SectionWatch() {
+   }, []);
+   return null;
+ }
++
++/**
++ * Khúc B (components/canvas/event.tsx): counts a guest opening one of an organizer's links as `event_tapped`, with the two
++ * catalog keys and nothing else. The links stay plain links drawn on the server; this only listens on the way through.
++ */
++export function EventTaps({ event, items, children }: { event: string; items: { key: string; href: string }[]; children: ReactNode }) {
++  const guest = useGuest();
++  return <div style={{ display: 'contents' }} data-event={event} onClickCapture={click => {
++    const href = (click.target as Element).closest('a')?.getAttribute('href');
++    const item = items.find(i => i.href === href);
++    if (item) guest.event('event_tapped', { event, item: item.key });
++  }}>{children}</div>;
++}
+diff --git a/components/canvas/render.tsx b/components/canvas/render.tsx
+index 3125f11..95937f3 100644
+--- a/components/canvas/render.tsx
++++ b/components/canvas/render.tsx
+@@ -172,7 +172,7 @@ function DeckView({ el, cls, box, mode }: { el: DeckEl; cls: string; box: Vars;
+   </div>;
+ }
+ 
+-const SectionView = memo(function SectionView({ section, index, mode }: { section: Section; index: number; mode: GuestMode }) {
++export const SectionView = memo(function SectionView({ section, index, mode }: { section: Section; index: number; mode: GuestMode }) {
+   // The first section fills the first screen: its background runs to the bottom of the phone, whatever its height in units.
+   return <section className="cv-sec" data-section={section.id} data-wait={index > 0 ? '' : undefined} data-first={index === 0 ? '' : undefined} aria-label={section.name}>
+     {section.bg && <BackgroundView bg={section.bg} id={`bg-${section.id}`} className="cv-sec-bg" haze={!!section.bg.src} />}
+diff --git a/components/published-page.tsx b/components/published-page.tsx
+index 432e4fe..2885773 100644
+--- a/components/published-page.tsx
++++ b/components/published-page.tsx
+@@ -4,6 +4,9 @@ import { cache } from 'react';
+ import { publicPage } from '@/server/publishing-runtime';
+ import { PublishingError } from '@/lib/publishing/config';
+ import CanvasPage from './canvas/render';
++import EventSections from './canvas/event';
++import { eventBlock } from '@/lib/events/catalog';
++import { issueTicket, throughCard } from '@/lib/events/ticket';
+ 
+ type Target = {slug:string}|{code:string}|{previewToken:string};
+ // One read per request: the tab title and the page itself both need the published page (lát S0). `cache` keys on its
+@@ -33,5 +36,11 @@ export default async function PublishedPage({target}:{target:Target}) {
+     return <main className="dashboard-wrap"><h1>Trang chưa sẵn sàng</h1><p>Vui lòng thử lại sau. / Please try again later.</p></main>;
+   }
+   // The page is the shop's canvas document (đợt ②); the Google button always takes the shop's own review link.
+-  return <CanvasPage doc={page.config.doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}/>;
++  // Khúc B: the organizers' events /gov opened for the shop, their links finished on the server (address and key are
++  // configuration) and keyed by the shop's link. A guest who came through the shop's card also carries a fresh ticket: that
++  // is how the organizer knows they are in the shop, without asking the shop for anything (lib/events/ticket.ts).
++  const card = throughCard(page.context);
++  const events = page.events.map(key => eventBlock(key, page.shopSlug, card ? issueTicket(key, page.shopSlug) : null));
++  return <CanvasPage doc={page.config.doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}
++    afterFirst={<EventSections doc={page.config.doc} blocks={events} />}/>;
+ }
+diff --git a/components/qs/tabs/library.tsx b/components/qs/tabs/library.tsx
+index 0a1455f..8565e15 100644
+--- a/components/qs/tabs/library.tsx
++++ b/components/qs/tabs/library.tsx
+@@ -14,6 +14,7 @@ import PageThumb from '@/components/canvas/thumb';
+ import styles from './tabs.module.css';
+ import Icon, { type IconName } from '../icons';
+ import { PageSheet, StateTag, TemplateSheet, usePages } from './pages-ui';
++import { EVENTS, EVENT_KEYS } from '@/lib/events/catalog';
+ 
+ type Section = 'home' | 'template' | 'su-kien';
+ const SECTIONS: [Section, string, IconName][] = [['home', 'Home', 'home'], ['template', 'Template', 'template'], ['su-kien', 'Sự kiện', 'event']];
+@@ -101,13 +102,14 @@ function Templates({ templates, groups, onPick }: { templates: TemplateCard[]; g
+ }
+ 
+ function Events() {
++  // Khúc B: sự kiện do admin mở cho quán ở /gov (lib/events/shop-events.ts); khối tự hiện dưới khúc đầu của mọi trang.
+   return <section className={styles.grid}>
+     <h2>Sự kiện</h2>
+-    <p className="qs-muted qs-small">Sự kiện mở cho quán đã đăng ký gói sự kiện đó. Bấm Add để đưa sự kiện vào khúc B của một trang. Mọi khách đều thấy và nhận được — không bao giờ gắn với việc đánh giá Google.</p>
+-    <article className={styles.card} style={{ display: 'grid', gap: 10 }}>
+-      <div className={styles.row}><h3>Trải nghiệm A.I free 1 ngày</h3><span className="qs-pill free">Free</span></div>
+-      <p className="qs-muted qs-small">Khách nhận một tài khoản dùng A.I miễn phí trong 1 ngày; phần còn lại do bên tổ chức sự kiện lo.</p>
+-      <button type="button" className="qs-btn small" disabled>Add — chờ link của nhà tổ chức</button>
+-    </article>
++    <p className="qs-muted qs-small">Sự kiện do admin mở cho quán đã đồng ý tham gia. Khi mở, khối sự kiện tự hiện ngay dưới khúc đầu của mọi trang — bạn không phải thêm hay phát hành lại gì. Mọi khách đều thấy và nhận được — không bao giờ gắn với việc đánh giá Google.</p>
++    {EVENT_KEYS.map(key => <article key={key} className={styles.card} style={{ display: 'grid', gap: 10 }}>
++      <div className={styles.row}><h3>{EVENTS[key].title.vi}</h3><span className="qs-pill free">Free</span></div>
++      <p className="qs-muted qs-small">{EVENTS[key].summary.vi}</p>
++      <p className="qs-muted qs-small">Do {EVENTS[key].organizer} tổ chức. Muốn tham gia hoặc tạm dừng: nhắn admin.</p>
++    </article>)}
+   </section>;
+ }
+diff --git a/db/schema.sql b/db/schema.sql
+index de73168..b45cf78 100644
+--- a/db/schema.sql
++++ b/db/schema.sql
+@@ -2290,3 +2290,19 @@ CREATE TABLE publish_reviews (
+     CHECK ((state = 'rejected'::text) = (reason IS NOT NULL))
+ );
+ CREATE UNIQUE INDEX publish_reviews_one_pending ON publish_reviews (shop_id) WHERE state = 'pending'::text;
++
++--
++-- Khúc B (05/10/2026): sự kiện của bên tổ chức trên trang quán (lib/events/catalog.ts). Chỉ /gov mở / đóng cho từng quán;
++-- khối hiện trên mọi trang đang chạy của quán, giữa khúc đầu và phần còn lại (components/canvas/event.tsx). Chủ quán không
++-- phải làm gì. Không nằm trong bản phát hành nào, nên mở / đóng không phải phát hành lại.
++-- Database dựng từ bản schema.sql trước khi có bảng này: chạy đúng câu CREATE TABLE dưới đây một lần. Chưa chạy thì mọi quán
++-- coi như không có sự kiện (trang khách vẫn chạy), /gov báo thiếu bảng.
++--
++
++CREATE TABLE shop_events (
++    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
++    event_key text NOT NULL CHECK (event_key ~ '^[a-z][a-z0-9-]{0,31}$'::text),
++    opened_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
++    opened_by uuid REFERENCES platform_admins(id),
++    PRIMARY KEY (shop_id, event_key)
++);
+diff --git a/lib/admin/provisioning.ts b/lib/admin/provisioning.ts
+index 19e579c..a2c0175 100644
+--- a/lib/admin/provisioning.ts
++++ b/lib/admin/provisioning.ts
+@@ -9,6 +9,7 @@ import { loginBucket, transaction, username } from '../owner/auth';
+ import { recordAdminAction } from './audit';
+ import { AdminError } from './auth';
+ import { shortCode, withShortCode } from '../short-code';
++import { ShopEvents } from '../events/shop-events';
+ import { DEFAULT_TEMPLATE, canvasTemplate, pageFromTemplate } from '../canvas/templates';
+ import { pageLabel } from '../owner/page-names';
+ 
+@@ -206,7 +207,9 @@ export class ShopProvisioning {
+   async list() {
+     const shops = await this.shopRows();
+     const pages = (await this.pool.query('SELECT shop_id,count(*)::int n FROM pages GROUP BY shop_id')).rows as { shop_id: string; n: number }[];
+-    return shops.map(shop => ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0 }));
++    // The organizers' events open for each shop (khúc B), switched in the same table.
++    const events = await new ShopEvents(this.pool).byShop();
++    return shops.map(shop => ({ ...shop, pages: pages.find(page => page.shop_id === shop.id)?.n ?? 0, events: events.get(shop.id) ?? [] }));
+   }
+   private async shopRows() {
+     return (await this.pool.query(`SELECT s.id,s.slug,s.name,s.publishing_state,s.is_template,
+diff --git a/lib/client/page-events.ts b/lib/client/page-events.ts
+index 7257b7a..84c3c68 100644
+--- a/lib/client/page-events.ts
++++ b/lib/client/page-events.ts
+@@ -11,7 +11,7 @@
+  *     which `sendBeacon` also does -- but sendBeacon cannot set a header, and moving the capability into the body
+  *     just to please it would give this one call a different way of authenticating than everything else.
+  */
+-export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned';
++export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned' | 'event_tapped';
+ type Queued = { name: GuestEventName; sinceOpenMs: number; detail?: Record<string, string | number | boolean> };
+ type Ports = { fetch?: typeof fetch; listen?: (event: string, run: () => void) => void };
+ /** The server refuses more than twenty in one call, so the queue flushes before it can build one. */
+diff --git a/lib/events/catalog.ts b/lib/events/catalog.ts
+new file mode 100644
+index 0000000..136a7c1
+--- /dev/null
++++ b/lib/events/catalog.ts
+@@ -0,0 +1,79 @@
++import type { Words } from '../canvas/doc';
++
++/**
++ * Sự kiện của bên tổ chức, đặt ở khúc B của trang quán: vùng dưới lời mời Google, dưới các khối của chính quán.
++ * Chỉ /gov bật / tắt cho từng quán (bảng `shop_events`); chủ quán không phải làm gì. Bên tổ chức tự lo mọi thứ của mình
++ * (kho, máy chủ, hỗ trợ khách) và không xin quán quyền gì.
++ *
++ * Luật Google (docs/google-policy.md luật 4 và 8): mọi khách đều thấy, không phụ thuộc việc bấm Google, chữ không nhắc
++ * tới đánh giá. Chữ ở đây là của nền tảng, không phải của shop, và vẫn qua cùng dây bẫy với chữ của shop
++ * (tests/contracts/events.spec.ts).
++ *
++ * Mỗi sự kiện là một khối có tiêu đề, một câu ngắn và vài nút; nút mở trang của bên tổ chức ở tab mới, kèm mã quán
++ * (`{shop}`). Nút có `ticket` mang thêm một **vé** (lib/events/ticket.ts) khi khách mở trang bằng thẻ / mã QR của quán:
++ * bên tổ chức dùng vé để biết khách đang ngồi ở quán, thay cho mọi thứ phải đặt ở quán (màn hình, mã quầy, Wi-Fi).
++ * Giao diện của khối theo template của trang: các nút dùng đúng kiểu nút link của template (`guest-links`).
++ */
++export type EventItem = { key: string; label: Words; path: string; ticket?: true };
++export type EventDef = {
++  key: string; organizer: string; title: Words; summary: Words; items: readonly EventItem[];
++  /** Địa chỉ gốc của bên tổ chức, https, có thể kèm thư mục (TBQ: /colap). Máy thử đổi được bằng biến `originEnv` (chỉ http://127.0.0.1 khi NFC_ENV=local). */
++  origin: string; originEnv: string;
++  /** Biến chứa khoá ký vé, dùng chung với bên tổ chức. Thiếu khoá thì nút vẫn có, chỉ không mang vé. */
++  ticketKeyEnv: string;
++  /** Tên trong /gov. */
++  name: string;
++};
++
++export const EVENTS = {
++  // Tiệm Bản Quyền (TBQ): khách nhận một công cụ làm việc bản quyền dùng miễn phí, ngay tại quán. Nguồn chữ bên TBQ:
++  // `src/qs-event.js` của TBQ; hai bên phải giống nhau.
++  'tbq-cong-cu': {
++    key: 'tbq-cong-cu',
++    organizer: 'Tiệm Bản Quyền',
++    title: { vi: 'Công cụ làm việc', en: 'Work tools' },
++    summary: {
++      vi: 'ChatGPT, Canva, CapCut… bản Pro xịn xò cho bạn chạy deadline ngay tại quán. Ai ngồi quán cũng nhận được, chọn 1 món là xong.',
++      en: 'ChatGPT, Canva, CapCut… the Pro versions, ready for your deadline right here. Everyone in the shop can get one, just pick a tool.',
++    },
++    items: [
++      { key: 'nhan', label: { vi: 'Nhận công cụ làm việc miễn phí', en: 'Get a free work tool' }, path: '/qs/{shop}', ticket: true },
++      { key: 've-chung-toi', label: { vi: 'Về chúng tôi', en: 'About us' }, path: '/ve-chung-toi?shop={shop}' },
++    ],
++    origin: 'https://thu.tiembanquyen.com/colap',
++    originEnv: 'NFC_EVENT_TBQ_ORIGIN',
++    ticketKeyEnv: 'NFC_EVENT_TBQ_KEY',
++    name: 'Công cụ làm việc · Tiệm Bản Quyền',
++  },
++} as const satisfies Record<string, EventDef>;
++
++export type EventKey = keyof typeof EVENTS;
++export const EVENT_KEYS = Object.keys(EVENTS) as EventKey[];
++export const isEventKey = (value: unknown): value is EventKey => typeof value === 'string' && Object.hasOwn(EVENTS, value);
++
++/** What the guest page draws for one event on one shop: the words and the finished links. */
++export type EventBlock = { key: EventKey; organizer: string; title: Words; summary: Words; items: { key: string; label: Words; href: string }[] };
++
++/** The organizer's base address: https, or a local one on a test machine, with an optional plain folder (/colap) and no query. Anything else falls back to the default. */
++export function eventOrigin(key: EventKey, env: Record<string, string | undefined> = process.env): string {
++  const event: EventDef = EVENTS[key], value = env[event.originEnv];
++  if (!value) return event.origin;
++  let url: URL; try { url = new URL(value); } catch { return event.origin; }
++  const local = env.NFC_ENV === 'local' && url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname);
++  if ((url.protocol !== 'https:' && !local) || url.username || url.password || url.search || url.hash) return event.origin;
++  if (!/^(\/[A-Za-z0-9_-]+)*\/?$/.test(url.pathname)) return event.origin;
++  return url.origin + url.pathname.replace(/\/+$/, '');
++}
++
++/**
++ * The block for one shop. The shop's link goes on the organizer's address in lower case, as the organizer keys it; a
++ * ticket, when there is one, goes only on the items that take it.
++ */
++export function eventBlock(key: EventKey, shop: string, ticket: string | null = null, env: Record<string, string | undefined> = process.env): EventBlock {
++  const event: EventDef = EVENTS[key], origin = eventOrigin(key, env), code = encodeURIComponent(shop.toLowerCase());
++  return { key, organizer: event.organizer, title: event.title, summary: event.summary,
++    items: event.items.map(item => {
++      const href = origin + item.path.replace('{shop}', code);
++      return { key: item.key, label: item.label, href: item.ticket && ticket ? `${href}${href.includes('?') ? '&' : '?'}t=${encodeURIComponent(ticket)}` : href };
++    }) };
++}
+diff --git a/lib/events/section.ts b/lib/events/section.ts
+new file mode 100644
+index 0000000..7911574
+--- /dev/null
++++ b/lib/events/section.ts
+@@ -0,0 +1,78 @@
++import type { ButtonEl, El, FontKey, PageDoc, Section, TextEl } from '../canvas/doc';
++import { walk } from '../canvas/validate';
++import type { EventBlock } from './catalog';
++
++/**
++ * Khúc B trên trang canvas: một sự kiện của bên tổ chức thành **một khúc canvas thật**, đặt giữa khúc đầu và phần còn lại
++ * (components/canvas/render.tsx `afterFirst`). Khúc này không nằm trong tài liệu của quán, chủ quán không sửa được và không
++ * phải làm gì; nó mượn nét của chính trang để mỗi quán một vẻ:
++ *
++ * - nền: màu trang chạy tiếp ở dưới khúc cuối (giống dòng chân trang), nên khúc B nối liền với trang;
++ * - chữ: màu và phông tiêu đề của template nếu đủ tương phản trên nền đó, không thì trắng / gần đen;
++ * - nút: kiểu nút của template (pill, gradient, ring…) với màu của nó; template không có nút hợp thì pill đảo màu.
++ *
++ * Luật Google (docs/google-policy.md luật 4 và 8): khúc này không bao giờ là khúc đầu (nút Google luôn ở màn hình đầu,
++ * khúc đầu cao hết màn hình), có một vạch ngăn với phần của quán, và câu cuối nói rõ ai tổ chức, dành cho mọi khách.
++ */
++const W = 390;
++const BTN_W = 310;
++/** Looks that draw their own surface, so they read the same on any page colour. The rest (text, link, box, tag, tail) lean on the template's background. */
++const FILLED = new Set<ButtonEl['look']>(['pill', 'gradient', 'glow', 'ring', 'outline', 'soft', 'note']);
++/** Decorative faces read well as a shop's name, less as a sentence about someone else's offer. */
++const PLAIN_TITLE: Partial<Record<FontKey, FontKey>> = { script: 'display', brush: 'display', hand: 'display' };
++
++const hex6 = (c: string) => /^#[0-9a-f]{3}$/i.test(c) ? c.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3') : c.slice(0, 7);
++function luminance(color: string) {
++  const hex = hex6(color);
++  if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
++  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
++  return .2126 * r + .7152 * g + .0722 * b;
++}
++export function contrast(a: string, b: string) {
++  const x = luminance(a), y = luminance(b);
++  if (x === null || y === null) return 0;
++  return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
++}
++
++/** The colour the page continues in below its last section: that section's own, the backdrop's, or near-black under a picture. */
++export function baseColor(doc: PageDoc): string {
++  const last = doc.sections[doc.sections.length - 1]?.bg?.fill ?? doc.backdrop?.fill;
++  const color = !last ? '#0b0b0c' : typeof last === 'string' ? last : last.stops[last.stops.length - 1][0];
++  return luminance(color) === null ? '#0b0b0c' : hex6(color);
++}
++
++/** Every element of the page, children of stacks and rows included (only their looks are read here, never their places). */
++const elements = (doc: PageDoc) => [...walk(doc)] as El[];
++
++export function eventSection(doc: PageDoc, block: EventBlock): Section {
++  const base = baseColor(doc), dark = (luminance(base) ?? 0) < .35;
++  const all = elements(doc);
++  const title = all.find((el): el is TextEl => el.t === 'text' && !el.arc && !el.disc);
++  const ink = title && contrast(title.color, base) >= 4.5 ? hex6(title.color) : dark ? '#f6f3ee' : '#17171a';
++  const font: FontKey = title ? PLAIN_TITLE[title.font] ?? title.font : 'display';
++  const model = all.find((el): el is ButtonEl => el.t === 'button' && !el.wifi && FILLED.has(el.look));
++  const h = Math.min(56, Math.max(44, model?.h ?? 48));
++  const button = (key: string, label: EventBlock['items'][number]['label'], href: string, y: number): ButtonEl => model
++    ? { id: `${block.key}-${key}`, t: 'button', x: (W - BTN_W) / 2, y, w: BTN_W, h, look: model.look, label, link: href,
++      bg: model.bg, fg: model.fg, edge: model.edge, font: model.font,
++      // The label is a sentence, not a shop's one-word link: never smaller than 15 units, whatever the template's buttons use.
++      size: Math.min(18, Math.max(15, model.size ?? 16)), weight: model.weight, spacing: model.spacing, shadow: model.shadow }
++    : { id: `${block.key}-${key}`, t: 'button', x: (W - BTN_W) / 2, y, w: BTN_W, h, look: 'pill', label, link: href, bg: ink, fg: base, font: 'sans', size: 16, weight: 650 };
++  const text = (id: string, y: number, height: number, words: TextEl['words'], extra: Partial<TextEl>): TextEl =>
++    ({ id: `${block.key}-${id}`, t: 'text', x: 32, y, w: W - 64, h: height, words, font: 'sans', size: 14, color: ink, align: 'center', ...extra });
++
++  let y = 40;
++  const els: El[] = [
++    // Vạch ngăn: khúc B tách khỏi phần của quán ở trên (luật 8).
++    { id: `${block.key}-rule`, t: 'shape', shape: 'rect', x: (W - 56) / 2, y: 14, w: 56, h: 2, radius: 1, fill: ink, o: .28 },
++    text('title', y, 32, block.title, { font, size: 24, weight: 700, line: 1.15 }),
++  ];
++  y += 40;
++  els.push(text('summary', y, 84, block.summary, { size: 14, line: 1.45, o: .86 }));
++  y += 96;
++  for (const item of block.items) { els.push(button(item.key, item.label, item.href, y)); y += h + 12; }
++  y += 6;
++  els.push(text('by', y, 16, { vi: `Do ${block.organizer} tổ chức · dành cho mọi khách của quán`, en: `By ${block.organizer} · for every guest of the shop` },
++    { size: 11, o: .6 }));
++  return { id: `khuc-b-${block.key}`, name: block.title.vi, h: y + 16 + 28, bg: { fill: base }, els };
++}
+diff --git a/lib/events/shop-events.ts b/lib/events/shop-events.ts
+new file mode 100644
+index 0000000..e3f8230
+--- /dev/null
++++ b/lib/events/shop-events.ts
+@@ -0,0 +1,56 @@
++import type { Pool, PoolClient } from 'pg';
++import { recordAdminAction } from '../admin/audit';
++import { AdminError } from '../admin/auth';
++import { transaction } from '../owner/auth';
++import { EVENT_KEYS, isEventKey, type EventKey } from './catalog';
++
++/**
++ * Which events are open for which shop (khúc B, bảng `shop_events`). Only /gov switches it: Tài opens an event for a shop
++ * that agreed to it, and the block shows on every live page of that shop, under the shop's own blocks. The shop's owner
++ * does nothing and is asked for nothing -- the organizer runs everything on its own side. Closing takes the block off
++ * every page at once; nothing is republished, because no page's configuration carries it.
++ */
++type Db = Pool | PoolClient;
++/**
++ * The table came after the new frame went live (05/10). Until it is created on a database built from an older
++ * db/schema.sql, every shop has no event: a guest page must never break over an organizer's block.
++ */
++const missingTable = (error: unknown) => (error as { code?: string })?.code === '42P01';
++const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
++
++/** The shop's open events, in the catalog's order. */
++export async function openEvents(db: Db, shopId: string): Promise<EventKey[]> {
++  let rows: { event_key: string }[];
++  try { rows = (await db.query('SELECT event_key FROM shop_events WHERE shop_id=$1', [shopId])).rows; }
++  catch (error) { if (missingTable(error)) return []; throw error; }
++  const open = new Set(rows.map(row => row.event_key));
++  return EVENT_KEYS.filter(key => open.has(key));
++}
++
++/** /gov: open or close one event for one shop. Every change is in the administrators' books. */
++export class ShopEvents {
++  constructor(private pool: Pool) {}
++  async byShop(): Promise<Map<string, EventKey[]>> {
++    let rows: { shop_id: string; event_key: string }[];
++    try { rows = (await this.pool.query('SELECT shop_id,event_key FROM shop_events ORDER BY opened_at')).rows; }
++    catch (error) { if (missingTable(error)) return new Map(); throw error; }
++    const map = new Map<string, EventKey[]>();
++    for (const row of rows) if (isEventKey(row.event_key)) map.set(row.shop_id, [...(map.get(row.shop_id) ?? []), row.event_key]);
++    return map;
++  }
++  async set(adminId: string, input: unknown) {
++    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).sort().join() !== 'event,open,shopId') throw new AdminError(400, 'INVALID_INPUT');
++    const { shopId, event, open } = input as Record<string, unknown>;
++    if (typeof shopId !== 'string' || !UUID.test(shopId) || !isEventKey(event) || typeof open !== 'boolean') throw new AdminError(400, 'INVALID_INPUT');
++    return transaction(this.pool, async db => {
++      if (!(await db.query('SELECT 1 FROM shops WHERE id=$1 FOR SHARE', [shopId])).rowCount) throw new AdminError(404, 'SHOP_NOT_FOUND');
++      // Without the table, say so in /gov rather than fail as a server error.
++      if (!(await db.query("SELECT to_regclass('shop_events') IS NOT NULL ok")).rows[0].ok) throw new AdminError(409, 'EVENTS_TABLE_MISSING');
++      const changed = open
++        ? (await db.query('INSERT INTO shop_events(shop_id,event_key,opened_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [shopId, event, adminId])).rowCount
++        : (await db.query('DELETE FROM shop_events WHERE shop_id=$1 AND event_key=$2', [shopId, event])).rowCount;
++      if (changed) await recordAdminAction(db, adminId, { action: open ? 'event.open' : 'event.close', shopId, detail: { event } });
++      return { shopId, event, open };
++    });
++  }
++}
+diff --git a/lib/events/ticket.ts b/lib/events/ticket.ts
+new file mode 100644
+index 0000000..2893b4c
+--- /dev/null
++++ b/lib/events/ticket.ts
+@@ -0,0 +1,38 @@
++import { createHmac, randomBytes } from 'node:crypto';
++import { EVENTS, type EventDef, type EventKey } from './catalog';
++
++/**
++ * A ticket for the organizer (khúc B): proof that the guest opened this shop's page through the shop's own card or QR
++ * code, a moment ago. The organizer asks nothing of the shop -- no screen at the counter, no code, no Wi-Fi -- so this is
++ * how it tells a guest sitting in the shop from someone who found the page's link online (a page's plain link is a bio
++ * link and travels; the card's link is on the table).
++ *
++ * Only for a live page opened through a card (`entryKey` `tag:…`); never for the page's plain link, a preview, or the
++ * owner's picture of the page. It says nothing about Google: every guest who came through the card gets one, whatever
++ * they did on the page.
++ *
++ *   1.<issued, unix seconds>.<nonce, 16 base64url>.<HMAC-SHA256(key, "tbq-ticket|1|<shop>|<issued>|<nonce>"), base64url, 32>
++ *
++ * The organizer checks the signature with the same key, refuses a ticket older than its own window, and binds each nonce
++ * to the first device that uses it. The key is shared with the organizer only; without one, no ticket is issued.
++ */
++export const TICKET_VERSION = '1';
++const MIN_KEY = 32;
++
++export function ticketKey(key: EventKey, env: Record<string, string | undefined> = process.env): string | null {
++  const event: EventDef = EVENTS[key], value = env[event.ticketKeyEnv];
++  return value && value.length >= MIN_KEY ? value : null;
++}
++
++export const ticketSignature = (secret: string, shop: string, issued: number, nonce: string) =>
++  createHmac('sha256', secret).update(`tbq-ticket|${TICKET_VERSION}|${shop.toLowerCase()}|${issued}|${nonce}`).digest('base64url').slice(0, 32);
++
++export function issueTicket(key: EventKey, shop: string, now = Date.now(), env: Record<string, string | undefined> = process.env, nonce = randomBytes(12).toString('base64url')): string | null {
++  const secret = ticketKey(key, env);
++  if (!secret) return null;
++  const issued = Math.floor(now / 1000);
++  return [TICKET_VERSION, issued, nonce, ticketSignature(secret, shop, issued, nonce)].join('.');
++}
++
++/** Whether the guest came through a card: the only way a page view earns a ticket. */
++export const throughCard = (context: { scope: string; entryKey: string | null }) => context.scope === 'live' && !!context.entryKey?.startsWith('tag:');
+diff --git a/lib/publishing/repository.ts b/lib/publishing/repository.ts
+index 91b3513..bb890eb 100644
+--- a/lib/publishing/repository.ts
++++ b/lib/publishing/repository.ts
+@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
+ import type { Pool, PoolClient } from 'pg';
+ export { PublishingError } from './config';
+ import { PublishingError, TEMPLATE_ROW, validateConfig } from './config';
++import { openEvents } from '../events/shop-events';
+ import { assertPublishable } from './policy';
+ import { assertMediaApproved } from './media-gate';
+ import type { RenderContext } from './proof';
+@@ -201,11 +202,11 @@ export class PublishingResolver {
+     // The page as published, and the shop's Google link: the Google button always leads to the shop's own review page (its
+     // Place ID), never to a link written into the page, so a link fixed today reaches every page at once.
+     const row = 'slug' in target
+-      ? (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
++      ? (await this.pool.query(`SELECT s.id,s.slug shop_slug,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+           tv.template_key,tv.version template_version,NULL::uuid tag_id FROM pages p JOIN shops s ON s.id=p.shop_id
+         JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id JOIN template_versions tv ON tv.id=r.template_version_id
+         WHERE lower(p.slug)=lower($1)`, [target.slug])).rows[0]
+-      : (await this.pool.query(`SELECT s.id,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
++      : (await this.pool.query(`SELECT s.id,s.slug shop_slug,s.publishing_state,s.google_url,p.id page_id,p.slug,p.state page_state,p.active_release_id,p.entry_key,r.config_snapshot,
+           tv.template_key,tv.version template_version,t.id tag_id,t.state tag_state FROM tags t
+         JOIN pages p ON p.id=t.page_id JOIN shops s ON s.id=p.shop_id JOIN page_releases r ON r.page_id=p.id AND r.id=p.active_release_id
+         JOIN template_versions tv ON tv.id=r.template_version_id WHERE t.public_code=$1`, [target.code])).rows[0];
+@@ -215,17 +216,21 @@ export class PublishingResolver {
+     if (row.page_state === 'paused') error('PAGE_PAUSED');
+     if (row.page_state !== 'active') error('PAGE_UNAVAILABLE');
+     const context: RenderContext = { v: 1, shopId: row.id, releaseId: row.active_release_id, tagId: row.tag_id, previewId: null, scope: 'live', entryKey: row.tag_id ? `tag:${row.tag_id}` : row.entry_key };
+-    return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
+-      config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context };
++    // The organizers' events /gov has opened for the shop (khúc B): not part of any release, so opening or closing one
++    // changes every page of the shop at once, with nothing to publish.
++    return { slug: row.slug as string, shopSlug: row.shop_slug as string, pageId: row.page_id as string, template: row.template_key as string,
++      templateVersion: Number(row.template_version), config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context,
++      events: await openEvents(this.pool, row.id) };
+   }
+   async preview(token: string) {
+     if (!/^[a-f0-9]{64}$/.test(token)) error('PREVIEW_UNAVAILABLE');
+-    const row = (await this.pool.query(`SELECT v.*,p.slug,p.state page_state,s.publishing_state,s.google_url,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
++    const row = (await this.pool.query(`SELECT v.*,p.slug,s.slug shop_slug,p.state page_state,s.publishing_state,s.google_url,t.state tag_state,tv.template_key,tv.version template_version FROM preview_sessions v
+       JOIN shops s ON s.id=v.shop_id JOIN pages p ON p.id=v.page_id JOIN template_versions tv ON tv.id=v.template_version_id
+       LEFT JOIN tags t ON t.shop_id=v.shop_id AND t.id=v.tag_id WHERE v.token_hash=$1 AND v.expires_at>clock_timestamp()`, [previewHash(token)])).rows[0];
+     if (!row || row.publishing_state === 'suspended' || row.tag_state === 'disabled' || row.page_state === 'closed') error('PREVIEW_UNAVAILABLE');
+     const context: RenderContext = { v: 1, shopId: row.shop_id, releaseId: row.source_release_id, tagId: row.tag_id, previewId: row.id, scope: 'test', entryKey: `preview:${row.id}` };
+-    return { slug: row.slug as string, pageId: row.page_id as string, template: row.template_key as string, templateVersion: Number(row.template_version),
+-      config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context, expiresAt: row.expires_at as Date };
++    return { slug: row.slug as string, shopSlug: row.shop_slug as string, pageId: row.page_id as string, template: row.template_key as string,
++      templateVersion: Number(row.template_version), config: validateConfig(row.config_snapshot), googleUrl: row.google_url as string | null, context,
++      expiresAt: row.expires_at as Date, events: await openEvents(this.pool, row.shop_id) };
+   }
+ }
+diff --git a/repository-tests/events.spec.ts b/repository-tests/events.spec.ts
+new file mode 100644
+index 0000000..a0c1a5e
+--- /dev/null
++++ b/repository-tests/events.spec.ts
+@@ -0,0 +1,90 @@
++import { applySchema } from './schema';
++import { test as base, expect } from '@playwright/test';
++import { randomUUID } from 'node:crypto';
++import { Pool } from 'pg';
++import { ownerFixture } from './owner-fixture';
++import { PublishingResolver } from '../lib/publishing/repository';
++import { ShopEvents } from '../lib/events/shop-events';
++import { throughCard } from '../lib/events/ticket';
++
++/**
++ * Khúc B (05/10): /gov opens an organizer's event for a shop (`shop_events`), and the block shows on every live page of
++ * that shop at once. The shop's owner does nothing; no page's configuration or release changes.
++ */
++const uri = 'postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test';
++if (process.env.NFC_TEST_DATABASE_URL !== uri) throw Error('Local test fixture required');
++const TBQ = 'tbq-cong-cu';
++type Fixture = Awaited<ReturnType<typeof ownerFixture>> & { adminId: string; gov: ShopEvents; resolver: PublishingResolver };
++const test = base.extend<{ f: Fixture }>({ f: async ({}, provide) => {
++  const schema = `nfc_events_test_${randomUUID().replaceAll('-', '')}`, root = new Pool({ connectionString: uri });
++  const db = new Pool({ connectionString: uri, options: `-c search_path=${schema}`, max: 8 });
++  try {
++    await root.query(`CREATE SCHEMA ${schema}`); await applySchema(db);
++    const fixture = await ownerFixture(db);
++    const adminId = (await db.query("INSERT INTO platform_admins(username,password_salt,password_key)VALUES('tai',$1,$2)RETURNING id", ['0'.repeat(32), '0'.repeat(64)])).rows[0].id;
++    await provide({ ...fixture, adminId, gov: new ShopEvents(db), resolver: new PublishingResolver(db) });
++  } finally { await db.end(); await root.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await root.end(); }
++} });
++const audit = async (f: Fixture) => (await f.db.query("SELECT action,shop_id,detail FROM admin_audit WHERE action LIKE 'event.%' ORDER BY id")).rows;
++const releases = async (f: Fixture) => (await f.db.query('SELECT count(*)::int n FROM page_releases')).rows[0].n;
++
++test('/gov opens an event and every live page of that shop shows it at once; closing takes it off; nothing is republished', async ({ f }) => {
++  const before = await releases(f), config = (await f.resolver.live({ slug: 'one' })).config;
++  expect((await f.resolver.live({ slug: 'one' })).events).toEqual([]);
++
++  await f.gov.set(f.adminId, { shopId: f.shops[0], event: TBQ, open: true });
++  // Opening twice changes nothing and records nothing more.
++  await f.gov.set(f.adminId, { shopId: f.shops[0], event: TBQ, open: true });
++  const live = await f.resolver.live({ slug: 'one' });
++  expect(live.events).toEqual([TBQ]);
++  expect(live.shopSlug).toBe('one');
++  // The shop's own page is exactly what it was: the block is not part of it.
++  expect(live.config).toEqual(config);
++  expect((await f.resolver.live({ slug: 'two' })).events).toEqual([]);
++  expect((await f.gov.byShop()).get(f.shops[0])).toEqual([TBQ]);
++  expect((await f.gov.byShop()).get(f.shops[1])).toBeUndefined();
++
++  await f.gov.set(f.adminId, { shopId: f.shops[0], event: TBQ, open: false });
++  expect((await f.resolver.live({ slug: 'one' })).events).toEqual([]);
++  await f.gov.set(f.adminId, { shopId: f.shops[0], event: TBQ, open: true });
++  expect((await f.resolver.live({ slug: 'one' })).events).toEqual([TBQ]);
++  expect(await releases(f)).toBe(before);
++  // The owner was asked for nothing and did nothing: no activity of theirs, no draft touched.
++  expect((await f.db.query("SELECT count(*)::int n FROM shop_activity WHERE action LIKE 'event.%'")).rows[0].n).toBe(0);
++
++  expect((await audit(f)).map(row => [row.action, row.shop_id, row.detail])).toEqual([
++    ['event.open', f.shops[0], { event: TBQ }], ['event.close', f.shops[0], { event: TBQ }], ['event.open', f.shops[0], { event: TBQ }]]);
++});
++
++test('a guest who came through the shop\'s card is told apart from one on the plain link; a preview shows the block too', async ({ f }) => {
++  await f.gov.set(f.adminId, { shopId: f.shops[0], event: TBQ, open: true });
++  const tag = await f.admin.createTag(f.pages[0], 'fixture-card');
++  await f.admin.setTagState(f.pages[0], tag, 'active');
++  const card = await f.resolver.live({ code: 'fixture-card' }), link = await f.resolver.live({ slug: 'one' });
++  expect(card.events).toEqual([TBQ]);
++  expect(throughCard(card.context)).toBe(true);
++  expect(throughCard(link.context)).toBe(false);
++  const preview = await f.admin.preview(f.pages[0], { kind: 'draft', revision: 2 }, 900);
++  const seen = await f.resolver.preview(preview.token);
++  expect(seen.events).toEqual([TBQ]);
++  expect(throughCard(seen.context)).toBe(false);
++});
++
++test('/gov takes exactly a shop, a known event and a yes or no', async ({ f }) => {
++  const shopId = f.shops[0];
++  for (const input of [null, [], {}, { shopId, event: TBQ }, { shopId, event: TBQ, open: 'yes' }, { shopId, event: 'khong-co', open: true },
++    { shopId: 'one', event: TBQ, open: true }, { shopId, event: TBQ, open: true, by: 'x' }, { shopId, event: '__proto__', open: true }])
++    await expect(f.gov.set(f.adminId, input), JSON.stringify(input)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
++  await expect(f.gov.set(f.adminId, { shopId: randomUUID(), event: TBQ, open: true })).rejects.toMatchObject({ code: 'SHOP_NOT_FOUND' });
++  expect(await audit(f)).toEqual([]);
++  await expect(f.db.query("INSERT INTO shop_events(shop_id,event_key) VALUES($1,'Bad Key')", [shopId])).rejects.toThrow();
++});
++
++test('a database built before the table existed keeps every guest page working: no event, and /gov says the table is missing', async ({ f }) => {
++  await f.db.query('DROP TABLE shop_events');
++  const live = await f.resolver.live({ slug: 'one' });
++  expect(live.events).toEqual([]);
++  expect(live.config.doc.sections.length).toBeGreaterThan(0);
++  expect((await f.gov.byShop()).size).toBe(0);
++  await expect(f.gov.set(f.adminId, { shopId: f.shops[0], event: TBQ, open: true })).rejects.toMatchObject({ code: 'EVENTS_TABLE_MISSING' });
++});
+diff --git a/server/page-events.ts b/server/page-events.ts
+index 42eaf30..76a3ecd 100644
+--- a/server/page-events.ts
++++ b/server/page-events.ts
+@@ -12,8 +12,9 @@ import type { Pool } from 'pg';
+  *   - it is shape, never content. Which star, which layout, which button, how many milliseconds. Never the
+  *     message, never the phone number. The column is capped at 512 bytes so nobody can quietly widen that later.
+  */
+-export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned';
+-const NAMES: readonly GuestEventName[] = ['page_opened', 'google_tapped', 'card_opened', 'star_chosen', 'feedback_sent', 'card_abandoned'];
++export type GuestEventName = 'page_opened' | 'google_tapped' | 'card_opened' | 'star_chosen' | 'feedback_sent' | 'card_abandoned' | 'event_tapped';
++// `event_tapped` (khúc B): a guest opened one of an organizer's links; detail is `{ event, item }`, two catalog keys.
++const NAMES: readonly GuestEventName[] = ['page_opened', 'google_tapped', 'card_opened', 'star_chosen', 'feedback_sent', 'card_abandoned', 'event_tapped'];
+ 
+ /** One event as the browser sends it. Everything else is filled in on the server, where it cannot be forged. */
+ export type GuestEvent = { name: GuestEventName; sinceOpenMs: number; detail?: Record<string, unknown> };
+diff --git a/tests/contracts/events.spec.ts b/tests/contracts/events.spec.ts
+new file mode 100644
+index 0000000..af86226
+--- /dev/null
++++ b/tests/contracts/events.spec.ts
+@@ -0,0 +1,118 @@
++import { test, expect } from '@playwright/test';
++import { createHmac } from 'node:crypto';
++import { freeTextProblem } from '../../lib/publishing/policy';
++import { fold } from '../../lib/text-fold';
++import { EVENTS, EVENT_KEYS, eventBlock, eventOrigin, isEventKey } from '../../lib/events/catalog';
++import { issueTicket, throughCard, ticketKey } from '../../lib/events/ticket';
++import { baseColor, contrast, eventSection } from '../../lib/events/section';
++import { CANVAS_TEMPLATES } from '../../lib/canvas/templates';
++import type { ButtonEl, TextEl } from '../../lib/canvas/doc';
++
++/**
++ * Khúc B (05/10): an organizer's event in the lower zone of a shop's page. /gov opens it for a shop; the shop's owner does
++ * nothing. What the block says, where it links, and the ticket that tells the organizer the guest is in the shop.
++ */
++const TBQ = 'tbq-cong-cu';
++const KEY = 'k'.repeat(64);
++
++test('the catalog names its events with the same pattern as a page event detail, and only those are events', () => {
++  expect(EVENT_KEYS.length).toBeGreaterThan(0);
++  for (const key of EVENT_KEYS) {
++    expect(key).toMatch(/^[a-z][a-z0-9-]{0,31}$/);
++    expect(EVENTS[key].key).toBe(key);
++    expect(new Set(EVENTS[key].items.map(item => item.key)).size).toBe(EVENTS[key].items.length);
++  }
++  for (const value of ['', 'TBQ-CONG-CU', 'toString', '__proto__', 'hasOwnProperty', null, 1, {}]) expect(isEventKey(value), String(value)).toBe(false);
++});
++
++test('the platform\'s words for an event pass the shop\'s trip-wire and never mention Google, reviews, stars or a gift for one', () => {
++  for (const key of EVENT_KEYS) {
++    const e = EVENTS[key];
++    const words = [e.organizer, e.name, e.title.vi, e.title.en, e.summary.vi, e.summary.en, ...e.items.flatMap(item => [item.label.vi, item.label.en])];
++    for (const value of words) {
++      expect(freeTextProblem(value), value).toBeNull();
++      // Stricter than the trip-wire, which only refuses a review tied to something: these words sit on the same page as
++      // the Google button, so they say nothing about it at all (google-policy.md luật 4 và 8).
++      const padded = ` ${fold(value).replace(/[^a-z0-9]+/g, ' ')} `;
++      for (const word of ['google', 'danh gia', 'review', 'sao', 'star', 'stars', 'rating', 'cham diem', 'feedback'])
++        expect(padded.includes(` ${word} `), `${value} → ${word}`).toBe(false);
++    }
++  }
++});
++
++test('the block links to the organizer with the shop\'s code, in lower case and escaped; the ticket rides only on the item that takes it', () => {
++  const plain = eventBlock(TBQ, 'QuanMau', null, {});
++  expect(plain.items.map(item => [item.key, item.href])).toEqual([
++    ['nhan', 'https://thu.tiembanquyen.com/colap/qs/quanmau'], ['ve-chung-toi', 'https://thu.tiembanquyen.com/colap/ve-chung-toi?shop=quanmau']]);
++  expect(plain.title).toEqual(EVENTS[TBQ].title);
++  expect(eventBlock(TBQ, 'a/../b?x', null, {}).items[0].href).toBe('https://thu.tiembanquyen.com/colap/qs/a%2F..%2Fb%3Fx');
++  const ticketed = eventBlock(TBQ, 'QuanMau', '1.2.a b.c', {});
++  expect(ticketed.items.map(item => item.href)).toEqual([
++    'https://thu.tiembanquyen.com/colap/qs/quanmau?t=1.2.a%20b.c', 'https://thu.tiembanquyen.com/colap/ve-chung-toi?shop=quanmau']);
++});
++
++test('the organizer\'s address can move only to https, or to plain http on this machine when the app runs locally', () => {
++  const env = (value: string, local = false) => ({ NFC_EVENT_TBQ_ORIGIN: value, ...(local ? { NFC_ENV: 'local' } : {}) });
++  expect(eventOrigin(TBQ, env('https://thu.example.vn/some/path'))).toBe('https://thu.example.vn/some/path');
++  expect(eventOrigin(TBQ, env('https://thu.example.vn/colap/'))).toBe('https://thu.example.vn/colap');
++  expect(eventOrigin(TBQ, env('https://thu.example.vn'))).toBe('https://thu.example.vn');
++  expect(eventOrigin(TBQ, env('http://localhost:3919/colap', true))).toBe('http://localhost:3919/colap');
++  expect(eventOrigin(TBQ, env('http://localhost:3917', true))).toBe('http://localhost:3917');
++  expect(eventOrigin(TBQ, env('http://127.0.0.1:3917', true))).toBe('http://127.0.0.1:3917');
++  for (const value of ['http://localhost:3917', 'http://evil.example', 'javascript:alert(1)', 'not a url', 'https://user:pw@evil.example', 'ftp://x.example'])
++    expect(eventOrigin(TBQ, env(value)), value).toBe(EVENTS[TBQ].origin);
++  expect(eventOrigin(TBQ, env('http://evil.example', true))).toBe(EVENTS[TBQ].origin);
++  expect(eventOrigin(TBQ, {})).toBe(EVENTS[TBQ].origin);
++  expect(eventOrigin(TBQ, env('https://thu.example.vn/colap?x=1'))).toBe(EVENTS[TBQ].origin);
++  expect(EVENTS[TBQ].origin).toBe('https://thu.tiembanquyen.com/colap');
++});
++
++test('a ticket is signed for one shop and one moment with the shared key, and there is none without a key', () => {
++  const env = { NFC_EVENT_TBQ_KEY: KEY };
++  const now = Date.UTC(2026, 9, 5, 12, 0, 0);
++  const ticket = issueTicket(TBQ, 'QuanMau', now, env, 'nonce-0123456789')!;
++  const [version, issued, nonce, signature] = ticket.split('.');
++  expect([version, issued, nonce]).toEqual(['1', String(now / 1000), 'nonce-0123456789']);
++  // The organizer's side computes exactly this (TBQ src/domain/ticket.js); the shop is lower case, as on the link.
++  expect(signature).toBe(createHmac('sha256', KEY).update(`tbq-ticket|1|quanmau|${now / 1000}|nonce-0123456789`).digest('base64url').slice(0, 32));
++  expect(ticket).toMatch(/^1\.\d+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{32}$/);
++  // A fresh nonce every time: two guests never hold the same ticket.
++  expect(issueTicket(TBQ, 'quanmau', now, env)).not.toBe(issueTicket(TBQ, 'quanmau', now, env));
++  for (const bad of [{}, { NFC_EVENT_TBQ_KEY: '' }, { NFC_EVENT_TBQ_KEY: 'short' }]) {
++    expect(ticketKey(TBQ, bad)).toBeNull();
++    expect(issueTicket(TBQ, 'quanmau', now, bad)).toBeNull();
++  }
++});
++
++test('only a live page opened through the shop\'s card earns a ticket: not its plain link, not a preview', () => {
++  expect(throughCard({ scope: 'live', entryKey: 'tag:3f1c' })).toBe(true);
++  expect(throughCard({ scope: 'live', entryKey: 'page:abc' })).toBe(false);
++  expect(throughCard({ scope: 'test', entryKey: 'tag:3f1c' })).toBe(false);
++  expect(throughCard({ scope: 'test', entryKey: 'preview:x' })).toBe(false);
++  expect(throughCard({ scope: 'live', entryKey: null })).toBe(false);
++});
++
++test('khúc B on every template: its own section, a rule above it, legible words, the organizer\'s links and nothing of Google', () => {
++  expect(CANVAS_TEMPLATES.length).toBeGreaterThan(0);
++  for (const template of CANVAS_TEMPLATES) {
++    const block = eventBlock(TBQ, 'quanmau', 'ticket', {});
++    const section = eventSection(template.doc, block), base = baseColor(template.doc), at = template.key;
++    expect(section.bg?.fill, at).toBe(base);
++    expect(section.els.some(el => el.t === 'google' || el.t === 'feedback'), at).toBe(false);
++    expect(section.els[0], at).toMatchObject({ t: 'shape', shape: 'rect' });
++    const texts = section.els.filter((el): el is TextEl => el.t === 'text');
++    for (const text of texts) expect(contrast(text.color, base), `${at} ${text.id}`).toBeGreaterThanOrEqual(4.5);
++    const buttons = section.els.filter((el): el is ButtonEl => el.t === 'button');
++    expect(buttons.map(b => b.link), at).toEqual(block.items.map(item => item.href));
++    // A pill of the page's own ink on the page's own colour, when the template has no button that carries its surface.
++    for (const b of buttons) if (b.look === 'pill' && typeof b.bg === 'string' && b.fg) expect(contrast(b.bg, b.fg), at).toBeGreaterThanOrEqual(4.5);
++    // Everything stays inside the section and the artboard.
++    for (const el of section.els) if ('x' in el) {
++      expect(el.x, `${at} ${el.id}`).toBeGreaterThanOrEqual(0);
++      expect(el.x + el.w, `${at} ${el.id}`).toBeLessThanOrEqual(390);
++      expect(el.y + el.h, `${at} ${el.id}`).toBeLessThanOrEqual(section.h);
++    }
++    const by = texts.find(text => text.id.endsWith('-by'))!;
++    for (const value of [by.words.vi, by.words.en!]) expect(freeTextProblem(value), value).toBeNull();
++  }
++});

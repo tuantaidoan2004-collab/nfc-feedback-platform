@@ -1,0 +1,17 @@
+# /etc/caddy/Caddyfile — Caddy tự lấy chứng chỉ HTTPS khi tên miền đã trỏ về máy chủ.
+# Dùng `handle` (giữ /colap), KHÔNG dùng `handle_path` (cắt /colap → app báo 404).
+thu.tiembanquyen.com {
+	redir / /colap/ 302
+	handle /colap* {
+		request_body {
+			max_size 3MB
+		}
+		reverse_proxy 127.0.0.1:3000 {
+			# App chỉ tin đúng header này (CLIENT_IP_HEADER=x-real-ip) — Caddy luôn ghi đè nên khách không tự đổi IP được.
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	handle {
+		respond "Không tìm thấy" 404
+	}
+}

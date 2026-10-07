@@ -1,0 +1,22 @@
+# /etc/systemd/system/tbq.service — chạy TBQ nền, tự bật lại khi lỗi / khởi động máy.
+#   sudo systemctl enable --now tbq      · xem log: journalctl -u tbq -f
+[Unit]
+Description=TBQ — Công cụ làm việc miễn phí
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tbq
+WorkingDirectory=/opt/tbq-trial
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning --env-file-if-exists=.env src/server.js
+Restart=always
+RestartSec=3
+# Khoá bớt quyền: chỉ ghi được thư mục data (database + sao lưu).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tbq-trial/data
+
+[Install]
+WantedBy=multi-user.target

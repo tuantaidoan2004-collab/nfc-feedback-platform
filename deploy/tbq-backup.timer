@@ -1,0 +1,11 @@
+# /etc/systemd/system/tbq-backup.timer — chạy tbq-backup.service mỗi ngày lúc 05:30 (trước giờ đăng xuất 6h sáng).
+#   sudo systemctl enable --now tbq-backup.timer
+[Unit]
+Description=Sao lưu database TBQ mỗi ngày
+
+[Timer]
+OnCalendar=*-*-* 05:30:00 Asia/Ho_Chi_Minh
+Persistent=true
+
+[Install]
+WantedBy=timers.target

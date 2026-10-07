@@ -1,0 +1,32 @@
+{
+  "name": "tbq-trial",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Hệ thống trải nghiệm công cụ miễn phí 1 ngày tại quán cà phê 24h — Tiệm Bản Quyền",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env src/server.js",
+    "local": "node --disable-warning=ExperimentalWarning scripts/local.js",
+    "dev": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env --watch src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "seed": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/seed.js",
+    "fake-mail": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/fake-mail.js",
+    "backup": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/backup.js",
+    "e2e": "node --disable-warning=ExperimentalWarning scripts/e2e.js",
+    "otp-test": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/otp-test.js",
+    "pilot": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/pilot.js",
+    "sim": "node --disable-warning=ExperimentalWarning scripts/sim.js",
+    "theo-doi": "node --disable-warning=ExperimentalWarning scripts/sim.js --serve",
+    "ve": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/ve.js",
+    "van-hanh": "node --disable-warning=ExperimentalWarning scripts/van-hanh.js",
+    "van-hanh-sau": "node --disable-warning=ExperimentalWarning scripts/van-hanh-sau.js",
+    "doc-lap": "node --disable-warning=ExperimentalWarning scripts/sim.js --chu-that --days=2 --speed=60",
+    "canva-bot": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/canva-bot.js",
+    "kiem-tra": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/kiem-tra.js",
+    "tao-env": "node --disable-warning=ExperimentalWarning scripts/tao-env.js",
+    "dong-goi": "node --disable-warning=ExperimentalWarning scripts/dong-goi.js"
+  }
+}

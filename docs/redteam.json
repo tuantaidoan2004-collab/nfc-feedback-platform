@@ -1,0 +1,243 @@
+{
+ "issues": [
+  {
+   "severity": "critical",
+   "title": "Khách cũ phá kho được chỉ bằng nút 'Quên mật khẩu' và người đang dùng thật bị khoá oan",
+   "attack_or_failure": "Khách cũ nhớ email tài khoản (ví dụ cgpt07@...). Ở nhà, họ bấm 'Quên mật khẩu' hoặc 'Gửi mã' 2–3 lần trên trang của hãng. Theo thiết kế hiện tại: thư đặt lại mật khẩu không có cửa sổ nhân viên thì xếp đỏ, cách ly tài khoản, thu slot và 'khoá tạm người đang giữ' (mail-filter 4.3, mức 3; antispam luật cứng). Từ 2 mã mồ côi trong slot thì khoá 30 ngày (antispam thang mức 2). Mỗi mã mồ côi cộng +10 cho mọi người từng giữ tài khoản trong 7 ngày, đủ 30 điểm là khoá (mail-filter mục 6). Kết quả: người đang dùng hợp lệ mất slot và bị khoá. Người cũ vô tội bị cộng điểm. Kẻ phá không mất gì. Nếu địa chỉ dễ đoán (cgpt07 thì đoán ra cgpt08) thì một người phá được cả kho chỉ trong 1 đêm. Khi hộp thư đã là của riêng mình thì thư đặt lại mật khẩu không ai đọc được, nên nó vô hại. Cách ly vì loại thư này là phản ứng quá tay.",
+   "section": "mail-filter (4.3, 6) + antispam-release (luật cứng, thang xử lý)",
+   "fix": "Chia thư bảo mật làm 2 loại. (1) 'Có người YÊU CẦU' (đặt lại mật khẩu, mã mồ côi, link đăng nhập): chỉ ghi lại và báo Telegram gom theo giờ. Không cách ly, không thu slot, không cộng điểm cho người đang giữ. Cùng 1 tài khoản có trên 5 thư loại này trong 1 giờ thì mới chuyển 'bảo trì' cho lượt MỚI, lượt đang chạy vẫn giữ. (2) 'Đã THAY ĐỔI' (đổi mật khẩu, đổi email, bật 2FA, thêm passkey): mới cách ly. Bỏ hẳn việc tự khoá người dùng vì mã mồ côi. Điểm do mã mồ côi chỉ được tính khi mã mồ côi xuất hiện ở từ 2 tài khoản trở lên và chỉ có 1 người từng giữ cả hai, và chủ phải tự bấm khoá. Đặt địa chỉ ngẫu nhiên (q7m2x9@) thay cho cgpt07@. Thêm bài thử phá: 'Bấm Quên mật khẩu 5 lần từ nhà → người đang giữ slot không bị ảnh hưởng'."
+  },
+  {
+   "severity": "high",
+   "title": "Trình duyệt tự tải lại link chạm, khách thật bị coi là 'dùng lại link' và bị cảnh cáo",
+   "attack_or_failure": "Khách chạm thẻ, Safari/Chrome mở link SUN. Khách chuyển sang app ChatGPT để bấm gửi mã rồi quay lại. Trình duyệt di động hay xoá tab chạy nền rồi tải lại đúng URL cũ. Máy chủ thấy cùng link mở lần 2 nên xếp đỏ 'link chạm bị dùng lại'. Antispam thang mức 1 còn cộng +15 cảnh cáo cho 'dùng lại link chạm 1 lần'. Một số máy Android còn mở link 2 lần khi chạm. Đây là lỗi xảy ra hằng ngày với khách thật, không phải gian lận.",
+   "section": "antispam-release (Cửa 2, thang xử lý mức 1) + roadmap MVP 1",
+   "fix": "Kiểm tra chữ ký xong thì máy chủ chuyển ngay (redirect 303) sang một link phiên sạch, không còn tham số SUN, ví dụ /s/<mã-phiên>, và gắn với cookie máy. Tải lại thì vào link phiên, không đụng link chạm. Cùng link chạm mở lại từ CÙNG máy trong 10 phút thì đưa về phiên cũ, không báo đỏ, không trừ điểm. Chỉ khi mở từ MÁY KHÁC mới xếp đỏ. Bỏ 'dùng lại link chạm' khỏi danh sách cảnh cáo."
+  },
+  {
+   "severity": "high",
+   "title": "Người dùng laptop không làm được theo câu 'mở trang này trên chính máy bạn sẽ dùng tool'",
+   "attack_or_failure": "Khách ở quán 24h phần lớn dùng ChatGPT, CapCut, Canva trên laptop, mà laptop không có NFC. Mỗi mã lại cần một lần chạm mới, và phiếu chạm gắn với máy vừa mở link, tức là điện thoại. Vậy slot luôn gắn với điện thoại. Câu dặn 'mở trang này trên chính máy bạn sẽ dùng tool' (antispam mục 2) không làm được. Nếu khách mở trang trên laptop để nhận slot thì lần chạm sau trên điện thoại bị coi là 'máy khác' (+35, vàng). Khách thật gặp màn vàng ngay lần đầu.",
+   "section": "antispam-release (mục 2, câu chữ màn hình) + mail-filter 5 (bước 4)",
+   "fix": "Định nghĩa lại: 'máy' là ĐIỆN THOẠI dùng để chạm thẻ và xem mã. Tool dùng ở máy nào cũng được, giới hạn bằng số mã mỗi slot. Đổi câu chữ thành: 'Dùng điện thoại này để chạm thẻ và xem mã. Mã nhập được trên laptop.' Không bao giờ cộng điểm khi trang được mở trên một máy không có NFC rồi sau đó chạm bằng điện thoại của cùng số đó. Thêm bài thử: 'Chạm bằng điện thoại, đăng nhập trên laptop → xanh'."
+  },
+  {
+   "severity": "high",
+   "title": "Không chặn được 'gom link' bằng app đọc thẻ: lời hứa 'link hết hạn sau 3 phút' sai với link chưa mở",
+   "attack_or_failure": "Link SUN không chứa giờ. Máy chủ chỉ biết giờ của link khi link được mở lần đầu. Kẻ gian dùng app đọc NFC (ví dụ NFC Tools) đọc thẻ 10 lần mà không mở link, lưu 10 link rồi về nhà mở dần theo thứ tự số đếm tăng. Link nào có số đếm lớn hơn số lớn nhất đã chấp nhận thì máy chủ nhận là 'mới'. Ở bàn vắng hoặc lúc 3–5h sáng, các link này sống nhiều giờ. Ca kiểm thử số 3 của antispam ('Mở link chạm sau 4 phút → chạm lại') không thể đạt nếu link chưa từng được mở. Nhóm 'mọi thứ cần chạm mới' bị thủng một phần.",
+   "section": "antispam-release (Cửa 2, ca kiểm thử 3) + roadmap (bài thử phá 1–3)",
+   "fix": "Ghi rõ cho lập trình viên: '3 phút' tính từ lần mở đầu tiên, không chặn được link chưa mở. Thêm luật: số đếm nhảy hơn 3 so với lần chấp nhận trước VÀ máy không dùng Wi-Fi quán → link chỉ được dùng để LẤY MÃ cho slot đã có, không được NHẬN SLOT MỚI, xếp vàng. Số đếm nhảy hơn 15 → báo thẻ bất thường (đã có). Sửa ca kiểm thử 3 thành 'Đọc thẻ bằng app 5 lần không mở, 1 giờ sau ở 4G mở link thứ 5 để nhận slot → vàng'. Chấp nhận phần thiệt hại còn lại vì vẫn bị giới hạn bởi số SIM và hạn mức."
+  },
+  {
+   "severity": "high",
+   "title": "Chạm thẻ rồi gửi link qua Zalo cho bạn ở nhà: một người tiêu hết suất cả ngày của quán",
+   "attack_or_failure": "Khách ngồi quán chạm thẻ, không mở link mà gửi link qua Zalo cho bạn ở nhà. Bạn mở trong 1 phút, phiếu chạm gắn với máy của bạn, bạn nhập số ĐT của mình và nhận slot. Mỗi người bạn đúng là '1 người 1 lần', nhưng không ai ngồi ở quán. Hạn mức hiện tại cho mỗi thẻ 10 lượt chạm hợp lệ mỗi giờ, 60 mỗi ngày, và quán 20 slot mỗi ngày. Một khách ngồi 2 tiếng là tiêu hết suất của quán, khách thật trong quán bị báo 'hết suất'. Quán mất quyền lợi.",
+   "section": "antispam-release (Cửa 3 hạn mức) + roadmap MVP 2",
+   "fix": "Thêm hạn mức nhận SLOT MỚI theo thẻ, tách khỏi hạn mức lượt chạm: tối đa 3 slot mới mỗi thẻ trong 2 giờ, 6 slot mỗi ngày (1 bàn có 2–4 người). Slot thứ 3 trở đi trên cùng thẻ trong 2 giờ, nếu từ máy không dùng Wi-Fi quán, thì xếp vàng. Lượt lấy mã cho slot đã có không tính vào hạn mức này. Báo cáo buổi sáng có cột 'slot mới theo thẻ' để chủ phát hiện bàn bất thường."
+  },
+  {
+   "severity": "high",
+   "title": "Pilot chạy không OTP làm mọi luật '1 số ĐT' vô nghĩa",
+   "attack_or_failure": "Roadmap cho phép 2 tuần pilot không OTP. Khi đó số ĐT chỉ là chữ khách tự gõ. Một người ở quán: chạm, mở tab ẩn danh (ra mã thiết bị mới), gõ số bịa, nhận slot. Lặp lại cho tới khi quán hết suất. Bài thử phá 4 và 5, chỉ số 'chạm → nhận slot' và tỷ lệ mua đều sai lệch. Mọi điểm rủi ro theo SĐT trong antispam-release cũng không dùng được.",
+   "section": "roadmap (mục 2 'Xác minh số điện thoại') vs antispam-release (Cửa 1)",
+   "fix": "Không pilot nếu chưa có cách xác minh danh tính. Nếu ZNS chưa xong thì dùng 'Đăng nhập bằng Zalo' (miễn phí): Zalo trả về mã người dùng ổn định, và mỗi tài khoản Zalo cần 1 số ĐT thật, nên '1 Zalo ID = 1 lần thử' gần bằng OTP. Xin số ĐT sau, qua tin nhắn OA hoặc ô tự nguyện. Ghi rõ trong roadmap: 'Không có OTP hoặc Zalo login → chưa lắp thẻ'."
+  },
+  {
+   "severity": "high",
+   "title": "Khách bấm 'gửi mã' bên hãng trước, hoặc bấm 'gửi lại mã', là bị coi như kẻ gian",
+   "attack_or_failure": "Khách mới hay làm sai thứ tự: bấm 'Send code' trên ChatGPT trước rồi mới bấm 'Lấy mã' trên web. Mã về khi chưa có cửa sổ nên thành mã mồ côi: giấu mã, báo đỏ, cộng điểm (mail-filter 4.1, 4.2). Mail-filter còn ghi cửa sổ đóng khi đã giao mã, nhưng lại cho 'mỗi cửa sổ nhận tối đa 2 mã' khi khách bấm 'gửi lại'. Nếu cửa sổ đóng ngay sau mã đầu thì mã thứ 2 thành mồ côi. Khách thật bị kẹt, bị cộng điểm và bỏ đi ngay ở bước đầu của phễu.",
+   "section": "mail-filter (4.1, 4.2) + antispam-release (luồng phát mã)",
+   "fix": "(1) Cửa sổ giữ mở đủ 5 phút dù đã giao mã. Mã thứ 2 trong cửa sổ thay mã cũ, không tính là mồ côi. (2) Thêm nút 'Tôi lỡ bấm gửi mã trước rồi': người đang giữ slot, trên đúng máy, có phiếu chạm còn hạn, nhận được mã đến trong 90 giây trước đó, xếp xanh. Nếu đó là mã của kẻ phá thì cũng chỉ người đang giữ slot được lợi. (3) Mã mồ côi KHÔNG BAO GIỜ cộng điểm cho người đang giữ slot của tài khoản đó."
+  },
+  {
+   "severity": "high",
+   "title": "Kho dùng thử dùng chung tài khoản với khách đang trả tiền 'dùng chung'",
+   "attack_or_failure": "Shop đang bán gói 'dùng chung'. Nếu kho dùng thử lấy từ cùng các tài khoản đó thì: (a) khách trả tiền đã biết email, và với tempmail công khai họ đọc được mọi mã; (b) mỗi lần khách trả tiền đăng nhập lại sinh ra mã mồ côi, Telegram báo đỏ liên tục; (c) khách dùng thử thấy lịch sử chat của khách trả tiền, và ngược lại, tức là lộ dữ liệu của người trả tiền; (d) nhân viên dọn và đăng xuất mọi thiết bị thì khách trả tiền cũng bị đá ra.",
+   "section": "roadmap (Việc 3 kiểm kê kho) + mail-filter (chuyển tài khoản)",
+   "fix": "Thêm 1 cột vào bảng kiểm kê ở Việc 3: 'Có đang bán cho khách trả phí không'. Kho dùng thử phải là tài khoản RIÊNG, chưa từng giao cho ai. Đổi email và mật khẩu trước khi đưa vào kho. Ghi thành luật: 'Không bao giờ dùng chung 1 tài khoản cho dùng thử và cho khách trả phí'. Nếu backdoor test trượt thì báo ngay: các tài khoản 'dùng chung' đang bán cũng đang hở cùng một cửa sau."
+  },
+  {
+   "severity": "high",
+   "title": "Chuyển khỏi tempmail công khai có thể bị cướp tài khoản bằng link 'Không phải bạn? Hoàn tác' gửi về email cũ",
+   "attack_or_failure": "Lúc nhân viên đổi email tài khoản sang tên miền riêng, nhiều hãng gửi về EMAIL CŨ thư 'Email đã đổi. Không phải bạn? Bấm để hoàn tác', link có hiệu lực vài ngày. Email cũ là tempmail công khai nên khách cũ nào đang canh hộp thư cũng bấm được: email trở về địa chỉ công khai, rồi họ đặt lại mật khẩu và chiếm luôn tài khoản. Bước 'mã xác nhận gửi về email cũ' cũng là một cuộc đua: kẻ gian thấy mã cùng lúc với nhân viên.",
+   "section": "mail-filter (mục 3 checklist chuyển) + roadmap (Nếu trượt, bước 4) + antispam (Nếu trượt, bước 4–5)",
+   "fix": "Trước khi chuyển, đăng nhập thử để xem hãng có gửi link hoàn tác về email cũ không, ghi vào bảng công cụ. Chuyển xong thì xoá ngay thư đó trên tempmail nếu được, đổi mật khẩu và đăng xuất mọi thiết bị trong cùng 5 phút. Đặt tài khoản ở trạng thái 'theo dõi 7 ngày' và chưa phát cho khách. Thư 'email đã đổi' tới địa chỉ mới trong 7 ngày đó thì báo đỏ. Tool nào có link hoàn tác dài ngày thì làm vào giờ vắng và kiểm tra lại cài đặt sau 24 giờ."
+  },
+  {
+   "severity": "high",
+   "title": "Ba thời hạn duyệt khác nhau, và 'vàng sau khi mã về' không kịp trước khi mã của hãng hết hạn",
+   "attack_or_failure": "Roadmap MVP: 10 phút không ai bấm thì tự từ chối. Mail-filter: 2 phút rồi làm theo mặc định. Antispam: 5 phút, vàng nhạt tự duyệt, vàng đậm từ chối mềm. Màn hình khách thì ghi 'thường dưới 3 phút'. Hai cách duyệt còn khác nhau: mail-filter duyệt SAU khi mã đã về, còn antispam duyệt TRƯỚC khi khách bấm gửi mã. Duyệt sau thì 10 phút chờ cộng thời gian mã về đã vượt thời hạn mã của nhiều hãng. Đêm chủ ngủ thì mọi ca vàng (khách đổi máy, khách mượn máy bạn) đều chờ 10 phút rồi bị từ chối. Lập trình viên không biết làm theo con số nào.",
+   "section": "roadmap MVP 5 vs mail-filter 5 bước 12 vs antispam mục 4",
+   "fix": "Chốt 1 cách: duyệt TRƯỚC khi mở cửa sổ (theo antispam). Thời hạn 5 phút, vàng nhạt tự duyệt, vàng đậm từ chối mềm. Vàng 'sau khi mã về' chỉ dùng cho 3 ca: DKIM lỗi, không tách được mã, mã về trong vùng chờ. 3 ca này hết 2 phút thì từ chối mềm, không trừ điểm. Câu trên màn hình sửa thành 'tối đa 5 phút'. Gom mọi con số vào 1 bảng 'Cài đặt luật' duy nhất và xoá các con số trái nhau ở các mục còn lại."
+  },
+  {
+   "severity": "high",
+   "title": "Chưa kiểm tra từng tool có 'đăng xuất mọi thiết bị' và có đăng nhập bằng mã mà không cần mật khẩu không",
+   "attack_or_failure": "Cả hệ thống dựa trên 2 giả định: (a) khách đăng nhập chỉ bằng mã gửi về email; (b) cuối lượt, nhân viên đá được mọi phiên ra. Nếu tool hỏi mật khẩu trước, hoặc bắt xác minh thêm khi thấy thiết bị lạ (gửi link, hỏi số ĐT), thì khách kẹt. Nếu tool không có nút 'đăng xuất mọi thiết bị' (đổi mật khẩu cũng không đá phiên của người đăng nhập bằng mã) thì khách cũ dùng mãi, và bộ lọc không thấy gì vì không có thư nào. Bảng kiểm kê ở Việc 3 không có các cột này. Chỉ số 'có lần đăng nhập không qua mã = dừng ngay' cũng không đo được vì không có cách đếm.",
+   "section": "roadmap (Việc 3, mục 6 chỉ số, mục 7 loại B/C)",
+   "fix": "Thêm vào bảng kiểm kê 5 cột bắt buộc, chủ tự thử bằng 2 máy: đăng nhập bằng mã không cần mật khẩu? có bắt xác minh thêm khi đổi máy hoặc mạng? có nút đăng xuất mọi thiết bị? sau khi bấm thì máy kia có bị đá trong 5 phút? có link hoàn tác khi đổi email? Tool nào trượt 1 trong 4 câu đầu thì không đưa vào dùng thử, trừ khi dùng cách mời Team. Định nghĩa cách đo chỉ số: khi dọn, nhân viên mở danh sách thiết bị hoặc phiên trên trang của hãng (làm tay), so với số mã đã phát và ghi vào cột 'Phiên lạ'."
+  },
+  {
+   "severity": "high",
+   "title": "Không có kế hoạch khi webhook sập: thư về trễ hàng loạt thành 'mồ côi' và khoá oan khách",
+   "attack_or_failure": "Webhook hoặc máy chủ sập 30 phút. Worker hoặc nhà cung cấp gửi lại sau, hoặc máy chủ mail của hãng thử lại sau vài phút đến vài giờ. Khi hệ thống chạy lại, cả loạt mã về khi cửa sổ đã đóng nên thành mã mồ côi: báo đỏ, cộng điểm, khoá tạm. Luật chữ ký 'lệch quá 5 phút thì từ chối' còn làm mất hẳn những thư được gửi lại muộn, kể cả thư cảnh báo bảo mật. Trong lúc sập, khách bấm 'Lấy mã' rồi chờ mãi, không có thông báo gì.",
+   "section": "mail-filter (4.5, mục 3 Worker bước 4) + antispam",
+   "fix": "Thêm 'chế độ trục trặc': webhook lỗi quá 2 phút hoặc 3 mail liên tiếp về trễ hơn 60 giây so với giờ trong thư (Date header) thì tạm ngừng phát slot mới, khách thấy 'Hệ thống đang bảo trì, quay lại sau 15 phút'. Mail về trễ trong thời gian này không cộng điểm và không khoá ai, chỉ cho chủ xem. Chữ ký sai giờ nhưng đúng khoá thì vẫn lưu lại để kiểm tra, chỉ không phát mã. Worker nên tự thử lại 3 lần trước khi gửi bản sao vào hộp thư dự phòng."
+  },
+  {
+   "severity": "high",
+   "title": "Telegram có thể bị chặn ở Việt Nam, mà bot là kênh báo động và duyệt duy nhất",
+   "attack_or_failure": "Năm 2025, cơ quan quản lý đã yêu cầu các nhà mạng chặn Telegram. Nếu điện thoại của chủ hoặc nhân viên dùng 4G mà không nhận được tin thì: ca vàng hết giờ, báo động đỏ về thư bảo mật không ai thấy, và tài khoản bị chiếm lúc nửa đêm mà sáng mới biết.",
+   "section": "roadmap (MVP 5, Việc 5) + antispam (mục 4)",
+   "fix": "Tuần 0: thử Telegram trên điện thoại của chủ và nhân viên, cả Wi-Fi lẫn 4G của từng nhà mạng. Mọi báo động đỏ khẩn đều gửi thêm qua 1 kênh dự phòng: tin Zalo OA tới số của chủ, hoặc email. Trang quản trị luôn có danh sách ca vàng để duyệt khi bot không tới. Bot chỉ nhận lệnh bấm nút từ đúng danh sách tài khoản Telegram được phép."
+  },
+  {
+   "severity": "medium",
+   "title": "Mail báo 'có đăng nhập mới' được khớp với 'lượt đang chạy' nên không phát hiện được mật khẩu bị lộ",
+   "attack_or_failure": "Mail-filter 4.3 ghi: thư 'đăng nhập mới' khớp với cửa sổ HOẶC lượt đang chạy thì chỉ ghi lại. Khách cũ biết mật khẩu (tool loại C, hoặc trước khi đổi mật khẩu) đăng nhập ở nhà đúng lúc tài khoản đang có người khác giữ. Vì tài khoản đang có lượt chạy nên hệ thống bỏ qua. Mật khẩu lộ mà không ai biết. Antispam bước 6 thì khớp với 'mã vừa phát', tức là hai mục đang làm hai kiểu khác nhau.",
+   "section": "mail-filter 4.3 vs antispam (bộ lọc bước 6)",
+   "fix": "Chỉ coi thư 'đăng nhập mới' là bình thường khi nó về trong vòng 15 phút sau một mã đã giao (hoặc trong cửa sổ nhân viên). Không khớp thì đỏ, kể cả khi tài khoản đang có lượt chạy. Dùng mẫu có sẵn để lọc riêng những tool tự gửi thư này sau mỗi lần đăng nhập."
+  },
+  {
+   "severity": "medium",
+   "title": "Tempmail đẩy thư dạng đã tách sẵn thì không kiểm tra được DKIM, và mọi thư thành vàng",
+   "attack_or_failure": "Bộ lọc yêu cầu DKIM hợp lệ, không đạt thì xếp vàng. Nhiều dịch vụ tempmail hoặc webhook đẩy thư dạng JSON đã tách sẵn hoặc đã sửa nội dung, mất header gốc, nên DKIM luôn trượt. Nếu chủ GIỮ tempmail thì 100% mã thành vàng: đêm thì hết giờ, khách không nhận được mã nào, owner bị dội Telegram.",
+   "section": "mail-filter (4.2 bước 2, mục 2 bảng kiểm tra) + roadmap (5 điều kiện giữ tempmail)",
+   "fix": "Thêm vào bài kiểm tra tempmail điều kiện 6: 'Thư đẩy về có nguyên bản gốc (raw MIME) hoặc có kết quả kiểm tra DKIM/SPF của nhà cung cấp'. Không có thì đó là thêm 1 lý do để chuyển sang Cloudflare. Ở đó Worker nhận nguyên thư và có header Authentication-Results. Trong lúc chưa chuyển: thư khớp cửa sổ, đúng tên miền gửi trong danh sách và đúng mẫu thì cho xanh. DKIM lỗi chỉ chặn tự cách ly, không chặn phát mã."
+  },
+  {
+   "severity": "medium",
+   "title": "Phiếu chạm 3 phút và '1 lần chạm = 1 việc' quá gắt cho lần đầu (OTP + nhận slot + lấy mã)",
+   "attack_or_failure": "Lần đầu khách phải: chạm, đọc, chọn tool, nhập số, chờ OTP Zalo, nhập OTP, tick đồng ý, nhận slot. Theo antispam, mỗi phiếu chỉ làm 1 việc nên muốn lấy mã đầu phải chạm thêm lần nữa. Mail-filter thì ngầm cho 1 lần chạm làm cả hai việc. OTP Zalo về chậm 1–2 phút là phiếu hết hạn giữa chừng, khách gặp 'Chạm lại thẻ'. Chỉ số 'chạm → dùng được ≤ 3 phút' khó đạt.",
+   "section": "antispam (Cửa 2 điểm 5) vs mail-filter 5 (bước 2–4) + roadmap mục 6",
+   "fix": "Phiếu chạm 3 phút chỉ để BẮT ĐẦU. Sau đó phiên trên đúng máy đó còn hiệu lực 10 phút cho chuỗi 'nhận slot + lấy mã đầu tiên'. Từ mã thứ 2 trở đi mới cần chạm mới. Đồng hồ đếm ngược dừng trong lúc chờ OTP."
+  },
+  {
+   "severity": "medium",
+   "title": "Ngưỡng chạm theo thẻ quá thấp cho nhóm bạn, và số đếm nhảy do điện thoại đặt trên thẻ",
+   "attack_or_failure": "Bàn 4 sinh viên, mỗi người 1 lần chạm để nhận slot, 1 lần lấy mã, 1–2 lần chạm lại vì hết giờ hoặc chờ duyệt. Vậy là 16–20 lần chạm trong 1 giờ: theo antispam, thẻ thành 'vàng' (+20 điểm cho cả bàn), quá 20 thì khoá thẻ. Điện thoại úp lên thẻ trên bàn (iPhone đọc thẻ chạy nền, Android có NFC bật) đọc thẻ liên tục, số đếm nhảy hơn 15 thì bị coi là 'gom link'. Khách thật bị xếp vàng hoặc bị khoá thẻ vào giờ đông nhất.",
+   "section": "antispam (Cửa 2 điểm 7, Cửa 3 'Lần chạm/thẻ/giờ', điểm 'Thẻ bất thường +20')",
+   "fix": "Đếm theo HÀNH ĐỘNG (nhận slot, lấy mã), không đếm lượt chạm. Lượt chạm thì chỉ báo Telegram khi quá 30/giờ. Tự khoá thẻ chỉ khi chữ ký sai từ 3 lần/giờ. Còn lại chủ khoá tay (khớp với roadmap). Bỏ +20 điểm 'thẻ bất thường' cho khách. Đặt thẻ ở chỗ khó úp điện thoại lên, ví dụ chân đế đứng hoặc cạnh bàn."
+  },
+  {
+   "severity": "medium",
+   "title": "Cửa sổ nhân viên bỏ qua thư bảo mật, giờ dọn cố định ai cũng biết, nhân viên thấy mã thô",
+   "attack_or_failure": "Lúc 22:00 (giờ dọn cố định), khách cũ còn phiên đăng nhập đổi email hoặc bật 2FA. Cửa sổ nhân viên đang mở nên hệ thống 'chỉ ghi lại' (mail-filter 4.3, antispam 'đang dọn'), không báo đỏ. Ngoài ra, cửa sổ nhân viên kéo dài 30 phút và hiện mã thô cho nhân viên, nên nhân viên có thể lấy mã cho bạn bè. Tên gọi và thời lượng của chế độ nhân viên ở 3 mục cũng khác nhau.",
+   "section": "mail-filter (mục 3 bước 3, 4.3) + antispam ('đang dọn') + roadmap MVP 7",
+   "fix": "Cửa sổ nhân viên chỉ mở được cho tài khoản ở trạng thái 'Chờ dọn' hoặc 'Bảo trì', dài 10 phút, và ghi lại ai mở. Thư bảo mật trong cửa sổ nhân viên hiện ngay cho nhân viên với câu hỏi 'Bạn vừa làm việc này? Có / Không'. Bấm 'Không' hoặc không trả lời thì đỏ. Thư 'email đã đổi' sang địa chỉ không thuộc tên miền kho thì luôn đỏ. Mỗi tuần chủ xem số cửa sổ nhân viên so với số tài khoản đã dọn."
+  },
+  {
+   "severity": "medium",
+   "title": "Ép đăng xuất hoặc cách ly làm khách thật đã về nhà mất luôn phần còn lại của lượt",
+   "attack_or_failure": "Có mã mồ côi, nhân viên 'đổi mật khẩu và đăng xuất ngay trong ngày' (antispam), hoặc tài khoản bị cách ly thì hệ thống 'chuyển khách sang tài khoản khác'. Nhưng khách đã về nhà, muốn lấy mã mới phải chạm thẻ ở quán. Vậy là khách thật mất slot vì lỗi không phải của mình, ngay trong phễu bán hàng.",
+   "section": "antispam (luật thời gian chuyển, luật cứng) + mail-filter (mục 6 mức 2–3)",
+   "fix": "Khi hệ thống chủ động đăng xuất hoặc chuyển tài khoản của người đang giữ slot, cấp cho đúng người đó, trên đúng điện thoại đã gắn, 1 cửa sổ lấy mã KHÔNG cần chạm, có hạn 12 giờ. Gửi thông báo trên trang của khách (và tin Zalo nếu khách đã đồng ý nhận). Chỉ áp dụng cho slot còn hạn."
+  },
+  {
+   "severity": "medium",
+   "title": "Không có đường cho khách báo 'không đăng nhập được' khi hãng khoá tài khoản giữa chừng",
+   "attack_or_failure": "Hãng khoá hoặc hạn chế tài khoản giữa lượt, hoặc bắt xác minh thêm. Khách thấy lỗi bên hãng, còn hệ thống không biết vì không có thư nào. Khách mất lượt, nhắn Zalo hỏi, chủ phải xử lý tay. Chỉ số 'tài khoản bị khoá' cũng không đếm được.",
+   "section": "antispam (mục 6 màn hình) + roadmap MVP",
+   "fix": "Trang của khách có nút 'Không đăng nhập được'. Bấm thì tài khoản chuyển 'Bảo trì', khách được giao tài khoản khác cùng tool (tốn 1 lần chạm khi còn ở quán), không tính là đã thử tool. Mỗi slot bấm được 1 lần. Cùng 1 tool có từ 2 lần bấm trong ngày thì tạm ngừng phát tool đó và báo chủ."
+  },
+  {
+   "severity": "medium",
+   "title": "Ở 10 quán, chi phí kho và giờ công dọn lớn hơn rất nhiều so với dòng 'Tổng 1,8–2 triệu/tháng'",
+   "attack_or_failure": "Antispam ước tính 150 lượt/đêm cho 10 quán. Kho cần gấp đôi, tức là khoảng 300 tài khoản hoặc ghế Team. Giá vốn theo ví dụ ở roadmap là 15 nghìn/slot × 4.500 slot/tháng ≈ 67 triệu/tháng. Dọn 150 tài khoản/ngày × 3–5 phút ≈ 7,5–12,5 giờ/ngày, gần 1,5 người làm toàn thời gian. Chỉ số 'dọn ≤ 45 phút/ngày' chỉ đúng ở pilot. Chủ có thể quyết mở rộng dựa trên con số sai.",
+   "section": "roadmap mục 5, mục 6 vs antispam mục 1 (150 lượt/đêm)",
+   "fix": "Thêm vào bảng chi phí 2 dòng cho 10 quán: 'Giá vốn kho ≈ số slot/ngày × 2 × giá 1 tài khoản' và 'Nhân công dọn ≈ số slot/ngày × 4 phút'. Đặt hạn mức mở rộng theo kho: chỉ thêm quán khi tỷ lệ mua ≥ 5% và chi phí mỗi khách mua ≤ 50% lãi gộp. Đổi chỉ số 'thời gian dọn' thành phút dọn trên mỗi slot (≤ 4 phút)."
+  },
+  {
+   "severity": "medium",
+   "title": "Nhân viên quán ca đêm có toàn bộ thẻ trong tay",
+   "attack_or_failure": "3–5h sáng quán vắng, nhân viên chạm thẻ ở các bàn trống, gửi link cho bạn bè qua Zalo hoặc nhận slot bằng số của người thân. Hạn mức theo thẻ nhân với 20–30 bàn thì vượt xa suất của quán. Luật 'không máy nào dùng Wi-Fi quán thì khoá thẻ' không bắt được, vì nhân viên dùng Wi-Fi quán.",
+   "section": "antispam (Cửa 2 'thẻ bị gỡ', Cửa 3) + roadmap (Việc 4)",
+   "fix": "Hạn mức slot mới cho cả quán theo khung giờ (ví dụ 01:00–06:00 tối đa 30% suất của ngày). Báo cáo buổi sáng có danh sách thẻ phát slot lúc 01:00–06:00. Hoa hồng chỉ tính trên đơn trả phí (đã đúng), không tính theo lượt nhận, để nhân viên không có lý do bơm số. Thoả thuận 1 trang ghi rõ: nhân viên quán không được nhận slot bằng thẻ ở bàn trống."
+  },
+  {
+   "severity": "medium",
+   "title": "Mã thiết bị có thể mất giữa 2 lần chạm, khách thật bị xếp 'máy khác'",
+   "attack_or_failure": "Mỗi lần chạm, điện thoại mở trình duyệt mặc định. Nếu lần trước khách mở trang trong Zalo, Chrome hay tab ẩn danh, hoặc cookie do JavaScript tạo bị iPhone giới hạn còn 7 ngày, thì lần chạm sau ra mã thiết bị mới: hiện 'Slot đang gắn với máy khác', bắt OTP lại và xếp vàng (+35).",
+   "section": "antispam (mục 2 'Mã thiết bị')",
+   "fix": "Cookie thiết bị do máy chủ đặt (HttpOnly, first-party). Khi lệch mã thiết bị nhưng đúng số ĐT, xác minh lại bằng OTP hoặc Zalo login thì cho xanh, chỉ cộng điểm khi đổi máy từ lần thứ 2. Tuần 2 thử với ít nhất 5 dòng máy: iPhone đời cũ và mới, Samsung, Xiaomi, Oppo."
+  },
+  {
+   "severity": "medium",
+   "title": "Băm số ĐT không phải là ẩn danh, và lại mâu thuẫn với nhu cầu giữ số để bán hàng",
+   "attack_or_failure": "Số di động Việt Nam chỉ có khoảng 1 tỷ khả năng, nên chuỗi băm (SHA) thường dò ngược trong vài giây. Ai lấy được cơ sở dữ liệu là có lại toàn bộ số. Roadmap chỉ lưu dạng băm, trong khi antispam cần số thật để hiện ***496 trên Telegram, gửi tin Zalo cho khách đã đồng ý và chốt đơn.",
+   "section": "roadmap MVP 8 vs antispam mục 7",
+   "fix": "Dùng băm có khoá bí mật (HMAC, khoá nằm ở máy chủ) để chặn nhận lại. Số thật chỉ lưu dạng mã hoá, và chỉ cho những khách đã tick ô 'nhắn cho tôi qua Zalo'. Vẫn coi cả hai là dữ liệu cá nhân và áp thời gian lưu."
+  },
+  {
+   "severity": "low",
+   "title": "Máy không có NFC hoặc chưa bật NFC: khách bỏ đi mà mình không đếm được",
+   "attack_or_failure": "Nhiều máy Android tắt NFC sẵn, iPhone đời 7 đến X phải mở trình đọc thẻ trong Trung tâm điều khiển. Khách chạm không thấy gì là bỏ đi, không để lại dấu vết. Roadmap định 'đếm xem có bao nhiêu khách gặp' nhưng không có cách đếm.",
+   "section": "roadmap (mục 3 'Để sau')",
+   "fix": "In trên thẻ 1 mã QR tĩnh dẫn tới trang 'Bật NFC rồi chạm lại'. Trang này KHÔNG cấp gì, chỉ đếm lượt vào và hướng dẫn bật NFC theo từng hãng máy. Sau 2 tuần xem số lượt để quyết định có cần đường cho máy không NFC không."
+  },
+  {
+   "severity": "low",
+   "title": "Mã ưu đãi theo quán dễ bị đăng lên mạng, sai số liệu và lỗ tiền giảm giá",
+   "attack_or_failure": "Mã MOC-7F2K gắn với cả quán. Khách đăng lên nhóm Facebook, người lạ dùng để lấy giảm giá. Chỉ số 'khách nhắn Zalo' và 'khách mua' bị phóng đại, hoa hồng của quán bị tính sai.",
+   "section": "antispam (mục 6) vs roadmap (MVP 6)",
+   "fix": "Mỗi lượt 1 mã riêng có tiền tố quán, ví dụ MOC-7F2K-31. Dùng 1 lần và hết hạn sau 7 ngày. Khi khách nhắn Zalo, nhân viên tra mã trên trang quản trị."
+  },
+  {
+   "severity": "low",
+   "title": "Chưa có bước ghi khoá vào thẻ và giữ khoá gốc trong lịch tuần",
+   "attack_or_failure": "Tin nhắn gửi đồng nghiệp nói khoá gốc do chủ giữ, nhưng không ai được giao việc chọn công cụ ghi thẻ, ghi thẻ cùng ai, cất bản sao khoá gốc ở đâu. Mất khoá gốc là phải ghi lại toàn bộ thẻ. Đồng nghiệp giữ bản sao Key 0 thì làm giả được lượt chạm.",
+   "section": "roadmap (mục 4 tuần 1–2, Việc 2)",
+   "fix": "Tuần 1: chọn công cụ ghi thẻ (app NXP hoặc script do lập trình viên viết). Tuần 2: chủ có mặt khi ghi 5 thẻ thử, đổi Key 0 ngay sau đó. Khoá gốc cất trong trình quản lý mật khẩu và 1 bản giấy niêm phong. Không để khoá gốc trong code hay tin nhắn."
+  },
+  {
+   "severity": "low",
+   "title": "Xoá dữ liệu theo yêu cầu thành cách để nhận lại lượt thử",
+   "attack_or_failure": "Khách nhắn 'xoá dữ liệu', hệ thống quên luôn họ đã thử tool nào (antispam mục 7 'chấp nhận rủi ro nhỏ này'), rồi họ nhận lại. Nếu lan truyền thành mẹo thì thành lỗ hổng lặp lại được.",
+   "section": "antispam (mục 7 Xoá theo yêu cầu)",
+   "fix": "Hỏi luật sư xem có được giữ riêng mã băm có khoá của số ĐT, không kèm thông tin khác, như 'đã dùng thử' trong thời hạn lưu với lý do chống gian lận không. Nếu không được thì giới hạn: mỗi số tối đa 1 lần xoá rồi nhận lại trong 12 tháng (ghi bằng băm có khoá)."
+  }
+ ],
+ "contradictions": [
+  "Tên miền: roadmap và mail-filter khuyên mua tên miền riêng, không dùng kho.tiembanquyen.com (tên miền con không có catch-all). Antispam bước 1 lại ghi 'Tạo tên miền phụ riêng, ví dụ kho.tiembanquyen.com'.",
+  "Đặt tên địa chỉ: mail-filter và roadmap dùng tên dễ đoán (cgpt07@, a01@). Antispam dùng địa chỉ ngẫu nhiên (q7m2x9@). Tên dễ đoán làm tấn công 'Quên mật khẩu' lan ra cả kho.",
+  "Bắt đầu tính 1 ngày: roadmap chọn '24 tiếng kể từ lúc nhận'. Antispam tính 24 giờ từ lúc phát mã đầu tiên, có giữ chỗ 30 phút. Màn hình 'Nhận slot thành công' hiện giờ kết thúc ngay lúc nhận, trong khi giờ đó chưa biết nếu tính từ mã đầu.",
+  "Thời hạn duyệt vàng: roadmap MVP là 10 phút rồi tự từ chối. Mail-filter là 2 phút rồi theo mặc định. Antispam là 5 phút, vàng nhạt tự DUYỆT, vàng đậm từ chối. Màn hình khách ghi 'thường dưới 3 phút'.",
+  "Lúc duyệt: mail-filter duyệt vàng SAU khi mã về (bước 12). Antispam duyệt TRƯỚC khi khách bấm gửi mã bên hãng.",
+  "Thời gian hiện mã: mail-filter 3 phút, antispam 5 phút. Lưu mã: mail-filter 'không lưu, xoá ngay', antispam 'xoá sau 24 giờ'. Thư gốc: mail-filter 1 giờ / 24 giờ / 7 ngày, antispam 24 giờ cho mọi thư.",
+  "Số mã: mail-filter cho 3 cửa sổ/ngày × 2 mã/cửa sổ, quá thì vàng. Antispam cho tối đa 2 mã/slot, mã thứ 3 thì đỏ.",
+  "Mail-filter ghi cửa sổ đóng ngay khi đã giao mã, nhưng cũng ghi mỗi cửa sổ nhận tối đa 2 mã (gửi lại mã).",
+  "Ngưỡng khoá: mail-filter khoá khách khi ≥ 30 điểm, mỗi mã mồ côi +10 cho mọi người giữ trong 7 ngày. Antispam: 30–44 chỉ là vàng nhạt, đỏ từ 60, mã mồ côi +20 khi ≥ 2 mã trong slot, khoá theo thang vi phạm.",
+  "Phạm vi MVP: roadmap ghi dùng luật cố định, chưa chấm điểm, tự khoá thẻ / Wi-Fi quán / chế độ đêm để sau. Mail-filter mục 6 và antispam mục 3–4 lại dựa vào chấm điểm, Wi-Fi ±5, tự khoá thẻ khi quá 20 lượt/giờ hoặc 3 lần sai chữ ký, và chế độ đêm 01:00–07:00.",
+  "Máy và số: bài thử phá 4–5 ở roadmap CHẶN hẳn (cùng máy khác số, cùng số khác máy). Antispam cho SĐT thứ 2 trên 1 máy là vàng, và xin mã từ máy khác thì nhập OTP + vàng + xin chuyển máy.",
+  "Số lần thử: bối cảnh và roadmap là '1 tool mỗi khách', '1 SĐT thử 1 lần mãi mãi hoặc sau 6 tháng'. Antispam cho 2 tool khác nhau / 30 ngày, nghỉ 7 ngày giữa 2 tool, mỗi tool 1 lần / 12 tháng. Ô đồng ý lại ghi lưu tối đa 12 tháng, nên 'mãi mãi' không làm được.",
+  "Thời gian lưu dữ liệu khách: mail-filter 90 ngày cho SĐT, mã thiết bị, IP. Roadmap: IP và cookie 30 ngày. Antispam và ô đồng ý: SĐT và thiết bị 12 tháng, IP 30 ngày.",
+  "Số ĐT: roadmap chỉ lưu dạng băm. Antispam cần số thật để hiện ***496 trên Telegram, gửi tin Zalo cho người đồng ý và chốt đơn.",
+  "Suất mỗi ngày: roadmap 5 rồi 10 slot/ngày cho pilot, kho 20 tài khoản. Antispam mặc định 20 slot/quán/ngày, cần khoảng 40 tài khoản theo quy tắc gấp đôi.",
+  "Điều kiện giữ tempmail: roadmap cho trượt 'địa chỉ bị cấp lại' và 'tên miền không phải của mình' được 'chuyển trong 2–3 tuần'. Mail-filter ghi 'chuyển ngay', antispam ghi 'bắt buộc chuyển'. Bài kiểm tra cửa sau là 2 phút, 10 phút hay 30 phút, mỗi bản có các bước khác nhau.",
+  "Lịch dọn: roadmap dọn 2 đợt cố định 10:00 và 22:00. Antispam ngầm hiểu là dọn ngay khi hết slot ('Bắt đầu dọn'). Mail-filter ghi 'cuối ngày'. Chế độ nhân viên có 3 tên và thời lượng khác nhau: 'Lấy mã nhân viên', 'cửa sổ nhân viên 30 phút', trạng thái 'đang dọn'.",
+  "Mã ưu đãi: roadmap MVP 6 là mã riêng cho từng lượt. Antispam là mã theo quán (MOC-7F2K).",
+  "Thời gian đổi email mỗi tài khoản: roadmap và antispam 5 phút, mail-filter 10 phút. Số bài nghiệm thu: roadmap 9 bài, antispam 13 ca, nhưng roadmap yêu cầu 'qua 9/9'.",
+  "Khớp thư 'đăng nhập mới': mail-filter khớp với cửa sổ HOẶC lượt đang chạy. Antispam khớp với mã vừa phát.",
+  "Phiếu chạm: antispam ghi 1 lần chạm chỉ làm 1 việc (nhận slot HOẶC lấy 1 mã). Luồng ở mail-filter mục 5 ngầm cho 1 lần chạm vừa hiện lượt vừa cho bấm 'Lấy mã'.",
+  "Mail-filter mục 4.1 nói 2 khách tranh cùng 1 tài khoản và giao tài khoản khác. Antispam và roadmap lại ghi mỗi tài khoản chỉ 1 người giữ tại 1 thời điểm, nên hai khách không thể tranh mã cùng tài khoản."
+ ],
+ "missing": [
+  "Bài thử phá cho tấn công phá hoại: bấm 'Quên mật khẩu' hoặc 'Gửi mã' nhiều lần từ nhà mà người đang giữ slot không bị cách ly, khoá hay mất lượt.",
+  "Đường cứu khi khách làm sai thứ tự (bấm gửi mã bên hãng trước khi bấm 'Lấy mã').",
+  "Redirect sang link phiên sạch sau khi kiểm tra lượt chạm, để trình duyệt tải lại không bị coi là dùng lại link.",
+  "Hạn mức nhận SLOT MỚI theo thẻ và theo khung giờ đêm, tách khỏi hạn mức lượt chạm.",
+  "Bảng tiêu chuẩn từng tool: đăng nhập bằng mã không cần mật khẩu, có hay không bắt xác minh thêm, có đăng xuất mọi thiết bị, có link hoàn tác khi đổi email, ghế Team có dùng lại được không.",
+  "Luật tách kho dùng thử khỏi tài khoản đang bán cho khách trả phí 'dùng chung'.",
+  "Chế độ trục trặc khi webhook, mail hoặc tách mã lỗi: tạm ngừng phát slot, không cộng điểm cho thư về trễ.",
+  "Kênh báo động dự phòng khi Telegram không tới (Zalo OA hoặc email), và kiểm tra Telegram trên mạng Việt Nam ở tuần 0.",
+  "Nút 'Không đăng nhập được' để giao tài khoản khác khi hãng khoá hoặc bắt xác minh thêm giữa lượt.",
+  "Cửa sổ lấy mã không cần chạm cho người đang giữ slot khi hệ thống chủ động đăng xuất hoặc chuyển tài khoản của họ.",
+  "Cách đo chỉ số 'có đăng nhập không qua mã': nhân viên đối chiếu danh sách phiên trên trang hãng khi dọn (làm tay).",
+  "Chi phí giá vốn kho và giờ công dọn khi chạy 10 quán, trong bảng chi phí.",
+  "Việc ghi khoá vào thẻ, đổi Key 0 và cất khoá gốc trong lịch tuần 1–2.",
+  "Mã QR tĩnh chỉ để đếm và hướng dẫn bật NFC, cho máy không có NFC hoặc chưa bật NFC.",
+  "Một bảng 'Cài đặt luật' duy nhất làm chuẩn cho mọi con số (thời hạn, hạn mức, điểm, thời gian lưu), các mục khác chỉ dẫn tới bảng này.",
+  "Điều kiện 'thư đẩy về có nguyên bản gốc hoặc kết quả DKIM' trong bài kiểm tra giữ tempmail.",
+  "Cảnh báo rằng nếu bài kiểm tra cửa sau trượt thì các tài khoản 'dùng chung' đang bán cũng đang hở, cần đổi email theo cùng lịch."
+ ]
+}
