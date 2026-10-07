@@ -26,3 +26,4 @@ deploy/hosted/hosted.env
 
 # Tài 05/10: repo công khai, nên bản thiết kế, kịch bản, ảnh tham khảo và khoá API chỉ nằm trên máy.
 rieng/
+.claude/settings.local.json

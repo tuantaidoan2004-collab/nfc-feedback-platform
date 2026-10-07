@@ -4,6 +4,9 @@
 //                          (slots) and of every other word and link on the page; [mẫu] starts the page from another template.
 //                          Marks the request "Admin Tài đang chỉnh" for the owner.
 //   kiem <trang>           every check `dang` makes, nothing written (local files count as pictures)
+//   chep <trang> <quán>    a page built here (local database and store) copied as a new page of another shop, published, with
+//                          the words and links of the shop it was built for kept on it (Tài 07/10: the designs as a shop's assets).
+//                          Its pictures, fonts and sounds go to the target's store. With --env, the target is production.
 //   dang <trang>           the file back: local files shrunk and uploaded, the shop's name, details and Place ID saved (refused if
 //                          a page already live would break), the page saved and published, the request closed.
 // rieng/ is never committed (the repo is public): the shop's details, files and drafts stay on this machine.
@@ -17,13 +20,14 @@ import { PublishingAdmin, PublishingError, shownConfig, templateVersionRow } fro
 import { validateConfig, type PageConfig } from '@/lib/publishing/config';
 import { assertPublishable } from '@/lib/publishing/policy';
 import { CanvasError, validateDoc, walk } from '@/lib/canvas/validate';
-import { placeholderLinks, slotReport } from '@/lib/canvas/slots';
+import { bindShop, placeholderLinks, slotReport } from '@/lib/canvas/slots';
 import { canvasTemplate, pageFromTemplate } from '@/lib/canvas/templates';
 import { presignObject, storageSettings } from '@/lib/media/storage';
 import { recordAdminAction } from '@/lib/admin/audit';
 import { saveShopDetails, ShopDetailsError } from '@/lib/admin/shop-details';
 import { readProfile } from '@/lib/shop/profile';
 import type { PageDoc } from '@/lib/canvas/doc';
+import { withShortCode } from '@/lib/short-code';
 
 const [command, page, extra] = process.argv.slice(2);
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
@@ -199,10 +203,77 @@ async function publish(slug: string, dry: boolean) {
   } catch (error) { await db.query('ROLLBACK').catch(() => {}); throw error; } finally { db.release(); }
 }
 
+/** The local database and store `chep` copies from: the ones scripts/local.mjs runs, whatever --env points at. */
+const LOCAL_DB = 'postgresql://nfc@127.0.0.1:55460/nfc_local', LOCAL_STORE = 'http://127.0.0.1:3322/nfc-media/';
+/** The shop's data put into the page for good: no slot left, a `links` group keeping its buttons. Item `slot`s are link kinds, kept. */
+function frozen(doc: PageDoc, shop: { name: string; profile: unknown }) {
+  const out = bindShop(doc, { name: shop.name, profile: readProfile(shop.profile) });
+  const visit = (v: unknown): void => {
+    if (Array.isArray(v)) { v.forEach(visit); return; }
+    if (!v || typeof v !== 'object') return;
+    const o = v as Record<string, unknown>;
+    delete o.slot; if (o.t === 'links') o.own = true;
+    for (const [k, child] of Object.entries(o)) if (k !== 'items') visit(child);
+  };
+  visit(out.sections);
+  return out;
+}
+async function copy(slug: string, target: string, dry: boolean) {
+  if (!/^[a-z0-9-]{1,63}$/i.test(target ?? '')) fail('node scripts/sua-trang.mjs chep <mã trang> <mã quán> [--thu]');
+  const source = new pg.Pool({ connectionString: LOCAL_DB, max: 1 });
+  const row = (await source.query(`SELECT p.slug,s.name,s.profile,d.config,tv.template_key FROM pages p JOIN shops s ON s.id=p.shop_id
+    JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id WHERE lower(p.slug)=lower($1)`, [slug])).rows[0] ?? fail(`Máy này không có trang /${slug}.`);
+  const files = new Map((await source.query(`SELECT url,kind,content_type FROM media_assets WHERE url LIKE $1`, [`${LOCAL_STORE}%`])).rows.map(r => [r.url as string, r]));
+  await source.end();
+  const shop = (await pool.query('SELECT id,name,google_url FROM shops WHERE lower(slug)=lower($1)', [target])).rows[0] ?? fail(`Không có quán ${target}.`);
+  if (!shop.google_url || shop.google_url === 'https://maps.google.com/') fail(`Quán ${shop.name} chưa có link Google.`);
+  const adminId = await admin(), settings = dry ? null : storageSettings() ?? fail('Chưa có kho ảnh.');
+  let text = JSON.stringify({ ...validateConfig(row.config), name: row.name, doc: frozen(validateConfig(row.config).doc, row) });
+  // Every file of the local store the page names: fetched here, sent to the target's store as the target shop's, approved.
+  const used = [...new Set(text.match(/http:\/\/127\.0\.0\.1:3322\/nfc-media\/[^"\\]+/g) ?? [])];
+  const db = await pool.connect();
+  try {
+    await db.query('BEGIN');
+    for (const url of used) {
+      const meta = files.get(url) ?? fail(`Tệp không có trong kho local: ${url}`);
+      const got = await fetch(url); if (!got.ok) fail(`Kho local không trả ${url} (${got.status}). Chạy node scripts/local.mjs.`);
+      const body = Buffer.from(await got.arrayBuffer()), ext = extname(new URL(url).pathname);
+      let to = url;
+      if (settings) {
+        const key = `shops/${shop.id}/${randomUUID()}${ext}`; to = `${settings.publicOrigin}/${key}`;
+        const signed = presignObject(settings, 'PUT', key, { date: new Date(), expiresSeconds: 300, headers: { 'content-type': meta.content_type, 'content-length': String(body.length) } });
+        const sent = await fetch(signed, { method: 'PUT', headers: { 'Content-Type': meta.content_type }, body });
+        if (!sent.ok) fail(`Kho từ chối ${basename(url)} (${sent.status}).`);
+        await db.query(`INSERT INTO media_assets(shop_id,url,kind,content_type,size_bytes,uploaded_by,state,reviewed_by,reviewed_at)
+          VALUES($1,$2,$3,$4,$5,$6,'approved',$7,clock_timestamp())`, [shop.id, to, meta.kind, meta.content_type, body.length, `admin:${adminId}`, adminId]);
+      }
+      text = text.split(url).join(to);
+      console.log(`  ${dry ? '·' : '↑'} ${meta.kind} ${Math.round(body.length / 1024)} KB${dry ? '' : ` → ${to}`}`);
+    }
+    const config = validateConfig(JSON.parse(text));
+    try { validateDoc(config.doc); } catch (error) { if (error instanceof CanvasError) fail(`Tài liệu trang sai ở ${error.at}.`); throw error; }
+    try { assertPublishable(config); } catch (error) { explain(error); }
+    const leftovers = placeholderLinks(config.doc);
+    if (leftovers.length) fail(`${WHY.PAGE_NOT_SYNCED} Phần tử: ${leftovers.map(id => `#${id}`).join(', ')}.`);
+    if (dry) { await db.query('ROLLBACK'); console.log(`Kiểm xong /${row.slug} (${row.name}) → quán ${shop.name}: chép được, ${used.length} tệp.`); return; }
+    const core = new PublishingAdmin(db, async () => ({ actorId: `admin:${adminId}` })), templateId = await templateVersionRow(db, row.template_key);
+    const page = await withShortCode(async code => {
+      await db.query('SAVEPOINT new_page');
+      try { const made = await core.createPage(shop.id, templateId, config, code, String(row.name).slice(0, 60)); await db.query('RELEASE SAVEPOINT new_page'); return { ...made, slug: code }; }
+      catch (error) { await db.query('ROLLBACK TO SAVEPOINT new_page'); throw error; }
+    }).catch(explain);
+    const published = await core.publish(page, 1).catch(explain);
+    await recordAdminAction(db, adminId, { action: 'page.copy', shopId: shop.id, detail: { page: page.pageId, from: row.slug, release: published.releaseId } });
+    await db.query('COMMIT');
+    console.log(`Đã chép /${row.slug} (${row.name}) → quán ${shop.name}: trang mới /${page.slug}, đã phát hành.`);
+  } catch (error) { await db.query('ROLLBACK').catch(() => {}); throw error; } finally { db.release(); }
+}
+
 try {
   if (command === 'ds') await list();
   else if (command === 'lay') await take(page, extra);
   else if (command === 'kiem') await publish(page, true);
   else if (command === 'dang') await publish(page, false);
-  else fail('node scripts/sua-trang.mjs ds | lay <mã trang> [mẫu] | kiem <mã trang> | dang <mã trang>');
+  else if (command === 'chep') await copy(page, extra, process.argv.includes('--thu'));
+  else fail('node scripts/sua-trang.mjs ds | lay <mã trang> [mẫu] | kiem <mã trang> | dang <mã trang> | chep <mã trang> <mã quán> [--thu]');
 } finally { await pool.end(); }

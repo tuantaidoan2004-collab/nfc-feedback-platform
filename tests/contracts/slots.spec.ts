@@ -108,3 +108,15 @@ test('a phone and an email read back from the store stay on the page (07/10: the
   expect(stored.links).toEqual({ phone: { url: 'tel:+84912345678' }, email: { url: 'mailto:xinchao@quan.vn' } });
   expect(readProfile(JSON.parse(JSON.stringify(stored))).links).toEqual(stored.links);
 });
+
+test('a links group with `own` keeps the links it carries, whoever\'s shop shows it (a design copied to another shop, Tài 07/10)', () => {
+  const doc = { v: 1, bg: '#ffffff', sections: [{ h: 600, els: [
+    { id: 'g', t: 'links', x: 20, y: 20, w: 350, h: 60, look: 'icons', own: true, items: [{ slot: 'instagram', url: 'https://www.instagram.com/nhetenh/' }] },
+    { id: 'e', t: 'links', x: 20, y: 100, w: 350, h: 60, look: 'icons', own: true, items: [] },
+  ] }] } as unknown as PageDoc;
+  const other = { name: 'Quán khác', profile: readProfile({ links: { zalo: { url: 'https://zalo.me/0912345678' } } }) };
+  const shown = bindShop(doc, other);
+  expect(shown.sections[0].els[0]).toMatchObject({ items: [{ slot: 'instagram', url: 'https://www.instagram.com/nhetenh/' }] });
+  expect(shown.sections[0].els[0].hide).toBeUndefined();
+  expect(shown.sections[0].els[1].hide).toBe(true);
+});

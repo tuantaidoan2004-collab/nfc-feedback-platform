@@ -52,6 +52,9 @@ khách thấy trạng thái chuyển "Admin đang chỉnh" · agent điền `tho
 1600 px), đổi video sang MP4 720p (`avconvert`), tải lên kho (duyệt sẵn), lưu thông tin quán (từ chối nếu làm hỏng một trang đang
 chạy của quán), phát hành, đóng yêu cầu. Thông tin quán gắn vào trang lúc trang hiện ra: đổi số Zalo về sau chỉ cần `lay` + `dang`
 lại (hoặc sửa `thongTin` của bất kỳ trang nào của quán), mọi trang của quán đúng ngay.
+`chep <mã trang> <mã quán>` (Tài 07/10: các mẫu đã dựng thành tài sản của một quán): lấy trang dựng ở máy này (database và kho
+local), đóng băng chữ và link của quán nó được dựng cho (bỏ mọi `slot`, nhóm `links` giữ nút bằng `own`), tải ảnh/font/âm thanh sang
+kho của nơi đích, tạo trang mới ở quán đích và phát hành; `--thu` chỉ kiểm. Nút Google vẫn là của quán đích.
 Mặc định là database và kho ảnh local; production dùng `--env <tệp>` (DATABASE_URL và các biến R2 do Tài tự ghi, ngày Tài cần).
 
 **Bảy bộ test** vẫn là cách biết mọi thứ còn đúng, chạy trước khi đẩy `main`: lệnh ở `docs/operations-gotchas.md`.

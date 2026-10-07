@@ -178,11 +178,12 @@ function element(v: unknown, at: string) {
     own(v, at, ['icon', 'color', 'edge'], ['side'], false); slotFits(v, at);
     oneOf(['plane', 'chat', 'mail'])(v.icon, `${at}.icon`); color(v.color, `${at}.color`); color(v.edge, `${at}.edge`); opt(v, 'side', oneOf(['left', 'right']), at);
   } else if (t === 'links') {
-    own(v, at, ['look'], ['style', 'color', 'bg', 'gap', 'size', 'order', 'items'], false);
+    own(v, at, ['look'], ['style', 'color', 'bg', 'gap', 'size', 'order', 'items', 'own'], false);
     oneOf(LINKS_LOOKS)(v.look, `${at}.look`); opt(v, 'style', oneOf(['mau', 'net', 'dac']), at); opt(v, 'color', color, at); opt(v, 'bg', fill, at);
     opt(v, 'gap', (n, a) => num(n, a, 0, 60), at); opt(v, 'size', (n, a) => num(n, a, 8, 60), at);
     opt(v, 'order', (list, a) => { if (!Array.isArray(list) || list.length > LINK_SLOTS.length) fail(a); (list as unknown[]).forEach((s, i) => oneOf(LINK_SLOTS)(s, `${a}.${i}`)); }, at);
-    // Only ever written by slots.ts when the page is shown; checked like any link the page carries.
+    opt(v, 'own', (b, a) => { if (b !== true) fail(a); }, at);
+    // Written by slots.ts when the page is shown, or kept with `own`; checked like any link the page carries.
     opt(v, 'items', (list, a) => { if (!Array.isArray(list) || list.length > LINK_SLOTS.length) fail(a);
       (list as unknown[]).forEach((item, i) => { keys(item, `${a}.${i}`, ['slot', 'url'], ['label']); oneOf(LINK_SLOTS)((item as Obj).slot, `${a}.${i}.slot`); link((item as Obj).url, `${a}.${i}.url`);
         opt(item, 'label', (w, b) => text(w, b, 60), `${a}.${i}`); }); }, at);

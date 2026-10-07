@@ -172,6 +172,10 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
+**07/10 tối — 5 mẫu đã dựng thành tài sản của quán `k9kr5y` (Quán của @huanhoahong) trên production.** Lệnh mới
+`sua-trang.mjs chep` (local-development.md). Lên: Eid `/up95x`, 4RAU `/z7bx5`, Bamos `/687nv`, 21 Detailing `/tm6d8`; Nhẹ Tênh chờ
+cờ `own` của nhóm `links` lên `main` (production cũ không hiểu cờ này). Khoá production ở `rieng/prod.env` (không commit).
+
 **07/10 chiều — nút theo thông tin quán, ô thả theo vai, font/âm thanh của quán.** Phần tử `links` sinh một nút cho mỗi link quán
 có (ô `email` mới, `mailto:`). Bàn dựng: ô thả Poster/Nền/Logo/Logo phụ/Ảnh quán/Ảnh phụ/Font chính/Font đặc biệt/Âm thanh nền;
 nhận font (woff2/ttf/otf ≤2 MB) và âm thanh (mp3/m4a ≤4 MB). Trang: `doc.fonts` (font của quán, CSP `font-src` thêm kho ảnh),

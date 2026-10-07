@@ -173,13 +173,14 @@ export type DeckEl = Box & { t: 'deck'; look: typeof DECK_LOOKS[number]; front: 
 /**
  * Các nút của quán, tự sinh (Tài 07/10: "điền bao nhiêu link thì render bấy nhiêu nút, chỗ nào chưa điền thì không render"): one
  * button per link the shop has, in `order`, nothing for a link it lacks, and the whole group gone when it has none. The page never
- * lists sample links here: `items` is filled from the shop's details each time the page is shown (slots.ts), never stored.
+ * lists sample links here: `items` is filled from the shop's details each time the page is shown (slots.ts), never stored --
+ * except with `own`: the page keeps the links it carries (a design shown under another shop, `sua-trang chep`; Tài 07/10).
  *   look   icons (a row of marks) · pills (mark + name) · rows (list rows with an arrow)
  *   style  mau (brand colours) · net (thin line in `color`) · dac (solid in `color`)
  */
 export const LINKS_LOOKS = ['icons', 'pills', 'rows'] as const;
 export type LinksEl = Box & { t: 'links'; look: typeof LINKS_LOOKS[number]; style?: 'mau' | 'net' | 'dac'; color?: Color; bg?: Fill; gap?: number; size?: number;
-  order?: LinkSlot[]; items?: { slot: LinkSlot; url: string; label?: string }[] };
+  order?: LinkSlot[]; items?: { slot: LinkSlot; url: string; label?: string }[]; own?: true };
 export type El = Leaf | FeedbackEl | StackEl | DeckEl | LinksEl;
 
 /**

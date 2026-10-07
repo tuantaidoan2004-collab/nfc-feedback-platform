@@ -93,6 +93,7 @@ export function bindShop(doc: PageDoc, shop: ShopData, mode: 'live' | 'sample' =
   const out = structuredClone(doc);
   for (const section of out.sections) for (const el of section.els) {
     if (el.t === 'links') {
+      if (el.own) { if (el.items?.length) delete el.hide; else el.hide = true; continue; }
       // One button per link the shop has; in a preview of an empty template, every kind once, so the look can be judged.
       const order = el.order ?? LINKS_ORDER;
       el.items = mode === 'sample' ? order.map(slot => ({ slot, url: SAMPLE[slot] }))
