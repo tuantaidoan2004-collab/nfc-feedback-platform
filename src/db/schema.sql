@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS cafes (
   display_seen_at INTEGER,
   status TEXT NOT NULL DEFAULT 'active',     -- active | paused
   qs_slug TEXT,                              -- mã quán trên Quite Sensational (trang khách quitesensational.../<slug>)
+  paused_by TEXT,                            -- ai tạm dừng: qs (Tài bấm Đóng ở /gov, qua API) | admin (chủ). QS chỉ mở lại quán do QS dừng
   created_at INTEGER NOT NULL
 );
 

@@ -1,6 +1,6 @@
 {
   "name": "tbq-trial",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Hệ thống trải nghiệm công cụ miễn phí 1 ngày tại quán cà phê 24h — Tiệm Bản Quyền",
@@ -27,6 +27,7 @@
     "canva-bot": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/canva-bot.js",
     "kiem-tra": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/kiem-tra.js",
     "tao-env": "node --disable-warning=ExperimentalWarning scripts/tao-env.js",
-    "dong-goi": "node --disable-warning=ExperimentalWarning scripts/dong-goi.js"
+    "dong-goi": "node --disable-warning=ExperimentalWarning scripts/dong-goi.js",
+    "quan": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/quan-qs.js"
   }
 }

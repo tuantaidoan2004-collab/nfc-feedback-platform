@@ -19,7 +19,7 @@ const NODE_FLAGS = '--disable-warning=ExperimentalWarning';
 const FILES = [
   'README.md', '.env.example', 'src', 'extras', 'deploy',
   'docs/HUONG-DAN-MO-BAN.md', 'docs/phoi-hop-voi-QS.md', 'docs/qs-patch',
-  ...['seed', 'pilot', 'backup', 'otp-test', 'canva-bot', 'kiem-tra', 'tao-env', 've', 'fake-mail'].map((s) => `scripts/${s}.js`),
+  ...['seed', 'pilot', 'backup', 'otp-test', 'canva-bot', 'kiem-tra', 'tao-env', 've', 'fake-mail', 'quan-qs'].map((s) => `scripts/${s}.js`),
 ];
 const SCRIPTS = {
   start: `node ${NODE_FLAGS} --env-file-if-exists=.env src/server.js`,
@@ -32,6 +32,7 @@ const SCRIPTS = {
   've': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/ve.js`,
   'fake-mail': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/fake-mail.js`,
   'canva-bot': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/canva-bot.js`,
+  quan: `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/quan-qs.js`,
 };
 
 // ---------- Gom tệp ----------

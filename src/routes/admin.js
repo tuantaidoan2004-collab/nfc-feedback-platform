@@ -19,6 +19,7 @@ import { quarantineAccount, DEFAULT_TOOL_PATTERNS } from '../domain/mail.js';
 import { statsSince, cafeReport } from '../domain/stats.js';
 import { freeTextProblem, POLICY_MESSAGE } from '../lib/policy.js';
 import { QS_EVENT } from '../qs-event.js';
+import { createCafe, shopFromInput, qsPageInfo } from '../domain/presence.js';
 import {
   adminPage, csrfField, postButton, table, t, sev, badge, tile, csvFile, eventSummary,
   EVENT_LABEL, SLOT_STATUS, ACCOUNT_STATUS, LOGIN_TYPE, TASK_KIND, TASK_REASON, END_REASON, REUSE, ALERT_HINT,
@@ -122,7 +123,7 @@ const PUBLIC_TEXT_SETTINGS = ['eventTitle'];
 
 /** Mã quán trên Quite Sensational (slug trang quán, ví dụ k3x9q); không trùng quán khác. Để trống = null. → {value} | {error} */
 function qsSlug(ctx, raw, cafeId = 0) {
-  const v = String(raw ?? '').trim().toLowerCase();
+  const v = shopFromInput(raw);
   if (!v) return { value: null };
   // Giống ràng buộc slug của QS (db/schema.sql shops_slug_check): chữ không dấu, số, '-', tối đa 63 ký tự.
   if (!QS_SLUG_RE.test(v)) return { error: 'Mã quán QS chỉ gồm chữ thường không dấu, số và dấu "-" (đúng như trong link trang quán trên QS).' };
@@ -372,9 +373,9 @@ ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', '
   // Không xin chủ quán quyền gì, không đặt màn hình / mã quầy. Khách vào bằng 1 trong 2 lối: khối "Công cụ làm việc" trên trang
   // quán của QS (vé, Tài bật ở /gov), hoặc thẻ NFC riêng của Tiệm trên bàn (/c/<mã thẻ>).
   const cafeForm = (c = {}) => html`
-    ${field('Tên quán', html`<input name="name" value="${c.name || ''}" required>`)}
+    ${field('Tên quán', html`<input name="name" value="${c.name || ''}"${c.id ? ' required' : ''} placeholder="${c.id ? '' : 'Để trống nếu đã dán link QS'}">`)}
     ${field('Địa chỉ', html`<input name="address" value="${c.address || ''}">`)}
-    ${field('Mã quán trên Quite Sensational', html`<input name="qs_slug" value="${c.qs_slug || ''}" placeholder="vd: k3x9q" pattern="[a-zA-Z0-9][a-zA-Z0-9\\-]{0,62}">`, 'Phần cuối link trang quán trên QS (quitesensational-review-bio.com/<mã>). Để trống nếu quán chưa dùng QS — khi đó dùng thẻ NFC riêng của Tiệm.')}
+    ${field('Mã quán trên Quite Sensational', html`<input name="qs_slug" value="${c.qs_slug || ''}" placeholder="vd: sakz8 hoặc dán nguyên link trang quán">`, 'Dán nguyên link trang quán trên QS hoặc chỉ phần cuối (quitesensational-review-bio.com/<mã>). Để trống tên quán thì Tiệm tự lấy tên từ trang QS. Để trống nếu quán chưa dùng QS — khi đó dùng thẻ NFC riêng của Tiệm.')}
     ${field('Số suất mới / ngày', html`<input name="daily_quota" type="number" min="0" value="${c.daily_quota ?? 20}">`)}
     ${field('Giờ bắt đầu', html`<input name="open_hour" type="number" min="0" max="23" value="${c.open_hour ?? ''}">`, 'Để trống cả 2 = 24 giờ')}
     ${field('Giờ kết thúc', html`<input name="close_hour" type="number" min="0" max="23" value="${c.close_hour ?? ''}">`)}`;
@@ -401,17 +402,18 @@ ${table(['Quán', 'Mã quán QS', 'Thẻ riêng', 'Hôm nay / suất mỗi ngày
     });
   }));
 
-  router.post('/admin/cafes', A((rq, f) => {
+  router.post('/admin/cafes', A(async (rq, f) => {
     const { ctx } = rq;
-    if (!f.name?.trim()) return go('/admin/cafes', 'Cần nhập tên quán.');
     const slug = qsSlug(ctx, f.qs_slug);
     if (slug.error) return go('/admin/cafes', slug.error);
-    // display_token / code_secret: cột cũ (màn hình quầy), không dùng nữa nhưng vẫn bắt buộc trong bảng.
-    const cid = run(ctx.db,
-      `INSERT INTO cafes(name, address, qs_slug, display_token, code_secret, presence_mode, daily_quota, open_hour, close_hour, created_at)
-       VALUES(?, ?, ?, ?, ?, 'none', ?, ?, ?, ?)`,
-      f.name.trim(), f.address?.trim() || null, slug.value, randomToken(18), randomToken(24),
-      int(f.daily_quota, 20), hourOrNull(f.open_hour), hourOrNull(f.close_hour), ctx.now()).lastInsertRowid;
+    // Có link QS mà để trống tên / địa chỉ → đọc từ trang quán QS.
+    const page = slug.value && (!f.name?.trim() || !f.address?.trim()) ? await qsPageInfo(ctx, slug.value) : null;
+    if (slug.value && !f.name?.trim() && !page) return go('/admin/cafes', `Không mở được trang quán QS "${slug.value}". Kiểm tra lại link, hoặc gõ tên quán.`);
+    if (!f.name?.trim() && !page?.name) return go('/admin/cafes', 'Cần nhập tên quán.');
+    const cid = createCafe(ctx, {
+      name: f.name?.trim() || page.name, address: f.address?.trim() || page?.address || null, qsSlug: slug.value,
+      dailyQuota: int(f.daily_quota, 20), openHour: hourOrNull(f.open_hour), closeHour: hourOrNull(f.close_hour),
+    });
     return go(`/admin/cafes/${cid}`, slug.value ? 'Đã thêm quán. Nhắn Tài bật sự kiện cho quán này ở /gov của QS.' : 'Đã thêm quán. Tạo thẻ NFC ở dưới rồi ghi link vào chip.');
   }));
 
@@ -487,10 +489,13 @@ ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ /
     const { ctx } = rq;
     const slug = qsSlug(ctx, f.qs_slug, id(rq));
     if (slug.error) return go(`/admin/cafes/${id(rq)}`, slug.error);
+    // Đổi trạng thái thì ghi chủ là người đổi (QS không mở lại quán chủ đã dừng); không đổi thì giữ nguyên.
+    const status = f.status === 'paused' ? 'paused' : 'active';
     run(ctx.db,
-      'UPDATE cafes SET name = ?, address = ?, qs_slug = ?, daily_quota = ?, open_hour = ?, close_hour = ?, status = ? WHERE id = ?',
+      `UPDATE cafes SET name = ?, address = ?, qs_slug = ?, daily_quota = ?, open_hour = ?, close_hour = ?, status = ?,
+        paused_by = CASE WHEN status = ? THEN paused_by ELSE ? END WHERE id = ?`,
       f.name?.trim() || 'Quán', f.address?.trim() || null, slug.value, int(f.daily_quota, 20),
-      hourOrNull(f.open_hour), hourOrNull(f.close_hour), f.status === 'paused' ? 'paused' : 'active', id(rq));
+      hourOrNull(f.open_hour), hourOrNull(f.close_hour), status, status, status === 'paused' ? 'admin' : null, id(rq));
     return go(`/admin/cafes/${id(rq)}`, 'Đã lưu.');
   }));
 

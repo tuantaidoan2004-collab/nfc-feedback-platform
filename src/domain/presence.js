@@ -27,6 +27,36 @@ export function cafeByShop(ctx, shop) {
   return (shop && get(ctx.db, 'SELECT * FROM cafes WHERE qs_slug = ? COLLATE NOCASE', shop)) || null;
 }
 
+/** Mã quán QS từ chữ chủ dán vào: mã trần (sakz8) hoặc nguyên link trang quán (https://quitesensational-review-bio.com/sakz8?x=1). */
+export function shopFromInput(raw) {
+  const s = String(raw ?? '').trim();
+  const m = /^https?:\/\/[^/]+\/([^/?#]+)/i.exec(s);
+  return (m ? decodeURIComponent(m[1]) : s).toLowerCase();
+}
+
+/**
+ * Đọc tên quán từ trang quán QS (thẻ <title>). Trang QS trả 200 cả với mã lạ, khi đó tiêu đề là "Quite Sensational…" → null.
+ * → {name, address: null} | null (mã lạ, mạng lỗi, quá 5 giây).
+ */
+export async function qsPageInfo(ctx, shop, fetchImpl = fetch) {
+  try {
+    const r = await fetchImpl(`${ctx.config.qsOrigin}/${encodeURIComponent(shop)}`, { signal: AbortSignal.timeout(5000), redirect: 'follow' });
+    if (!r.ok) return null;
+    const m = /<title[^>]*>([^<]{1,200})<\/title>/i.exec((await r.text()).slice(0, 200_000));
+    const name = (m?.[1] || '').replace(/&amp;/g, '&').replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+    if (!name || /^quite sensational\b/i.test(name)) return null;
+    return { name: name.slice(0, 120), address: null };
+  } catch { return null; }
+}
+
+/** Thêm quán (trang quản trị hoặc API QS). display_token / code_secret: cột cũ, vẫn bắt buộc trong bảng. → id */
+export function createCafe(ctx, { name, address = null, qsSlug = null, dailyQuota = 20, openHour = null, closeHour = null }) {
+  return run(ctx.db,
+    `INSERT INTO cafes(name, address, qs_slug, display_token, code_secret, presence_mode, daily_quota, open_hour, close_hour, created_at)
+     VALUES(?, ?, ?, ?, ?, 'none', ?, ?, ?, ?)`,
+    name, address, qsSlug, randomToken(18), randomToken(24), dailyQuota, openHour, closeHour, ctx.now()).lastInsertRowid;
+}
+
 /** Lối vào QS (ẩn) của quán; chưa có thì tạo. */
 export function qsEntryCard(ctx, cafe) {
   const found = get(ctx.db, "SELECT * FROM cards WHERE cafe_id = ? AND kind = 'qs'", cafe.id);

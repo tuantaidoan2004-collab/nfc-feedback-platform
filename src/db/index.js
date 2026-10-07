@@ -22,6 +22,7 @@ function migrate(db) {
     return true;
   };
   add('cafes', 'qs_slug', 'TEXT');
+  add('cafes', 'paused_by', 'TEXT');
   add('cards', 'kind', "TEXT NOT NULL DEFAULT 'nfc'");
   add('tools', 'reuse', "TEXT NOT NULL DEFAULT 'rotate'");
   add('tools', 'mail_code', 'INTEGER NOT NULL DEFAULT 0');

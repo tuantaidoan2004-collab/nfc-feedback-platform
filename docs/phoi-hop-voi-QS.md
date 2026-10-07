@@ -146,7 +146,9 @@ lượt bấm "Mua qua Zalo" theo quán (trang Thống kê quán của TBQ — n
 ## 6. Thêm một quán — việc của mỗi bên
 
 1. **QS (Tài):** `/gov` → dòng của quán → cột Sự kiện → **Công cụ làm việc: Mở**. Chủ quán không phải làm gì.
-2. **TBQ:** `/admin` → Quán → **Thêm quán** với **Mã quán trên QS** (phần cuối link trang quán, vd. `k3x9q`) và số suất / ngày.
+2. **TBQ:** nếu QS đã nối API mục 10 thì **không phải làm gì** — bấm Mở ở bước 1 là quán tự có bên TBQ.
+   Chưa nối API: `/admin` → Quán → **Thêm quán** → dán nguyên link trang quán QS (tên quán tự lấy từ trang), chọn số suất / ngày.
+   Hoặc trên máy chạy TBQ: `npm run quan -- mo https://quitesensational-review-bio.com/<mã quán> 20`.
 3. **Thử:** điện thoại chạm thẻ (hoặc quét QR) trên bàn → trang quán → bấm **Nhận công cụ làm việc miễn phí** → phải thấy ô số điện thoại.
    Mở link trang quán thường (không qua thẻ) → bấm nút → phải thấy "Nhận tại quán nhé" (không có ô số điện thoại).
 
@@ -223,3 +225,27 @@ export async function fetchTbqVoucher(origin: string, key: string, shop: string)
 
 Thử nhanh khi chạy TBQ ở máy (khoá chạy thử mặc định `dev-qs-ticket-key-change-me-0123456789`, quán có mã QS `chuquan`):
 `node scripts/thu-api-qs.js chuquan` (in ra mã phiếu nếu nối đúng).
+
+## 10. API mở / đóng quán (TBQ bản 1.3, 07/10/2026) — để Tiệm không phải thêm quán tay
+
+Tài bấm **Mở** / **Đóng** cột Sự kiện trong `/gov` → máy chủ QS gọi TBQ một lần. Cùng khoá và cùng cách ký như mục 9.
+
+```
+POST {TBQ_ORIGIN}/hooks/qs/quan
+Content-Type: application/json
+X-TBQ-Signature: sha256=<hex HMAC-SHA256(NFC_EVENT_TBQ_KEY, nguyên body)>
+
+{"action":"open","shop":"<mã quán QS>","name":"<tên quán>","address":"<địa chỉ, tuỳ chọn>","ts":<giây unix>,"nonce":"<8–64 ký tự A-Za-z0-9_->"}
+```
+
+| action | Làm gì | Trả về |
+|---|---|---|
+| `open` | Quán chưa có → **tạo** (tên = `name`, không gửi thì TBQ đọc `<title>` trang quán; `dailyQuota` tuỳ chọn, mặc định 20). Quán do QS đóng → mở lại. | `201` (mới tạo) / `200` |
+| `close` | Tạm dừng quán (khách vào thấy "Quán đang tạm dừng chương trình") | `200` · `404 shop_unknown` |
+| `status` | Chỉ xem | `200` · `404 shop_unknown` |
+
+Mọi `200/201`: `{ok:true, created?, shop, name, status:"active"|"paused", pausedBy:null|"qs"|"admin", dailyQuota, usedToday, link}`.
+- **Chủ Tiệm tự dừng quán** (`pausedBy:"admin"`) thì `open` không mở lại — `/gov` nên hiện "Tiệm đang dừng ở quán này".
+- `401` sai chữ ký / `ts` lệch quá 2 phút / `nonce` lặp · `400` sai `action` hoặc mã quán.
+- Gọi lại nhiều lần không sao (không tạo trùng). Lỗi mạng → `/gov` vẫn lưu bên QS; Tài bấm lại sau, hoặc Tiệm thêm tay.
+- Thử nhanh từ máy TBQ: `npm run quan -- mo|dong|xem <link hoặc mã quán>`.

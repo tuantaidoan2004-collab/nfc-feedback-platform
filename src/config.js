@@ -32,6 +32,8 @@ export function loadConfig(env = process.env) {
     },
     // Khoá ký vé dùng chung với trang quán QS (bên QS: NFC_EVENT_TBQ_KEY). Vé chứng minh khách vừa mở trang quán bằng thẻ / mã QR
     // trên bàn → đang ở quán. Thiếu khoá thì không ai nhận được công cụ. Tạo: openssl rand -hex 32
+    // Trang quán QS (Tài): chủ chỉ dán link / mã quán, TBQ tự đọc tên quán từ trang này. Có thư mục cũng được.
+    qsOrigin: String(env.QS_ORIGIN || 'https://quitesensational-review-bio.com').trim().replace(/\/+$/, ''),
     qsTicketKey: env.QS_TICKET_KEY || (isProd ? '' : 'dev-qs-ticket-key-change-me-0123456789'),
     // Mã cho bot mời / gỡ thành viên Canva chạy trên máy của chủ tiệm (API /worker). Để trống = tắt API này.
     workerToken: env.WORKER_TOKEN || (isProd ? '' : 'dev-worker-token-change-me-0123'),

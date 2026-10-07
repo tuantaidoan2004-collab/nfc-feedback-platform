@@ -6,9 +6,11 @@ import { hit } from '../lib/ratelimit.js';
 import { MIN } from '../lib/time.js';
 import { ingestMail } from '../domain/mail.js';
 import { looksLikeMessage } from '../lib/mime.js';
-import { cafeByShop } from '../domain/presence.js';
+import { cafeByShop, createCafe, qsPageInfo } from '../domain/presence.js';
 import { issueQsVoucher, formatCode } from '../domain/vouchers.js';
-import { get } from '../db/index.js';
+import { get, run } from '../db/index.js';
+import { startOfLocalDay } from '../lib/time.js';
+import { COUNTED } from '../domain/quota.js';
 
 /** Chữ ký: header X-Signature = sha256=<HMAC(MAIL_WEBHOOK_SECRET, nguyên body)> (Cloudflare Email Worker trong extras/ tự ký). */
 function verifyMailAuth(rq, raw) {
@@ -71,21 +73,82 @@ export function verifyQsSignature(ctx, rq, raw) {
   return !!key && sig.startsWith('sha256=') && safeEqual(sig.slice(7), hmac(key, raw));
 }
 
+/** Nội dung đã ký của QS: đúng chữ ký, ts lệch ≤ 2 phút, nonce chưa dùng. Sai → 401 (+ báo vàng, có giới hạn). → body JSON */
+async function qsSignedBody(rq) {
+  const { ctx } = rq;
+  const raw = await rq.body(4_000);
+  const deny = (why) => {
+    if (hit(ctx, `qsapifail:${rq.ip}`, 5, 10 * MIN).ok) logEvent(ctx, { type: 'qs_api_unauthorized', severity: 'yellow', ip: rq.ip, data: { reason: why } });
+    throw new HttpError(401, 'Sai chữ ký');
+  };
+  if (!verifyQsSignature(ctx, rq, raw)) deny('chữ ký');
+  let body;
+  try { body = JSON.parse(raw.toString('utf8')); } catch { throw new HttpError(400, 'JSON không hợp lệ'); }
+  const ts = Number(body?.ts);
+  const nonce = String(body?.nonce || '');
+  if (!Number.isFinite(ts) || Math.abs(ctx.now() / 1000 - ts) > QS_SKEW_SEC) deny('giờ lệch');
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(nonce) || !hit(ctx, `qsnonce:${nonce}`, 1, 10 * MIN).ok) deny('nonce lặp');
+  return body;
+}
+
+const QS_SHOP_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
+
+/** Tình trạng một quán cho QS: chỉ số đếm, không có gì về khách. */
+function cafeStatus(ctx, cafe) {
+  const dayStart = startOfLocalDay(ctx.now(), ctx.settings().timezoneOffsetMin);
+  const used = get(ctx.db, `SELECT COUNT(*) AS n FROM slots WHERE cafe_id = ? AND created_at >= ? AND ${COUNTED}`, cafe.id, dayStart).n;
+  return {
+    shop: cafe.qs_slug, name: cafe.name, status: cafe.status, pausedBy: cafe.paused_by || null,
+    dailyQuota: cafe.daily_quota, usedToday: used, link: `${ctx.config.baseUrl}/qs/${cafe.qs_slug}`,
+  };
+}
+
 export function registerQsApi(router) {
+  // Mở / đóng / hỏi tình trạng chương trình ở một quán — QS gọi khi Tài bấm Mở / Đóng cột Sự kiện trong /gov,
+  // nên chủ Tiệm không phải thêm quán tay. Hợp đồng: docs/phoi-hop-voi-QS.md mục 10.
+  //   body: {"action":"open"|"close"|"status","shop":"<mã quán QS>","name"?,"address"?,"dailyQuota"?,"ts","nonce"}
+  router.post('/hooks/qs/quan', async (rq) => {
+    const { ctx } = rq;
+    const body = await qsSignedBody(rq);
+    const action = String(body.action || '');
+    const shop = String(body.shop || '').trim().toLowerCase();
+    if (!['open', 'close', 'status'].includes(action)) return rq.sendJson(400, { ok: false, code: 'bad_action', message: 'action phải là open, close hoặc status.' });
+    if (!QS_SHOP_RE.test(shop)) return rq.sendJson(400, { ok: false, code: 'bad_shop', message: 'Mã quán QS không hợp lệ.' });
+    let cafe = cafeByShop(ctx, shop);
+    if (action === 'status') {
+      return cafe ? rq.sendJson(200, { ok: true, ...cafeStatus(ctx, cafe) }) : rq.sendJson(404, { ok: false, code: 'shop_unknown', message: 'Quán này chưa có trong TBQ.' });
+    }
+    if (action === 'close') {
+      if (!cafe) return rq.sendJson(404, { ok: false, code: 'shop_unknown', message: 'Quán này chưa có trong TBQ.' });
+      if (cafe.status === 'active') {
+        run(ctx.db, "UPDATE cafes SET status = 'paused', paused_by = 'qs' WHERE id = ?", cafe.id);
+        logEvent(ctx, { type: 'qs_api_cafe_closed', cafeId: cafe.id, data: { shop } });
+      }
+      return rq.sendJson(200, { ok: true, ...cafeStatus(ctx, get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', cafe.id)) });
+    }
+    // open
+    let created = false;
+    if (!cafe) {
+      const clean = (v, n) => String(v ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+      const name = clean(body.name, 120) || (await qsPageInfo(ctx, shop))?.name || shop;
+      const q = Number.parseInt(body.dailyQuota, 10);
+      const id = createCafe(ctx, { name, address: clean(body.address, 200) || null, qsSlug: shop, dailyQuota: Number.isFinite(q) ? Math.min(200, Math.max(0, q)) : 20 });
+      cafe = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', id);
+      created = true;
+      // Vàng để chủ thấy trên Theo dõi: có quán mới → xem lại số suất / ngày và kho.
+      logEvent(ctx, { type: 'qs_api_cafe_opened', severity: 'yellow', cafeId: id, data: { shop, created: true } });
+    } else if (cafe.status === 'paused' && cafe.paused_by === 'qs') {
+      run(ctx.db, "UPDATE cafes SET status = 'active', paused_by = NULL WHERE id = ?", cafe.id);
+      cafe = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', cafe.id);
+      logEvent(ctx, { type: 'qs_api_cafe_opened', cafeId: cafe.id, data: { shop, created: false } });
+    }
+    // Chủ Tiệm tự dừng quán thì QS không mở lại được: trả về paused để Tài thấy.
+    rq.sendJson(created ? 201 : 200, { ok: true, created, ...cafeStatus(ctx, cafe) });
+  });
+
   router.post('/hooks/qs/phieu', async (rq) => {
     const { ctx } = rq;
-    const raw = await rq.body(4_000);
-    const deny = (why) => {
-      if (hit(ctx, `qsapifail:${rq.ip}`, 5, 10 * MIN).ok) logEvent(ctx, { type: 'qs_api_unauthorized', severity: 'yellow', ip: rq.ip, data: { reason: why } });
-      throw new HttpError(401, 'Sai chữ ký');
-    };
-    if (!verifyQsSignature(ctx, rq, raw)) deny('chữ ký');
-    let body;
-    try { body = JSON.parse(raw.toString('utf8')); } catch { throw new HttpError(400, 'JSON không hợp lệ'); }
-    const ts = Number(body.ts);
-    const nonce = String(body.nonce || '');
-    if (!Number.isFinite(ts) || Math.abs(ctx.now() / 1000 - ts) > QS_SKEW_SEC) deny('giờ lệch');
-    if (!/^[A-Za-z0-9_-]{8,64}$/.test(nonce) || !hit(ctx, `qsnonce:${nonce}`, 1, 10 * MIN).ok) deny('nonce lặp');
+    const body = await qsSignedBody(rq);
     const shop = String(body.shop || '').trim().toLowerCase();
     const cafe = cafeByShop(ctx, shop);
     if (!cafe) return rq.sendJson(404, { ok: false, code: 'shop_unknown', message: 'Quán này chưa có trong TBQ.' });
