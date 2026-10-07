@@ -17,13 +17,14 @@ export const PILOT_TOOLS = [
   },
   {
     // 8 khách / tài khoản, dùng trong ngày: ai nhận lúc nào cũng hết lúc 6h sáng hôm sau → 6h chủ vào ChatGPT bấm
-    // "Đăng xuất mọi thiết bị" (giữ mật khẩu — khách không có 2FA) rồi tài khoản giao lại cho ngày mới.
-    slug: 'chatgpt', name: 'ChatGPT Plus', login_type: 'password_totp', login_url: 'https://chatgpt.com/auth/login', high_value: 1,
+    // "Đăng xuất mọi thiết bị" rồi tài khoản giao lại cho ngày mới.
+    // Chủ chọn 07/10: đăng nhập bằng mã gửi về email của Tiệm (như Claude), không mật khẩu / 2FA. Nhập kho: mỗi dòng 1 email @tiembanquyen.site.
+    slug: 'chatgpt', name: 'ChatGPT Plus', login_type: 'email_code', login_url: 'https://chatgpt.com/auth/login', high_value: 1,
     slot_hours: 24, end_hour: 6, reuse: 'rotate', rotation_required: 1, holders_default: 8, daily_cap: null, lifetime_cap: 2, cooldown_days: 30, sort: 20,
-    // Phiên 24: lấy mã 2FA cần mã phiếu (phát ở quán); 6h chủ làm mới (xoá Project + chat, đăng xuất mọi thiết bị,
+    // Phiên 24: lấy mã đăng nhập cần mã phiếu (phát ở quán); 6h chủ làm mới (xoá Project + chat, đăng xuất mọi thiết bị,
     // tạo lại Project "Slot 1…8") — giữ Project của khách đã gia hạn.
     voucher_code: 1, workspace_bot: 1,
-    instructions: 'Đăng nhập bằng email và mật khẩu ở trên (không chọn Google / Apple / Microsoft), rồi nhập mã 2FA.\nChỉ dùng Project mang tên Slot của bạn. Không mở, đổi tên hay xoá Project và đoạn chat của người khác.\nKhông lưu thông tin riêng tư: người dùng chung có thể thấy.\nKhông đổi mật khẩu, không tắt 2FA, không bấm "Đăng xuất khỏi mọi thiết bị".',
+    instructions: 'Chọn "Tiếp tục với email", nhập email ở trên, rồi dùng mã 6 số hiện trên trang này (không chọn Google / Apple / Microsoft).\nChỉ dùng Project mang tên Slot của bạn. Không mở, đổi tên hay xoá Project và đoạn chat của người khác.\nKhông lưu thông tin riêng tư: người dùng chung có thể thấy.\nKhông đổi email, không bật 2FA, không bấm "Đăng xuất khỏi mọi thiết bị".',
   },
   {
     // 3 khách / tài khoản, dùng trong ngày tới 6h sáng hôm sau → 6h chủ vào Claude bấm "Đăng xuất mọi thiết bị".
@@ -41,10 +42,11 @@ export const PILOT_TOOLS = [
     instructions: 'Dùng Gmail của chính bạn để nhận.\nLink hoặc mã chỉ dùng được 1 lần, dành riêng cho bạn.',
   },
   {
-    // Như CapCut: khách giữ 7 ngày, 2 khách / tài khoản, xong bỏ luôn. Adobe hỏi mã email khi đăng nhập máy mới → khách lấy mã ở quán.
-    slug: 'adobe', name: 'Adobe Creative Cloud', login_type: 'password', login_url: 'https://account.adobe.com', mail_code: 1,
+    // Như CapCut: khách giữ 7 ngày, 2 khách / tài khoản, xong bỏ luôn. Chủ chọn 07/10: chỉ giao email + mật khẩu, không nút Lấy mã
+    // (email Adobe / CapCut có thể ngoài tiembanquyen.site; hãng hỏi mã thì khách bấm Báo Tiệm, chủ trả tay).
+    slug: 'adobe', name: 'Adobe Creative Cloud', login_type: 'password', login_url: 'https://account.adobe.com',
     slot_hours: 168, reuse: 'once', rotation_required: 0, holders_default: 2, daily_cap: 4, lifetime_cap: 1, cooldown_days: 30, sort: 40,
-    instructions: 'Đăng nhập bằng email và mật khẩu ở trên, chỉ trên 1 thiết bị. Nếu Adobe hỏi mã gửi qua email, bấm Lấy mã (cần đang ở quán).\nTài khoản dùng chung 2 người: chỉ lưu file trong thư mục mang tên Slot của bạn.\nKhông đổi mật khẩu, email hay thông tin tài khoản.',
+    instructions: 'Đăng nhập bằng email và mật khẩu ở trên, chỉ trên 1 thiết bị. Nếu Adobe hỏi mã gửi qua email, bấm Báo Tiệm.\nTài khoản dùng chung 2 người: chỉ lưu file trong thư mục mang tên Slot của bạn.\nKhông đổi mật khẩu, email hay thông tin tài khoản.',
   },
   {
     // Khách nhập email Canva của chính họ; bot trên máy Mac của Tiệm (scripts/canva-bot.js) mời vào nhóm, hết giờ tự gỡ.
@@ -85,7 +87,7 @@ export function applyPilot(db) {
   const keep = PILOT_TOOLS.map((t) => t.slug);
   const off = all(db, `SELECT slug, name FROM tools WHERE enabled = 1 AND slug NOT IN (${keep.map(() => '?').join(', ')})`, ...keep);
   if (off.length) run(db, `UPDATE tools SET enabled = 0 WHERE slug NOT IN (${keep.map(() => '?').join(', ')})`, ...keep);
-  // Kho cũ không hợp kiểu đăng nhập mới (vd. ChatGPT trước là "mã qua email", giờ cần mật khẩu + 2FA) → không được giao.
+  // Kho cũ không hợp kiểu đăng nhập mới (vd. công cụ đổi sang kiểu cần mật khẩu) → không được giao.
   const unusable = all(db, `SELECT a.login_email, t.name FROM accounts a JOIN tools t ON t.id = a.tool_id
     WHERE t.enabled = 1 AND a.status = 'ready' AND NOT ${USABLE_SQL}`);
   return { tools: out, disabled: off, unusable };
@@ -110,8 +112,9 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
 Nhập kho ở trang quản trị → Kho tài khoản (mỗi dòng 1 tài khoản, các ô cách nhau bằng |):
   CapCut Pro:     email|mật khẩu            (2 khách, 7 ngày, dùng xong tự bỏ — nạp 10 tài khoản mới / ngày)
   ⚠ CapCut / Adobe / Claude tự hết Pro 7 ngày kể từ lúc TẠO: nhập kho ngay ngày tạo; khách nhận muộn thì chỉ còn phần còn lại.
-  ChatGPT Plus:   email|mật khẩu|khoá 2FA   (8 khách, dùng tới 6h sáng — tạo sẵn 8 Project "Slot 1" … "Slot 8"; 6h làm mới ở trang Việc tay)
-                  Khách lấy mã 2FA cần mã phiếu: tạo ở trang Mã phiếu, in phát ở quán. Tắt Memory của tài khoản (Settings → Personalization).
+  ChatGPT Plus:   email                     (8 khách, dùng tới 6h sáng — mã đăng nhập về email @tiembanquyen.site của Tiệm; tạo sẵn 8 Project "Slot 1" … "Slot 8"
+                                            rồi BỎ tick "chờ tạo Project" khi nhập; 6h làm mới ở trang Việc tay)
+                  Khách lấy mã đăng nhập cần mã phiếu: tạo ở trang Mã phiếu, in phát ở quán. Tắt Memory của tài khoản (Settings → Personalization).
                   Kho chuẩn: 3 tài khoản = 24 khách/ngày.
   Claude Pro:     email                     (lấy mã cần mã phiếu; 3 khách, dùng tới 6h sáng; 6h: Đăng xuất mọi thiết bị; quá 7 ngày từ lúc tạo thì bỏ — mã đăng nhập về email của Tiệm; tạo sẵn Project "Slot 1" … "Slot 3")
                   Kho chuẩn: 3 tài khoản = 2 giao trong ngày (6 khách) + 1 dự phòng cho 6h sáng (3 khách). Mỗi tài khoản dùng 7 ngày → mỗi tuần thay 3 tài khoản.

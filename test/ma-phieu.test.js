@@ -29,6 +29,9 @@ function setup(settings = {}) {
      VALUES('Quán Khác', 'quan-khac', 'disp2', 'sec2', 'none', 100, ?)`, ctx.now()).lastInsertRowid;
   const card = qsEntryCard(ctx, byId(ctx, 'cafes', cafeId));
   applyPilot(ctx.db);
+  // Cấu hình trước 07/10 (ChatGPT mật khẩu + 2FA, Adobe có nút Lấy mã): giữ để kiểm các kiểu đăng nhập này — vẫn chọn được ở trang Công cụ.
+  run(ctx.db, "UPDATE tools SET login_type = 'password_totp' WHERE slug = 'chatgpt'");
+  run(ctx.db, "UPDATE tools SET mail_code = 1 WHERE slug = 'adobe'");
   const tool = (slug) => get(ctx.db, 'SELECT * FROM tools WHERE slug = ?', slug);
   const acct = (slug, email, o = {}) => byId(ctx, 'accounts', run(ctx.db,
     `INSERT INTO accounts(tool_id, login_email, password_enc, totp_enc, max_holders, status, created_at) VALUES(?, ?, ?, ?, ?, 'ready', ?)`,

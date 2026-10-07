@@ -11,7 +11,7 @@ Khách ngồi quán → chạm thẻ / quét QR → nhận 1 công cụ bản qu
 | Chạy như khách thật từ đầu tới cuối (`npm run e2e`, cả ở gốc và `/colap`) | 134/134 |
 | Mô phỏng 9 ngày, ~590 khách, 3 quán (`npm run sim`) | 0 vi phạm |
 | Diễn tập vận hành sâu: bản production, eSMS / hộp thư / hãng / bot Canva giả, tua giờ qua 6h sáng và 7 ngày (`npm run van-hanh-sau`) | 105/105 |
-| Chạy tay trên trình duyệt (iPhone): ChatGPT (mật khẩu + 2FA), Claude (mã về hộp thư Tiệm), Canva (bot mời, trang tự cập nhật) | đạt, 0 vi phạm |
+| Chạy tay trên trình duyệt (iPhone): ChatGPT (lúc đó mật khẩu + 2FA; từ 07/10 đổi sang mã qua email), Claude (mã về hộp thư Tiệm), Canva (bot mời, trang tự cập nhật) | đạt, 0 vi phạm |
 
 "Vi phạm" = lộ khoá 2FA, mật khẩu hiện cho máy không giữ slot, ai đó vào được hãng mà không giữ slot, còn trong nhóm Canva khi đã hết slot, lỗi máy chủ.
 
@@ -47,10 +47,13 @@ Tài khoản ChatGPT / Claude dùng lại mỗi ngày (6h đăng xuất mọi th
 - [ ] **Hộp thư của Tiệm trên Cloudflare** (mã đăng nhập Claude và mã Adobe đi đường này): tên miền email đặt ở Cloudflare,
       Email Routing → "Catch-all" → gửi tới Worker `extras/cloudflare-email-worker.js` (README mục "Dịch vụ mail → webhook").
 - [ ] **Kho thật:**
-  - ChatGPT: 3 tài khoản, mỗi dòng email | mật khẩu | khoá 2FA. Tạo sẵn 8 Project tên "Slot 1" … "Slot 8".
+  - ChatGPT (đổi 07/10): 3 tài khoản, **mỗi dòng chỉ email** thuộc hộp thư của Tiệm (`@tiembanquyen.site`), không 2FA — khách đăng nhập
+    bằng mã ChatGPT gửi về email, TBQ hiện mã. Tạo sẵn 8 Project tên "Slot 1" … "Slot 8", rồi **bỏ tick "chờ tạo Project"** khi nhập.
+  - ChatGPT + Claude: **mỗi địa chỉ kho cần 1 quy tắc riêng** Cloudflare Email Routing "địa chỉ → Worker tbq-mail"
+    (catch-all của tiembanquyen.site đang về hộp thư ma. của CapCut Tool). `npm run kiem-tra -- --mang` báo địa chỉ nào thiếu.
   - Claude: email thuộc hộp thư của Tiệm. Tạo sẵn Project "Slot 1" … "Slot 3". Nhập kho ngay ngày tạo (quá 7 ngày là bỏ).
     3 tài khoản: hệ thống giữ 1 cái làm dự phòng (không giao trong ngày).
-  - CapCut, Adobe: email | mật khẩu, nhập ngay ngày tạo. Adobe tạo sẵn thư mục "Slot 1", "Slot 2".
+  - CapCut, Adobe: email | mật khẩu (email tên miền nào cũng được, không nút Lấy mã — hãng hỏi mã thì khách Báo Tiệm), nhập ngay ngày tạo. Adobe tạo sẵn thư mục "Slot 1", "Slot 2".
   - Gemini: mỗi dòng 1 link.
   - Canva: email chủ nhóm | số ghế — **nhóm Canva thương mại, không dùng nhóm Canva Giáo dục** (trái điều khoản).
 - [ ] **Bot Canva trên máy Mac:** đăng nhập lại Canva thương mại (`npm run canva-bot -- --login`), kiểm menu (`--xem-menu <email>`),

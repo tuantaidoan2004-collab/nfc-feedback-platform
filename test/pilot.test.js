@@ -7,7 +7,7 @@ import { run, get, all } from '../src/db/index.js';
 import { encrypt } from '../src/lib/crypto.js';
 import { parseTotpSecret, totpNow } from '../src/lib/totp.js';
 import { startClaim, currentSlotView, expireDueSlots } from '../src/domain/claims.js';
-import { requestCode, totpStatus } from '../src/domain/codes.js';
+import { requestCode, totpStatus, codeMode } from '../src/domain/codes.js';
 import { ingestMail } from '../src/domain/mail.js';
 import { toolAvailability } from '../src/domain/quota.js';
 import { runJobs } from '../src/jobs.js';
@@ -29,6 +29,9 @@ function setup() {
      VALUES('Quán Thử', 'quan-thu', 'disp', 'sec', 'none', 100, ?)`, now).lastInsertRowid;
   const card = qsEntryCard(ctx, byId(ctx, 'cafes', cafeId));
   applyPilot(ctx.db);
+  // Cấu hình trước 07/10 (ChatGPT mật khẩu + 2FA, Adobe có nút Lấy mã): giữ để kiểm các kiểu đăng nhập này — vẫn chọn được ở trang Công cụ.
+  run(ctx.db, "UPDATE tools SET login_type = 'password_totp' WHERE slug = 'chatgpt'");
+  run(ctx.db, "UPDATE tools SET mail_code = 1 WHERE slug = 'adobe'");
   const tool = (slug) => get(ctx.db, 'SELECT * FROM tools WHERE slug = ?', slug);
   const acct = (slug, email, o = {}) => byId(ctx, 'accounts', run(ctx.db,
     `INSERT INTO accounts(tool_id, login_email, password_enc, totp_enc, max_holders, status, created_at) VALUES(?, ?, ?, ?, ?, 'ready', ?)`,
@@ -263,7 +266,19 @@ test('đổi kiểu đăng nhập (ChatGPT: mã email → mật khẩu + 2FA): k
   const g = guest();
   assert.equal(g.claim('chatgpt').status, 'active');
   assert.equal(g.view().accountEmail, 'du@kho.test');
-  assert.equal(applyPilot(ctx.db).unusable.length, 2);
+  assert.equal(applyPilot(ctx.db).unusable.length, 0, 'chạy lại npm run pilot (ChatGPT mã qua email) → chỉ cần email, cả 3 đều giao được');
+});
+
+test('cấu hình chủ chọn 07/10: ChatGPT đăng nhập bằng mã qua email; CapCut / Adobe chỉ email + mật khẩu (không nút Lấy mã)', () => {
+  const ctx = createTestCtx();
+  applyPilot(ctx.db);
+  const tool = (slug) => get(ctx.db, 'SELECT * FROM tools WHERE slug = ?', slug);
+  assert.equal(tool('chatgpt').login_type, 'email_code');
+  assert.equal(tool('claude').login_type, 'email_code');
+  assert.equal(tool('capcut').mail_code, 0);
+  assert.equal(tool('adobe').mail_code, 0);
+  assert.equal(codeMode(tool('chatgpt'), 'mail'), 'mail');
+  assert.equal(codeMode(tool('adobe'), 'mail'), null);
 });
 
 test('trang chọn công cụ: công cụ khách đã thử gần đây hiện "Đã thử · lại từ…" và không chọn được', () => {

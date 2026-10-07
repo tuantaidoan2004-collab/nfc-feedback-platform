@@ -610,6 +610,11 @@ async function pilot() {
   check('Máy chủ chạy với gói chạy thử', await waitHealthy());
   db = new DatabaseSync(PDB);
   db.exec('PRAGMA busy_timeout = 5000');
+  check('npm run pilot: ChatGPT đăng nhập bằng mã qua email, Adobe không nút Lấy mã (chủ chọn 07/10)',
+    q("SELECT login_type FROM tools WHERE slug = 'chatgpt'").login_type === 'email_code' && q("SELECT mail_code FROM tools WHERE slug = 'adobe'").mail_code === 0);
+  // Phần P1–P6 dưới đây viết cho cấu hình trước 07/10 (ChatGPT mật khẩu + 2FA, Adobe có Lấy mã) — các kiểu này vẫn chọn được ở trang
+  // Công cụ nên vẫn kiểm. TODO: thêm phần ChatGPT mã qua email theo cấu hình mới (giống phần Claude ở trên).
+  db.exec("UPDATE tools SET login_type = 'password_totp' WHERE slug = 'chatgpt'; UPDATE tools SET mail_code = 1 WHERE slug = 'adobe'");
   const tool = Object.fromEntries(qa('SELECT slug, id FROM tools').map((t) => [t.slug, t.id]));
 
   const CAFE2_IP = '14.232.50.60';
