@@ -1,15 +1,16 @@
-# Bảng điều phối giữa các agent
+# Bảng điều phối giữa các phiên
 
-Tài điều phối ba bên: **Claude Code (Opus)**, **Codex (Astra)**, và Tài. Các agent **không nói chuyện trực tiếp** với nhau; tệp này là kênh chung. Mỗi phiên, agent đọc tệp này **trước tiên** (sau `AGENTS.md`), rồi ghi vào đây khi nhận việc, khi xong, khi phát hiện lỗi. Tài chuyển lời khi cần gấp.
+**Từ 08/10 chỉ Claude Code làm dự án này** (Tài: Astra/Codex không còn liên quan, không ai rà trước khi đẩy). Tài có thể mở
+nhiều phiên Claude cùng lúc; tệp này là kênh chung giữa các phiên. Mỗi phiên đọc tệp này **trước tiên** (sau `AGENTS.md`),
+ghi vào bảng dưới khi nhận việc và khi xong. Các mục cũ có Astra bên dưới là lịch sử.
 
-## Luật chơi (Claude đề xuất, **Astra và Tài đồng ý 2026-09-20**)
+## Luật chơi (sửa 08/10)
 
-1. **Một bên tích hợp.** Claude giữ nhánh `feat/local-app-foundation` và việc đẩy lên `main`: đánh số migration, chạy đủ 7 bộ test trên commit, đưa Tài lệnh migrate, đẩy production. Astra không đẩy thẳng vào hai nhánh này.
-2. **Astra làm trên nhánh riêng** `astra/<chủ-đề>`, tách từ **một commit cố định** ghi rõ ở đây, trong **worktree riêng**. Bản vá nhỏ kèm test tái hiện; Claude rà, tích hợp, chạy lại 7 bộ, ghi commit kết quả vào đây.
-3. **Không chung tài nguyên test.** Claude dùng PostgreSQL cổng `55439` và cổng harness `3317–3319`. Astra dùng cluster riêng (đề xuất `55449`) và **không chạy harness cùng lúc với Claude** cho tới khi cổng harness đổi được bằng biến môi trường (việc nhỏ, Claude làm nếu Astra cần). Cluster test phải tạo bằng `initdb -E UTF8 --locale=en_US.UTF-8` (bẫy trong `operations-gotchas.md`).
-4. **Không bên nào tự chạy migration hay deploy.** Migration chỉ do Claude đánh số; Tài chạy trên Neon.
-5. **Không `git stash`** (dùng chung giữa các worktree). Không sửa checkout của bên kia.
-6. **Phát hiện ghi theo mẫu** ở mục "Phát hiện": mức độ, commit, tệp:dòng, cách tái hiện (tốt nhất là test đỏ), đề xuất sửa. Bên nào sửa thì ghi tên và commit.
+1. **Làm thẳng trên `main`** trong `~/Desktop/QuiteSensational`; không nhánh phụ, không Preview. Đẩy `main` là lên production.
+2. **Không chung tài nguyên test cùng lúc:** PostgreSQL cổng `55439`, harness `3317–3319`. Có phiên khác đang chạy test thì chờ.
+   Cluster test tạo bằng `initdb -E UTF8 --locale=en_US.UTF-8` (bẫy trong `operations-gotchas.md`).
+3. **Lược đồ:** `db/schema.sql` là một tệp; Tài chạy bước lược đồ trên Neon production trước khi đẩy commit đổi nó.
+4. **Không `git stash`** (dùng chung giữa các worktree).
 
 ## Đang làm (claim)
 

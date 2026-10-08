@@ -10,7 +10,7 @@ Production: **`https://quitesensational-review-bio.com`** (đổi 21/09/2026; Cl
 
 **Đừng bật proxy Cloudflare (đám mây cam)** cho các bản ghi DNS này: nó thay IP khách bằng IP Cloudflare và làm tầng chặn bot của lát A1 đếm mọi khách của mọi quán như một địa chỉ.
 
-Preview: **`https://nfc-feedback-platform-git-feat-local-app-foundation-mount-pro.vercel.app`**, deploy từ nhánh `feat/local-app-foundation`, database là branch Neon preview (cùng số migration với production). Alias này chỉ di chuyển theo **deployment do Git kích hoạt**; `vercel deploy` từ CLI không di chuyển nó (bẫy ở `platform-admin.md`).
+Preview: **không còn từ 08/10** (Tài: làm thẳng `main`, bản chạy local là chỗ xem trước). Nhánh `feat/local-app-foundation` đã xoá; branch Neon preview để nguyên, không bản deploy nào dùng.
 
 | Đường | Là gì | Đăng nhập bằng | Trạng thái trên production (21/09) |
 |---|---|---|---|
@@ -413,7 +413,7 @@ Trước lát 19/09 production **đóng**: không có `NFC_ENV`, và `main` còn
 - Agent fast-forward `main` từ `df0a485` lên `c56cb7b` (19/09). Trong lúc build, tên miền production còn phục vụ bản `main` cũ với biến mới (Vercel đã redeploy bản cũ khi Tài thêm biến), nên lần kiểm đầu tưởng đã xong; phải kiểm một dấu hiệu chỉ bản mới có (chữ "@handle hoặc email" ở trang đăng nhập) và `vercel ls --prod` (trạng thái Building).
 - **Production mở, kiểm không đăng nhập:** `/gov/login` 200 · `/owner/login` 200 (có dòng "Quên mật khẩu? Liên hệ …") · `/ZZZ/<mã>` 307 về đăng nhập · `/gov` 307 về `/gov/login` · `/api/owner/v2/<mã>`, `/notifications`, `/profile` 401 · `/t/<mã lạ>` 200 (trang "chưa sẵn sàng") · header `x-frame-options: DENY`, `cache-control: private, no-store`, HSTS.
 - **Còn lại cho Tài:** đăng nhập `/gov` trên production bằng admin `tai`, tạo shop template, tạo shop thật, rồi thử tải ảnh lên (kiểm CORS R2 và hai khoá R2 mới).
-- **Từ giờ:** production deploy từ `main`. Mỗi lát xong trên branch và đã kiểm trên preview thì fast-forward `main`; lát có migration thì migrate Neon production **trước** khi đẩy `main`.
+- **Từ giờ (sửa 08/10):** production deploy từ `main`, làm thẳng trên `main`, không preview. Đổi lược đồ thì Tài chạy bước lược đồ trên Neon production **trước** khi đẩy.
 
 ## Tài khoản dashboard template trên production (19/09)
 

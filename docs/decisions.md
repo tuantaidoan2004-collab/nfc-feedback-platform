@@ -51,15 +51,16 @@ Mỗi nền móng chỉ được nâng lên cấp sau khi cấp dưới nó đ�
 | **Trang khách** | Chạy thật, một đường duy nhất (trang đã phát hành), đúng luật Google, chặn bot, "tốt" trên 4G, video chỉ ở poster | Section và gói template (M1–M4) |
 | **Dữ liệu** | Bề nổi cho chủ quán; dòng sự kiện hành vi đang thu (020) | **Dời** — đọc dòng sự kiện khi đã có khách thật (Tài 26/09) |
 | **Quản trị `/gov`** | Tạo quán, cấp link, duyệt ảnh, báo cáo tạm dừng, 2FA | Điều hành thật khi có dữ liệu (A21); tên miền riêng (P7) |
-| **Vận hành** | CI 7 bộ, production từ `main`, mã sao lưu xong | Tự chạy được không cần Vercel (I1); sao lưu chạy thật (Tài) |
+| **Vận hành** | Làm thẳng `main`, lên production ~40 giây; CI chạy bộ nhanh mỗi lần, bộ nặng theo vùng đụng tới (08/10), mã sao lưu xong | Tự chạy được không cần Vercel (I1); sao lưu chạy thật (Tài) |
 
 ## 5. Luật cứng — không lát nào phá
 
 1. `google-policy.md` **thắng mọi yêu cầu khác**.
-2. Một bên tích hợp: Claude giữ nhánh và việc đẩy `main`; Astra rà trên nhánh riêng. Kênh chung là
-   [`agents-board.md`](agents-board.md).
-3. Cuối mỗi lát chạy **đủ 7 bộ test trên commit trong worktree tạm**, đưa Tài kết quả nguyên văn.
-4. **Có migration thì không push** cho tới khi Tài chạy trên Neon production rồi preview.
+2. Chỉ Claude làm, thẳng trên `main` (08/10: Astra không còn tham gia, không nhánh phụ, không Preview). Các phiên Claude
+   song song nhận việc ở [`agents-board.md`](agents-board.md).
+3. Trước khi đẩy: bộ nhanh (tsc, eslint, contracts, client) + các bộ `node scripts/test-areas.mjs origin/main` nêu, đưa
+   Tài kết quả nguyên văn.
+4. **Đổi lược đồ thì không push** cho tới khi Tài chạy bước lược đồ trên Neon production.
 5. Ghi **mọi lỗi, kể cả của agent**, vào `operations-gotchas.md`.
 6. Tài tự làm mọi bước có credential.
 7. Trước mỗi lát nói **effort**; Tài bảo "làm đi" thì làm.
@@ -474,10 +475,11 @@ theo audit: **D4a, D4b, M2b xong 27/09; P5b-lite, D4c 28/09**; kế là dashboar
 `/gov`, mã, test, tài liệu, `DESIGN.md`, tên tệp `thiet-ke-va-template.md`); chỉ hồ sơ lịch sử giữ chữ cũ
 (`decisions-archive.md`, bản rà bảo mật 20/09, các migration đã chạy).
 
-### Luật triển khai (Tài nới 23/09)
+### Luật triển khai (Tài, 08/10)
 
-Xong → 7 bộ test xanh có output nguyên văn → đẩy `main`; không cần xem preview trước. **Không nới:** có migration thì
-Tài chạy Neon trước rồi mới đẩy; không báo test xanh khi chưa có output. Lệnh 7 bộ ở `operations-gotchas.md`.
+Tài duyệt trên bản local → bộ nhanh + bộ theo vùng (`scripts/test-areas.mjs`) xanh có output nguyên văn → commit, đẩy
+thẳng `main` → production tự lên ~40 giây, CI báo sau. **Không nới:** đổi lược đồ thì Tài chạy Neon trước rồi mới đẩy;
+không báo test xanh khi chưa có output; sau khi đẩy phải nhìn lượt CI.
 
 ### Việc còn treo của Tài (cập nhật 29/09)
 
@@ -509,6 +511,6 @@ Cluster test cổng **55439**, `initdb -U nfc_test --auth=trust -E UTF8 --locale
 thuần bằng `-c unix_socket_directories=`. Tắt cluster khi xong.
 
 `next dev` trong worktree **phải có `--webpack`**: `node_modules` là symlink trỏ ra ngoài và Turbopack chết vì nó.
-Harness dùng cổng 3317–3319; không chạy hai bộ cùng lúc. Chạy 7 bộ bằng `env -u NFC_TOTP_KEY` cho giống CI.
+Harness dùng cổng 3317–3319; không chạy hai bộ cùng lúc. Chạy test bằng `env -u NFC_TOTP_KEY` cho giống CI.
 
 Lịch sử theo ngày: [`decisions-archive.md`](decisions-archive.md).

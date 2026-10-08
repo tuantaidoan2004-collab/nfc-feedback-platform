@@ -16,7 +16,7 @@ hoặc **tự chạy** trên một máy Linux bất kỳ có Docker (`docs/tu-ch
 | Thiết kế, template | `PRODUCT.md`, `DESIGN.md`, `docs/thiet-ke-va-template.md`, `docs/ui-ux-nguon-tham-khao.md`, `templates/README.md` |
 | Kiến trúc và việc còn lại | `docs/kien-truc-nen-tang.md`, `docs/roadmap-slices.md`, `docs/audit-ui-ux-20260927.md` |
 | Chạy trên máy | `docs/local-development.md` |
-| Bẫy đã gặp, lệnh 7 bộ test | `docs/operations-gotchas.md` |
+| Bẫy đã gặp, lệnh các bộ test | `docs/operations-gotchas.md` |
 
 ## Bản đồ mã
 
@@ -24,6 +24,6 @@ hoặc **tự chạy** trên một máy Linux bất kỳ có Docker (`docs/tu-ch
 - `components/` — giao diện; `shop-feedback-v2.tsx` là trang khách.
 - `templates/<khoá>/` — mỗi template là một gói (manifest + CSS mỗi bản); `node scripts/templates.mjs` sinh registry.
 - `lib/`, `server/` — nghiệp vụ và biên máy chủ; `db/schema.sql` — toàn bộ lược đồ PostgreSQL trong một tệp (không migration trong lúc dựng lại khung; `scripts/apply-schema.mjs` dựng database trống từ nó).
-- `tests/contracts`, `client-tests`, `repository-tests`, `integration-tests` — bảy bộ test, chạy đủ trên CI.
+- `tests/contracts`, `client-tests`, `repository-tests`, `integration-tests` — bảy bộ test; CI chạy bộ nhanh mỗi lần, bộ nặng theo vùng đụng tới (`scripts/test-areas.mjs`).
 
 Không đưa bí mật, dữ liệu thanh toán hay dữ liệu khách lên repo này: repo công khai.

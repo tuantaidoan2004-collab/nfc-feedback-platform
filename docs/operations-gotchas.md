@@ -63,7 +63,7 @@ của Claude, sửa 05/10 (1000/1000 lần xanh).
 
 **Bộ repository thoát 1 mà không chạy test nào** ("No tests found", "Set NFC_TEST_DATABASE_URL"). Bộ này cần `NFC_TEST_DATABASE_URL=postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test`; harness tự đặt biến, còn lệnh repository thì không. Lỗi của agent ở lát F1.
 
-**CI trên GitHub chạy đúng 7 bộ này** (`.github/workflows/ci.yml`, lát A4): bốn job song song — static (tsc, eslint, build, contracts), client, repository, và integration chạy ma trận 4 lệnh harness. Job nào cần database thì tự dựng PostgreSQL **cổng 55439**, `--encoding=UTF8 --locale=C.UTF-8`, và `.github/scripts/check-encoding.mjs` dừng sớm nếu cluster không phải UTF8. Bộ mặc định `playwright.config.ts` (tests/feedback, tests/server-storage của giao diện cũ) **không** nằm trong CI; nó sẽ đi cùng đợt dọn mã cũ A3.
+**CI trên GitHub chạy 7 bộ này** (`.github/workflows/ci.yml`, lát A4), chỉ trên `main`. Từ 08/10: static (tsc, eslint, build, contracts) và client chạy mỗi lần; repository, bốn lệnh harness và self-host chỉ chạy khi lần đẩy đụng vùng của chúng (`scripts/test-areas.mjs`, tệp không luật nào nhận thì chạy hết), đủ cả khi bấm "Run workflow". Lượt mới huỷ lượt cũ đang chạy. Job nào cần database thì tự dựng PostgreSQL **cổng 55439**, `--encoding=UTF8 --locale=C.UTF-8`, và `.github/scripts/check-encoding.mjs` dừng sớm nếu cluster không phải UTF8. Bộ mặc định `playwright.config.ts` (tests/feedback, tests/server-storage của giao diện cũ) **không** nằm trong CI; nó sẽ đi cùng đợt dọn mã cũ A3.
 
 **Một tệp test có thể tự trỏ Chrome, bỏ qua cấu hình chung.** `browser-hardening.spec.ts` khai báo `test.use({ launchOptions: { executablePath: … } })` và còn gọi `chromium.launch({ executablePath: … })` trong hai ca, nên sửa cấu hình chung không đủ: trên CI bảy ca đỏ mà tên lỗi trông như lỗi sản phẩm (BFCache, tab ẩn hiện). Khi đổi cách chọn trình duyệt, `grep` cả `executablePath` lẫn `chromium.launch` (lát A4).
 
@@ -120,9 +120,9 @@ một năm nên những đánh giá đó chỉ có nghĩa trong phân bố sao. 
 giả; ký tự cuối của base64url có khi chỉ mang bit đệm, giải ra y nguyên byte cũ, nên chữ ký vẫn đúng và test đỏ khoảng 1/6 lần
 (05/10). Muốn làm hỏng một chuỗi đã mã hoá, đổi ký tự **đầu** (hoặc một byte sau khi giải mã), đừng đổi ký tự cuối.
 
-**`main` được bảo vệ từ 27/09 (F5): đẩy thẳng lên `main` bị từ chối `GH013 … required status checks are expected`.**
-Check bắt buộc gắn theo **commit**, không theo nhánh. Cách đẩy: đẩy `feat/local-app-foundation` trước (CI chạy trên
-commit đó, ~6 phút), chờ xanh, rồi đẩy **đúng commit ấy** lên `main`. Lần đầu (27/09) nhánh lên được, `main` bị từ chối.
+**`main` từ 27/09 (F5) bắt 8 check xanh trước khi nhận commit**, nên mỗi lần lên production phải đẩy nhánh phụ, chờ CI
+~7 phút, rồi mới đẩy `main`. Production thì chỉ mất ~40 giây: thời gian chờ là của luật này, không phải của Vercel. Từ
+08/10 Tài bỏ luật check bắt buộc (giữ luật cấm xoá `main` và cấm ghi đè lịch sử), đẩy thẳng `main`, CI báo sau.
 
 **Từ 29/09 Vercel ở gói Hobby: log chạy chỉ giữ 1 giờ** (Pro giữ 1 ngày). Tài báo lỗi thì đọc
 `vercel logs --environment production --since 1h` ngay, hoặc nhờ Tài tái hiện lại rồi đọc liền.

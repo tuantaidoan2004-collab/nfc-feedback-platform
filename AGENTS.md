@@ -22,8 +22,11 @@ again.** `node scripts/local.mjs` (also the `nfc-local` preview in `.claude/laun
 migration, the owner with the Google Maps tool's shop (its real reviews; no sample shop since 05/10) and the app at `http://127.0.0.1:3321` in one command; logins are printed on start
 (`docs/local-development.md`). The agent opens the pages itself, screenshots them and sends Tài the images — Tài should
 never have to set anything up to see a change. **Commit as little as possible:** no commit per step; one commit per batch
-Tài has seen and accepted. The seven suites run once before a push to `main`, not on every iteration, and are never
-called green without their output. Pushing the preview branch to Vercel is optional, for when Tài wants it on his phone.
+Tài has seen and accepted. **Work directly on `main`** (Tài, 08/10): no feature branch and no Vercel Preview; the local app
+is the preview. A push to `main` goes live in ~40 seconds and does not wait for CI. Before the push, run the fast suites
+(tsc, eslint, contracts, client) plus whatever `node scripts/test-areas.mjs origin/main` names for the changed files — CI
+uses the same script, so a change to the landing never waits on the owner or admin harness. Never call a suite green
+without its output, and look at the CI run after the push.
 **No migrations during the rebuild (Tài, 05/10):** the database is one file, `db/schema.sql`; the local database is rebuilt
 from it whenever it changes. Production stays as it is until the new frame replaces it; that day its test shops are wiped
 and the schema applied fresh — ask Tài again on that day. Do not add tools or services to this loop; it is Node,
@@ -31,7 +34,7 @@ Postgres.app and the built-in browser.
 
 Product invariants: identical Google review invitation at every rating; low scores may open private feedback without hiding Google; internal stars update the same experience; Vietnamese by default with a switch to English, Vietnamese text may use familiar English words (Dashboard, Library, My Card), and a missing English string falls back to Vietnamese instead of blocking work; private tenant-isolated owner data. Every Google-related rule is in `docs/google-policy.md`; it overrides any other request. The remaining work, grouped by stream, is `docs/roadmap-slices.md`. When Tài changes direction, **edit or delete the old idea everywhere** (code, docs, tests) instead of stacking the new one beside it — his words: "Những gì mới ở đây là cần chỉnh sửa và xoá các ý cũ".
 
-Production is live since 2026-09-19 at `https://quitesensational-review-bio.com` (since 2026-09-21; the old `.vercel.app` redirects there) (Vercel, deployed from `main`; Neon production; R2), with a preview on the `feat/local-app-foundation` branch. **Every URL, what it is, how to sign in and whether it exists yet is in the "Đường vào" section at the top of `docs/production-launch.md`** — read it instead of asking Tài. As of 2026-09-26 production has the template shop and a handful of test shops Tài made, and no NFC card has been written; the old demo code is gone (A3). Never infer real customers or completed Google reviews from test shops, and never claim a test passed without its output. Do not treat assistant-suggested technologies and dashboard details as accepted scope.
+Production is live since 2026-09-19 at `https://quitesensational-review-bio.com` (since 2026-09-21; the old `.vercel.app` redirects there) (Vercel, deployed from `main`; Neon production; R2); no preview since 08/10. **Every URL, what it is, how to sign in and whether it exists yet is in the "Đường vào" section at the top of `docs/production-launch.md`** — read it instead of asking Tài. As of 2026-09-26 production has the template shop and a handful of test shops Tài made, and no NFC card has been written; the old demo code is gone (A3). Never infer real customers or completed Google reviews from test shops, and never claim a test passed without its output. Do not treat assistant-suggested technologies and dashboard details as accepted scope.
 
 Keep NFC separate from Campus Laundry. Do not upload secrets, personal vault contents, supplier/payment data, or whole chat histories to GitHub. No paid service setup is currently selected.
 
@@ -39,7 +42,10 @@ Keep NFC separate from Campus Laundry. Do not upload secrets, personal vault con
 
 Skills come from `addyosmani/agent-skills`, `rohitg00/agentmemory`, and (since 2026-09-17) `mattpocock/skills`, `anthropics/skills`, `ui-ux-pro-max`, `hyperframes-cli`, `agent-browser`, and `nano-banana-2`. They live in `.agents/skills/`; `.claude/skills` links there. **Pick skills from the table at the top of `docs/agent-skills.md`**: it names one primary skill per kind of work, because the sets overlap. Read only the skills the current task needs, and follow the project overrides in that file. The agentmemory skills need an MCP runtime that is not installed, so they are not used: continuity lives in `docs/decisions.md` (the "TIẾP TỤC TỪ ĐÂY" block), `docs/operations-gotchas.md`, and Obsidian. Never claim a memory tool call occurred. Owner instructions and project invariants override upstream workflows, including automatic capture and mandatory per-turn saves. No background hooks, transcript import, or paid services are authorized by this integration.
 
-## Several agents on one project
+## Several sessions on one project
 
-Claude Code (Opus) and Codex (Astra) work on this project in parallel, coordinated by Tài. They do not talk to each other directly: **`docs/agents-board.md` is the shared channel**. Read it at the start of every session, claim work there before starting, and write findings, patches and questions there. The rules for worktrees, test databases, ports, migrations and who integrates are in that file.
+Only Claude Code works on this project since 08/10 (Codex/Astra is no longer involved, and nobody reviews before a push).
+Tài may run several Claude sessions at once: **`docs/agents-board.md` is their shared channel**. Read it at the start of
+every session, claim work there before starting, and do not run test suites while another session's run is going (they
+share port 55439 and the harness ports).
 

@@ -1,20 +1,47 @@
 name: App checks
 
-# The same seven suites the project runs by hand before every push (docs/operations-gotchas.md). They are split into
-# four jobs so the wall clock stays short and so a failure names the area. Each job that needs a database brings its
-# own PostgreSQL on port 55439, the port the fixtures and the harness expect, with UTF-8: an SQL_ASCII cluster makes
-# the Vietnamese CHECK constraints fail and looks like a product bug (lát A4, 2026-09-20).
+# The seven suites (docs/operations-gotchas.md), on every push to main. Since 08/10 a push no longer waits for them: main
+# deploys to production by itself in ~40 seconds, and this run reports afterwards. The fast suites run every time; the
+# heavy ones only when the push touches what they cover (scripts/test-areas.mjs), and all of them from "Run workflow".
+# Each job that needs a database brings its own PostgreSQL on port 55439, the port the fixtures and the harness expect,
+# with UTF-8: an SQL_ASCII cluster makes the Vietnamese CHECK constraints fail and looks like a product bug (lát A4).
 on:
   push:
-    branches: [main, 'feat/**', 'astra/**']
-  pull_request:
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
+# A newer push to main makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NFC_TEST_DATABASE_URL: postgresql://nfc_test@127.0.0.1:55439/nfc_repo_test
 
 jobs:
+  areas:
+    name: which suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      repository: ${{ steps.areas.outputs.repository }}
+      selfhost: ${{ steps.areas.outputs.selfhost }}
+      integration: ${{ steps.areas.outputs.integration }}
+      any_integration: ${{ steps.areas.outputs.any_integration }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - id: areas
+        run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            node scripts/test-areas.mjs --all --github
+          else
+            node scripts/test-areas.mjs "${{ github.event.before }}" "${{ github.sha }}" --github
+          fi
+
   static:
     name: types, lint, build, contracts
     runs-on: ubuntu-latest
@@ -54,6 +81,8 @@ jobs:
 
   repository:
     name: repository (PostgreSQL)
+    needs: areas
+    if: needs.areas.outputs.repository == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -81,20 +110,13 @@ jobs:
 
   integration:
     name: integration ${{ matrix.name }}
+    needs: areas
+    if: needs.areas.outputs.any_integration == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: public
-            command: node integration-tests/run-local.mjs public-v2.spec.ts browser-hardening.spec.ts --build
-          - name: publishing
-            command: node integration-tests/run-local.mjs --publishing publishing.spec.ts --build
-          - name: owner
-            command: node integration-tests/run-local.mjs --owner owner-dashboard.spec.ts --build
-          - name: admin
-            command: node integration-tests/run-local.mjs --admin admin-http.spec.ts --build
+      matrix: ${{ fromJSON(needs.areas.outputs.integration) }}
     services:
       postgres:
         image: postgres:18
@@ -142,6 +164,8 @@ jobs:
     # Lát I1: the whole platform from the Dockerfile and deploy/docker-compose.yml on a bare runner -- PostgreSQL and
     # SeaweedFS (an S3-compatible store) in containers, nothing rented -- then scripts/selfhost-smoke.mjs against it (docs/tu-chay.md).
     name: self-host (Docker, no rented service)
+    needs: areas
+    if: needs.areas.outputs.selfhost == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
