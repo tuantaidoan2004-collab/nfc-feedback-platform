@@ -154,8 +154,8 @@
       class: `stock ${x.free <= 0 ? 'red' : x.free <= 3 ? 'yellow' : ''}`, href: `${BASE}/admin/accounts?tool=${x.id}`,
     }, el('b', {}, x.name),
       el('span', { class: 'big' }, x.free <= 0 ? (x.cap != null && x.today >= x.cap ? 'Hết lượt' : 'Hết kho') : String(x.free)),
-      el('span', { class: 'muted' }, `${x.free > 0 ? 'còn giao · ' : ''}hôm nay ${x.today}${x.cap != null ? `/${x.cap}` : ''}${x.reserved ? ` · +${x.reserved} dự phòng` : ''}`),
-      x.kho ? el('span', { class: 'muted' }, `kho: ${x.kho}`) : '',
+      el('span', { class: 'muted' }, `${x.free > 0 ? 'lượt còn giao hôm nay · ' : ''}đã giao ${x.today}${x.cap != null ? `/${x.cap}` : ''}${x.reserved ? ` · +${x.reserved} dự phòng` : ''}`),
+      x.kho?.length ? el('span', { class: 'kho-l' }, ...x.kho.map(([n, f]) => el('i', {}, `${n} `, el('b', {}, String(f)), ' chỗ'))) : '',
       x.short ? el('span', { class: 'warn-text' }, `Hết ở quán: ${x.short}`) : '',
       x.expiring ? el('span', { class: 'warn-text' }, `${x.expiring} tài khoản hết hạn trong 24 giờ`) : '',
       x.waiting ? el('span', { class: 'warn-text' }, x.waiting) : '')))

@@ -103,7 +103,12 @@ test('quản trị: nhập vào kho Orenchi, lọc theo kho, sửa kho, chuyển
     assert.match(page.text, /o1@kho\.test/);
     assert.doesNotMatch(page.text, /capcut1@kho\.test/);
     assert.match(page.text, /Kho Orenchi/);
-    assert.match(page.text, /kho: chung 1 · Orenchi 2/);
+    // Ô kho (thay dòng "kho: chung 1 · Orenchi 2"): mỗi kho 1 ô, ô đang lọc sáng, ghi lượt trống theo món + kho cho ai.
+    assert.match(page.text, /class="stat on"[^]*?Kho Orenchi<\/span><b class="stat-v">2<\/b>[^]*?CapCut Pro: 2 lượt trống[^]*?Chỉ khách ở Orenchi/);
+    assert.match(page.text, /Kho chung<\/span><b class="stat-v">3<\/b>[^]*?CapCut Pro: 1 lượt trống/);
+    assert.match(page.text, /xem mọi kho/);
+    page = await admin.get('/admin/accounts');
+    assert.match(page.text, /<h3 class="kho-h">Kho chung[^]*?<h3 class="kho-h">Kho Orenchi/); // mọi kho: bảng chia theo kho
     page = await admin.get('/admin/accounts?kho=chung');
     assert.match(page.text, /capcut1@kho\.test/);
     assert.doesNotMatch(page.text, /o1@kho\.test/);

@@ -1,5 +1,10 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.3 — chỉ trang quản trị (API không đổi)
+
+- Kho tài khoản: mỗi kho 1 ô (Kho chung / kho riêng từng quán — số tài khoản, lượt trống theo món, kho cho ai), bấm ô để lọc; xem mọi kho thì bảng chia theo kho.
+- Tổng quan → Kho hôm nay: mỗi kho 1 dòng ("Bamos Coffee 17 chỗ"), kho trống không ghi.
+
 ## Mới ở 2.1.2 — chỉ giao diện khách (API không đổi)
 
 - Trang quán Bamos / O'renchi mở trên máy tính: ảnh biển giữ đúng bề ngang cột trang (trước phóng theo cả màn hình, đè lên chữ).

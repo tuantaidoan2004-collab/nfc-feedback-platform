@@ -105,6 +105,13 @@ details.help[open] { padding-bottom: 10px; }
 .stat.zero .stat-v { color: var(--ink-3); }
 .stat.hot.danger { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 45%, transparent); } .stat.hot.danger .stat-v { color: var(--danger-text); }
 .stat.hot.warning { background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 55%, transparent); } .stat.hot.warning .stat-v { color: var(--warning-text); }
+/* Ô kho trên trang Kho tài khoản: ô đang lọc viền đậm; dòng phụ ghi lượt trống theo món + kho này cho ai. */
+.kho-cards { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.kho-cards .stat-s { line-height: 1.5; font-size: var(--text-sm); color: var(--ink-2); }
+.kho-cards .stat-s i { font-style: normal; font-size: var(--text-xs); color: var(--ink-3); }
+.kho-cards .stat.on { border: 2px solid var(--accent-strong); background: var(--accent-bg, var(--surface)); }
+.kho-h { margin: 14px 0 6px; font: var(--weight-semi) var(--text-sm)/1.3 var(--font-body, inherit); color: var(--ink-2); }
+.kho-filter { margin: -4px 0 12px; font-size: var(--text-sm); }
 .stat.hot.success { background: var(--success-bg); } .stat.hot.success .stat-v { color: var(--success-text); }
 
 /* "Việc của bạn hôm nay": viên thuốc có số tròn */
@@ -241,6 +248,9 @@ a.acc code { color: var(--accent-text); background: var(--accent-bg); }
 .live-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: tbq-pulse 1.6s var(--ease) infinite; }
 
 /* Kho hôm nay (trang Theo dõi, vẽ bằng admin.js) */
+/* Tổng quan → Kho hôm nay: mỗi kho 1 dòng ("Bamos Coffee 17 chỗ"), kho trống không ghi. */
+.stock .kho-l { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; padding-top: 6px; border-top: var(--hairline) solid var(--border); font-size: var(--text-xs); color: var(--ink-3); }
+.stock .kho-l i { font-style: normal; } .stock .kho-l b { color: var(--ink); font-weight: var(--weight-semi); }
 .stock-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 10px; }
 .stock { display: grid; gap: 2px; padding: 12px 14px; background: var(--surface); border: var(--hairline) solid var(--border); border-radius: var(--radius); color: var(--ink); font-size: var(--text-sm); }
 .adm a.stock:hover { border-color: var(--accent-line); text-decoration: none; }

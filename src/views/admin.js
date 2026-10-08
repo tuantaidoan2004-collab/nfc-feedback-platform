@@ -203,9 +203,9 @@ export function secHead(title, { n = null, note = '', link = null, id = '' } = {
 }
 
 /** Ô số liệu (kiểu thẻ "Hết hạn hôm nay" của Bot nhắc hạn). href → bấm sang trang chi tiết. tone: info|success|warning|danger|plum|accent. hot = tô nhẹ khi cần để ý. */
-export function stat(label, value, { href = '', icon: ic = 'list', tone = 'accent', sub = '', hot = false } = {}) {
+export function stat(label, value, { href = '', icon: ic = 'list', tone = 'accent', sub = '', hot = false, cls: extra = '' } = {}) {
   const zero = value === 0 || value === '0';
-  const cls = `stat${hot ? ` hot ${tone}` : ''}${zero ? ' zero' : ''}`;
+  const cls = `stat${hot ? ` hot ${tone}` : ''}${zero ? ' zero' : ''}${extra ? ` ${extra}` : ''}`;
   const inner = html`<span class="stat-l"><span class="stat-ic ${tone}">${icon(ic)}</span>${label}</span><b class="stat-v">${value}</b>${sub ? html`<span class="stat-s">${sub}</span>` : ''}`;
   return href ? html`<a class="${cls}" href="${href}">${inner}</a>` : html`<div class="${cls}">${inner}</div>`;
 }

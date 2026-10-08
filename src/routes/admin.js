@@ -300,7 +300,8 @@ const waitingText = (w) => (w ? `${w.n} tài khoản chờ ${w.setup >= w.n ? 't
 
 /**
  * Kho riêng từng quán: chỗ còn giao theo kho của mỗi món — chỉ món nào có kho riêng mới có dòng này.
- * → Map(toolId → "chung 0 · Orenchi 5 · Bamos Coffee 10") (chưa trừ dự phòng / lượt mỗi ngày).
+ * → Map(toolId → [["Kho chung", 0], ["O'renchi", 5], …]) — kho trống bỏ đi (chủ thấy "chung 0 · Bamos 17 · O'renchi 28" rối, 08/10).
+ * Số là chỗ còn trống trong kho (chưa trừ dự phòng / giới hạn mỗi ngày).
  */
 function khoText(ctx) {
   const names = new Map(all(ctx.db, 'SELECT id, name FROM cafes').map((c) => [c.id, c.name]));
@@ -310,7 +311,8 @@ function khoText(ctx) {
   for (const [toolId, list] of by) {
     if (!list.some((r) => r.cafe_id != null)) continue;
     const shared = list.find((r) => r.cafe_id == null)?.free ?? 0;
-    out.set(toolId, [`chung ${Math.max(0, shared)}`, ...list.filter((r) => r.cafe_id != null).map((r) => `${names.get(r.cafe_id) || `quán #${r.cafe_id}`} ${Math.max(0, r.free)}`)].join(' · '));
+    out.set(toolId, [['Kho chung', shared], ...list.filter((r) => r.cafe_id != null).map((r) => [names.get(r.cafe_id) || `quán #${r.cafe_id}`, r.free])]
+      .map(([n, f]) => [n, Math.max(0, f)]).filter(([, f]) => f > 0));
   }
   return out;
 }
@@ -342,8 +344,8 @@ function stockTiles(ctx, stock) {
     const capHit = tool.daily_cap != null && today >= tool.daily_cap;
     return html`<a class="stock ${free <= 0 ? 'red' : free <= 3 ? 'yellow' : ''}" href="/admin/accounts?tool=${tool.id}">
       <b>${tool.name}</b><span class="big">${free <= 0 ? (capHit ? 'Hết lượt' : 'Hết kho') : free}</span>
-      <span class="muted">${free > 0 ? 'còn giao · ' : ''}hôm nay ${today}${tool.daily_cap != null ? `/${tool.daily_cap}` : ''}${reserved ? ` · +${reserved} dự phòng` : ''}</span>
-      ${kho.get(tool.id) ? html`<span class="muted">kho: ${kho.get(tool.id)}</span>` : ''}${short.get(tool.id) ? html`<span class="warn-text">Hết ở quán: ${short.get(tool.id).join(', ')}</span>` : ''}
+      <span class="muted">${free > 0 ? 'lượt còn giao hôm nay · ' : ''}đã giao ${today}${tool.daily_cap != null ? `/${tool.daily_cap}` : ''}${reserved ? ` · +${reserved} dự phòng` : ''}</span>
+      ${kho.get(tool.id)?.length ? html`<span class="kho-l">${kho.get(tool.id).map(([n, f]) => html`<i>${n} <b>${f}</b> chỗ</i>`)}</span>` : ''}${short.get(tool.id) ? html`<span class="warn-text">Hết ở quán: ${short.get(tool.id).join(', ')}</span>` : ''}
       ${expiring ? html`<span class="warn-text">${expiring} tài khoản hết hạn trong 24 giờ</span>` : ''}${wait ? html`<span class="warn-text">${wait}</span>` : ''}</a>`;
   })}</div>`;
 }
@@ -1067,7 +1069,8 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
     // Mặc định ẩn tài khoản "Ngừng dùng" (đã dọn) cho gọn; bấm chip "Ngừng dùng" để xem lại.
     const status = ACCOUNT_STATUS[rq.query.status] ? rq.query.status : '';
     // Kho: '' = mọi kho, 'chung' = kho chung, id quán = kho riêng của quán đó.
-    const cafes = all(ctx.db, 'SELECT id, name FROM cafes ORDER BY id');
+    const cafes = all(ctx.db, 'SELECT id, name, status FROM cafes ORDER BY id');
+    const multiKho = cafes.length > 0;
     const kho = rq.query.kho === 'chung' || cafes.some((c) => String(c.id) === rq.query.kho) ? rq.query.kho : '';
     const where = [status ? 'a.status = :status' : "a.status != 'retired'"];
     const params = status ? { status } : {};
@@ -1079,7 +1082,6 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
        FROM accounts a JOIN tools t ON t.id = a.tool_id LEFT JOIN cafes k ON k.id = a.cafe_id
        WHERE ${where.join(' AND ')} ORDER BY t.sort, a.status != 'ready', a.id LIMIT 500`, params);
     const khoOf = new Map(all(ctx.db, `SELECT cafe_id, COUNT(*) AS n FROM accounts WHERE status != 'retired' ${toolId ? 'AND tool_id = ?' : ''} GROUP BY cafe_id`, ...(toolId ? [toolId] : [])).map((r) => [r.cafe_id, r.n]));
-    const khoNote = khoText(ctx);
     const khoOpts = { chung: 'Kho chung — mọi quán', ...Object.fromEntries(cafes.map((c) => [String(c.id), `Kho riêng: ${c.name}`])) };
     const stockOf = new Map(all(ctx.db, "SELECT tool_id, COUNT(*) AS n FROM accounts WHERE status != 'retired' GROUP BY tool_id").map((r) => [r.tool_id, r.n]));
     const codesOf = new Map(all(ctx.db, "SELECT tool_id, SUM(status = 'ready') AS n, COUNT(*) AS total FROM redeem_codes GROUP BY tool_id").map((r) => [r.tool_id, r]));
@@ -1104,11 +1106,17 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
       const task = taskOf.get(a.id);
       return [
         html`<a href="/admin/accounts/${a.id}">${a.id}</a>`,
-        html`${link.acc(a.id, a.login_email)}${a.kho_name ? html` ${badge(`Kho ${a.kho_name}`, 'info')}` : ''}${a.label ? html`<span class="sub">${a.label}</span>` : ''}`,
+        html`${link.acc(a.id, a.login_email)}${a.label ? html`<span class="sub">${a.label}</span>` : ''}`,
         html`${badge(ACCOUNT_STATUS[a.status] || a.status, ACCOUNT_TONE[a.status] ?? 'yellow')}${a.totp_enc ? html` ${badge('2FA', 'info')}` : ''}${a.usable || a.status === 'retired' ? '' : html` ${badge('Thiếu mật khẩu / 2FA — không giao', 'red')}`}${a.status !== 'retired' && accountExpiry(a, ctx.now()).expired ? html` ${badge('Quá hạn — không giao', 'red')}` : ''}${a.status_reason ? html`<span class="sub">${a.status_reason}</span>` : ''}${task ? html`<a class="go" href="/admin/tasks#task-${task}">Làm việc tay ›</a>` : ''}`,
         load ? html`<a href="/admin/slots?account=${a.id}" title="Xem khách đang dùng">${load}/${a.max_holders}</a>` : `0/${a.max_holders}`,
         t(a.last_assigned_at, o), t(a.last_rotated_at, o),
       ];
+    };
+    // Xem "mọi kho": mỗi món chia bảng theo kho (Kho chung trước, rồi từng quán) — khỏi gắn nhãn kho trên từng dòng.
+    const khoGroups = (list) => {
+      const by = new Map();
+      for (const a of list) by.set(a.cafe_id ?? 0, [...(by.get(a.cafe_id ?? 0) || []), a]);
+      return [...by].sort(([x], [y]) => x - y).map(([cid, part]) => [cid ? `Kho ${part[0].kho_name}` : 'Kho chung', part]);
     };
     const groups = new Map();
     for (const a of rows) (groups.get(a.tool_id) || groups.set(a.tool_id, []).get(a.tool_id)).push(a);
@@ -1119,16 +1127,33 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
       const av = avail.get(x.id);
       return html`${secHead(x.name, {
         n: list.length,
-        note: html`${LOGIN_TYPE[x.login_type] || x.login_type} · còn giao được <b>${av?.free ?? 0}</b>${av?.reserved ? ` (+${av.reserved} dự phòng)` : ''}${khoNote.get(x.id) ? ` · kho: ${khoNote.get(x.id)}` : ''}${x.enabled ? '' : ' · món đang tắt'}`,
+        // Chủ thấy "còn giao được 15 · kho: chung 0 · Bamos 17 · O'renchi 28" rối (08/10): số theo kho đã nằm ở các ô kho phía trên,
+        // ở đây chỉ còn 1 con số — hôm nay còn giao bao nhiêu lượt (đã tính giới hạn mỗi ngày nếu món có).
+        note: html`${LOGIN_TYPE[x.login_type] || x.login_type} · hôm nay còn giao <b>${av?.free ?? 0}</b> lượt${x.daily_cap != null ? ` (giới hạn ${x.daily_cap}/ngày, cả hệ thống)` : ''}${av?.reserved ? ` · +${av.reserved} dự phòng` : ''}${x.enabled ? '' : ' · món đang tắt'}`,
         link: [`/admin/tools/${x.id}`, 'Cài đặt món'],
       })}
-${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối'], list.map(accRow),
-  status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống — dán tài khoản ở ô "Thêm vào kho" bên dưới.', { cls: 't-acc' })}`;
+${(multiKho && !kho && list.length ? khoGroups(list) : [[null, list]]).map(([g, part]) => html`${g ? html`<h3 class="kho-h">${g} <span class="sec-n">${part.length}</span></h3>` : ''}
+${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối'], part.map(accRow),
+  status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống — dán tài khoản ở ô "Thêm vào kho" bên dưới.', { cls: 't-acc' })}`)}`;
     });
     // Món đang bật mà chưa có hàng: gom 1 dòng (không vẽ bảng rỗng), bấm tên → mở ô thêm, chọn sẵn món đó.
     const empty = toolId || status ? [] : tools.filter((x) => x.enabled && !toolCount(x));
     const stale = all(ctx.db, `SELECT a.created_at, t.reuse, t.slot_hours, t.account_days FROM accounts a JOIN tools t ON t.id = a.tool_id
       WHERE a.status = 'ready' ${toolId ? 'AND a.tool_id = ?' : ''}`, ...(toolId ? [toolId] : [])).filter((a) => accountExpiry(a, ctx.now()).expired).length;
+    // Ô kho (thay hàng chip "Kho" — chủ thấy rối 08/10): mỗi kho 1 ô — số tài khoản, lượt còn trống theo món, kho này cho ai. Bấm ô để lọc, bấm lại để bỏ lọc.
+    const seatsOf = new Map();
+    for (const r of poolSeats(ctx)) if (!toolId || r.tool_id === toolId) seatsOf.set(r.cafe_id, [...(seatsOf.get(r.cafe_id) || []), r]);
+    const toolName = new Map(tools.map((x) => [x.id, x.name]));
+    const khoList = [{ id: null, k: 'chung', name: 'Kho chung', who: 'Mọi quán — lấy khi kho riêng của quán đã hết' },
+      ...cafes.filter((c) => c.status === 'active' || khoOf.get(c.id)).map((c) => ({ id: c.id, k: String(c.id), name: `Kho ${c.name}`, who: `Chỉ khách ở ${c.name} — dùng trước kho chung` }))];
+    const khoCards = multiKho ? html`<div class="stats kho-cards">${khoList.map((b) => {
+      const seats = (seatsOf.get(b.id) || []).filter((r) => r.free > 0);
+      const on = kho === b.k;
+      return stat(b.name, khoOf.get(b.id) || 0, {
+        href: url({ k: on ? '' : b.k }), icon: b.id ? 'cup' : 'box', tone: b.id ? 'accent' : 'info', cls: on ? 'on' : '',
+        sub: html`${seats.length ? seats.map((r, i) => html`${i ? html`<br>` : ''}${toolName.get(r.tool_id)}: ${Math.max(0, r.free)} lượt trống`) : 'Trống — chưa giao được gì'}<br><i>${b.who}</i>`,
+      });
+    })}</div>${kho ? html`<p class="muted kho-filter">Đang xem ${khoList.find((b) => b.k === kho)?.name} — <a href="${url({ k: '' })}">xem mọi kho</a></p>` : ''}` : '';
     view(rq, {
       title: 'Kho tài khoản', active: '/admin/accounts',
       sub: `${byStatus.get('ready') || 0} sẵn sàng · ${byStatus.get('needs_rotation') || 0} chờ đổi mật khẩu${byStatus.get('quarantined') ? ` · ${byStatus.get('quarantined')} cách ly` : ''}${stale ? ` · ${stale} quá hạn (không giao)` : ''}`,
@@ -1136,8 +1161,7 @@ ${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Gia
       body: html`${chips([[url({ tool: 0 }), 'Mọi món', null, !toolId], ...tools.filter((x) => x.enabled || toolCount(x)).map((x) => [url({ tool: x.id }), x.name, toolCount(x), toolId === x.id])])}
 ${chips([[url({ st: '' }), 'Đang có', [...byStatus].filter(([k]) => k !== 'retired').reduce((n, [, v]) => n + v, 0), !status],
   ...Object.entries(ACCOUNT_STATUS).map(([k, label]) => [url({ st: k }), label, byStatus.get(k) || 0, status === k])])}
-${cafes.length ? chips([[url({ k: '' }), 'Mọi kho', null, !kho], [url({ k: 'chung' }), 'Kho chung', khoOf.get(null) || 0, kho === 'chung'],
-  ...cafes.filter((c) => khoOf.get(c.id) || kho === String(c.id)).map((c) => [url({ k: String(c.id) }), `Kho ${c.name}`, khoOf.get(c.id) || 0, kho === String(c.id)])]) : ''}
+${khoCards}
 ${sections}
 ${!rows.length && !toolId && !sections.some(Boolean) ? html`<p class="empty">${status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống.'}</p>` : ''}
 ${empty.length ? html`<p class="warn">Chưa có hàng: ${empty.map((x, i) => html`${i ? ', ' : ''}<a href="/admin/accounts?tool=${x.id}#them">${x.name}</a>`)} — khách không nhận được các món này. Bấm tên món để dán thêm.</p>` : ''}
