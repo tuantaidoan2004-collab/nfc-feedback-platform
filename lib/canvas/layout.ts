@@ -89,8 +89,14 @@ export function googleProblems(doc: PageDoc): string | null {
   if (!button) return null;
   if (button.section !== 0 || button.rect.y < 0 || button.rect.y + button.rect.h > FIRST_SCREEN || button.rect.x < -2 || button.rect.x + button.rect.w > ARTBOARD + 2)
     return 'GOOGLE_NOT_FIRST_SCREEN';
+  // An event's sign (doc.ts EventSpotEl) never covers the button nor sits against it, as if the two went together (luật 8).
+  for (const spot of placed) if (types.get(spot.id) === 'event' && gap(spot.rect, button.rect) < EVENT_GAP) return 'GOOGLE_EVENT_NEAR';
   return null;
 }
+/** How far an event's sign keeps from the Google button, in units: about a line of text and a half. */
+export const EVENT_GAP = 40;
+/** The distance between two boxes, 0 when they touch or overlap. */
+const gap = (a: Rect, b: Rect) => Math.hypot(Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w)), Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h)));
 
 /** Every word the page shows, in both languages: the trip-wire of policy.ts reads them all. */
 export function wordsOf(doc: PageDoc): string[] {
@@ -98,7 +104,7 @@ export function wordsOf(doc: PageDoc): string[] {
   const add = (w?: { vi: string; en?: string }) => { if (w) { out.push(w.vi); if (w.en) out.push(w.en); } };
   for (const el of walk(doc)) {
     if (el.t === 'text') add(el.words);
-    if (el.t === 'button') { add(el.label); add(el.tag); if (el.wifi) out.push(el.wifi.name); }
+    if (el.t === 'button') { add(el.label); add(el.tag); el.pop?.forEach(add); if (el.wifi) out.push(el.wifi.name); }
     if (el.t === 'image') add(el.caption);
   }
   for (const section of doc.sections) for (const el of section.els) if (el.t === 'deck') el.cards.forEach(card => add(card.label));
@@ -124,7 +130,7 @@ export function linkRuleProblem(doc: PageDoc): string | null {
 /** The uploads a page shows: each must pass the image review before the page publishes (media-gate.ts). */
 export function mediaOf(doc: PageDoc): string[] {
   const found = [doc.backdrop?.src, ...doc.sections.map(s => s.bg?.src), doc.fonts?.chinh, doc.fonts?.dacBiet, doc.sound?.src];
-  for (const el of walk(doc)) if (el.t === 'image') found.push(el.src, ...(el.flip ?? []));
+  for (const el of walk(doc)) if (el.t === 'image') found.push(el.src, ...(el.flip ?? [])); else if (el.t === 'event') found.push(el.src);
   // Everything but the app's own pictures: an address that is not built in must be an approved upload of the shop.
   return [...new Set(found.filter((src): src is string => typeof src === 'string' && !src.startsWith('art:') && !src.startsWith('/tpl/')))];
 }

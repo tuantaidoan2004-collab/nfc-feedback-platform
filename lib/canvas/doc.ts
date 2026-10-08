@@ -79,7 +79,12 @@ export type Motion = { in?: typeof MOTIONS_IN[number]; at?: number; loop?: typeo
 
 /** `row`: a list row — icon, words on the left, an arrow on the right (mẫu Card Stack, Tài 06/10). */
 /** `glitch`: a white pill with TikTok's two offset edges; `card`: a nearly square white card with a coloured edge (Zalo OA). */
-export const BUTTON_LOOKS = ['pill', 'ring', 'outline', 'soft', 'gradient', 'tail', 'link', 'box', 'tag', 'note', 'glow', 'text', 'row', 'glitch', 'card'] as const;
+/**
+ * `popout`: a lime button that keeps calling — two small cards pop out above and below it with `pop`'s words and four corner marks
+ * spread out, then all settle back (uiverse.io dexter-st/itchy-wolverine-84, MIT — docs/nguon-hieu-ung.md; made to run on its own,
+ * phones have no hover). `edge.color` colours the corner marks.
+ */
+export const BUTTON_LOOKS = ['pill', 'ring', 'outline', 'soft', 'gradient', 'tail', 'link', 'box', 'tag', 'note', 'glow', 'text', 'row', 'glitch', 'card', 'popout'] as const;
 export type ButtonLook = typeof BUTTON_LOOKS[number];
 export const GOOGLE_LOOKS = ['maps', 'g', 'ring', 'glass'] as const;
 export type GoogleLook = typeof GOOGLE_LOOKS[number];
@@ -128,7 +133,9 @@ export type IconEl = Box & { t: 'icon'; icon: IconKey; color?: Color; link?: str
 export type ButtonEl = Box & { t: 'button'; look: ButtonLook; label: Words; link?: string;
   /** A wifi button shows the shop's network instead of leaving the page. */
   wifi?: { name: string; pass?: string };
-  icon?: IconKey; tag?: Words; bg?: Fill; fg?: Color; edge?: Edge; font?: FontKey; size?: number; shadow?: Shadow; weight?: number; spacing?: number };
+  icon?: IconKey; tag?: Words; bg?: Fill; fg?: Color; edge?: Edge; font?: FontKey; size?: number; shadow?: Shadow; weight?: number; spacing?: number;
+  /** The two cards of the `popout` look, above and below the button. */
+  pop?: [Words, Words] };
 /**
  * The Google review button. Its words and its link are the platform's (the shop's Place ID); only its look is the template's.
  * `shadow`: how far it stands off the page (a knob in Bàn dựng, Tài 06/10: "nổi bóng để nổi bật khỏi nền"): none · soft · lift (a
@@ -181,7 +188,16 @@ export type DeckEl = Box & { t: 'deck'; look: typeof DECK_LOOKS[number]; front: 
 export const LINKS_LOOKS = ['icons', 'pills', 'rows'] as const;
 export type LinksEl = Box & { t: 'links'; look: typeof LINKS_LOOKS[number]; style?: 'mau' | 'net' | 'dac'; color?: Color; bg?: Fill; gap?: number; size?: number;
   order?: LinkSlot[]; items?: { slot: LinkSlot; url: string; label?: string }[]; own?: true };
-export type El = Leaf | FeedbackEl | StackEl | DeckEl | LinksEl;
+/**
+ * Chỗ báo hiệu sự kiện (kịch bản mục 8; Tài 08/10: "nhìn phát là quán này có collab"): the picture of a collab -- the shop's logo
+ * and the organizer's, on white -- in a card with a gradient ring and a "Hôm nay có sự kiện" tag, in the first section near the
+ * shop's name. A tap scrolls to the event's block (khúc B, lib/events/section.ts). It shows only while /gov has `event` open for
+ * the shop; otherwise it is gone, as a slot without the shop's data is. Never next to the Google button (layout.ts).
+ */
+export type EventSpotEl = Box & { t: 'event'; event: string; src: string;
+  /** What the shop calls its regulars ("Bamos'er", Tài 08/10): the event's block then says it is for them. */
+  fans?: string };
+export type El = Leaf | FeedbackEl | StackEl | DeckEl | LinksEl | EventSpotEl;
 
 /**
  * `extend: 'blur'`: the picture keeps its own shape at the top of the section, full width, and the rest of the section continues in a

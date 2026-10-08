@@ -172,9 +172,20 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
+**08/10 — collab hiện ở khúc A (Tài).** Phần tử mới `event` (doc.ts `EventSpotEl`): ảnh logo collab trong thẻ viền gradient,
+nhãn "Hôm nay có sự kiện", bấm thì cuộn tới khúc B và nút sáng lên; chỉ hiện khi /gov mở sự kiện cho quán
+(`lib/events/section.ts` `withOpenEvents`); luật phát hành `GOOGLE_EVENT_NEAR` (cách nút Google ≥ 40 đơn vị). Khúc B chỉ còn nút
+"Nhận công cụ làm việc miễn phí" + dòng bên tổ chức; bỏ nút "Về chúng tôi" khỏi danh mục — **TBQ cần bỏ theo ở `src/qs-event.js`**.
+Quán thử local `/bamos` (từ `rieng/sua/wsj5t.json`, ảnh `rieng/sua/files/bamos-tbq-collab.png`). Tài duyệt 08/10, commit cùng lượt 2, đẩy nhánh `feat/local-app-foundation` (chưa lên `main`).
+Lượt 2 (08/10): nút đổi thành **"Nhận công cụ Pro miễn phí"**, look mới `popout` (uiverse dexter-st/itchy-wolverine-84, hai thẻ
+"Trải nghiệm trọn… / …1 ngày"); dưới nút: ghi chú 1 ngày, **chính sách của TBQ** (lấy từ `/privacy` và luật dùng thử trong mã TBQ,
+nhánh `tbq/co-lap`; trang TBQ đang tắt nên chưa đối chiếu trực tiếp), link Chính sách dữ liệu + Zalo hỗ trợ, dòng "dành cho Bamos'er"
+(ô `fans` của chỗ báo hiệu). **Không làm** ghi chú nhắc khách quay lại đánh giá sau khi dùng collab: nối quà với đánh giá, cấm theo
+`google-policy.md` luật 4 và 8.
+
 **07/10 tối — 5 mẫu đã dựng thành tài sản của quán `k9kr5y` (Quán của @huanhoahong) trên production.** Lệnh mới
-`sua-trang.mjs chep` (local-development.md). Lên: Eid `/up95x`, 4RAU `/z7bx5`, Bamos `/687nv`, 21 Detailing `/tm6d8`; Nhẹ Tênh chờ
-cờ `own` của nhóm `links` lên `main` (production cũ không hiểu cờ này). Khoá production ở `rieng/prod.env` (không commit).
+`sua-trang.mjs chep` (local-development.md). Lên: Eid `/up95x`, 4RAU `/z7bx5`, Bamos `/687nv`, 21 Detailing `/tm6d8`, Nhẹ Tênh `/k2p5z`
+(sau khi cờ `own` của nhóm `links` lên `main` = `3beb3d9`). Khoá production ở `rieng/prod.env` (không commit).
 
 **07/10 chiều — nút theo thông tin quán, ô thả theo vai, font/âm thanh của quán.** Phần tử `links` sinh một nút cho mỗi link quán
 có (ô `email` mới, `mailto:`). Bàn dựng: ô thả Poster/Nền/Logo/Logo phụ/Ảnh quán/Ảnh phụ/Font chính/Font đặc biệt/Âm thanh nền;

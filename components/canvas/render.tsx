@@ -15,7 +15,7 @@ import Powder from './powder';
 import CanvasIcon from './icons';
 import GuestCore, { LegalLine, type GuestMode } from '../guest/core';
 import type { RenderBinding } from '@/lib/client/visit-fetch-transport';
-import { Arrow, DeckCards, FlipCard, FlipMedia, SoundToggle, FeedbackPlane, GoogleButton, LangSwitch, LegalSpot, ScrollHint, SectionWatch, WifiButton } from './live';
+import { Arrow, DeckCards, EventSpot, FlipCard, FlipMedia, SoundToggle, FeedbackPlane, GoogleButton, LangSwitch, LegalSpot, ScrollHint, SectionWatch, WifiButton } from './live';
 import { WordsView } from './words';
 import './canvas.css';
 
@@ -120,7 +120,15 @@ function LeafView({ el }: { el: Leaf | Extract<Kid, { t: Leaf['t'] }> }): ReactN
         {el.look === 'tag' && <span className="cv-tag-cursor" aria-hidden="true"><CanvasIcon icon="cursor" id={`${el.id}-c`} /></span>}
       </>;
       if (el.wifi) return <WifiButton className={`cv-btn cv-btn-${el.look}`} style={style} wifi={el.wifi}>{content}</WifiButton>;
-      return <a className={`cv-btn cv-btn-${el.look}${el.slot === 'website' ? ' cv-web' : ''}`} style={style} href={el.link} target={el.link?.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{content}</a>;
+      const link = <a className={`cv-btn cv-btn-${el.look}${el.slot === 'website' ? ' cv-web' : ''}`} style={style} href={el.link} target={el.link?.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{content}</a>;
+      if (el.look !== 'popout') return link;
+      // uiverse.io dexter-st/itchy-wolverine-84 (MIT): the two cards and the four corner marks around the button.
+      return <div className="cv-pop" style={{ '--pc': el.edge ? paint(el.edge.color) : undefined } as Vars}>
+        {el.pop && <><span className="cv-pop-card cv-pop-up" aria-hidden="true"><WordsView words={el.pop[0]} /></span>
+          <span className="cv-pop-card cv-pop-down" aria-hidden="true"><WordsView words={el.pop[1]} /></span></>}
+        {link}
+        {[0, 1, 2, 3].map(i => <svg key={i} className="cv-pop-corner" viewBox="-1 1 32 32" aria-hidden="true"><path d="M32,32C14.355,32,0,17.645,0,0h.985c0,17.102,13.913,31.015,31.015,31.015v.985Z" /></svg>)}
+      </div>;
     }
     case 'google': return <GoogleButton el={el} />;
     case 'lang': return <LangSwitch el={el} />;
@@ -163,7 +171,8 @@ const holdsGoogle = (el: El) => el.t === 'google' || ((el.t === 'stack' || el.t 
 const ElementView = memo(function ElementView({ el, z, mode }: { el: El; z: number; mode: GuestMode }) {
   if (el.hide) return null;
   const top = holdsGoogle(el);
-  const box: Vars = { '--x': el.x, '--y': el.y, '--w': el.w, '--h': el.h, '--r': deg(el.r), zIndex: top ? undefined : z, ...motionVars(el),
+  // An event's sign is tapped, so it lies over the page's decoration (glitter, light) wherever it stands in the list; under the Google button.
+  const box: Vars = { '--x': el.x, '--y': el.y, '--w': el.w, '--h': el.h, '--r': deg(el.r), zIndex: top ? undefined : el.t === 'event' ? 900 : z, ...motionVars(el),
     // Blending works against what lies under the element in the section, so it is set on the element's own box (doc.ts `blend`).
     mixBlendMode: el.t === 'shape' ? el.blend : undefined };
   const cls = `cv-el${motionClass(el)}${top ? ' cv-top' : ''}`;
@@ -176,6 +185,7 @@ const ElementView = memo(function ElementView({ el, z, mode }: { el: El; z: numb
   </div>;
   if (el.t === 'deck') return <DeckView el={el} cls={cls} box={box} mode={mode} />;
   if (el.t === 'links') return <div className={cls} data-id={el.id} style={box}><LinksView el={el} /></div>;
+  if (el.t === 'event') return <div className={cls} data-id={el.id} style={box}><Loop el={el}><EventSpot el={el} /></Loop></div>;
   return <div className={cls} data-id={el.id} style={box}><Loop el={el}><LeafView el={el} /></Loop></div>;
 });
 

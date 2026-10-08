@@ -1,5 +1,6 @@
 import { ARTBOARD, ARTS, BLENDS, LINKS_LOOKS, BUTTON_LOOKS, DECK_LOOKS, FONTS, GOOGLE_LOOKS, GOOGLE_MARKS, GOOGLE_SHADOWS, ICONS, LINK_SLOTS, MAX_ELEMENTS, MAX_SECTION_H, MAX_SECTIONS, MOTIONS_IN, MOTIONS_LOOP,
   SHAPES, SLOTS, type PageDoc } from './doc';
+import { isEventKey } from '../events/catalog';
 
 /**
  * Kiểm một tài liệu canvas trước khi lưu (doc.ts). Chặt như `validateConfig` của trang cũ: mỗi đối tượng chỉ có đúng các khoá
@@ -136,7 +137,8 @@ function leaf(v: unknown, at: string, inStack: boolean, depth: number) {
   } else if (t === 'icon') {
     own(v, at, ['icon'], ['color', 'link'], inStack); oneOf(ICONS)(v.icon, `${at}.icon`); opt(v, 'color', color, at); opt(v, 'link', link, at);
   } else if (t === 'button') {
-    own(v, at, ['look', 'label'], ['link', 'wifi', 'icon', 'tag', 'bg', 'fg', 'edge', 'font', 'size', 'shadow', 'weight', 'spacing'], inStack);
+    own(v, at, ['look', 'label'], ['link', 'wifi', 'icon', 'tag', 'bg', 'fg', 'edge', 'font', 'size', 'shadow', 'weight', 'spacing', 'pop'], inStack);
+    opt(v, 'pop', (list, a) => { if (!Array.isArray(list) || list.length !== 2) fail(a); (list as unknown[]).forEach((w, i) => words(w, `${a}.${i}`, 30)); }, at);
     oneOf(BUTTON_LOOKS)(v.look, `${at}.look`); words(v.label, `${at}.label`, 120);
     opt(v, 'link', link, at);
     opt(v, 'wifi', (w, a) => { keys(w, a, ['name'], ['pass']); text(w.name, `${a}.name`, 64); opt(w, 'pass', (p, b) => text(p, b, 64, true), a); }, at);
@@ -187,6 +189,9 @@ function element(v: unknown, at: string) {
     opt(v, 'items', (list, a) => { if (!Array.isArray(list) || list.length > LINK_SLOTS.length) fail(a);
       (list as unknown[]).forEach((item, i) => { keys(item, `${a}.${i}`, ['slot', 'url'], ['label']); oneOf(LINK_SLOTS)((item as Obj).slot, `${a}.${i}.slot`); link((item as Obj).url, `${a}.${i}.url`);
         opt(item, 'label', (w, b) => text(w, b, 60), `${a}.${i}`); }); }, at);
+  } else if (t === 'event') {
+    own(v, at, ['event', 'src'], ['fans'], false); opt(v, 'fans', (n, a) => text(n, a, 30), at);
+    if (!isEventKey(v.event)) fail(`${at}.event`); source(v.src, `${at}.src`);
   } else if (t === 'stack') {
     own(v, at, ['kids', 'gap'], ['pad', 'align', 'panel', 'reveal'], false); slotFits(v, at);
     kids(v.kids, `${at}.kids`, 1); num(v.gap, `${at}.gap`, 0, 200); opt(v, 'pad', (n, a) => num(n, a, 0, 120), at);

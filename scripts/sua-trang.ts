@@ -41,6 +41,7 @@ type Saved = { quan: string; trang: string; banNhap: number; mau: string; ten: s
 const WHY: Record<string, string> = {
   PAGE_NOT_SYNCED: 'Trang còn link mẫu (trang chủ của Zalo/Facebook/TikTok… hoặc link về Quite Sensational) ở phần tử không có chỗ của quán.',
   POLICY_GOOGLE_NOT_FIRST_SCREEN: 'Nút Google bị đẩy khỏi màn hình đầu (khúc đầu, trên vạch 560).', POLICY_GOOGLE_TWICE: 'Có hai nút Google.',
+  POLICY_GOOGLE_EVENT_NEAR: 'Chỗ báo hiệu sự kiện sát nút Google (cách ít nhất 40 đơn vị, đặt gần tên quán/logo).',
   POLICY_GOOGLE_EXCHANGE: 'Có chữ đổi quà lấy đánh giá hoặc gợi ý nội dung đánh giá (luật Google).', POLICY_GOOGLE_LINK: 'Có link viết đánh giá Google ngoài nút Google.',
   INVALID_CONFIG: 'Tài liệu trang sai dạng.', MEDIA_PENDING: 'Có ảnh đang chờ duyệt.', MEDIA_REJECTED: 'Có ảnh đã bị từ chối.', MEDIA_UNKNOWN: 'Có ảnh không phải của quán.',
   DRAFT_CONFLICT: 'Bản nháp đã đổi từ lúc lấy ra. Chạy lại "lay".', PAGE_CLOSED: 'Trang đã đóng.', SHOP_SUSPENDED: 'Quán đang bị khoá.',
@@ -83,6 +84,7 @@ function checklist(doc: PageDoc, shop: { name: string; profile: unknown }) {
     if (el.t === 'text') lines.push(`  chữ #${el.id}: ${JSON.stringify(el.words.vi).slice(0, 70)}${el.link ? ` → ${el.link}` : ''}`);
     if (el.t === 'button') lines.push(`  nút #${el.id}: ${JSON.stringify(el.label.vi)} → ${el.link ?? 'wifi'}`);
     if (el.t === 'image') lines.push(`  ảnh #${el.id}: ${el.src}`);
+    if (el.t === 'event') lines.push(`  sự kiện #${el.id}: ${el.event} · ${el.src} (chỉ hiện khi /gov mở sự kiện cho quán)`);
   }
   return lines.join('\n');
 }
@@ -164,6 +166,7 @@ async function publish(slug: string, dry: boolean) {
     const doc = saved.config.doc;
     for (const section of doc.sections) if (section.bg && local(section.bg.src)) section.bg.src = await swap(section.bg.src!);
     if (doc.backdrop && local(doc.backdrop.src)) doc.backdrop.src = await swap(doc.backdrop.src!);
+    for (const el of walk(doc)) if (el.t === 'event' && local(el.src)) el.src = await swap(el.src);
     for (const el of walk(doc)) if (el.t === 'image') {
       if (local(el.src)) el.src = await swap(el.src);
       if (el.flip) for (const [i, src] of el.flip.entries()) if (local(src)) el.flip[i] = await swap(src);

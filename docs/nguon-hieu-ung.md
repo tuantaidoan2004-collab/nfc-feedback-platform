@@ -28,6 +28,7 @@ Tài 07/10: lưu lại để sau này, khi khách tự nhắn yêu cầu trong t
 | `google.shine` (vệt sáng đôi quét qua nút) | https://uiverse.io/Ashon-G/rotten-frog-52 | Ashon-G | `.cv-quet`, `live.tsx` |
 | `motion.loop: "xu"` (lật như đồng xu rồi nghỉ) | https://uiverse.io/JohnnyCSilva/black-rabbit-68 | João Silva | `.cv-loop-xu` |
 | `shape: "hat-bay"` (hạt sáng bay lên) | https://uiverse.io/vinh_8995/tame-lionfish-65 | vinh_8995 | `.cv-hat-bay`, `shapes.tsx` |
+| `button.look: "popout"` (hai thẻ nhỏ bật ra trên/dưới nút, bốn góc toả ra; tự chạy theo nhịp vì điện thoại không rê chuột) | https://uiverse.io/dexter-st/itchy-wolverine-84 | dexter-st | `.cv-pop`, `render.tsx`; nút "Nhận công cụ Pro miễn phí" ở khúc B |
 
 Copyright các phần gốc thuộc tác giả trên uiverse.io, phát hành theo MIT License (https://uiverse.io — chân trang).
 | `shape: "ve"` (vé tối: khấc, đục lỗ, lưới phối cảnh chạy, vệt ánh kim) + `text.paint` (chữ chuyển màu) | https://uiverse.io/zeeshan_2112/shy-rattlesnake-3 | zeeshan_2112 | `.cv-ve`, `shapes.tsx` |

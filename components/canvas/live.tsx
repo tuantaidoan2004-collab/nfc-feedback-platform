@@ -8,7 +8,7 @@
  * Google, nên không gì che được nút — cả hình lẫn vùng bấm.
  */
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import type { DeckCard, FeedbackEl, GoogleEl, LangEl, LegalEl } from '@/lib/canvas/doc';
+import type { DeckCard, EventSpotEl, FeedbackEl, GoogleEl, LangEl, LegalEl } from '@/lib/canvas/doc';
 import { paint } from '@/lib/canvas/paint';
 import CanvasIcon from './icons';
 import { LegalLine, guestCopy, useGuest } from '../guest/core';
@@ -258,4 +258,24 @@ export function EventTaps({ event, items, children }: { event: string; items: { 
     const item = items.find(i => i.href === href);
     if (item) guest.event('event_tapped', { event, item: item.key });
   }}>{children}</div>;
+}
+
+/**
+ * Chỗ báo hiệu sự kiện (doc.ts EventSpotEl): the collab's picture in a ringed card under a "Hôm nay có sự kiện" tag. A tap glides
+ * to the event's block (khúc B) and makes its button glow for a moment, so the guest sees where to go next.
+ */
+const SPOT_TAG = { vi: 'Hôm nay có sự kiện', en: 'Event today' };
+export function EventSpot({ el }: { el: EventSpotEl }) {
+  const target = `khuc-b-${el.event}`;
+  return <a className="cv-spot" href={`#${target}`} onClick={click => {
+    const block = document.querySelector<HTMLElement>(`[data-section="${target}"]`);
+    if (!block) return;
+    click.preventDefault();
+    block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const button = block.querySelector<HTMLElement>('.cv-btn');
+    if (button) { button.classList.remove('cv-ping'); void button.offsetWidth; button.classList.add('cv-ping'); }
+  }}>
+    <span className="cv-spot-card"><img src={el.src} alt="" decoding="async" /></span>
+    <span className="cv-spot-tag"><span className="cv-spot-dot" aria-hidden="true" /><WordsView words={SPOT_TAG} /></span>
+  </a>;
 }
