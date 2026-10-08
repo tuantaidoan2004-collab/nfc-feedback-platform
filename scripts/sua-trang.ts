@@ -7,6 +7,8 @@
 //   chep <trang> <quán>    a page built here (local database and store) copied as a new page of another shop, published, with
 //                          the words and links of the shop it was built for kept on it (Tài 07/10: the designs as a shop's assets).
 //                          Its pictures, fonts and sounds go to the target's store. With --env, the target is production.
+//                          --vao [trang]: into a page the shop already has instead (its first page when none is named), so the
+//                          cards and links that open it show the new design at once (Tài 08/10, thẻ O'renchi).
 //   dang <trang>           the file back: local files shrunk and uploaded, the shop's name, details and Place ID saved (refused if
 //                          a page already live would break), the page saved and published, the request closed.
 // rieng/ is never committed (the repo is public): the shop's details, files and drafts stay on this machine.
@@ -221,8 +223,8 @@ function frozen(doc: PageDoc, shop: { name: string; profile: unknown }) {
   visit(out.sections);
   return out;
 }
-async function copy(slug: string, target: string, dry: boolean) {
-  if (!/^[a-z0-9-]{1,63}$/i.test(target ?? '')) fail('node scripts/sua-trang.mjs chep <mã trang> <mã quán> [--thu]');
+async function copy(slug: string, target: string, dry: boolean, into: string | true | null) {
+  if (!/^[a-z0-9-]{1,63}$/i.test(target ?? '')) fail('node scripts/sua-trang.mjs chep <mã trang> <mã quán> [--vao [mã trang]] [--thu]');
   const source = new pg.Pool({ connectionString: LOCAL_DB, max: 1 });
   const row = (await source.query(`SELECT p.slug,s.name,s.profile,d.config,tv.template_key FROM pages p JOIN shops s ON s.id=p.shop_id
     JOIN page_drafts d ON d.page_id=p.id JOIN template_versions tv ON tv.id=d.template_version_id WHERE lower(p.slug)=lower($1)`, [slug])).rows[0] ?? fail(`Máy này không có trang /${slug}.`);
@@ -258,8 +260,26 @@ async function copy(slug: string, target: string, dry: boolean) {
     try { assertPublishable(config); } catch (error) { explain(error); }
     const leftovers = placeholderLinks(config.doc);
     if (leftovers.length) fail(`${WHY.PAGE_NOT_SYNCED} Phần tử: ${leftovers.map(id => `#${id}`).join(', ')}.`);
-    if (dry) { await db.query('ROLLBACK'); console.log(`Kiểm xong /${row.slug} (${row.name}) → quán ${shop.name}: chép được, ${used.length} tệp.`); return; }
+    if (dry) {
+      const existing = into ? (await db.query(`SELECT slug FROM pages WHERE shop_id=$1 AND ($2::text IS NULL OR lower(slug)=lower($2)) ORDER BY created_at LIMIT 1`,
+        [shop.id, into === true ? null : into])).rows[0] : null;
+      await db.query('ROLLBACK');
+      if (into && !existing) fail(into === true ? `Quán ${shop.name} chưa có trang nào.` : `Quán ${shop.name} không có trang /${into}.`);
+      console.log(`Kiểm xong /${row.slug} (${row.name}) → quán ${shop.name}${existing ? `, vào trang /${existing.slug}` : ', trang mới'}: chép được, ${used.length} tệp.`);
+      return;
+    }
     const core = new PublishingAdmin(db, async () => ({ actorId: `admin:${adminId}` })), templateId = await templateVersionRow(db, row.template_key);
+    if (into) {
+      const existing = (await db.query(`SELECT id,slug FROM pages WHERE shop_id=$1 AND ($2::text IS NULL OR lower(slug)=lower($2)) ORDER BY created_at LIMIT 1`,
+        [shop.id, into === true ? null : into])).rows[0] ?? fail(into === true ? `Quán ${shop.name} chưa có trang nào.` : `Quán ${shop.name} không có trang /${into}.`);
+      const ref = { shopId: shop.id, pageId: existing.id as string };
+      const revision = await core.restartDraft(ref, templateId, config).catch(explain);
+      const published = await core.publish(ref, revision).catch(explain);
+      await recordAdminAction(db, adminId, { action: 'page.copy', shopId: shop.id, detail: { page: ref.pageId, from: row.slug, release: published.releaseId } });
+      await db.query('COMMIT');
+      console.log(`Đã chép /${row.slug} (${row.name}) vào trang /${existing.slug} của quán ${shop.name}, đã phát hành.`);
+      return;
+    }
     const page = await withShortCode(async code => {
       await db.query('SAVEPOINT new_page');
       try { const made = await core.createPage(shop.id, templateId, config, code, String(row.name).slice(0, 60)); await db.query('RELEASE SAVEPOINT new_page'); return { ...made, slug: code }; }
@@ -277,6 +297,10 @@ try {
   else if (command === 'lay') await take(page, extra);
   else if (command === 'kiem') await publish(page, true);
   else if (command === 'dang') await publish(page, false);
-  else if (command === 'chep') await copy(page, extra, process.argv.includes('--thu'));
-  else fail('node scripts/sua-trang.mjs ds | lay <mã trang> [mẫu] | kiem <mã trang> | dang <mã trang> | chep <mã trang> <mã quán> [--thu]');
+  else if (command === 'chep') {
+    // `--vao` alone: the shop's first page; `--vao <mã trang>`: that page.
+    const at = process.argv.indexOf('--vao'), named = at >= 0 ? process.argv[at + 1] : undefined;
+    await copy(page, extra, process.argv.includes('--thu'), at < 0 ? null : named && !named.startsWith('--') ? named : true);
+  }
+  else fail('node scripts/sua-trang.mjs ds | lay <mã trang> [mẫu] | kiem <mã trang> | dang <mã trang> | chep <mã trang> <mã quán> [--vao [mã trang]] [--thu]');
 } finally { await pool.end(); }
