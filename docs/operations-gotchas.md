@@ -81,6 +81,12 @@ của Claude, sửa 05/10 (1000/1000 lần xanh).
 
 **Bật một luật bảo mật mới thì mọi fixture có tài khoản liên quan phải theo.** Lát A2 bắt admin phải có 2FA ở **`authorizeAdmin`**, nên 17 test ở 6 tệp đỏ cùng lúc với `TWO_FACTOR_REQUIRED`. Đó là dấu hiệu **đúng** — nó cho thấy luật chặn ở đâu — nhưng phải sửa fixture, không phải nới luật. Cách làm: fixture đăng nhập bằng mật khẩu **trước**, rồi bật 2FA bằng SQL (`enrolAdmin` trong `owner-fixture.ts`); test nào đăng nhập lại sau đó phải kèm mã thật. Và fixture nào **không** áp migration 005 thì đừng thêm 019 vào (nó `ALTER TABLE platform_admins`).
 
+**Nút nhích lên khi rê chuột thì có thể rung mãi (08/10).** `.form .go:hover { transform: translateY(-1px) }` ở màn đăng ký: chuột
+của test dừng đúng mép dưới nút Google (chỗ vừa bấm "Cà phê"), nút nhích lên là chuột rơi ra, hạ xuống là chuột lại đè lên —
+Playwright báo `element is not stable` tới hết giờ, chỉ khi bố cục đặt mép nút đúng chỗ chuột (D4c đỏ từ `9f3a8d9`, xanh ở
+`3beb3d9`). Claude đoán trước là `overflow: hidden` cuộn được và sửa nhầm, test vẫn đỏ; đo `getBoundingClientRect` từng khung
+hình + `getAnimations()` mới thấy transition trên chính nút. Hiệu ứng rê chuột đổi màu/bóng, **không dời vùng bấm**.
+
 **Có 7 bộ test, không phải 5.** Ngoài repository và bốn lệnh harness còn hai bộ không cần database, rất dễ quên:
 
 ```

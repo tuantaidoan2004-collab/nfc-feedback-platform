@@ -28,9 +28,11 @@
 .handle span { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); font-weight: 600; color: rgba(255, 255, 255, .8); font-size: 19px; }
 .handle .input { padding-left: 44px; }
 .form .go { min-height: 64px; border: 0; border-radius: 4px; background: #eef6ff; color: #101418; font: inherit; font-size: clamp(17px, 1.8vw, 20px); font-weight: 600;
-  cursor: pointer; transition: transform .15s ease, background .15s ease; }
-.form .go:hover { background: #fff; transform: translateY(-1px); }
-.form .go:disabled { opacity: .55; cursor: default; transform: none; }
+  cursor: pointer; transition: box-shadow .15s ease, background .15s ease; }
+/* Lit, not lifted: a button that moves up on hover leaves a pointer resting on its lower edge, which unhovers it, and it shakes
+   for as long as the pointer stays (admin D4c failed on it, 08/10). */
+.form .go:hover { background: #fff; box-shadow: 0 6px 18px rgba(0, 60, 140, .18); }
+.form .go:disabled { opacity: .55; cursor: default; box-shadow: none; }
 .google { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .choices { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(940px, 100%); }
 .choices .choice { min-height: 84px; border: 0; border-radius: 2px; background: rgba(255, 255, 255, .18); color: #fff; font: inherit; font-size: clamp(16px, 1.7vw, 20px);
