@@ -5,6 +5,8 @@ import { recordActivity } from '../owner/activity';
 import { recordAdminAction } from '../admin/audit';
 import { googleSettings, type GoogleSettings } from '../owner/google';
 import { mapsLink } from './maps-link';
+import { placeIdFromLink } from './place-from-link';
+import { reviewLink } from './place-id';
 export { mapsLink };
 
 /**
@@ -314,18 +316,24 @@ export class GoogleBusiness {
   /**
    * The owner pastes the shop's Google Maps link; the tool reads it within minutes (mapsJobs). The same link again is a
    * request to read now; another link is another place, so what was read for the old one goes at once.
+   * A shop without a Place ID gets it from the link (Tài 08/10), and with it the review link its Google button uses; one it
+   * already has is never changed from here.
    */
   async setMapsLink(credential: OwnerCredential, slug: string, pasted: unknown) {
     if (!mapsKey(this.env)) throw new OwnerError(503, 'MAPS_NOT_SET_UP');
     const url = mapsLink(pasted);
     if (!url) throw new OwnerError(400, 'INVALID_MAPS_LINK');
+    const found = await placeIdFromLink(url, this.fetcher);
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'write'); ownerOnly(access);
+      const placeId = found ? (await db.query(`UPDATE shops SET place_id=$2,google_url=$3,google_address=NULL WHERE id=$1 AND place_id IS NULL RETURNING place_id`,
+        [access.shopId, found, reviewLink(found)])).rows[0]?.place_id as string | undefined : undefined;
+      if (placeId) await recordActivity(db, access, 'google.place', placeId);
       const row = (await db.query('SELECT mode,maps_url FROM google_business_connections WHERE shop_id=$1 FOR UPDATE', [access.shopId])).rows[0];
       if (row?.mode === 'google') throw new OwnerError(409, 'GOOGLE_CONNECTED');
       if (row?.maps_url === url) {
         await db.query('UPDATE google_business_connections SET requested_at=clock_timestamp() WHERE shop_id=$1', [access.shopId]);
-        return { mapsUrl: url, changed: false };
+        return { mapsUrl: url, changed: false, placeId: placeId ?? null };
       }
       await db.query('DELETE FROM google_reviews WHERE shop_id=$1', [access.shopId]);
       await db.query(`INSERT INTO google_business_connections(shop_id,mode,maps_url,place_id,connected_by,requested_at) SELECT id,'maps',$2,place_id,$3,clock_timestamp() FROM shops WHERE id=$1
@@ -333,7 +341,7 @@ export class GoogleBusiness {
         requested_at=clock_timestamp(),handed_at=NULL,location_title=NULL,average_rating=NULL,total_reviews=NULL,last_synced_at=NULL,last_error=NULL,
         google_email=NULL,account_name=NULL,location_name=NULL,new_review_uri=NULL,refresh_token_sealed=NULL`, [access.shopId, url, access.userId]);
       await recordActivity(db, access, 'google.connect', 'Google Maps');
-      return { mapsUrl: url, changed: true };
+      return { mapsUrl: url, changed: true, placeId: placeId ?? null };
     });
   }
 

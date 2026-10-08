@@ -172,6 +172,12 @@ Khối cũ 23–26/09 đã chuyển sang [`decisions-archive.md`](decisions-arch
 
 ### Đang ở đâu
 
+**08/10 tối — Place ID tự tìm từ link Google Maps (Tài: "phải tự động tìm place id khi dán link gg map chứ").** Link chỗ của
+Google Maps mang mã `0x…:0x…`; Place ID "ChIJ…" là hai số đó viết lại (`lib/google/place-id.ts` `placeIdOfFeature`, không gọi API,
+không cần khoá). Link rút gọn `maps.app.goo.gl` thì máy chủ mở từng bước chuyển hướng, chỉ trên host của Google
+(`lib/google/place-from-link.ts`). Dán link ở tab Data → quán chưa có Place ID được điền luôn cùng link nút Google (quán đã có thì giữ);
+ô ở bước "Dán Place ID" nhận cả link. Link rút gọn thật chưa thử được ở máy (chỉ thử chuyển hướng giả).
+
 **08/10 tối — collab: logo của quán là chỗ bấm (Tài, dựng trang O'renchi).** Phần tử `event` (doc.ts `EventSpotEl`) là logo collab
 riêng của từng quán ("orenchi và bamos là riêng, là chào riêng, nhưng đều chạy về link long"), đặt đâu trên trang cũng được (cách nút
 Google ≥ 40 đơn vị, `GOOGLE_EVENT_NEAR`); chỉ hiện khi /gov mở sự kiện cho quán. Bấm logo mở thẳng trang của TBQ (Cọ Láp của Long,

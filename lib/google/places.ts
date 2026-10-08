@@ -3,15 +3,18 @@ import { authorize, OwnerError, requirePermission, transaction, type OwnerCreden
 import { googleUrlProblem } from '../publishing/policy';
 import { recordActivity } from '../owner/activity';
 import { parsePlaceId, reviewLink } from './place-id';
+import { placeIdFromLink } from './place-from-link';
 
 /*
- * Place ID của quán (kịch bản mục 5), thủ công: chủ quán dán mã, hệ thống tạo link đánh giá từ mã đó (./place-id). Không gọi
- * Google, không cần khoá. Khi Tài bật thanh toán, ô tìm quán tự động là bước nâng kế tiếp (rieng/google-api.md mục 2).
+ * Place ID của quán (kịch bản mục 5): chủ quán dán mã, hoặc dán link Google Maps của quán và hệ thống tự tính mã (./place-id,
+ * ./place-from-link; Tài 08/10), rồi tạo link đánh giá từ mã đó. Không cần khoá Google. Khi Tài bật thanh toán, ô tìm quán tự động là bước nâng kế tiếp (rieng/google-api.md mục 2).
  */
 
 /** Saves the shop's Place ID and the review link built from it. Owner, or a member with the design permission. */
-export async function savePlaceId(pool: Pool, credential: OwnerCredential, slug: string, body: unknown) {
-  const placeId = parsePlaceId(body && typeof body === 'object' ? (body as Record<string, unknown>).placeId : null);
+export async function savePlaceId(pool: Pool, credential: OwnerCredential, slug: string, body: unknown, fetcher: typeof fetch = fetch) {
+  // The Place ID itself, or a Google Maps link to the place, short share links included (Tài 08/10).
+  const pasted = body && typeof body === 'object' ? (body as Record<string, unknown>).placeId : null;
+  const placeId = parsePlaceId(pasted) ?? await placeIdFromLink(pasted, fetcher);
   if (!placeId) throw new OwnerError(400, 'INVALID_PLACE_ID');
   const link = reviewLink(placeId);
   if (googleUrlProblem(link)) throw new OwnerError(400, 'INVALID_PLACE_ID');

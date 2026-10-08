@@ -80,6 +80,21 @@ test('a Place ID is found in what people actually paste: the bare ID, the finder
   expect(parsePlaceId(pasted),pasted).toBeNull();
 });
 
+test('the Maps link brings the Place ID (Tài 08/10): a shop without one gets it and its review link; one it has is kept',async({f})=>{
+ const ORENCHI='https://www.google.com/maps/place/O%E2%80%99renchi+Cafe/@10.73,106.70,17z/data=!4m6!3m5!1s0x31752f20d05ee9bd:0x92b3ae61b9090beb!8m2';
+ const made=await make(f),t=made.session.token,business=new GoogleBusiness(f.db,{...LOCAL,NFC_MAPS_KEY:`tool-key-${'x'.repeat(24)}`},OFFLINE);
+ expect(await business.setMapsLink(t,made.slug,ORENCHI)).toMatchObject({changed:true,placeId:'ChIJvele0CAvdTER6wsJuWGus5I'});
+ expect((await f.db.query('SELECT place_id,google_url FROM shops WHERE slug=$1',[made.slug])).rows[0]).toEqual({place_id:'ChIJvele0CAvdTER6wsJuWGus5I',
+  google_url:'https://search.google.com/local/writereview?placeid=ChIJvele0CAvdTER6wsJuWGus5I'});
+ // The step's field takes the link too.
+ const other=await make(f,'chu-khac');
+ expect(await savePlaceId(f.db,other.session.token,other.slug,{placeId:ORENCHI},OFFLINE)).toMatchObject({placeId:'ChIJvele0CAvdTER6wsJuWGus5I'});
+ // A Place ID already there is never replaced by a pasted Maps link.
+ await f.db.query("UPDATE shops SET place_id='ChIJN1t_tDeuEmsRUsoyG83frY4' WHERE slug=$1",[made.slug]);
+ expect(await business.setMapsLink(t,made.slug,`${ORENCHI}&x=1`)).toMatchObject({placeId:null});
+ expect((await f.db.query('SELECT place_id FROM shops WHERE slug=$1',[made.slug])).rows[0].place_id).toBe('ChIJN1t_tDeuEmsRUsoyG83frY4');
+});
+
 /** What the Google Maps tool sends for one shop (~/MAps/backend/app/qs_sync.py). Invented reviews, never real ones. */
 const REVIEWS=[
  {id:'tool-review-1',author:'An Nhiên',author_photo:'https://lh3.googleusercontent.com/a/x=w80-h80',rating:5,text:'Trà ngon, quán yên tĩnh.',owner_reply:'Cảm ơn bạn!',est_posted_at:'2026-10-05'},
@@ -90,6 +105,8 @@ const REVIEWS=[
 /** One that arrives after the first reading. */
 const LATE={id:'tool-review-5',author:'Em',author_photo:'',rating:1,text:'Chờ lâu quá.',owner_reply:'',est_posted_at:'2026-10-06'};
 const KEY=`tool-key-${'x'.repeat(24)}`,TOOL={...LOCAL,NFC_MAPS_KEY:KEY},LINK='https://maps.app.goo.gl/AbCdEf123';
+/** Google never reached from a test: a short link opened here leads nowhere, so no Place ID comes out of it. */
+const OFFLINE=(async()=>new Response(null,{status:404}))as typeof fetch;
 const sign=(message:string,key=KEY)=>`sha256=${createHmac('sha256',key).update(message).digest('hex')}`;
 /** The tool sending one shop's reading, signed like the tool signs it. */
 const send=(db:Pool,event:object,key=KEY)=>{const body=JSON.stringify(event);return receiveMaps(db,body,sign(body,key),TOOL);};
@@ -109,13 +126,13 @@ test('the Google Maps link is found in what owners paste; only links that open a
 });
 
 test('Google Maps: the owner pastes the link, the tool is handed it, its signed reading lands in Google\'s shape and mirrors Maps',async({f})=>{
- const made=await make(f),t=made.session.token,business=new GoogleBusiness(f.db,TOOL);
+ const made=await make(f),t=made.session.token,business=new GoogleBusiness(f.db,TOOL,OFFLINE);
  // Empty until the owner pastes a link; the field is offered only when the tool is set up.
  expect(await business.status(t,made.slug)).toMatchObject({connection:null,maps:true});
  expect((await new GoogleBusiness(f.db,LOCAL).status(t,made.slug)).maps).toBe(false);
  expect(await code(business.setMapsLink(t,made.slug,'https://example.com/quan'))).toBe('INVALID_MAPS_LINK');
  expect(await code(new GoogleBusiness(f.db,LOCAL).setMapsLink(t,made.slug,LINK))).toBe('MAPS_NOT_SET_UP');
- expect(await business.setMapsLink(t,made.slug,`Quán Thử\n${LINK}`)).toEqual({mapsUrl:LINK,changed:true});
+ expect(await business.setMapsLink(t,made.slug,`Quán Thử\n${LINK}`)).toEqual({mapsUrl:LINK,changed:true,placeId:null});
  expect((await business.status(t,made.slug)).connection).toMatchObject({mode:'maps',mapsUrl:LINK,lastSyncedAt:null,locationTitle:null,requestedAt:expect.any(String)});
  // The tool asks with its key and the time; the link is handed out once, not again on the next question.
  expect(await code(ask(f.db,Date.now(),'wrong-key'))).toBe('BAD_SIGNATURE');
@@ -165,7 +182,7 @@ test('Google Maps: the owner pastes the link, the tool is handed it, its signed 
  expect(await code(send(f.db,{event:'run.completed',shop:made.slug,place_url:LINK,scraped_at:'hôm qua',reviews:[]}))).toBe('INVALID_INPUT');
  // Another link is another place: the old reviews go at once, and a late reading of the old link is kept out.
  const other='https://www.google.com/maps/place/Qu%C3%A1n+Kh%C3%A1c';
- expect(await business.setMapsLink(t,made.slug,other)).toEqual({mapsUrl:other,changed:true});
+ expect(await business.setMapsLink(t,made.slug,other)).toEqual({mapsUrl:other,changed:true,placeId:null});
  expect(await business.status(t,made.slug)).toMatchObject({connection:{mapsUrl:other,lastSyncedAt:null,averageRating:null,lastError:null}});
  expect((await business.reviews(t,made.slug)).reviews).toEqual([]);
  expect(await send(f.db,reading(made.slug,'2026-10-08T21:00:40'))).toMatchObject({ignored:'LINK_CHANGED'});
@@ -180,7 +197,7 @@ test('Google Maps: the owner pastes the link, the tool is handed it, its signed 
 });
 
 test('Google\'s score and count are the owner\'s alone (google-policy.md rule 10); a manager who reads feedback still reads the reviews',async({f})=>{
- const made=await make(f),business=new GoogleBusiness(f.db,TOOL);
+ const made=await make(f),business=new GoogleBusiness(f.db,TOOL,OFFLINE);
  await business.setMapsLink(made.session.token,made.slug,LINK);
  await send(f.db,reading(made.slug,'2026-10-05T16:06:10'));
  const auth=new OwnerAuth(f.db),shop=(await f.db.query('SELECT id FROM shops WHERE slug=$1',[made.slug])).rows[0].id;
@@ -202,7 +219,7 @@ test('Google\'s score and count are the owner\'s alone (google-policy.md rule 10
 });
 
 test('Data handles Google reviews like the tool: new, seen, handled, a note; Dashboard counts what needs handling and the months',async({f})=>{
- const made=await make(f),t=made.session.token,business=new GoogleBusiness(f.db,TOOL);
+ const made=await make(f),t=made.session.token,business=new GoogleBusiness(f.db,TOOL,OFFLINE);
  await business.setMapsLink(t,made.slug,LINK);
  await send(f.db,reading(made.slug,'2026-10-05T21:00:40'));
  await send(f.db,reading(made.slug,'2026-10-06T21:00:40',REVIEWS.slice(0,3).concat(LATE)));
