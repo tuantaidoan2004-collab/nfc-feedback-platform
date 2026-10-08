@@ -78,27 +78,68 @@
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-copy]');
-    if (b) { e.preventDefault(); copy(b.dataset.copy, b); }
+    if (b) { e.preventDefault(); copy(b.dataset.copy, b); b.closest('.cp')?.classList.add('done'); }
   });
 
-  // ---------- Mở app: nút có data-app (CapCut) → điện thoại mở thẳng app thay vì trang web ----------
-  // iPhone: scheme của app. Android: intent:// kèm tên gói — chưa cài thì Chrome tự mở Play Store.
-  // Máy tính và trình duyệt trong app (Zalo, Facebook… thường chặn scheme lạ, Android còn ra trang lỗi) giữ link web như cũ.
+  // ---------- Mở app (chủ yêu cầu 08/10/2026: "bấm mở là qua app luôn", mọi món có app) ----------
+  // data-app = scheme riêng (CapCut): iPhone mở scheme, Android intent:// kèm tên gói (chưa cài → Play Store).
+  // data-app-link = link chính chủ (ChatGPT, Claude, Canva): iPhone mở link đó cùng thẻ → iOS tự bật app nếu đã cài;
+  //   Android intent://…;scheme=https kèm tên gói, chưa cài thì Chrome quay về trang web (browser_fallback_url).
+  // Máy tính / trình duyệt trong Zalo, Facebook (chặn mở app lạ): giữ link web, đổi chữ nút theo data-web-label; trong Zalo nhắc "Mở bằng trình duyệt".
+  // data-copy-first: bấm mở là tự chép sẵn email; quay lại trang thì dòng cần làm tiếp sáng lên kèm lời nhắc (UI tâm lý).
   const ua = navigator.userAgent;
   const android = /Android/i.test(ua);
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   const inApp = /; wv\)|FBAN|FBAV|Instagram|Zalo|Line\//i.test(ua) || (ios && !/Safari\//.test(ua));
-  if ((android || ios) && !inApp) {
-    $$('[data-app-miss]').forEach((p) => { p.hidden = false; });
-    $$('[data-app-get]').forEach((a) => { a.href = android ? a.dataset.android : a.dataset.ios; });
-    document.addEventListener('click', (e) => {
-      const a = e.target.closest('a[data-app]');
-      if (!a) return;
+  const canApp = (android || ios) && !inApp;
+  $$('a[data-app], a[data-app-link]').forEach((a) => {
+    if (!canApp) { a.textContent = a.dataset.webLabel || a.textContent; return; }
+    if (ios && a.dataset.appLink) { a.href = a.dataset.appLink; a.removeAttribute('target'); }
+  });
+  if ((android || ios) && inApp) $$('[data-in-app]').forEach((p) => { p.hidden = false; });
+  $$('[data-app-get]').forEach((a) => { a.href = android ? a.dataset.android : a.dataset.ios; });
+
+  let opened = false;
+  const afterOpen = () => {
+    if (!opened) return;
+    opened = false;
+    const hint = $('[data-acc-next]');
+    const target = $('[data-acc-target]');
+    if (hint) hint.hidden = false;
+    if (target) {
+      target.classList.remove('nudge'); void target.offsetWidth; target.classList.add('nudge');
+      target.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+    }
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(afterOpen, 250); });
+  window.addEventListener('pageshow', () => setTimeout(afterOpen, 250));
+
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-app], a[data-app-link], a[data-copy-first]');
+    if (!a) return;
+    if (a.dataset.copyFirst) {
+      copy(a.dataset.copyFirst, $('[data-cp=email] [data-copy]'));
+      $('[data-cp=email]')?.classList.add('done');
+      const note = $('[data-acc-auto]');
+      if (note) { note.textContent = '✓ Đã chép email — vào app dán vào ô email nha'; note.classList.add('ok'); }
+      opened = true;
+    }
+    if (!canApp || !(a.dataset.app || a.dataset.appLink)) return; // máy tính: mở trang web như link thường
+    const pkg = a.dataset.appAndroid;
+    if (a.dataset.app) {
       e.preventDefault();
       const [scheme, rest] = a.dataset.app.split('://');
-      location.href = android ? `intent://${rest}#Intent;scheme=${scheme};package=${a.dataset.appAndroid};end` : a.dataset.app;
-    });
-  }
+      const go = () => { location.href = android ? `intent://${rest}#Intent;scheme=${scheme};package=${pkg};end` : a.dataset.app; };
+      setTimeout(go, a.dataset.copyFirst ? 120 : 0); // chờ chép email xong
+      // App chưa cài (iPhone báo không mở được) → trang vẫn hiện sau 1,8 giây: hiện "Chưa có app? Tải … · dùng bản web".
+      setTimeout(() => { if (document.visibilityState === 'visible') $$('[data-app-miss]').forEach((p) => { p.hidden = false; }); }, 1800);
+    } else if (android) {
+      e.preventDefault();
+      const u = new URL(a.dataset.appLink);
+      const go = () => { location.href = `intent://${u.host}${u.pathname}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(a.dataset.appLink)};end`; };
+      setTimeout(go, a.dataset.copyFirst ? 120 : 0);
+    } // iPhone + link chính chủ: để trình duyệt mở link (iOS tự bật app)
+  });
 
   // ---------- Đăng xuất ----------
   $$('[data-act=logout]').forEach((b) => b.addEventListener('click', async () => {

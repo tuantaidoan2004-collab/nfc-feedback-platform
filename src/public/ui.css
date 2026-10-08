@@ -693,3 +693,32 @@ body.q::before { opacity: .5;
 .qh-bamos.qh-photo .qh-stage { top: -70px; }
 .qh-photo .qh-hand { bottom: 22px; }
 .qh-bamos.qh-photo { padding-top: clamp(110px, calc(46.9vw - 40px), 230px); }
+/* Bớt rối (chủ hỏi "Rối không" 08/10): trang vé / trang chủ bớt hoa (cành + bông rơi); trăng nhỏ lại. Ảnh vẫn rõ — biển thật làm đầu trang (.qb-photo). */
+.q:not(.q-hero) .branch, .fall.f2 { display: none; }
+.q:not(.q-hero) .fall.f3 { display: none; }
+.sky { max-height: 200px; }
+.qbg .sky { width: min(100%, 480px); left: 50%; transform: translateX(-50%); }
+/* Trang vé / trang chủ tận dụng ảnh quán ("thiết kế để tận dụng", 08/10): chừa khoảng cho biển thật hiện rõ, dải "× TBQ Space" ngay dưới biển,
+ * nội dung bắt đầu sau đó. Biển nằm tới ~47% bề ngang ảnh (ảnh đặt top 30px); khung trang bắt đầu dưới thanh TBQ (~66px). */
+.qband.qb-photo { height: auto; display: block; margin: -8px -20px 6px; padding: calc(30px + 47vw - 66px) 20px 0; }
+.q-bamos .qband.qb-photo { padding-top: calc(30px + 56vw - 66px); }
+.qb-photo .qb-deco { height: 56px; top: -10px; }
+.qb-photo .qb-row { justify-content: center; }
+.qb-photo .qb-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.qb-photo .qb-row .qw-tbq b { text-shadow: 0 1px 10px rgba(0, 0, 0, .85); }
+.qb-photo .qb-free { margin-top: 4px; text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--q-a2);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, .8); animation: q-fade .7s .6s both; }
+.q .intro.home .free { display: none; }
+.q .intro.home { padding-top: 14px; }
+.q .intro.home h1 { margin-top: 6px; }
+
+/* ---------- Thẻ tài khoản: dẫn dắt (UI tâm lý, 08/10/2026) — 1 nút chính trên cùng, tự chép email, quay lại thì dòng kế tiếp sáng lên ---------- */
+.acc-card > .acc-open { margin-top: 0; min-height: 58px; font-size: 18px; }
+.acc-auto { margin: -2px 0 2px; text-align: center; font-size: 13px; color: var(--text-3); transition: color .3s; }
+.acc-auto.ok { color: var(--mint); font-weight: 600; }
+.acc-card .acc-miss { margin: -2px 0 0; }
+.acc-next { margin: 2px 2px 0; font-size: 14px; font-weight: 600; color: var(--gold); animation: q-rise .5s var(--ease) both; }
+.cp.done small::after { content: ' ✓'; color: var(--mint); font-weight: 700; }
+[data-acc-target].nudge { border-radius: 16px; animation: acc-nudge 1.6s var(--ease) 2; }
+@keyframes acc-nudge { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 35% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 75%, transparent), 0 0 28px color-mix(in srgb, var(--gold) 35%, transparent); } }
+[data-acc-target].nudge .chip-btn { animation: tap-pop .5s .2s cubic-bezier(.3, 1.6, .5, 1) 2; }

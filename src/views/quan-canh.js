@@ -85,7 +85,7 @@ export function backdrop(theme) {
   return raw(`<div class="qbg" aria-hidden="true">${photo(theme)}<i class="glow g1"></i><i class="glow g2"></i>
 <svg class="sky" viewBox="0 0 390 200" preserveAspectRatio="xMidYMin slice" focusable="false">
 <defs><mask id="q-moon"><circle r="18" fill="#fff"/><circle cx="8" cy="-6" r="15.5" fill="#000"/></mask></defs>
-<g class="moon" transform="translate(338 74)"><circle class="moon-halo" r="34"/><circle class="moon-body" r="18" mask="url(#q-moon)"/></g>${stars}</svg>
+<g class="moon" transform="translate(344 64) scale(.72)"><circle class="moon-halo" r="34"/><circle class="moon-body" r="18" mask="url(#q-moon)"/></g>${stars}</svg>
 <svg class="branch b1" viewBox="0 0 120 120" focusable="false"><g class="sway"><path class="twig" d="M0 118C30 96 46 72 58 40"/>
 <path class="leaf2" d="M40 80C22 74 12 60 14 46C30 50 40 62 40 80Z"/><path class="leaf2" d="M56 52C66 38 82 32 96 36C88 50 72 56 56 52Z"/>
 <g transform="translate(60 34)">${PLUMERIA}</g><g transform="translate(34 66) scale(.75)">${PLUMERIA}</g></g></svg>
@@ -126,9 +126,11 @@ export function band(theme) {
     ? `<g class="strand">${lights([-8, 4], [195, 40], [398, 2], 9)}</g>`
     : `<path class="star s0" transform="translate(30 22)" d="${STAR}"/><path class="star s1" transform="translate(360 30) scale(.8)" d="${STAR}"/>
 <path class="star s2" transform="translate(300 12) scale(.6)" d="${STAR}"/><path class="star s1" transform="translate(84 40) scale(.6)" d="${STAR}"/>`;
-  return html`<div class="qband qb-${theme.id}">
+  // Có ảnh quán: biển thật trong ảnh là logo — chừa khoảng cho biển hiện rõ, dải "× TBQ Space · Miễn phí tại quán" ngay dưới biển.
+  return html`<div class="qband qb-${theme.id}${theme.photo ? ' qb-photo' : ''}">
   <svg class="qb-deco" viewBox="0 0 390 56" preserveAspectRatio="none" focusable="false" aria-hidden="true">${raw(deco)}</svg>
   <p class="qb-row">${cafeMark(theme, 'qb-name')}<span class="qw-x" aria-hidden="true">✕</span>${withTbq()}</p>
+  ${theme.photo ? html`<p class="qb-free">Miễn phí tại quán</p>` : ''}
 </div>`;
 }
 

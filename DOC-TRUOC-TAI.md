@@ -1,5 +1,10 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.1 — chỉ giao diện khách (API không đổi)
+
+- Trang khách của quán Bamos / O'renchi dùng **ảnh thật của quán** (ảnh chủ quán đăng trên Google Maps) làm nền, biển quán thật làm đầu trang, đồ hoạ động phủ lên.
+- Trang vé vào thẳng "Tài khoản của bạn"; nút "Mở app …" mở thẳng app CapCut / ChatGPT / Claude / Canva, bấm là tự chép sẵn email.
+
 ## Mới ở 2.1.0 — kho riêng từng quán (API kho THÊM ô `shop`, lệnh cũ vẫn chạy y nguyên)
 
 - Kho giờ có **kho chung** + **kho riêng từng quán**. Tài khoản gắn quán chỉ giao cho khách ở quán đó; quán dùng kho riêng trước, hết thì lấy kho chung;

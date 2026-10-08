@@ -305,7 +305,7 @@ ${contactTiem(ctx)}`;
   }
   return page(ctx, {
     title: `${ctx.settings().eventTitle} — ${cafe.name}`,
-    bodyClass: `has-dock${themeClass(theme)}`,
+    bodyClass: `has-dock${themeClass(theme)}${theme ? ' q-hero' : ''}`,
     body: html`${LOGO_SYMBOLS}${backdrop(theme)}${body}`,
   });
 }
@@ -365,7 +365,7 @@ const breakable = (value) => {
   return at > 0 ? html`${v.slice(0, at)}<wbr>${v.slice(at)}` : v;
 };
 /** 1 dòng cần chép: nhãn + giá trị + nút Chép. */
-const copyRow = (label, value) => html`<span class="cp"><small>${label}</small><code>${breakable(value)}</code><button type="button" class="chip-btn" data-copy="${value}">Chép</button></span>`;
+const copyRow = (label, value, key = '') => html`<span class="cp"${key ? html` data-cp="${key}"` : ''}><small>${label}</small><code>${breakable(value)}</code><button type="button" class="chip-btn" data-copy="${value}">Chép</button></span>`;
 
 /** Khung báo trạng thái (dừng, chưa nhận…). */
 const statusCard = (emoji, title, text, action = '') => html`<section class="state"><div class="state-ic" aria-hidden="true">${emoji}</div><h1>${title}</h1><p class="sub">${text}</p>${action}</section>`;
@@ -421,12 +421,21 @@ function ticket(ctx, v, sub) {
  */
 const APPS = {
   capcut: { name: 'CapCut', scheme: 'capcut://main/tabbar?index=0', android: 'com.lemon.lvoverseas', ios: 'https://apps.apple.com/app/id1500855883' },
+  // Món có app nhận link web của hãng (chủ yêu cầu 08/10/2026 "những nút khác cũng vậy"): iPhone mở link chính chủ → iOS tự bật app nếu đã cài;
+  // Android mở intent:// kèm tên gói, chưa cài thì Chrome tự quay về trang web (browser_fallback_url).
+  chatgpt: { name: 'ChatGPT', link: 'https://chatgpt.com/', android: 'com.openai.chatgpt', ios: 'https://apps.apple.com/app/id6448311069' },
+  claude: { name: 'Claude', link: 'https://claude.ai/', android: 'com.anthropic.claude', ios: 'https://apps.apple.com/app/id6473753684' },
+  canva: { name: 'Canva', link: 'https://www.canva.com/', android: 'com.canva.editor', ios: 'https://apps.apple.com/app/id897446215' },
 };
+const appOf = (t) => (t.login_url ? APPS[brandOf(t.slug)] || null : null);
 
 /** Nút "Mở <món>": link web; món có app thì kèm data-app để app.js mở app trên điện thoại. */
-function openBtn(t, cls, next = false) {
-  const app = APPS[t.slug];
-  return html`<a class="${cls}" href="${t.login_url}" target="_blank" rel="noopener noreferrer"${next ? html` data-next` : ''}${app ? html` data-app="${app.scheme}" data-app-android="${app.android}"` : ''}>Mở ${t.name} ↗</a>`;
+function openBtn(t, cls, next = false, copyFirst = '') {
+  const app = appOf(t);
+  // Món có app: chữ "Mở app …" (không có ↗ — khách hiểu là vào thẳng app). Máy tính / trình duyệt trong Zalo: app.js đổi sang data-web-label.
+  return html`<a class="${cls}" href="${t.login_url}" target="_blank" rel="noopener noreferrer"${next ? html` data-next` : ''}${copyFirst ? html` data-copy-first="${copyFirst}"` : ''}${app
+    ? html`${app.scheme ? html` data-app="${app.scheme}"` : html` data-app-link="${app.link}"`} data-app-android="${app.android}" data-web-label="Mở ${t.name}${app.scheme ? ' bản web' : ''} ↗">Mở app ${app.name}`
+    : html`>Mở ${t.name} ↗`}</a>`;
 }
 
 /**
@@ -474,17 +483,24 @@ function checklist(v, all, account = null) {
  */
 function accountCard(ctx, v, { rows, code = '', codeFold = '' }) {
   const t = v.tool;
-  const app = t.login_url ? APPS[t.slug] : null;
-  return html`<section class="steps acc-card">
+  const app = appOf(t);
+  // UI tâm lý (chủ yêu cầu 08/10/2026): 1 nút chính lên đầu; bấm là tự chép email + mở thẳng app; quay lại trang thì dòng kế tiếp (mật khẩu / lấy mã)
+  // sáng lên kèm lời nhắc; dòng đã chép có ✓. "Chưa có app?" chỉ hiện khi mở app không được (app.js).
+  return html`<section class="steps acc-card" data-acc>
   <h2>Tài khoản của bạn</h2>
+  ${t.login_url ? html`${openBtn(t, 'btn acc-open', false, v.accountEmail || '')}
+  <p class="acc-auto" data-acc-auto>Tự chép sẵn email · ${app ? 'vào app' : 'mở ra'} dán là xong</p>` : ''}
+  ${app?.scheme ? html`<p class="hint acc-miss" data-app-miss hidden>Chưa có app? <a href="${app.ios}" data-app-get data-ios="${app.ios}" data-android="https://play.google.com/store/apps/details?id=${app.android}" target="_blank" rel="noopener noreferrer">Tải ${app.name}</a> · <a href="${t.login_url}" target="_blank" rel="noopener noreferrer">dùng bản web</a></p>` : ''}
+  ${app ? html`<p class="hint acc-miss" data-in-app hidden>Đang mở trong Zalo / Facebook — bấm ⋯ chọn <b>Mở bằng trình duyệt</b> để vào thẳng app ${app.name}.</p>` : ''}
   <div class="acc-rows">${rows}</div>
   ${v.workspace ? html`<p class="pg-acc-ws">Workspace của bạn: <b>${v.workspace.name}</b>${v.workspace.url ? html` · <a href="${v.workspace.url}" target="_blank" rel="noopener noreferrer">mở ↗</a>` : ''}</p>` : ''}
-  ${t.login_url ? openBtn(t, 'btn') : ''}
-  ${app ? html`<p class="hint" data-app-miss hidden>Chưa có app? <a href="${app.ios}" data-app-get data-ios="${app.ios}" data-android="https://play.google.com/store/apps/details?id=${app.android}" target="_blank" rel="noopener noreferrer">Tải ${app.name}</a> · <a href="${t.login_url}" target="_blank" rel="noopener noreferrer">bản web</a></p>` : ''}
-  ${code ? html`<div class="acc-code"><p class="acc-code-h">${code.title}</p>${code.body}</div>` : ''}
+  ${code ? html`<div class="acc-code" data-acc-target>${code.title ? html`<p class="acc-code-h">${code.title}</p>` : ''}${code.body}</div>` : ''}
   ${codeFold ? html`<details class="acc-more"><summary>${codeFold.title}</summary>${codeFold.body}</details>` : ''}
 </section>`;
 }
+
+/** Lời nhắc hiện khi khách mở app xong quay lại trang (app.js): đặt ngay trên dòng cần làm tiếp. */
+const nextHint = (text) => html`<p class="acc-next" data-acc-next hidden>${text}</p>`;
 
 /** Ghi chú riêng của món (Cài đặt → Công cụ): bỏ câu nói lại điều "Mẹo dùng mượt" đã có (1 máy / email + mật khẩu), khỏi lặp ý. */
 const extraNotes = (text) => String(text || '').split(/\r?\n/)
@@ -523,15 +539,15 @@ function slotBody(ctx, v) {
   let how;
   if (t.login_type === 'email_code') {
     rules.push(html`Giữ nguyên email, thông tin tài khoản giúp Tiệm nha`);
-    how = accountCard(ctx, v, { rows: copyRow('Email', v.accountEmail),
-      code: { title: `Mã đăng nhập · bấm Lấy mã trước, rồi gửi mã bên ${t.name}`, body: codeBox(ctx, v, 'mail') } });
+    how = accountCard(ctx, v, { rows: html`${copyRow('Email', v.accountEmail, 'email')}${nextHint(`Quay lại rồi nè — bấm Lấy mã trước, rồi bấm gửi mã bên ${t.name} nha 👇`)}`,
+      code: { title: '', body: codeBox(ctx, v, 'mail') } });
   } else if (t.login_type === 'password' || t.login_type === 'password_totp') {
     const totp = t.login_type === 'password_totp';
     rules.push(totp ? html`Giữ nguyên mật khẩu, email, 2FA — để ai cũng vào được` : html`Giữ nguyên mật khẩu, email, đừng bật 2FA nha — để ai cũng vào được`);
     how = !v.password
       ? statusCard('🔒', 'Mật khẩu ở máy kia', 'Mật khẩu chỉ hiện trên máy đã nhận slot.')
       : accountCard(ctx, v, {
-        rows: html`${copyRow('Email', v.accountEmail)}${copyRow('Mật khẩu', v.password)}`,
+        rows: html`${copyRow('Email', v.accountEmail, 'email')}${nextHint('Quay lại rồi nè — chép mật khẩu dán tiếp nha 👇')}<div data-acc-target>${copyRow('Mật khẩu', v.password, 'pass')}</div>`,
         code: totp ? { title: 'Mã 2 lớp', body: codeBox(ctx, v, 'totp') } : '',
         codeFold: !totp && v.canMailCode ? { title: 'Bị hỏi mã email?', body: html`<p class="hint">Bấm <b>Lấy mã</b> trước, rồi mới gửi mã bên ${t.name}.</p>${codeBox(ctx, v, 'mail')}` } : '',
       });

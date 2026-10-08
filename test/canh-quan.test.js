@@ -25,7 +25,7 @@ test('trang quán + trang vé mặc áo của quán; trang vé vào thẳng tài
   makeTap(ctx, { card, deviceId: 'dev-canh-aaaaaaaaaaaaa' });
   const o = byId(ctx, 'cafes', cafe.id);
   const pick = String(cardPage(ctx, { cafe: o, customer: c, tools: toolAvailability(ctx, c), view: null, atCafe: true }));
-  assert.match(pick, /class="has-dock q q-orenchi"/);
+  assert.match(pick, /class="has-dock q q-orenchi q-hero"/);
   assert.match(pick, /nen-orenchi\.jpg/);
   assert.equal(startClaim(ctx, { customer: c, deviceId: 'dev-canh-aaaaaaaaaaaaa', ip: '1.2.3.4', toolId: tools.capcut.id }).status, 'active');
   const view = currentSlotView(ctx, c.id, 'dev-canh-aaaaaaaaaaaaa');
@@ -33,7 +33,7 @@ test('trang quán + trang vé mặc áo của quán; trang vé vào thẳng tài
   assert.match(me, /class="q q-orenchi"/);
   assert.match(me, /Tài khoản của bạn/);
   assert.match(me, /Secret#123/);
-  assert.match(me, /Mở CapCut Pro ↗/);
+  assert.match(me, /data-app="capcut:[^"]*"[^>]*data-copy-first|data-copy-first="[^"]+"[^>]*data-app="capcut:/); assert.match(me, />Mở app CapCut</);
   assert.doesNotMatch(me, /data-flow=/);
   assert.match(me, /Mẹo dùng mượt/);
   assert.match(me, /Kẹt chỗ nào hả\?/);
