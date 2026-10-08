@@ -316,6 +316,31 @@ COMMIT;
 SQL
 ```
 
+**Sự kiện của bên tổ chức (khúc B, 07–08/10):** bảng mới `shop_events` (/gov Mở / Đóng sự kiện cho từng quán); lược đồ
+`fbdc7b9a546eac90` lên `021ad38a988fa466`. Code chạy được cả khi chưa có bảng (mọi quán coi như không có sự kiện, /gov báo thiếu
+bảng), nên chạy trước hay sau khi đẩy đều được; phải chạy rồi mới bật được sự kiện TBQ cho quán.
+
+```bash
+cd ~/Desktop/QuiteSensational && export DATABASE_URL="$(npx -y neon@latest connection-string production --project-id purple-waterfall-11672045 --database-name neondb --role-name neondb_owner | tail -1)" && awk '/^\*\*Sự kiện của bên tổ chức \(khúc B/{f=1} f&&/<<.SQL.$/{p=1;next} p&&/^SQL$/{exit} p' docs/production-launch.md | /Applications/Postgres.app/Contents/Versions/latest/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1; unset DATABASE_URL
+```
+
+```sql
+-- <<'SQL'
+BEGIN;
+DO $$ DECLARE h text := (SELECT hash FROM applied_schema ORDER BY applied_at DESC LIMIT 1); BEGIN
+  IF h IS DISTINCT FROM 'fbdc7b9a546eac90' THEN RAISE EXCEPTION 'production đang ở lược đồ %', h; END IF; END $$;
+CREATE TABLE shop_events (
+    shop_id uuid NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    event_key text NOT NULL CHECK (event_key ~ '^[a-z][a-z0-9-]{0,31}$'::text),
+    opened_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    opened_by uuid REFERENCES platform_admins(id),
+    PRIMARY KEY (shop_id, event_key)
+);
+INSERT INTO applied_schema(hash) VALUES ('021ad38a988fa466');
+COMMIT;
+SQL
+```
+
 ## Đăng nhập bằng Google (D4c, 28/09)
 
 OAuth client **QuiteSensational** (Web application) trên Google Cloud của Tài. Cấu hình cần có:
