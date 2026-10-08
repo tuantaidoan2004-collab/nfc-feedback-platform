@@ -20,6 +20,9 @@ export function loadConfig(env = process.env) {
     // 32 byte base64 để mã hoá mật khẩu tài khoản trong kho. Tạo: openssl rand -base64 32
     dataKey: env.DATA_KEY || (isProd ? '' : 'ZGV2LWRhdGEta2V5LTMyLWJ5dGVzLWxvbmctLS0tLS0='),
     adminPassword: env.ADMIN_PASSWORD || (isProd ? '' : 'admin'),
+    // Email / SĐT chủ tiệm dùng để thử (cách nhau dấu phẩy, chủ chọn 08/10/2026): luôn nhận được tài khoản mới — bỏ qua mọi hạn mức,
+    // khoá, chấm rủi ro, "máy đang giữ slot người khác". Vẫn cần chạm thẻ ở quán (quán đang mở) và kho còn hàng. Trống = tắt.
+    ownerIds: list(env.OWNER_IDS).map((s) => s.toLowerCase()),
     mail: {
       webhookSecret: env.MAIL_WEBHOOK_SECRET || (isProd ? '' : 'dev-mail-secret'),
     },

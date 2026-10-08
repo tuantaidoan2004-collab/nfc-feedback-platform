@@ -85,7 +85,7 @@ export function requestCode(ctx, { customer, deviceId, ip, kind, voucher: vouche
       } else {
         // Không gõ: mã vĩnh viễn đã gắn SĐT, rồi tới phiếu tự động của lần chạm thẻ vừa rồi.
         voucher = boundVoucher(ctx, customer.id, tool, slot.cafe_id) || deviceVoucher(ctx, { deviceId, customerId: customer.id, tool, cafeId: slot.cafe_id });
-        if (!voucher) return { status: 'need_voucher', code: 'need_voucher', message: 'Chạm thẻ NFC / quét mã QR trên bàn của quán (tự có phiếu), hoặc nhập mã phiếu giấy vào ô bên trên rồi bấm lấy mã nhé.' };
+        if (!voucher) return { status: 'need_voucher', code: 'need_voucher', message: 'Chạm thẻ của quán (ở quầy hoặc trên bàn) / quét mã QR của quán (tự có phiếu), hoặc nhập mã phiếu giấy vào ô bên trên rồi bấm lấy mã nhé.' };
       }
     }
     const r = mode === 'totp' ? openTotp(ctx, { slot, account, customer, deviceId, ip }) : openWindow(ctx, { slot, account, customer, deviceId, ip, opened });

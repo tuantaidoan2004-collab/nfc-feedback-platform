@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   status_reason TEXT,
   last_assigned_at INTEGER,
   last_rotated_at INTEGER,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  cafe_id INTEGER REFERENCES cafes(id)       -- kho riêng của quán (chỉ giao cho khách ở quán đó); NULL = kho chung mọi quán
 );
 
 CREATE TABLE IF NOT EXISTS customers (

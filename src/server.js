@@ -16,10 +16,10 @@ import { createOtpSender } from './services/otp.js';
 import { startJobs } from './jobs.js';
 
 const PUBLIC_DIR = new URL('./public/', import.meta.url);
-const STATIC_TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const STATIC_TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon' };
 
 async function serveStatic(rq, name) {
-  if (!/^[a-z0-9_-]+\.(js|css|svg|png|ico)$/i.test(name)) throw new HttpError(404, 'Không tìm thấy');
+  if (!/^[a-z0-9_-]+\.(js|css|svg|png|jpg|ico)$/i.test(name)) throw new HttpError(404, 'Không tìm thấy');
   let body;
   try { body = await readFile(new URL(name, PUBLIC_DIR)); } catch { throw new HttpError(404, 'Không tìm thấy'); }
   rq.send(200, body, { 'Content-Type': STATIC_TYPES[extname(name).toLowerCase()], 'Cache-Control': 'public, max-age=3600' });

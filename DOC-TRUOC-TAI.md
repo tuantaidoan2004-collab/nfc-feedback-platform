@@ -1,4 +1,18 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.7 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
+
+## Mới ở 2.1.0 — kho riêng từng quán (API kho THÊM ô `shop`, lệnh cũ vẫn chạy y nguyên)
+
+- Kho giờ có **kho chung** + **kho riêng từng quán**. Tài khoản gắn quán chỉ giao cho khách ở quán đó; quán dùng kho riêng trước, hết thì lấy kho chung;
+  không bao giờ lấy kho quán khác. Tài khoản cũ đều ở kho chung (không đổi gì).
+- `/hooks/qs/kho`: `add` / `list` / `update` nhận `shop` (mã quán QS; `"chung"` hoặc `null` = kho chung). Tài khoản trả thêm `kho` (`null` | `{cafeId, name, shop}`),
+  `summary` thêm `kho:[{cafeId, name, shop, accounts, free}]`. `shop` lạ → `404 shop_unknown`; mã / link nhận quà chỉ kho chung (`400 shop_not_supported`).
+  Chi tiết: docs/phoi-hop-voi-QS.md mục 11.
+- `/hooks/qs/quan` `status`: `available` của mỗi công cụ tính theo kho riêng của quán đó + kho chung (khối "Công cụ làm việc" hiện "Tạm hết" đúng quán).
+- Trang khách: áo riêng cho Bamos (8ugdc / sakz8) và O'renchi (`orenchi`) — nền ảnh thật của quán + đồ hoạ động; trang vé vào thẳng thẻ tài khoản
+  (bỏ chuỗi bước, trừ Canva). Đường dẫn `/qs/<mã quán>?t=<vé>`, `/c/<thẻ>`, chữ ký vé giữ nguyên.
+- 2.0.8–2.0.9 (chỉ phía TBQ): quán 1 thẻ ở quầy POS — hạn mức thẻ không thấp hơn suất / ngày của quán; email thử của chủ (OWNER_IDS) luôn nhận được tài khoản mới.
+- Database tự thêm cột `accounts.cafe_id` lúc khởi động (không cần chạy gì).
+
 
 ## Mới ở 2.0.7 — API giữ nguyên (src/routes/hooks.js không đổi), Tài không phải sửa gì
 

@@ -55,9 +55,10 @@ export async function issueOtp(ctx, { phone, deviceId, ip }) {
   const p = normalizeLogin(phone, ctx.config.otp.loginBy);
   if (!p) return { ok: false, code: 'invalid_phone', message: ctx.config.otp.loginBy === 'email' ? 'Email chưa đúng.' : 'Số điện thoại chưa đúng.' };
   const device = deviceId ? get(ctx.db, 'SELECT status FROM devices WHERE id = ?', deviceId) : null;
-  if (device?.status === 'locked') return { ok: false, code: 'device_locked', message: MSG.device_locked };
+  const owner = ctx.config.ownerIds?.includes(p.toLowerCase()); // chủ tiệm đang thử (OWNER_IDS)
+  if (!owner && device?.status === 'locked') return { ok: false, code: 'device_locked', message: MSG.device_locked };
   const customer = get(ctx.db, 'SELECT * FROM customers WHERE phone = ?', p);
-  if (isCustomerLocked(customer, ctx.now())) return { ok: false, code: 'customer_locked', message: MSG.customer_locked };
+  if (!owner && isCustomerLocked(customer, ctx.now())) return { ok: false, code: 'customer_locked', message: MSG.customer_locked };
 
   const limits = [[`otp:p:${p}`, s.otpPerPhonePerHour], [`otp:d:${deviceId}`, s.otpPerDevicePerHour], [`otp:i:${ip}`, s.otpPerIpPerHour]];
   const blocked = limits.map(([k, l]) => peek(ctx, k, l)).filter((r) => !r.ok);
@@ -110,7 +111,7 @@ export function verifyOtp(ctx, { phone, code, deviceId, ip, consent }) {
   let customer = get(ctx.db, 'SELECT * FROM customers WHERE phone = ?', p);
   const revived = customer ? null : get(ctx.db, 'SELECT * FROM customers WHERE phone = ?', tomb);
   const existing = customer || revived;
-  if (isCustomerLocked(existing, now)) {
+  if (isCustomerLocked(existing, now) && !ctx.config.ownerIds?.includes(p.toLowerCase())) {
     run(ctx.db, 'UPDATE otps SET used_at = ? WHERE id = ?', now, otp.id);
     return { ok: false, code: 'customer_locked', message: MSG.customer_locked };
   }

@@ -173,7 +173,7 @@ test('vi phạm: lần 2 khoá 7 ngày và thu hồi slot; hết hạn khoá th�
   void lockCustomer; void T0;
 });
 
-test('thẻ NFC riêng: quá cardDailyClaims slot/ngày từ 1 thẻ → card_quota; lối vào QS của quán không bị giới hạn này', () => {
+test('thẻ NFC riêng: hạn mức thẻ = max(cardDailyClaims, suất quán) — quán 1 thẻ ở quầy POS không bị chặn sớm hơn suất quán', () => {
   const ctx = createTestCtx({ settings: { cardDailyClaims: 1 } });
   const { cafe, card: qsCard, tools } = seed(ctx);
   const nfc = makeNfcCard(ctx, cafe);
@@ -187,6 +187,6 @@ test('thẻ NFC riêng: quá cardDailyClaims slot/ngày từ 1 thẻ → card_qu
   });
   assert.equal(results[0].status, 'active');
   assert.equal(results[0].slotId && byId(ctx, 'slots', results[0].slotId).card_id, nfc.id);
-  assert.equal(results[1].code, 'card_quota');
+  assert.notEqual(results[1].code, 'card_quota', 'cardDailyClaims = 1 nhưng quán còn suất → thẻ không chặn');
   assert.notEqual(results[2].code, 'card_quota', 'khách vào qua trang quán QS');
 });

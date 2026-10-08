@@ -9,6 +9,12 @@ const LIVE = "('active', 'pending_approval', 'pending_invite')";
 const no = (code, message) => ({ ok: false, code, message });
 const p2 = (n) => String(n).padStart(2, '0');
 
+/** Khách là chủ tiệm đang thử (OWNER_IDS trong .env) → luôn nhận được tài khoản mới. */
+export function isOwner(ctx, customer) {
+  const ids = ctx.config?.ownerIds;
+  return Boolean(customer?.phone && ids?.length && ids.includes(String(customer.phone).toLowerCase()));
+}
+
 /**
  * Kiểm tra mọi hạn mức. Phải gọi trong cùng transaction với lệnh tạo slot.
  * → {ok:true} | {ok:false, code, message}
@@ -21,6 +27,7 @@ export function checkClaimQuota(ctx, { customer, tool, cafe, card, deviceId }) {
   const n = (sql, ...p) => get(ctx.db, sql, ...p).n;
 
   if (!tool || !tool.enabled) return no('tool_disabled', 'Công cụ này tạm ngưng.');
+  if (isOwner(ctx, customer)) return { ok: true };
 
   if (n(`SELECT COUNT(*) AS n FROM slots WHERE customer_id = ? AND status IN ${LIVE}`, customer.id) >= s.activeSlotsPerCustomer) {
     return no('has_active_slot', 'Bạn đang có 1 slot. Dùng hết hoặc chờ hết hạn rồi nhận tiếp nhé.');
@@ -49,8 +56,10 @@ export function checkClaimQuota(ctx, { customer, tool, cafe, card, deviceId }) {
     return no('cafe_quota', 'Hôm nay quán đã hết suất trải nghiệm. Quay lại ngày mai nhé!');
   }
   // Thẻ NFC riêng có link cố định → giới hạn theo thẻ để link bị chép không vét hết suất của quán. Lối vào QS là của cả quán.
-  if (card && card.kind !== 'qs' && n(`SELECT COUNT(*) AS n FROM slots WHERE card_id = ? AND created_at >= ? AND ${COUNTED}`, card.id, dayStart) >= s.cardDailyClaims) {
-    return no('card_quota', 'Thẻ ở bàn này đã hết suất hôm nay. Quay lại ngày mai nhé!');
+  // Quán 1 thẻ ở quầy POS (chủ chọn 08/10): hạn mức thẻ không thấp hơn suất / ngày của quán, khỏi phải chỉnh 2 chỗ.
+  const cardCap = Math.max(s.cardDailyClaims, cafe.daily_quota || 0);
+  if (card && card.kind !== 'qs' && n(`SELECT COUNT(*) AS n FROM slots WHERE card_id = ? AND created_at >= ? AND ${COUNTED}`, card.id, dayStart) >= cardCap) {
+    return no('card_quota', 'Thẻ này đã hết suất hôm nay. Quay lại ngày mai nhé!');
   }
   return { ok: true };
 }
@@ -116,6 +125,11 @@ const FRESH_SQL = "(t.reuse != 'once' OR a.created_at > ? - t.slot_hours * 36000
 export const USABLE_SQL = `((t.login_type NOT IN ('password', 'password_totp') OR a.password_enc IS NOT NULL)
   AND (t.login_type != 'password_totp' OR a.totp_enc IS NOT NULL))`;
 
+// Kho riêng từng quán (chủ chọn 08/10): tài khoản gắn quán (accounts.cafe_id) chỉ giao cho khách ở quán đó; không gắn quán = kho chung.
+// Tham số kèm theo: mã quán 2 lần (NULL = cả hệ thống, dùng cho trang quản trị / tổng kho).
+const POOL_SQL = '(? IS NULL OR a.cafe_id IS NULL OR a.cafe_id = ?)';
+const pool = (cafeId) => [cafeId ?? null, cafeId ?? null];
+
 const toolOf = (ctx, tool) => (typeof tool === 'object' && tool ? tool : get(ctx.db, 'SELECT * FROM tools WHERE id = ?', Number(tool) || 0));
 
 /**
@@ -137,17 +151,26 @@ export function reserveAccountId(ctx, tool) {
 }
 
 /**
- * Tài khoản sẵn sàng còn chỗ. Lấp đầy tài khoản đang có người trước (tài khoản dùng chung: ít tài khoản phải đổi mật khẩu,
+ * Tài khoản sẵn sàng còn chỗ cho khách ở quán cafeId: kho riêng của quán trước, hết thì kho chung (không bao giờ lấy kho quán khác).
+ * Trong mỗi kho: lấp đầy tài khoản đang có người trước (tài khoản dùng chung: ít tài khoản phải đổi mật khẩu,
  * tài khoản "dùng 1 lần": các khách cùng tài khoản bắt đầu gần nhau), rồi tới tài khoản lâu chưa giao nhất.
  */
-export function pickAccount(ctx, tool) {
+export function pickAccount(ctx, tool, cafeId = null) {
   const t = toolOf(ctx, tool);
   if (!t || t.login_type === 'redeem') return null;
   return get(ctx.db,
     `SELECT * FROM (SELECT a.*, ${LOAD_SQL} AS load, ${FREE_SQL} AS free FROM accounts a JOIN tools t ON t.id = a.tool_id
-                    WHERE a.tool_id = ? AND a.status = 'ready' AND ${USABLE_SQL} AND ${FRESH_SQL} AND a.id != ?)
+                    WHERE a.tool_id = ? AND a.status = 'ready' AND ${USABLE_SQL} AND ${FRESH_SQL} AND ${POOL_SQL} AND a.id != ?)
      WHERE free > 0
-     ORDER BY load DESC, last_assigned_at IS NOT NULL, last_assigned_at ASC, id ASC LIMIT 1`, t.id, ctx.now(), ctx.now(), reserveAccountId(ctx, t) ?? -1) || null;
+     ORDER BY cafe_id IS NULL, load DESC, last_assigned_at IS NOT NULL, last_assigned_at ASC, id ASC LIMIT 1`,
+    t.id, ctx.now(), ctx.now(), ...pool(cafeId), reserveAccountId(ctx, t) ?? -1) || null;
+}
+
+/** Chỗ còn giao được theo từng kho (chưa trừ dự phòng / lượt mỗi ngày) — cho trang quản trị. → [{tool_id, cafe_id (null = kho chung), free, n}] */
+export function poolSeats(ctx) {
+  return all(ctx.db,
+    `SELECT a.tool_id, a.cafe_id, SUM(MAX(0, ${FREE_SQL})) AS free, COUNT(*) AS n FROM accounts a JOIN tools t ON t.id = a.tool_id
+     WHERE a.status = 'ready' AND ${USABLE_SQL} AND ${FRESH_SQL} GROUP BY a.tool_id, a.cafe_id`, ctx.now(), ctx.now());
 }
 
 /** Mã / link nhận quà còn trong kho (login_type = redeem), cũ nhất trước. */
@@ -156,7 +179,7 @@ export function pickRedeem(ctx, toolId) {
 }
 
 /** Còn hàng để giao không (tài khoản còn chỗ, hoặc còn mã nhận quà). */
-export const hasStock = (ctx, tool) => (tool.login_type === 'redeem' ? !!pickRedeem(ctx, tool.id) : !!pickAccount(ctx, tool));
+export const hasStock = (ctx, tool, cafeId = null) => (tool.login_type === 'redeem' ? !!pickRedeem(ctx, tool.id) : !!pickAccount(ctx, tool, cafeId));
 
 /** Số lượt của công cụ đã giao hôm nay (cả hệ thống). */
 export function toolUsedToday(ctx, toolId) {
@@ -166,25 +189,29 @@ export function toolUsedToday(ctx, toolId) {
 
 /**
  * Công cụ đang bật kèm số chỗ trống (đã trừ giới hạn lượt/ngày và tài khoản dự phòng đang giữ). reserved: số chỗ của tài khoản dự phòng.
+ * cafeId: chỉ đếm kho riêng của quán đó + kho chung (khách ở quán đó nhận được gì); không có = cả hệ thống.
  * expiring: số tài khoản tự hết hạn (account_days) trong 24 giờ tới.
  * blocked: công cụ đang nghỉ nhận trước giờ hết; có customer thì thêm lý do riêng của khách này (đã thử gần đây…). → [{tool, free, reserved, expiring, blocked}]
  */
-export function toolAvailability(ctx, customer = null) {
+export function toolAvailability(ctx, customer = null, cafeId = null) {
   const tools = all(ctx.db, 'SELECT * FROM tools WHERE enabled = 1 ORDER BY sort, id');
   const seats = new Map(all(ctx.db,
     `SELECT a.tool_id, SUM(MAX(0, ${FREE_SQL})) AS free FROM accounts a JOIN tools t ON t.id = a.tool_id
-     WHERE a.status = 'ready' AND ${USABLE_SQL} AND ${FRESH_SQL} GROUP BY a.tool_id`, ctx.now(), ctx.now()).map((r) => [r.tool_id, r.free]));
+     WHERE a.status = 'ready' AND ${USABLE_SQL} AND ${FRESH_SQL} AND ${POOL_SQL} GROUP BY a.tool_id`, ctx.now(), ctx.now(), ...pool(cafeId)).map((r) => [r.tool_id, r.free]));
   const codes = new Map(all(ctx.db, "SELECT tool_id, COUNT(*) AS n FROM redeem_codes WHERE status = 'ready' GROUP BY tool_id").map((r) => [r.tool_id, r.n]));
+  const owner = isOwner(ctx, customer);
   return tools.map((tool) => {
     let free = (tool.login_type === 'redeem' ? codes.get(tool.id) : seats.get(tool.id)) || 0;
     const rid = reserveAccountId(ctx, tool);
-    const reserved = rid ? Math.max(0, get(ctx.db, `SELECT ${FREE_SQL} AS f FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE a.id = ?`, rid).f) : 0;
+    // Tài khoản dự phòng thuộc kho quán khác thì không nằm trong số đếm của quán này → không trừ.
+    const reserved = rid ? Math.max(0, get(ctx.db, `SELECT ${FREE_SQL} AS f FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE a.id = ? AND ${POOL_SQL}`, rid, ...pool(cafeId))?.f ?? 0) : 0;
     free = Math.max(0, free - reserved);
-    if (tool.daily_cap != null) free = Math.min(free, Math.max(0, tool.daily_cap - toolUsedToday(ctx, tool.id)));
+    if (tool.daily_cap != null && !owner) free = Math.min(free, Math.max(0, tool.daily_cap - toolUsedToday(ctx, tool.id)));
     // Tài khoản tự hết sau account_days ngày (Claude 7 ngày): báo trước 24 giờ để chủ chuẩn bị tài khoản mới.
     const expiring = tool.account_days == null ? 0 : get(ctx.db,
       `SELECT COUNT(*) AS n FROM accounts WHERE tool_id = ? AND status != 'retired' AND created_at > ? AND created_at <= ?`,
       tool.id, ctx.now() - tool.account_days * DAY, ctx.now() - (tool.account_days - 1) * DAY).n;
+    if (owner) return { tool, free, reserved, expiring, blocked: null };
     return { tool, free, reserved, expiring, blocked: (customer && customerToolBlock(ctx, customer, tool)) || toolClosing(ctx, tool) };
   });
 }

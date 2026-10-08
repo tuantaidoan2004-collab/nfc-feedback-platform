@@ -262,7 +262,8 @@ Gọi `status` khi dựng trang là đủ (TBQ không giới hạn lệnh này, 
 
 ## 11. API kho (TBQ bản 1.4, 08/10/2026) — Tài thêm / sửa / xem tài khoản trong kho
 
-Kho **dùng chung cho mọi quán** nằm ở TBQ; giao diện từng quán là khối của QS. API này để Tài làm màn quản lý kho bên QS
+Kho nằm ở TBQ: **kho chung** cho mọi quán + **kho riêng từng quán** (từ bản 2.1, 08/10/2026 — tài khoản gắn quán chỉ giao cho khách ở quán đó;
+quán dùng kho riêng trước, hết thì lấy kho chung; không bao giờ lấy kho quán khác). Giao diện từng quán là khối của QS. API này để Tài làm màn quản lý kho bên QS
 (hoặc nối Google Sheet) mà không phải vào trang quản trị TBQ.
 
 **Khoá riêng:** ký giống hệt mục 9–10 (cùng header, cùng `ts` / `nonce`), nhưng bằng **`QS_KHO_KEY`** của TBQ (bên QS đặt tên ví dụ
@@ -278,13 +279,13 @@ X-TBQ-Signature: sha256=<hex HMAC-SHA256(QS_KHO_KEY, nguyên body)>
 
 | action | Gửi thêm | Trả về |
 |---|---|---|
-| `summary` | — | `tools:[{tool, name, loginType, enabled, free, reserved, expiringSoon, usedToday, dailyCap, holdersDefault, accounts:{ready, needs_rotation, quarantined, retired}}]` — `free` = chỗ giao được ngay |
-| `list` | `tool?`, `status?`, `limit?` (≤500), `offset?` | `accounts:[tài khoản]` |
+| `summary` | — | `tools:[{tool, name, loginType, enabled, free, reserved, expiringSoon, usedToday, dailyCap, holdersDefault, accounts:{ready, needs_rotation, quarantined, retired}, kho:[{cafeId, name, shop, accounts, free}]}]` — `free` = chỗ giao được ngay (cả hệ thống); `kho` = chỗ theo từng kho (`shop:null, name:"Kho chung"` = kho chung) |
+| `list` | `tool?`, `status?`, `shop?` (`"<mã quán QS>"` = kho riêng quán đó, `"chung"` = kho chung, bỏ trống = mọi kho), `limit?` (≤500), `offset?` | `accounts:[tài khoản]` |
 | `get` | `id` hoặc `email` | `account` |
-| `add` | `tool` + `accounts:[{email, password?, totp?, holders?}]` **hoặc** `lines:["email\|mật khẩu\|…"]` (dòng chép từ Google Sheet, giống ô nhập trang quản trị); `label?`, `dryRun?`, `setup?` | `201 {added, ids, skipped:[{email, code, message}]}` |
-| `update` | `id` hoặc `email` + bất kỳ: `label`, `holders`, `password`, `totp`, `keepPassword`, `status` (`ready` \| `retired` \| `quarantined`) | `{message, account}` |
+| `add` | `tool` + `accounts:[{email, password?, totp?, holders?}]` **hoặc** `lines:["email\|mật khẩu\|…"]` (dòng chép từ Google Sheet, giống ô nhập trang quản trị); `label?`, `dryRun?`, `setup?`, `shop?` (mã quán QS → kho riêng quán đó; bỏ trống = kho chung) | `201 {added, ids, shop, skipped:[{email, code, message}]}` |
+| `update` | `id` hoặc `email` + bất kỳ: `label`, `holders`, `password`, `totp`, `keepPassword`, `status` (`ready` \| `retired` \| `quarantined`), `shop` (chuyển kho: mã quán QS, hoặc `"chung"` / `null` = kho chung) | `{message, account}` |
 
-**Tài khoản** trả ra: `{id, tool, label, email, status, statusReason, inUse, maxHolders, hasPassword, has2fa, usable, pendingTask, createdAt, expiresAt, lastAssignedAt, lastRotatedAt}`.
+**Tài khoản** trả ra: `{id, tool, label, email, status, statusReason, kho, inUse, maxHolders, hasPassword, has2fa, usable, pendingTask, createdAt, expiresAt, lastAssignedAt, lastRotatedAt}`.
 **Không lệnh nào trả mật khẩu hay khoá 2FA** — chỉ gửi vào được.
 
 Cần biết:
@@ -298,5 +299,8 @@ Cần biết:
   - `retired` = ngừng giao, khách đang dùng vẫn dùng tới hết giờ. `quarantined` = thu hồi ngay mọi chỗ + tạo việc đổi mật khẩu.
   - Mở lại tài khoản thiếu mật khẩu / 2FA → `409 not_usable`.
 - Không có lệnh xoá: muốn bỏ thì `retired` (giữ lịch sử giao cho chủ Tiệm).
+- `kho` của tài khoản: `null` = kho chung, `{cafeId, name, shop}` = kho riêng quán. `shop` lạ → `404 shop_unknown`. Mã / link nhận quà chỉ có kho chung
+  (`add` kèm `shop` → `400 shop_not_supported`). Chuyển kho: khách đang dùng vẫn dùng tiếp, chỉ lượt giao sau theo kho mới.
+- Lệnh `status` của `/hooks/qs/quan` (khối "Công cụ làm việc"): `available` của mỗi công cụ tính theo kho riêng của quán đó + kho chung.
 - `401` sai chữ ký / giờ lệch / nonce lặp (chủ Tiệm thấy báo vàng) · `404 tool_unknown | not_found` · `429` quá 300 lần / 10 phút.
 - Mọi lần thêm / sửa hiện trong trang Theo dõi của TBQ (người làm = `qs-api`).

@@ -50,7 +50,7 @@ test('luồng đầy đủ: vé từ trang quán → OTP → nhận slot → L�
     const me = await c.get('/me', UA);
     assert.match(me.text, /Lấy mã/);
     assert.match(me.text, /gpt[12]@kho\.test/);
-    assert.match(me.text, /Chỉ dùng 1 máy để nhường slot cho bạn sau nhé/);
+    assert.match(me.text, /Dùng trên 1 máy thôi nha — để bạn sau cũng có phần/);
 
     const w = await c.post('/api/code/request', {});
     assert.equal(w.json.status, 'open', w.text);
@@ -149,7 +149,7 @@ test('thẻ NFC riêng của Tiệm (quán chưa dùng QS): chạm → OTP → n
     // Bạn ở nhà mở link được gửi qua Zalo (cùng bộ đếm) → không tính.
     const friend = srv.client();
     const copied = await friend.get(link, UA);
-    assert.match(copied.text, /Chạm lại thẻ trên bàn/);
+    assert.match(copied.text, /Chạm lại thẻ của quán/);
     assert.equal(get(ctx.db, "SELECT COUNT(*) AS n FROM taps WHERE card_id = ? AND verdict = 'replay'", card.id).n, 1);
     // Xem trước link (máy chủ Zalo) không ghi lượt chạm.
     const before = get(ctx.db, 'SELECT COUNT(*) AS n FROM taps').n;

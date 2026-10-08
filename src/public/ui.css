@@ -477,3 +477,219 @@ body::before { animation: drift 60s linear infinite; }
   .btn::after, .tiem::before { display: none; }
   @view-transition { navigation: none; }
 }
+
+/* ===================== Cảnh quán (views/quan-canh.js) — O'renchi & Bamos =====================
+ * Chủ yêu cầu 08/10/2026: thiết kế lại trang theo từng quán, tham khảo chuyển động trang O'renchi trên QS:
+ * hiện lần lượt ~0,1 giây (fade / rise / pop / drop / trượt), rồi lặp nhẹ (lấp lánh / thở / đung đưa / trôi); thẻ kính viền sáng.
+ * Áo theo quán áp cho MỌI trang khách của quán đó (trang quán, trang vé, trang chủ): body.q.q-<quán>.
+ * Màu chính của Tiệm (vàng TBQ) vẫn giữ ở thanh trên cùng. */
+body.q-orenchi {
+  --bg: #111511; --bg-2: rgba(8, 12, 9, .55); --card: #1b211c; --card-2: #232b24;
+  --text: #f3ead8; --text-2: rgba(243, 234, 216, .68); --text-3: rgba(243, 234, 216, .44); --cream: #f3ead8; --paper: #f7f0e1;
+  --line: rgba(169, 221, 230, .12); --line-2: rgba(243, 234, 216, .2);
+  --gold: #f0b664; --gold-2: #c98a3e; --gold-50: rgba(240, 182, 100, .16); --mint: #7cc0cf;
+  --q-g1: rgba(38, 44, 38, .7); --q-g2: rgba(18, 22, 18, .78); --q-edge: rgba(169, 221, 230, .5); --q-b1: #f6c983; --q-b2: #eaa952;
+  --q-leaf: #2f5e40; --q-leaf-2: #22452f; --q-a: #7cc0cf; --q-a2: #a9dde6;
+  background: radial-gradient(90% 50% at 0% 0%, rgba(240, 182, 100, .2), transparent 60%), radial-gradient(70% 40% at 100% 55%, rgba(74, 143, 159, .18), transparent 70%),
+    linear-gradient(180deg, #171b17, #101310 60%, #0c0e0c); }
+body.q-bamos {
+  --bg: #131719; --bg-2: rgba(6, 10, 12, .55); --card: #1b2124; --card-2: #232b2f;
+  --text: #f4ecdf; --text-2: rgba(244, 236, 223, .68); --text-3: rgba(244, 236, 223, .44); --cream: #f4ecdf; --paper: #f6efe5;
+  --line: rgba(108, 196, 214, .13); --line-2: rgba(244, 236, 223, .2);
+  --gold: #e0ab7c; --gold-2: #b07a4c; --gold-50: rgba(224, 171, 124, .16); --mint: #6cc4d6;
+  --q-g1: rgba(32, 40, 44, .7); --q-g2: rgba(16, 20, 23, .8); --q-edge: rgba(224, 171, 124, .5); --q-b1: #ecc099; --q-b2: #d39a67;
+  --q-leaf: #2d5a48; --q-leaf-2: #234538; --q-a: #6cc4d6; --q-a2: #a6e0ea;
+  background: radial-gradient(80% 45% at 100% 0%, rgba(108, 196, 214, .16), transparent 60%), radial-gradient(70% 40% at 0% 80%, rgba(201, 148, 103, .14), transparent 70%),
+    linear-gradient(180deg, #161b1e, #121618 60%, #0e1113); }
+body.q::before { opacity: .5;
+  background-image: radial-gradient(color-mix(in srgb, var(--gold) 70%, transparent) .7px, transparent 1px), radial-gradient(color-mix(in srgb, var(--q-a2) 55%, transparent) .6px, transparent 1px); }
+.q .top { background: color-mix(in srgb, var(--bg) 74%, transparent); }
+.q .wordmark small { color: #d4b06a; }
+.q .top-zalo { color: #d4b06a; border-color: rgba(212, 176, 106, .5); }
+.q .page { position: relative; z-index: 1; }
+.wrap > .qbg + * { margin-top: 0; }
+
+/* ---------- Nền động cố định ---------- */
+.qbg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.qbg .glow { position: absolute; border-radius: 50%; filter: blur(46px); animation: q-fade 1.2s both, q-pulse 6s 1.2s ease-in-out infinite; }
+.qbg svg { position: absolute; overflow: visible; }
+.qbg .sway, .qbg .moon, .qh .sway { transform-box: fill-box; transform-origin: 50% 100%; }
+.q-orenchi .g1 { left: -140px; top: -60px; width: 340px; height: 300px; background: rgba(255, 180, 94, .42); }
+.q-orenchi .g2 { right: -120px; top: 44%; width: 280px; height: 240px; background: rgba(74, 143, 159, .3); animation-delay: 0s, 2.4s; }
+.q-orenchi .g3 { left: -80px; bottom: -80px; width: 300px; height: 260px; background: rgba(47, 94, 64, .38); animation-delay: 0s, 3.6s; }
+.leafy .leaf { fill: var(--q-leaf); }
+.leafy .rib { fill: none; stroke: var(--q-leaf-2); stroke-width: 2.2; stroke-linecap: round; }
+.leafy.l2 .rib, .leafy.l3 .rib { stroke: var(--q-leaf); }
+.leafy.l1 { left: -74px; bottom: -40px; width: 230px; transform: rotate(32deg); animation: q-in-l 1s .5s var(--ease) both; }
+.leafy.l2 { right: -58px; top: 46%; width: 150px; transform: rotate(-142deg); animation: q-in-r 1s .7s var(--ease) both; }
+.leafy.l2 .leaf, .leafy.l3 .leaf { fill: var(--q-leaf-2); }
+.leafy.l3 { left: -46px; top: 22%; width: 112px; transform: rotate(-40deg); opacity: .85; animation: q-in-l 1s .9s var(--ease) both; }
+.qbg .sway { animation: q-sway 6.5s ease-in-out infinite alternate; }
+.leafy.l2 .sway { animation-duration: 7.5s; animation-delay: -2s; }
+.leafy.l3 .sway { animation-duration: 5.5s; animation-delay: -4s; }
+
+.q-bamos .g1 { right: -100px; top: -40px; width: 300px; height: 260px; background: rgba(108, 196, 214, .26); }
+.q-bamos .g2 { left: -120px; bottom: -60px; width: 320px; height: 260px; background: rgba(201, 148, 103, .26); animation-delay: 0s, 3s; }
+.qbg .sky { left: 0; top: 0; width: 100%; height: 220px; }
+.moon { animation: q-pop .9s .3s cubic-bezier(.3, 1.5, .5, 1) both; }
+.moon-halo { fill: rgba(166, 224, 234, .16); filter: blur(7px); transform-box: fill-box; transform-origin: center; animation: q-pulse 5s 1.2s ease-in-out infinite; }
+.moon-body { fill: #f4ecdf; }
+.star { fill: #f4ecdf; transform-box: fill-box; transform-origin: center; animation: q-tw 3.2s ease-in-out infinite; }
+.star.s1 { animation-delay: 1.1s; fill: var(--q-a2); } .star.s2 { animation-delay: 2.2s; fill: var(--gold); }
+.branch { width: 190px; }
+.branch.b1 { left: -44px; bottom: -40px; width: 150px; opacity: .7; animation: q-in-l 1s .6s var(--ease) both; }
+.twig { fill: none; stroke: #3d5f50; stroke-width: 3.2; stroke-linecap: round; }
+.leaf2 { fill: var(--q-leaf); }
+.petal { fill: #fff3df; stroke: rgba(243, 194, 91, .35); stroke-width: .6; }
+.heart { fill: #f3c25b; }
+.fall { top: -40px; width: 24px; opacity: 0; animation: q-fall 15s linear infinite; }
+.fall.f1 { left: 16%; animation-delay: 2s; } .fall.f2 { left: 58%; animation-delay: 7s; width: 18px; } .fall.f3 { left: 84%; animation-delay: 11.5s; width: 20px; }
+
+/* ---------- Đầu trang quán (hero) ---------- */
+.qh { position: relative; isolation: isolate; text-align: center; padding: 78px 0 4px; }
+.qh-bamos { padding-top: 60px; }
+.qh-stage { position: absolute; z-index: -1; left: -20px; top: -10px; width: calc(100% + 40px); height: auto; overflow: visible; }
+.qh-kicker { font-size: 11px; font-weight: 500; letter-spacing: .62em; padding-left: .62em; text-transform: uppercase; color: var(--q-a2); animation: q-fade .7s .45s both; }
+.qh-name { display: block; margin: 2px auto 0; font: italic 600 clamp(48px, 15vw, 60px)/1.05 var(--serif); letter-spacing: -.01em; padding: 0 .08em .06em;
+  background: linear-gradient(90deg, var(--q-a2), var(--q-a) 45%, #5fa3b5 70%, var(--q-a2)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .7)); animation: q-rise .9s .55s var(--ease) both; }
+.qh-name.logo { width: min(200px, 56vw); height: auto; padding: 0; background: none; filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .65)); animation: q-pop .8s .5s cubic-bezier(.3, 1.4, .5, 1) both; }
+.qh-sub { margin-top: 6px; font-size: 12px; letter-spacing: .24em; color: var(--text-2); animation: q-fade .7s .7s both; }
+.qh-bamos .qh-sub { margin-top: 12px; text-transform: uppercase; font-size: 11px; color: var(--gold); }
+.qh-hand { position: absolute; right: -2px; bottom: 30px; transform: rotate(-7deg); text-align: left; font: 600 15px/1.08 'Noteworthy', 'Bradley Hand', 'Segoe Print', 'Chalkboard SE', cursive;
+  color: var(--gold); opacity: .92; animation: q-fade .8s 1.1s both; }
+.qh-with { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; animation: q-rise .7s .85s var(--ease) both; }
+.qw-x { color: var(--gold); font-size: 12px; display: inline-block; animation: q-spin-in .8s .95s cubic-bezier(.2, .9, .25, 1.2) both; }
+.qw-tbq { display: inline-flex; align-items: center; gap: 6px; }
+.qw-tbq .tag { width: 13px; height: auto; }
+.qw-tbq b { font: 500 16px/1 var(--serif); color: var(--cream); white-space: nowrap; }
+.qh-free { margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--q-a2); animation: q-fade .7s 1s both; }
+.intro .qh + h1 { margin-top: 20px; }
+.qh-stage .roof { fill: none; stroke: rgba(243, 234, 216, .5); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 420; animation: q-draw 1.4s .1s var(--ease) both; }
+.qh-stage .slats { fill: none; stroke: rgba(243, 234, 216, .09); stroke-width: 1.2; animation: q-fade 1.4s .5s both; }
+.strand { transform-box: fill-box; transform-origin: 50% 0; animation: q-drop 1.1s .25s cubic-bezier(.3, 1.35, .5, 1) both; }
+.strand .wire { fill: none; stroke: rgba(243, 234, 216, .35); stroke-width: 1; }
+.strand .cord { stroke: rgba(243, 234, 216, .45); stroke-width: 1; }
+.strand .glass { fill: #ffcf86; animation: q-bulb 2.8s ease-in-out infinite; }
+.strand .halo { fill: rgba(255, 180, 94, .26); animation: q-bulb 2.8s ease-in-out infinite; }
+.strand .bulb:nth-child(3n) .glass, .strand .bulb:nth-child(3n) .halo { animation-delay: .9s; }
+.strand .bulb:nth-child(3n+1) .glass, .strand .bulb:nth-child(3n+1) .halo { animation-delay: 1.8s; }
+.spark { fill: var(--q-a2); transform-box: fill-box; transform-origin: center; animation: q-pop .6s 1s cubic-bezier(.3, 1.6, .5, 1) both, q-tw 3s 1.6s ease-in-out infinite; }
+.spark.k2 { fill: var(--gold); animation-delay: 1.2s, 2.4s; }
+.rays .ray { fill: none; stroke: rgba(224, 171, 124, .42); stroke-width: 1.4; stroke-linecap: round; stroke-dasharray: 90; animation: q-draw-ray .9s var(--ease) both; }
+.rays .ray:nth-child(5n+1) { animation-delay: .15s; } .rays .ray:nth-child(5n+2) { animation-delay: .25s; } .rays .ray:nth-child(5n+3) { animation-delay: .35s; }
+.rays .ray:nth-child(5n+4) { animation-delay: .45s; } .rays .ray:nth-child(5n) { animation-delay: .55s; }
+.rays .ray:nth-child(2n) { stroke: rgba(108, 196, 214, .38); }
+.arcs circle { fill: none; stroke: rgba(166, 224, 234, .22); stroke-width: 1; stroke-dasharray: 2 6; }
+.arcs { transform-box: view-box; transform-origin: 195px 124px; animation: q-fade 1s .6s both, q-rot 90s linear infinite; }
+
+/* ---------- Dải đầu trang vé ---------- */
+.qband { position: relative; height: 62px; margin: -8px -20px 4px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; }
+.qb-deco { position: absolute; left: 0; top: 0; width: 100%; height: 56px; overflow: visible; }
+.qb-row { position: relative; display: flex; align-items: center; gap: 10px; animation: q-rise .7s .3s var(--ease) both; }
+.qb-name { font: italic 600 26px/1 var(--serif); padding: 0 .06em .04em; background: linear-gradient(90deg, var(--q-a2), var(--q-a) 50%, var(--q-a2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.qb-name.logo { width: 92px; height: auto; padding: 0; background: none; }
+.qband .qw-x { animation-delay: .5s; }
+
+/* ---------- Con dấu quán trên vé ---------- */
+.tk-h > div { flex: 1; min-width: 0; }
+.tk-stamp { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 60px; height: 60px; border-radius: 50%;
+  border: 1.6px dashed var(--gold-2); color: var(--gold-2); transform: rotate(-12deg); opacity: .9; animation: q-stamp .55s .75s cubic-bezier(.3, 1.4, .5, 1) both; }
+.tk-stamp i { font: italic 600 11px/1 var(--serif); white-space: nowrap; }
+.tk-stamp img { width: 46px; height: auto; }
+.tk-stamp small { font-size: 7.5px; font-weight: 700; letter-spacing: .22em; padding-left: .22em; }
+
+/* ---------- Thẻ kính viền sáng (như thẻ trên trang O'renchi) ---------- */
+.q .steps, .q .fold, .q .zbtn, .q .tile, .q .contact-tiem, .q .how li, .q .panel, .q .invite, .q .tiem {
+  background: linear-gradient(165deg, var(--q-g1), var(--q-g2)); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+  border-color: transparent; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 24px 48px -26px rgba(0, 0, 0, .75); }
+.q .steps, .q .fold, .q .zbtn, .q .tile, .q .contact-tiem, .q .how li, .q .panel, .q .invite { position: relative; isolation: isolate; }
+.q .steps::before, .q .fold::before, .q .zbtn::before, .q .tile::before, .q .contact-tiem::before, .q .how li::before, .q .panel::before, .q .invite::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; padding: 1.1px; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .06) 38%, var(--q-edge) 72%, rgba(255, 255, 255, .38));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.q .tile.off { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border-color: var(--line-2); }
+.q .tile.off::before { display: none; }
+.q .tile.on, .q .tile:has(input:checked) { background: linear-gradient(165deg, color-mix(in srgb, var(--gold) 16%, var(--q-g1)), var(--q-g2)); }
+.q .tile.on::before, .q .tile:has(input:checked)::before { background: linear-gradient(135deg, var(--gold), rgba(255, 255, 255, .1) 45%, var(--gold)); padding: 1.6px; }
+/* viền thẻ bước đang làm có ánh chạy quanh (giống thẻ Tiệm) */
+.q .steps::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; padding: 1.2px; pointer-events: none;
+  background: conic-gradient(from var(--a, 0deg), transparent 0 72%, color-mix(in srgb, var(--q-a2) 85%, transparent) 82%, transparent 92%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin-a 7s linear infinite; }
+.q .cp, .q .code-ready { background: rgba(0, 0, 0, .26); box-shadow: inset 0 0 0 1px var(--line); }
+.q .btn:not(.ghost):not(.dark):not(.gold):not([disabled]):not(.dis) { background: linear-gradient(180deg, var(--q-b1), var(--q-b2)); color: #17140f;
+  box-shadow: 0 10px 26px -12px color-mix(in srgb, var(--q-b2) 80%, transparent); }
+.q .btn.ghost { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--q-a2) 45%, transparent); }
+.q .chip-btn:not(.ok) { background: color-mix(in srgb, var(--q-a2) 85%, #fff); }
+.q .sheet { background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.q .ticket { box-shadow: 0 30px 60px -24px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .5) inset; }
+.q .ticket::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: linear-gradient(90deg, var(--q-a), var(--gold), var(--q-a)); }
+.q .zbtn small { color: var(--text-3); }
+
+@keyframes q-fade { from { opacity: 0; } }
+@keyframes q-rise { from { opacity: 0; transform: translateY(16px); } }
+@keyframes q-pop { from { opacity: 0; transform: scale(.4); } }
+@keyframes q-drop { from { opacity: 0; transform: translateY(-34px) scaleY(.6); } }
+@keyframes q-in-l { from { opacity: 0; translate: -60px 0; } }
+@keyframes q-in-r { from { opacity: 0; translate: 60px 0; } }
+@keyframes q-draw { from { stroke-dashoffset: 420; } }
+@keyframes q-pulse { 50% { opacity: .55; transform: scale(1.08); } }
+@keyframes q-tw { 50% { opacity: .25; transform: scale(.65) rotate(25deg); } }
+@keyframes q-bulb { 0%, 100% { opacity: 1; } 45% { opacity: .55; } 55% { opacity: .9; } }
+@keyframes q-sway { from { transform: rotate(-4deg); } to { transform: rotate(5deg); } }
+@keyframes q-rot { to { transform: rotate(360deg); } }
+@keyframes q-spin-in { from { opacity: 0; transform: rotate(-180deg) scale(.2); } }
+@keyframes q-stamp { from { opacity: 0; transform: rotate(-40deg) scale(1.9); } to { opacity: .9; transform: rotate(-12deg) scale(1); } }
+@keyframes q-fall { 0% { opacity: 0; transform: translate(0, 0) rotate(0); } 6% { opacity: .9; } 50% { transform: translate(34px, 55vh) rotate(210deg); }
+  88% { opacity: .9; } 100% { opacity: 0; transform: translate(-14px, 112vh) rotate(430deg); } }
+@keyframes q-draw-ray { from { stroke-dashoffset: 90; } }
+@media (prefers-reduced-motion: reduce) {
+  .fall { display: none; }
+  .q .steps::after { display: none; }
+}
+
+/* ---------- Thẻ tài khoản (trang vé vào thẳng tài khoản, 08/10/2026) ---------- */
+.acc-card { padding: 16px 16px 16px; display: grid; gap: 10px; }
+.acc-card h2 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--text-2); margin: 0; }
+.acc-rows { display: grid; gap: 8px; }
+.acc-rows .cp + .cp { margin-top: 0; }
+.acc-card .cp { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; padding: 8px 6px 8px 12px; }
+.acc-card .cp small { grid-column: 1 / -1; width: auto; font-size: 11px; }
+.acc-card .cp code { font-size: 15px; overflow-wrap: break-word; }
+.acc-card > .btn { margin-top: 2px; }
+.acc-card .pg-acc-ws { margin: 0; }
+.acc-card .hint { margin: 0; text-align: center; }
+.acc-code { border-top: 1px solid var(--line); padding-top: 12px; }
+.acc-code-h { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 8px; }
+.acc-more { border-top: 1px solid var(--line); padding-top: 4px; }
+.acc-more summary { display: flex; justify-content: space-between; align-items: center; min-height: 40px; font-size: 14px; font-weight: 600; color: var(--gold); cursor: pointer; list-style: none; }
+.acc-more summary::-webkit-details-marker { display: none; }
+.acc-more summary::after { content: '›'; font-size: 20px; transition: transform .2s; }
+.acc-more[open] summary::after { transform: rotate(90deg); }
+.acc-more .hint { text-align: left; margin-bottom: 8px; }
+
+/* ---------- Ảnh thật của quán làm nền (dưới đồ hoạ) ---------- */
+.qphoto { position: absolute; left: 0; top: 0; width: 100%; height: 82vh; height: 82dvh; object-fit: cover; object-position: 50% 0; opacity: .6;
+  transform-origin: 50% 20%; animation: q-fade 1.6s ease both, q-ken 28s ease-in-out infinite alternate; }
+.qshade { position: absolute; left: 0; right: 0; top: 0; height: 84vh; height: 84dvh;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 28%, transparent) 0%, color-mix(in srgb, var(--bg) 52%, transparent) 34%, color-mix(in srgb, var(--bg) 86%, transparent) 70%, var(--bg) 100%); }
+.q-orenchi .qshade { box-shadow: inset 0 0 120px 30px rgba(10, 13, 10, .55); }
+.q-bamos .qshade { background: linear-gradient(180deg, rgba(16, 30, 40, .45) 0%, color-mix(in srgb, var(--bg) 58%, transparent) 34%, color-mix(in srgb, var(--bg) 88%, transparent) 70%, var(--bg) 100%); }
+@keyframes q-ken { from { transform: scale(1.02); } to { transform: scale(1.12) translate(-2%, 1.5%); } }
+/* Ảnh có biển quán thật (O'renchi, Bamos): biển rơi vào khoảng trống đầu trang, làm tiêu đề. Biển nằm ở 21–47% bề ngang ảnh tính từ đỉnh. */
+.qphoto { top: 30px; height: auto; animation: q-fade 1.6s ease both, q-ken 26s ease-in-out infinite alternate; transform-origin: 50% 18%; }
+@keyframes q-ken { from { transform: scale(1); } to { transform: scale(1.05); } }
+.q .qshade { inset: 0; height: auto;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 30%, transparent) 0, color-mix(in srgb, var(--bg) 6%, transparent) calc(30px + 18vw),
+    color-mix(in srgb, var(--bg) 18%, transparent) calc(30px + 47vw), color-mix(in srgb, var(--bg) 72%, transparent) calc(30px + 72vw), var(--bg) calc(30px + 100vw)); }
+.q-bamos .qshade { background: linear-gradient(180deg, rgba(16, 30, 40, .4) 0, rgba(16, 30, 40, .12) calc(30px + 26vw),
+    color-mix(in srgb, var(--bg) 22%, transparent) calc(30px + 47vw), color-mix(in srgb, var(--bg) 78%, transparent) calc(30px + 72vw), var(--bg) calc(30px + 100vw)); }
+.q-orenchi .qphoto { opacity: 1; filter: saturate(1.05) contrast(1.04); }
+.q-bamos .qphoto { opacity: 1; filter: brightness(.86) saturate(.95); }
+.qh-photo { padding-top: clamp(90px, calc(46.9vw - 66px), 200px); }
+.qh-photo .qh-kicker, .qh-photo .qh-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.qh-photo .qh-sub { margin-top: 2px; text-shadow: 0 1px 10px rgba(0, 0, 0, .8); color: var(--text); }
+.qh-orenchi.qh-photo .qh-stage { top: -66px; }
+.qh-bamos.qh-photo .qh-stage { top: -70px; }
+.qh-photo .qh-hand { bottom: 22px; }
+.qh-bamos.qh-photo { padding-top: clamp(110px, calc(46.9vw - 40px), 230px); }

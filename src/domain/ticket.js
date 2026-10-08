@@ -32,10 +32,10 @@ export function makeTicket(key, shop, nowMs, nonce) {
 }
 
 export const TICKET_MESSAGES = {
-  need_ticket: 'Bạn chạm thẻ hoặc quét mã QR trên bàn của quán (nếu mở ra trang quán thì bấm “Nhận công cụ làm việc miễn phí”) nhé.',
-  invalid: 'Link này không hợp lệ. Bạn chạm thẻ hoặc quét mã QR trên bàn của quán, rồi bấm lại nút trên trang quán nhé.',
-  expired: 'Link này đã cũ. Bạn chạm thẻ hoặc quét mã QR trên bàn của quán một lần nữa, rồi bấm lại nút trên trang quán nhé.',
-  used_elsewhere: 'Link này đã được mở trên một máy khác. Mỗi người tự chạm thẻ hoặc quét mã QR trên bàn của quán để nhận nhé.',
+  need_ticket: 'Bạn chạm thẻ hoặc quét mã QR của quán (nếu mở ra trang quán thì bấm “Nhận công cụ làm việc miễn phí”) nhé.',
+  invalid: 'Link này không hợp lệ. Bạn chạm thẻ hoặc quét mã QR của quán, rồi bấm lại nút trên trang quán nhé.',
+  expired: 'Link này đã cũ. Bạn chạm thẻ hoặc quét mã QR của quán một lần nữa, rồi bấm lại nút trên trang quán nhé.',
+  used_elsewhere: 'Link này đã được mở trên một máy khác. Mỗi người tự chạm thẻ hoặc quét mã QR của quán để nhận nhé.',
 };
 
 /**

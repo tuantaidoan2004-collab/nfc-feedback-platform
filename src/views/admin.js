@@ -23,7 +23,7 @@ export const EVENT_LABEL = {
   tap_replay: 'Link thẻ NFC chép lại (đã chặn)', tap_forged: 'Link thẻ NFC giả', tap_jump: 'Bộ đếm thẻ NFC nhảy bất thường', tap_locked: 'Chạm thẻ đang khoá', tap_closed: 'Chạm thẻ khi quán đóng / tạm dừng',
   card_locked: 'Đã tự khoá thẻ NFC', card_anomaly: 'Thẻ NFC bị chạm bất thường', card_rotated: 'Đổi link thẻ NFC', card_unlocked: 'Mở khoá thẻ NFC',
   admin_login: 'Chủ đăng nhập quản trị', admin_login_failed: 'Sai mật khẩu quản trị', settings_saved: 'Lưu cài đặt',
-  accounts_imported: 'Nhập kho tài khoản', redeem_imported: 'Nhập kho mã / link', account_updated: 'Sửa tài khoản kho',
+  accounts_imported: 'Nhập kho tài khoản', accounts_kho_moved: 'Chuyển kho tài khoản', redeem_imported: 'Nhập kho mã / link', account_updated: 'Sửa tài khoản kho',
   totp_missing: 'Tài khoản thiếu khoá 2FA', totp_shown: 'Khách xem mã 2FA',
   tool_sold_out: 'Hết kho', tool_daily_cap: 'Hết lượt hôm nay', cafe_full: 'Quán hết suất hôm nay',
   voucher_batch: 'Tạo lô mã phiếu', voucher_used: 'Dùng mã phiếu', voucher_void: 'Huỷ mã phiếu', voucher_unbind: 'Gỡ khách khỏi mã vĩnh viễn',
@@ -270,6 +270,8 @@ export function eventSummary(data, type = '') {
   if (d.tool) parts.push(d.tool);
   if (d.status && type === 'account_updated') parts.push(`→ ${ACCOUNT_STATUS[d.status] || d.status}`);
   if (d.added) parts.push(`+${d.added} tài khoản${d.skipped ? `, bỏ ${d.skipped}` : ''}`);
+  if (d.moved) parts.push(`${d.moved} tài khoản${d.label ? ` nhãn "${d.label}"` : ''}`);
+  if (d.kho) parts.push(`→ ${d.kho}`);
   if (d.seat) parts.push(`Slot ${d.seat}`);
   if (d.score != null) parts.push(`điểm ${d.score}`);
   if (Array.isArray(d.reasons)) parts.push(d.reasons.map((r) => r.text).join(', '));

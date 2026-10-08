@@ -10,7 +10,7 @@ import { issueOtp, verifyOtp, createSession, logout } from '../domain/auth.js';
 import { startClaim, currentSlotView } from '../domain/claims.js';
 import { requestCode, codeStatus, cancelWindow, totpStatus, codeLimit } from '../domain/codes.js';
 import { redeemExtension, requestExtension, issueEntryVoucher } from '../domain/vouchers.js';
-import { toolAvailability } from '../domain/quota.js';
+import { toolAvailability, isOwner } from '../domain/quota.js';
 import { homePage, cardPage, mePage, privacyPage, aboutPage, shopParam } from '../views/public.js';
 import { notice } from '../views/layout.js';
 
@@ -27,6 +27,12 @@ function json(rq, status, obj) {
 function requireCustomer(rq) {
   if (!rq.state.customer || !rq.state.session) throw new HttpError(401, 'Phiên đăng nhập đã hết. Bạn tải lại trang để đăng nhập nhé.', 'unauthorized');
   return rq.state.customer;
+}
+
+/** Quán để mặc áo cho trang vé / trang chủ: quán của vé đang xem, không có vé thì quán vừa chạm thẻ. */
+function themeCafe(ctx, view, deviceId) {
+  const id = view?.cafeId ?? get(ctx.db, 'SELECT cafe_id FROM taps WHERE device_id = ? ORDER BY id DESC LIMIT 1', deviceId || '')?.cafe_id;
+  return id ? get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', id) : null;
 }
 
 function limit(rq, key, max, windowMs) {
@@ -48,9 +54,10 @@ function renderEntry(rq, cafe, entry, shop) {
   const customer = rq.state.customer;
   rq.sendHtml(200, cardPage(ctx, {
     cafe, customer,
-    tools: entry || customer ? toolAvailability(ctx, customer) : [], // chọn món trước, đăng nhập sau
+    tools: entry || customer ? toolAvailability(ctx, customer, cafe.id) : [], // chọn món trước, đăng nhập sau
     view: customer ? currentSlotView(ctx, customer.id, rq.state.deviceId) : null,
     atCafe: !!entry,
+    owner: isOwner(ctx, customer),
     shop,
   }));
 }
@@ -59,7 +66,8 @@ export function registerPublicRoutes(router) {
   router.get('/', (rq) => {
     const { ctx } = rq;
     const c = rq.state.customer;
-    rq.sendHtml(200, homePage(ctx, { customer: c, view: c ? currentSlotView(ctx, c.id, rq.state.deviceId) : null }));
+    const view = c ? currentSlotView(ctx, c.id, rq.state.deviceId) : null;
+    rq.sendHtml(200, homePage(ctx, { customer: c, view, cafe: themeCafe(ctx, view, rq.state.deviceId) }));
   });
 
   router.get('/privacy', (rq) => rq.sendHtml(200, privacyPage(rq.ctx)));
@@ -122,12 +130,12 @@ export function registerPublicRoutes(router) {
     const cafe = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', card.cafe_id);
     const tap = processTap(ctx, { card, cafe, query: rq.query, deviceId: rq.state.deviceId, ip: rq.ip });
     if (tap.verdict === 'locked' && cafe.status === 'active') {
-      rq.sendHtml(200, notice(ctx, { title: 'Thẻ này đang tạm khoá', icon: '⏸', text: 'Bạn thử thẻ ở bàn khác hoặc nhắn Zalo Tiệm nhé.' }));
+      rq.sendHtml(200, notice(ctx, { title: 'Thẻ này đang tạm khoá', icon: '⏸', text: 'Bạn nhắn Zalo Tiệm nhé.' }));
       return;
     }
     if (tap.verdict === 'replay' || tap.verdict === 'forged') {
-      rq.sendHtml(200, notice(ctx, { title: 'Chạm lại thẻ trên bàn nhé', icon: '☕',
-        text: 'Link này đã cũ hoặc không phải từ thẻ trên bàn. Bạn chạm điện thoại trực tiếp vào thẻ NFC trên bàn của quán để nhận nhé.' }));
+      rq.sendHtml(200, notice(ctx, { title: 'Chạm lại thẻ của quán nhé', icon: '☕',
+        text: 'Link này đã cũ hoặc không phải từ thẻ của quán. Bạn chạm điện thoại trực tiếp vào thẻ của quán (ở quầy hoặc trên bàn) để nhận nhé.' }));
       return;
     }
     if (tap.verdict === 'ok') issueEntryVoucher(ctx, { deviceId: rq.state.deviceId, cafeId: cafe.id, source: 'nfc' });
@@ -149,7 +157,8 @@ export function registerPublicRoutes(router) {
   router.get('/me', (rq) => {
     const { ctx } = rq;
     const c = rq.state.customer;
-    rq.sendHtml(200, mePage(ctx, { customer: c, view: c ? currentSlotView(ctx, c.id, rq.state.deviceId) : null }));
+    const view = c ? currentSlotView(ctx, c.id, rq.state.deviceId) : null;
+    rq.sendHtml(200, mePage(ctx, { customer: c, view, cafe: themeCafe(ctx, view, rq.state.deviceId) }));
   });
 
   router.post('/api/otp/send', async (rq) => {

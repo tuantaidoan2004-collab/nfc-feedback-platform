@@ -10,10 +10,13 @@ import { CLAUDE_D, CHATGPT_D, TBQ_TAG } from './logos.js';
 import { MSG } from '../domain/claims.js';
 import { otpChannel } from '../services/otp.js';
 import { QS_EVENT } from '../qs-event.js';
+import { cafeTheme, backdrop, hero, band, stamp } from './quan-canh.js';
 
 /** Chữ trên nút khách bấm ở trang quán (khối "Công cụ làm việc" của QS). */
 const TAKE = QS_EVENT.items[0].label;
 const HOLDING = ['active', 'pending_invite'];
+/** Lớp body cho quán có cảnh riêng (ui.css "Cảnh quán"). */
+const themeClass = (theme) => (theme ? ` q q-${theme.id}` : '');
 const CONTACT_Q = 'Cần công cụ khác?';
 /** Mã quán trên QS trong link (?shop=) — chỉ nhận đúng định dạng slug của QS. */
 export const shopParam = (value) => {
@@ -74,7 +77,7 @@ function tapScreen({ eyebrow = '', title, text, note = '' }) {
 }
 
 /** Cách bắt đầu: khách mở trang quán trên Quite Sensational (chạm thẻ / quét QR) rồi bấm nút trong khối "Công cụ làm việc". */
-const entryHint = () => html`Ở quán, áp điện thoại vào thẻ trên bàn (hoặc quét mã QR). Nếu mở ra trang của quán thì bấm <b>${TAKE}</b>.`;
+const entryHint = () => html`Ở quán, áp điện thoại vào thẻ của quán (ở quầy hoặc trên bàn), hoặc quét mã QR. Nếu mở ra trang của quán thì bấm <b>${TAKE}</b>.`;
 
 function hello(ctx, customer) {
   return html`<p class="hello">Xin chào <b>${maskPhone(customer.phone)}</b> · <button type="button" class="link" data-act="logout">${byEmail(ctx) ? 'Đổi email khác' : 'Đổi số khác'}</button></p>`;
@@ -199,10 +202,12 @@ function pickForm(ctx, { tools, customer }) {
 </form>`;
 }
 
-export function homePage(ctx, { customer, view }) {
+export function homePage(ctx, { customer, view, cafe = null }) {
+  const theme = cafeTheme(cafe);
   return page(ctx, {
     title: ctx.settings().eventTitle,
-    body: html`${LOGO_SYMBOLS}
+    bodyClass: themeClass(theme).trim(),
+    body: html`${LOGO_SYMBOLS}${backdrop(theme)}${theme ? band(theme) : ''}
 <section class="intro home">
   <span class="free">Miễn phí ở quán</span>
   <h1>Ngồi quán, dùng đồ <mark>Pro</mark>.</h1>
@@ -211,7 +216,7 @@ export function homePage(ctx, { customer, view }) {
 </section>
 ${customer ? html`${HOLDING.includes(view?.status) ? holdingCard(view) : ''}${hello(ctx, customer)}` : ''}
 <ol class="how">
-  <li><b>1</b><p>Chạm thẻ trên bàn<small>chạm nhẹ là mở, không thì quét QR</small></p></li>
+  <li><b>1</b><p>Chạm thẻ của quán<small>chạm nhẹ là mở, không thì quét QR</small></p></li>
   <li><b>2</b><p>Chọn 1 món, nhập ${idWord(ctx)}<small>mã 6 số bay về trong 30 giây</small></p></li>
   <li><b>3</b><p>Nhận vé, vào cày<small>Tiệm chỉ từng bước, khỏi sợ lạc</small></p></li>
 </ol>
@@ -270,16 +275,18 @@ function collab(cafe) {
  * Chưa có vé thì không hiện ô email / số điện thoại: khỏi tốn tin OTP cho người không nhận được.
  * Thứ tự: chọn món trước → (chưa đăng nhập) bảng giữ chỗ: email → mã → nhận luôn món đã chọn.
  */
-export function cardPage(ctx, { cafe, customer, tools, view, atCafe }) {
-  const eyebrow = collab(cafe);
+export function cardPage(ctx, { cafe, customer, tools, view, atCafe, owner = false }) {
+  const theme = cafeTheme(cafe);
+  const eyebrow = theme ? hero(theme) : collab(cafe);
   let body;
-  if (customer && HOLDING.includes(view?.status)) {
+  // Chủ tiệm đang thử (OWNER_IDS) ở quán: luôn hiện danh sách chọn món, kể cả khi đang có vé.
+  if (customer && HOLDING.includes(view?.status) && !(owner && atCafe)) {
     body = html`<section class="intro">${progress(3)}${eyebrow}<h1>Bạn có vé rồi nè</h1><p class="sub">Mỗi ngày 1 món thôi nha. Mở vé vào cày tiếp nè.</p></section>
 ${holdingCard(view)}${hello(ctx, customer)}`;
   } else if (!atCafe) {
-    body = html`${tapScreen({
+    body = html`${theme ? html`<section class="intro">${hero(theme)}</section>` : ''}${tapScreen({
       eyebrow: 'Nhận tại quán nhé', title: 'Chạm nhẹ thẻ là mở',
-      text: html`Áp lưng điện thoại vào thẻ trên bàn ở <b>${cafe.name}</b>. Máy không có NFC? Quét QR trên thẻ cũng được luôn.`,
+      text: html`Áp lưng điện thoại vào thẻ của quán (ở quầy hoặc trên bàn) ở <b>${cafe.name}</b>. Máy không có NFC? Quét QR trên thẻ cũng được luôn.`,
       note: `Mỗi lần chạm dùng được ${ctx.settings().entryTtlMin} phút, trên đúng điện thoại đã chạm.`,
     })}${tiemCard(ctx)}`;
   } else {
@@ -298,8 +305,8 @@ ${contactTiem(ctx)}`;
   }
   return page(ctx, {
     title: `${ctx.settings().eventTitle} — ${cafe.name}`,
-    bodyClass: 'has-dock',
-    body: html`${LOGO_SYMBOLS}${body}`,
+    bodyClass: `has-dock${themeClass(theme)}`,
+    body: html`${LOGO_SYMBOLS}${backdrop(theme)}${body}`,
   });
 }
 
@@ -308,7 +315,8 @@ function codeHint(ctx, v) {
   if (v.extendedDays > 0) return `Còn ${v.codeRequestsLeft} lần lấy mã · trên máy này`;
   if (v.needVoucher && !v.hasBoundVoucher) return `Còn ${v.codeRequestsLeft} lần lấy mã · mỗi lần cần 1 phiếu (chạm thẻ hoặc phiếu giấy), trên máy này`;
   if (v.needVoucher) return `Còn ${v.codeRequestsLeft} lần lấy mã · trên máy này`;
-  return `Còn ${v.codeRequestsLeft} lần lấy mã · mỗi lần cần đang ở quán, trên máy này`;
+  const at = v.atCafeUntil ? `đang ở quán tới ${fmtLocal(v.atCafeUntil, ctx.settings().timezoneOffsetMin).slice(0, 5)}` : 'cần chạm lại thẻ của quán (ở quầy hoặc trên bàn)';
+  return `Còn ${v.codeRequestsLeft} lần lấy mã · ${at}, trên máy này`;
 }
 
 /** Ô mã phiếu cạnh nút lấy mã: công cụ dùng chung cần phiếu (phát ở quán) để lấy mã đăng nhập. */
@@ -316,7 +324,7 @@ function voucherField(v) {
   if (!v.needVoucher) return '';
   if (v.hasBoundVoucher) return html`<p class="hint" data-voucher-bound>Bạn có mã phiếu dùng nhiều lần — không cần nhập.</p>`;
   if (v.hasAutoVoucher) return html`<p class="ok-line" data-voucher-auto>✓ Bạn vừa chạm thẻ ở quán — đã có phiếu, bấm lấy mã là được.</p>`;
-  return html`<p class="hint">Chạm thẻ NFC / quét mã QR trên bàn của quán là tự có phiếu. Hoặc nhập phiếu giấy:</p>
+  return html`<p class="hint">Chạm thẻ NFC / quét mã QR của quán là tự có phiếu. Hoặc nhập phiếu giấy:</p>
   <label class="voucher"><span>Mã phiếu (nhận ở quán)</span>
     <input data-voucher inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX"></label>`;
 }
@@ -397,6 +405,7 @@ function ticket(ctx, v, sub) {
   <div class="tk-h">
     <span class="ring" data-ring data-start="${v.startedAt || ''}" data-end="${v.expiresAt || ''}">${icon(t.slug)}</span>
     <div><h1>${t.name}</h1><small>${sub}</small></div>
+    ${v.theme ? stamp(v.theme) : ''}
   </div>
   ${timed ? html`<div class="tk-cut" aria-hidden="true"></div>
   <p class="tk-row"><span>Còn</span><b data-countdown="${v.expiresAt}">--:--:--</b></p>
@@ -459,6 +468,28 @@ function checklist(v, all, account = null) {
 </section>`;
 }
 
+/**
+ * Trang vé: vào là thấy tài khoản luôn (chủ yêu cầu 08/10/2026: "quá nhiều chữ, bỏ bước 1, vào trang nhận tài khoản luôn").
+ * Email / mật khẩu + nút Chép, nút mở món ngay dưới; mã (2FA / email) nằm ngay trong thẻ, không còn chuỗi bước.
+ */
+function accountCard(ctx, v, { rows, code = '', codeFold = '' }) {
+  const t = v.tool;
+  const app = t.login_url ? APPS[t.slug] : null;
+  return html`<section class="steps acc-card">
+  <h2>Tài khoản của bạn</h2>
+  <div class="acc-rows">${rows}</div>
+  ${v.workspace ? html`<p class="pg-acc-ws">Workspace của bạn: <b>${v.workspace.name}</b>${v.workspace.url ? html` · <a href="${v.workspace.url}" target="_blank" rel="noopener noreferrer">mở ↗</a>` : ''}</p>` : ''}
+  ${t.login_url ? openBtn(t, 'btn') : ''}
+  ${app ? html`<p class="hint" data-app-miss hidden>Chưa có app? <a href="${app.ios}" data-app-get data-ios="${app.ios}" data-android="https://play.google.com/store/apps/details?id=${app.android}" target="_blank" rel="noopener noreferrer">Tải ${app.name}</a> · <a href="${t.login_url}" target="_blank" rel="noopener noreferrer">bản web</a></p>` : ''}
+  ${code ? html`<div class="acc-code"><p class="acc-code-h">${code.title}</p>${code.body}</div>` : ''}
+  ${codeFold ? html`<details class="acc-more"><summary>${codeFold.title}</summary>${codeFold.body}</details>` : ''}
+</section>`;
+}
+
+/** Ghi chú riêng của món (Cài đặt → Công cụ): bỏ câu nói lại điều "Mẹo dùng mượt" đã có (1 máy / email + mật khẩu), khỏi lặp ý. */
+const extraNotes = (text) => String(text || '').split(/\r?\n/)
+  .filter((l) => !/1\s*(máy|thiết bị)|email\s*\+\s*mật khẩu/i.test(l)).join('\n');
+
 function slotBody(ctx, v) {
   const zalo = ctx.settings().zaloUrl;
   const t = v.tool;
@@ -484,45 +515,28 @@ function slotBody(ctx, v) {
 </section>`;
   }
 
-  // active
-  const app = t.login_url ? APPS[t.slug] : null;
+  // active — Canva vẫn theo chuỗi bước (chấp nhận lời mời → đăng nhập → chọn nhóm); món có tài khoản thì vào thẳng thẻ tài khoản.
   const open = t.login_url
     ? openBtn(t, 'btn ghost sm', true)
     : html`<p>Mở ứng dụng / trang ${t.name}.</p>`;
-  const openHint = app
-    ? html`<p class="hint">Điện thoại mở thẳng app ${app.name}, laptop mở trang web.</p>
-    <p class="hint" data-app-miss hidden>Chưa cài app? <a href="${app.ios}" data-app-get data-ios="${app.ios}" data-android="https://play.google.com/store/apps/details?id=${app.android}" target="_blank" rel="noopener noreferrer">Tải ${app.name}</a> hoặc <a href="${t.login_url}" target="_blank" rel="noopener noreferrer" data-next>mở bản web</a>.</p>`
-    : html`<p class="hint">Laptop hay điện thoại này đều được.</p>`;
-  const openStep = { title: app ? `Mở ${app.name}` : 'Mở trang đăng nhập', body: html`${open}${openHint}`, manual: t.login_url ? '' : 'Đã mở ✓' };
-  const seatStep = v.workspace ? {
-    title: `Vào ${v.workspace.name}`,
-    body: html`<p>Workspace của bạn: <b>${v.workspace.name}</b> · dùng chung ${v.seatTotal} người</p>
-    ${v.workspace.url ? html`<a class="btn ghost sm" href="${v.workspace.url}" target="_blank" rel="noopener noreferrer" data-next>Mở ${v.workspace.name} ↗</a>` : ''}`,
-    manual: v.workspace.url ? '' : `Đã vào ${v.workspace.name} ✓`,
-  } : null;
-  const mailStep = (title, manual = '') => ({ title, body: html`<p class="hint">Bấm <b>Lấy mã</b> <b>trước</b>, rồi mới bấm gửi mã bên ${t.name}.</p>${codeBox(ctx, v, 'mail')}`, manual });
-  const wsLine = v.workspace ? html`<p class="pg-acc-ws">Workspace của bạn: <b>${v.workspace.name}</b></p>` : '';
-  const rules = [html`Chỉ dùng 1 máy để nhường slot cho bạn sau nhé`];
+  const rules = [html`Dùng trên 1 máy thôi nha — để bạn sau cũng có phần 💛`];
   let how;
   if (t.login_type === 'email_code') {
-    rules.push(html`Không đổi email, thông tin tài khoản`);
-    how = checklist(v, [openStep, { title: 'Dán email', body: copyRow('Email', v.accountEmail) }, mailStep('Lấy mã đăng nhập'), seatStep],
-      html`${copyRow('Email', v.accountEmail)}${wsLine}<button type="button" class="link" data-st-go="2">Cần mã đăng nhập? Lấy mã ›</button>`);
+    rules.push(html`Giữ nguyên email, thông tin tài khoản giúp Tiệm nha`);
+    how = accountCard(ctx, v, { rows: copyRow('Email', v.accountEmail),
+      code: { title: `Mã đăng nhập · bấm Lấy mã trước, rồi gửi mã bên ${t.name}`, body: codeBox(ctx, v, 'mail') } });
   } else if (t.login_type === 'password' || t.login_type === 'password_totp') {
     const totp = t.login_type === 'password_totp';
-    rules.push(html`Không đổi mật khẩu, email, ${totp ? '2FA' : 'không bật 2FA'}`);
+    rules.push(totp ? html`Giữ nguyên mật khẩu, email, 2FA — để ai cũng vào được` : html`Giữ nguyên mật khẩu, email, đừng bật 2FA nha — để ai cũng vào được`);
     how = !v.password
       ? statusCard('🔒', 'Mật khẩu ở máy kia', 'Mật khẩu chỉ hiện trên máy đã nhận slot.')
-      : checklist(v, [
-        openStep,
-        { title: 'Dán email và mật khẩu', body: html`${copyRow('Email', v.accountEmail)}${copyRow('Mật khẩu', v.password)}` },
-        totp ? { title: 'Nhập mã 2 lớp', body: codeBox(ctx, v, 'totp') } : null,
-        !totp && v.canMailCode ? mailStep('Nếu hỏi mã email', 'Không hỏi mã — bỏ qua') : null,
-        seatStep,
-      ], html`${copyRow('Email', v.accountEmail)}${copyRow('Mật khẩu', v.password)}${wsLine}${totp || v.canMailCode
-        ? html`<button type="button" class="link" data-st-go="2">${totp ? 'Cần mã 2 lớp? Lấy mã ›' : 'Bị hỏi mã email? Lấy mã ›'}</button>` : ''}`);
+      : accountCard(ctx, v, {
+        rows: html`${copyRow('Email', v.accountEmail)}${copyRow('Mật khẩu', v.password)}`,
+        code: totp ? { title: 'Mã 2 lớp', body: codeBox(ctx, v, 'totp') } : '',
+        codeFold: !totp && v.canMailCode ? { title: 'Bị hỏi mã email?', body: html`<p class="hint">Bấm <b>Lấy mã</b> trước, rồi mới gửi mã bên ${t.name}.</p>${codeBox(ctx, v, 'mail')}` } : '',
+      });
   } else if (t.login_type === 'team_invite') {
-    rules.push(html`Hết giờ: rời nhóm, thiết kế vẫn còn`);
+    rules.push(html`Hết giờ Tiệm mời bạn ra nhóm, thiết kế vẫn còn nguyên`);
     how = checklist(v, [
       { title: 'Chấp nhận lời mời', body: html`<p>Mở thư ${t.name} gửi tới <b>${v.inviteEmail}</b> → bấm <b>Chấp nhận</b>.</p>`, manual: 'Đã chấp nhận ✓' },
       { title: `Đăng nhập ${t.name} của bạn`, body: open, manual: t.login_url ? '' : 'Xong ✓' },
@@ -542,27 +556,29 @@ function slotBody(ctx, v) {
   <p class="hint">Mã chỉ dùng được 1 lần, dành riêng cho bạn — đừng chia sẻ.</p>`}
 </section>`;
   }
-  if (v.workspace) rules.push(html`Chỉ dùng ${v.workspace.name}`);
+  if (v.workspace) rules.push(html`Ngồi đúng ${v.workspace.name} của bạn nha`);
   return html`${ticket(ctx, v, v.workspace ? html`Đang dùng · ${v.workspace.name}` : 'Đang dùng')}
 ${how}
 ${t.login_type === 'redeem' ? '' : html`<details class="fold">
-  <summary>${rules.length} luật nhỏ xíu, đọc xíu nha</summary>
+  <summary>Mẹo dùng mượt ✨</summary>
   <ul>${rules.map((r) => html`<li>${r}</li>`)}</ul>
-  ${t.instructions ? lines(t.instructions) : ''}
+  ${t.instructions ? lines(extraNotes(t.instructions)) : ''}
 </details>`}
 <div class="zalo-row">
-  ${v.canExtend ? html`<a class="zbtn" href="${zalo}" rel="noopener"><b>Gia hạn</b><small>${v.extendedDays ? `đã thêm ${v.extendedDays} ngày · ` : ''}nhắn Zalo kèm email</small></a>` : ''}
-  <a class="zbtn" href="${zalo}" rel="noopener"><b>Báo lỗi</b><small>nhắn Zalo</small></a>
+  ${v.canExtend ? html`<a class="zbtn" href="${zalo}" rel="noopener"><b>Dùng thêm ngày</b><small>${v.extendedDays ? `đã thêm ${v.extendedDays} ngày · ` : ''}nhắn Tiệm kèm email nha</small></a>` : ''}
+  <a class="zbtn" href="${zalo}" rel="noopener"><b>Kẹt chỗ nào hả?</b><small>nhắn Tiệm, gỡ liền 💬</small></a>
 </div>
 ${tiemCard(ctx)}`;
 }
 
-export function mePage(ctx, { customer, view }) {
+export function mePage(ctx, { customer, view, cafe = null }) {
+  const theme = cafeTheme(cafe);
+  if (view && theme) view = { ...view, theme };
   const body = !customer
     ? tapScreen({ title: 'Ủa, chưa thấy bạn đâu', text: entryHint() })
     : html`${view ? slotBody(ctx, view) : tapScreen({ title: 'Chưa có món nào hết trơn', text: entryHint() })}
 ${hello(ctx, customer)}`;
-  return page(ctx, { title: 'Slot của tôi', body: html`${LOGO_SYMBOLS}${body}`, data: { page: 'me' } });
+  return page(ctx, { title: 'Slot của tôi', bodyClass: themeClass(theme).trim(), body: html`${LOGO_SYMBOLS}${backdrop(theme)}${theme ? band(theme) : ''}${body}`, data: { page: 'me' } });
 }
 
 /** "Về chúng tôi" — nằm trong phần công cụ làm việc (nút thứ 2 của khối trên trang quán). Thông tin lấy từ tiembanquyen.com. */

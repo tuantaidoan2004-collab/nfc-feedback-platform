@@ -49,6 +49,7 @@ function migrate(db) {
   add('slots', 'code_free', 'INTEGER NOT NULL DEFAULT 0');
   add('vouchers', 'device_id', 'TEXT');
   add('rotation_tasks', 'code_until', 'INTEGER');
+  add('accounts', 'cafe_id', 'INTEGER REFERENCES cafes(id)');
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS cafes_qs_slug ON cafes(qs_slug COLLATE NOCASE) WHERE qs_slug IS NOT NULL;
            CREATE UNIQUE INDEX IF NOT EXISTS one_qs_entry_per_cafe ON cards(cafe_id) WHERE kind = 'qs';
            CREATE INDEX IF NOT EXISTS vouchers_device ON vouchers(device_id) WHERE device_id IS NOT NULL;`);

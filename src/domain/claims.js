@@ -6,7 +6,7 @@ import { parseTotpSecret } from '../lib/totp.js';
 import { HOUR, DAY, nextLocalHour } from '../lib/time.js';
 import { latestEntry, deviceOtherPhones, isCafeOpen } from './presence.js';
 import { TICKET_MESSAGES } from './ticket.js';
-import { checkClaimQuota, pickAccount, pickRedeem, hasStock, toolAvailability, toolUsedToday, COUNTED } from './quota.js';
+import { checkClaimQuota, isOwner, pickAccount, pickRedeem, hasStock, toolAvailability, toolUsedToday, COUNTED } from './quota.js';
 import { hit } from '../lib/ratelimit.js';
 import { startOfLocalDay } from '../lib/time.js';
 import { scoreClaim, isCustomerLocked } from './risk.js';
@@ -22,7 +22,7 @@ export const MSG = {
   customer_locked: 'Số này đang tạm khoá. Nhắn Zalo Tiệm nếu có nhầm lẫn.',
   device_locked: 'Máy này đang tạm khoá. Nhắn Zalo Tiệm nếu có nhầm lẫn.',
   need_entry: TICKET_MESSAGES.need_ticket,
-  need_code_entry: 'Lấy mã cần đang ở quán: bạn chạm thẻ hoặc quét mã QR trên bàn (nếu mở ra trang quán thì bấm lại nút “Nhận công cụ làm việc miễn phí”), rồi quay lại đây bấm lấy mã nhé. Không ở quán thì nhắn Zalo Tiệm.',
+  need_code_entry: 'Lấy mã cần đang ở quán: bạn chạm thẻ của quán (ở quầy hoặc trên bàn) hoặc quét mã QR của quán (nếu mở ra trang quán thì bấm lại nút “Nhận công cụ làm việc miễn phí”), rồi quay lại đây bấm lấy mã nhé. Không ở quán thì nhắn Zalo Tiệm.',
   no_account: 'Công cụ này tạm hết slot. Chọn công cụ khác hoặc quay lại sau nhé.',
   risk_high: 'Yêu cầu chưa được chấp nhận. Nếu có nhầm lẫn, nhắn Zalo cho Tiệm nhé.',
   need_review: 'Hiện chưa duyệt được, bạn quay lại sau nhé.',
@@ -41,9 +41,11 @@ const rejected = (code, message) => ({ status: 'rejected', code, message });
 export function startClaim(ctx, { customer, deviceId, ip, toolId, inviteEmail }) {
   const now = ctx.now();
   const s = ctx.settings();
-  if (isCustomerLocked(customer, now)) return rejected('customer_locked', MSG.customer_locked);
+  // Chủ tiệm đang thử (OWNER_IDS): luôn nhận được tài khoản mới — bỏ qua khoá, hạn mức, chấm rủi ro. Vẫn phải ở quán + kho còn hàng.
+  const owner = isOwner(ctx, customer);
+  if (!owner && isCustomerLocked(customer, now)) return rejected('customer_locked', MSG.customer_locked);
   const device = get(ctx.db, 'SELECT * FROM devices WHERE id = ?', deviceId);
-  if (device?.status === 'locked') return rejected('device_locked', MSG.device_locked);
+  if (!owner && device?.status === 'locked') return rejected('device_locked', MSG.device_locked);
 
   // Lượt vào còn hạn = khách vừa mở trang quán bằng thẻ / mã QR trên bàn (vé từ QS) → đang ở quán. Không có cách nào khác.
   const entry = latestEntry(ctx, deviceId);
@@ -66,10 +68,10 @@ export function startClaim(ctx, { customer, deviceId, ip, toolId, inviteEmail })
   const result = tx(ctx.db, () => {
     const q = checkClaimQuota(ctx, { customer, tool, cafe, card, deviceId });
     if (!q.ok) return rejected(q.code, q.message);
-    if (!hasStock(ctx, tool)) return { status: 'unavailable', code: 'no_account', message: MSG.no_account };
+    if (!hasStock(ctx, tool, cafe.id)) return { status: 'unavailable', code: 'no_account', message: MSG.no_account };
 
     const prior = get(ctx.db, "SELECT COUNT(*) AS n, COALESCE(SUM(device_id = ?), 0) AS same FROM slots WHERE customer_id = ? AND status != 'rejected'", deviceId, customer.id);
-    const risk = scoreClaim(ctx, {
+    const risk = owner ? { level: 'green', score: 0, reasons: ['owner'] } : scoreClaim(ctx, {
       customer, device, tool, cafe, entry,
       otherPhones: deviceOtherPhones(ctx, deviceId, customer.id),
       isNewDevice: prior.n > 0 && prior.same === 0,
@@ -151,10 +153,10 @@ export function activateSlot(ctx, slotId) {
       run(ctx.db, "UPDATE slots SET status = 'active', redeem_id = ?, started_at = ?, expires_at = ? WHERE id = ?",
         code.id, now, slotEnd(ctx, tool, now), slot.id);
       logEvent(ctx, { type: 'slot_started', customerId: slot.customer_id, slotId: slot.id, data: { redeemId: code.id } });
-      noteSoldOut(ctx, tool);
+      noteSoldOut(ctx, tool, slot.cafe_id);
       return { ok: true, status: 'active' };
     }
-    const account = pickAccount(ctx, tool);
+    const account = pickAccount(ctx, tool, slot.cafe_id);
     if (!account) return { ok: false, code: 'no_account' };
     const seat = account.max_holders > 1 ? freeSeat(ctx, account) : null;
     if (tool.login_type === 'team_invite') {
@@ -162,7 +164,7 @@ export function activateSlot(ctx, slotId) {
       run(ctx.db, "UPDATE slots SET status = 'pending_invite', account_id = ?, seat = ? WHERE id = ?", account.id, seat, slot.id);
       createTask(ctx, { accountId: account.id, slotId: slot.id, kind: 'invite_member', reason: 'claim', detail: slot.invite_email });
       logEvent(ctx, { type: 'slot_pending_invite', customerId: slot.customer_id, accountId: account.id, slotId: slot.id });
-      noteSoldOut(ctx, tool);
+      noteSoldOut(ctx, tool, slot.cafe_id);
       return { ok: true, status: 'pending_invite' };
     }
     run(ctx.db, 'UPDATE accounts SET last_assigned_at = ? WHERE id = ?', now, account.id);
@@ -172,7 +174,7 @@ export function activateSlot(ctx, slotId) {
     run(ctx.db, "UPDATE slots SET status = 'active', account_id = ?, seat = ?, started_at = ?, expires_at = ? WHERE id = ?",
       account.id, seat, now, end, slot.id);
     logEvent(ctx, { type: 'slot_started', customerId: slot.customer_id, accountId: account.id, slotId: slot.id, data: seat ? { seat } : null });
-    noteSoldOut(ctx, tool);
+    noteSoldOut(ctx, tool, slot.cafe_id);
     return { ok: true, status: 'active' };
   });
 }
@@ -189,14 +191,25 @@ function noteCafeFull(ctx, cafe) {
   logEvent(ctx, { type: 'cafe_full', severity: 'yellow', cafeId: cafe.id, data: { reason: `đã giao đủ ${cafe.daily_quota} suất hôm nay — khách tới sau sẽ không nhận được` } });
 }
 
-function noteSoldOut(ctx, tool) {
+function noteSoldOut(ctx, tool, cafeId = null) {
   const x = toolAvailability(ctx).find((a) => a.tool.id === tool.id);
+  // Cả hệ thống còn hàng nhưng kho riêng của quán này + kho chung đã hết → khách ở quán này "Tạm hết" dù quán khác còn: báo riêng quán.
+  if (x && x.free > 0 && cafeId != null) return noteCafeSoldOut(ctx, tool, cafeId);
   if (!x || x.free > 0) return;
   const capHit = tool.daily_cap != null && toolUsedToday(ctx, tool.id) >= tool.daily_cap;
   const day = startOfLocalDay(ctx.now(), ctx.settings().timezoneOffsetMin);
   if (!hit(ctx, `soldout:${tool.id}:${day}:${capHit ? 'cap' : 'stock'}`, 1, 26 * HOUR).ok) return;
   logEvent(ctx, { type: capHit ? 'tool_daily_cap' : 'tool_sold_out', severity: capHit ? 'yellow' : 'red',
     data: { tool: tool.name, reason: capHit ? `đã giao đủ ${tool.daily_cap} lượt hôm nay` : 'hết tài khoản trong kho — nạp hàng' } });
+}
+
+function noteCafeSoldOut(ctx, tool, cafeId) {
+  const x = toolAvailability(ctx, null, cafeId).find((a) => a.tool.id === tool.id);
+  if (!x || x.free > 0 || (tool.daily_cap != null && toolUsedToday(ctx, tool.id) >= tool.daily_cap)) return;
+  const day = startOfLocalDay(ctx.now(), ctx.settings().timezoneOffsetMin);
+  if (!hit(ctx, `soldout:${tool.id}:${day}:cafe${cafeId}`, 1, 26 * HOUR).ok) return;
+  logEvent(ctx, { type: 'tool_sold_out', severity: 'red', cafeId,
+    data: { tool: tool.name, reason: 'hết kho riêng của quán và kho chung (quán khác vẫn còn) — nạp hàng cho quán này' } });
 }
 
 /** Bot (hoặc chủ) đã mời khách vào nhóm → bắt đầu tính giờ. */
@@ -437,8 +450,11 @@ export function currentSlotView(ctx, customerId, deviceId) {
     startedAt: slot.started_at,
     expiresAt: slot.expires_at,
     deviceMatches,
+    cafeId: slot.cafe_id, // cảnh riêng của quán trên trang vé
     codeRequests: slot.code_requests,
     codeRequestsLeft: Math.max(0, codeLimit(s, slot) - slot.code_requests),
+    // Lấy mã cần đang ở quán: lượt chạm / vé còn hạn tới lúc này (null = phải chạm lại thẻ của quán).
+    atCafeUntil: (() => { const e = active && deviceMatches ? latestEntry(ctx, deviceId) : null; return e ? e.at + s.entryTtlMin * 60_000 : null; })(),
     openWindow: win ? { id: win.id, expiresAt: win.expires_at } : null,
     endedAt: slot.ended_at,
     endReason: slot.end_reason,

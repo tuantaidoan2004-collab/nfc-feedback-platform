@@ -1,4 +1,4 @@
-// Kho tài khoản dùng chung cho mọi quán: nhập, sửa, xem. Trang quản trị (Kho tài khoản) và API kho cho QS (/hooks/qs/kho,
+// Kho tài khoản: kho chung cho mọi quán + kho riêng từng quán (accounts.cafe_id, chủ chọn 08/10): nhập, sửa, xem. Trang quản trị (Kho tài khoản) và API kho cho QS (/hooks/qs/kho,
 // docs/phoi-hop-voi-QS.md mục 11) cùng gọi các hàm ở đây, để hai nơi hiểu một dòng / một tài khoản giống hệt nhau.
 // Mật khẩu và khoá 2FA chỉ đi VÀO kho (mã hoá AES-GCM), không hàm nào ở đây trả chúng ra.
 import { get, all, run, tx } from '../db/index.js';
@@ -7,7 +7,7 @@ import { parseTotpSecret } from '../lib/totp.js';
 import { logEvent } from '../lib/events.js';
 import { DAY } from '../lib/time.js';
 import { createTask, completeTask, blockingHolders } from './claims.js';
-import { accountLoad, toolAvailability, toolUsedToday, USABLE_SQL } from './quota.js';
+import { accountLoad, toolAvailability, toolUsedToday, poolSeats, USABLE_SQL } from './quota.js';
 import { quarantineAccount } from './mail.js';
 
 export const MAX_WORKSPACES = 8; // ChatGPT: tối đa 8 Project (workspace) / tài khoản — chủ chọn 06/10
@@ -63,11 +63,22 @@ export function parseAccountLine(tool, line) {
 }
 
 /**
+ * Kho của 1 quán: mã quán (số) / mã quán QS → quán | null (kho chung). Trống / "chung" = kho chung. → {ok, cafe} | {ok:false, message}
+ */
+export function resolveKho(ctx, value, { byShop = false } = {}) {
+  const v = String(value ?? '').trim().toLowerCase();
+  if (!v || v === 'chung' || v === '0') return { ok: true, cafe: null };
+  const cafe = byShop ? get(ctx.db, 'SELECT * FROM cafes WHERE qs_slug = ? COLLATE NOCASE', v) : get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', Number.parseInt(v, 10) || 0);
+  return cafe ? { ok: true, cafe } : { ok: false, message: byShop ? `Không có quán QS "${v}" trong TBQ.` : 'Không có quán này.' };
+}
+
+/**
  * Thêm tài khoản vào kho. items: [{email, password, totp, max}] đã qua validateAccount / parseAccountLine (mục có `code` = lỗi, bỏ qua).
+ * cafeId: kho riêng của quán (chỉ giao cho khách ở quán đó); null = kho chung.
  * setup: công cụ "làm mới mỗi ngày" → tài khoản chờ chủ / bot tạo Project trước khi giao. dryRun: chỉ kiểm, không lưu.
  * → {added, ids, skipped: [{email, code, message}]}
  */
-export function addAccounts(ctx, { tool, items, label = null, setup = false, by, dryRun = false }) {
+export function addAccounts(ctx, { tool, items, label = null, setup = false, by, dryRun = false, cafeId = null }) {
   const skipped = [];
   const ids = [];
   const seen = new Set();
@@ -81,15 +92,15 @@ export function addAccounts(ctx, { tool, items, label = null, setup = false, by,
       const wait = !!tool.workspace_bot && !!setup;
       let max = Math.max(1, a.max ?? tool.holders_default ?? 1);
       if (tool.workspace_bot) max = Math.min(MAX_WORKSPACES, max);
-      const accountId = run(ctx.db, 'INSERT INTO accounts(tool_id, label, login_email, password_enc, totp_enc, max_holders, status, status_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      const accountId = run(ctx.db, 'INSERT INTO accounts(tool_id, label, login_email, password_enc, totp_enc, max_holders, status, status_reason, created_at, cafe_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         tool.id, label || null, key, a.password ? encrypt(a.password, ctx.config.dataKey) : null,
-        a.totp ? encrypt(a.totp, ctx.config.dataKey) : null, max, wait ? 'needs_rotation' : 'ready', wait ? 'Chờ bot tạo Project' : null, ctx.now()).lastInsertRowid;
+        a.totp ? encrypt(a.totp, ctx.config.dataKey) : null, max, wait ? 'needs_rotation' : 'ready', wait ? 'Chờ bot tạo Project' : null, ctx.now(), cafeId ?? null).lastInsertRowid;
       if (wait) createTask(ctx, { accountId, slotId: null, kind: 'rotate', reason: 'setup', detail: null });
       ids.push(Number(accountId));
     }
   };
   if (dryRun) doIt(); else tx(ctx.db, doIt);
-  if (!dryRun) logEvent(ctx, { type: 'accounts_imported', data: { tool: tool.slug, added: ids.length, by } });
+  if (!dryRun) logEvent(ctx, { type: 'accounts_imported', cafeId: cafeId ?? null, data: { tool: tool.slug, added: ids.length, by } });
   return { added: ids.length, ids: dryRun ? [] : ids, skipped };
 }
 
@@ -119,8 +130,11 @@ export function addRedeemCodes(ctx, { tool, values, label = null, by, dryRun = f
 /** Một tài khoản để đưa ra ngoài trang quản trị: KHÔNG có mật khẩu / khoá 2FA, chỉ cho biết đã có hay chưa. */
 export function publicAccount(ctx, a) {
   const tool = get(ctx.db, 'SELECT * FROM tools WHERE id = ?', a.tool_id);
+  const cafe = a.cafe_id ? get(ctx.db, 'SELECT name, qs_slug FROM cafes WHERE id = ?', a.cafe_id) : null;
   return {
     id: a.id, tool: tool.slug, label: a.label || null, email: a.login_email, status: a.status, statusReason: a.status_reason || null,
+    // Kho: null = kho chung; có = kho riêng của quán (shop = mã quán QS nếu có).
+    kho: cafe ? { cafeId: a.cafe_id, name: cafe.name, shop: cafe.qs_slug || null } : null,
     inUse: accountLoad(ctx, a.id), maxHolders: a.max_holders, hasPassword: !!a.password_enc, has2fa: !!a.totp_enc,
     usable: !!get(ctx.db, `SELECT ${USABLE_SQL} AS u FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE a.id = ?`, a.id).u,
     pendingTask: !!get(ctx.db, "SELECT 1 FROM rotation_tasks WHERE account_id = ? AND kind = 'rotate' AND status = 'todo'", a.id),
@@ -129,13 +143,14 @@ export function publicAccount(ctx, a) {
   };
 }
 
-/** Danh sách tài khoản (lọc theo công cụ / trạng thái), không có mật khẩu. */
-export function listAccounts(ctx, { tool = null, status = null, limit = 200, offset = 0 } = {}) {
+/** Danh sách tài khoản (lọc theo công cụ / trạng thái / kho), không có mật khẩu. kho: undefined = mọi kho, null = kho chung, quán = kho riêng. */
+export function listAccounts(ctx, { tool = null, status = null, kho = undefined, limit = 200, offset = 0 } = {}) {
   const rows = all(ctx.db,
     `SELECT a.* FROM accounts a JOIN tools t ON t.id = a.tool_id
      WHERE (:tool IS NULL OR t.id = :tool) AND (:status IS NULL OR a.status = :status)
+       AND (:anyKho = 1 OR (:kho IS NULL AND a.cafe_id IS NULL) OR a.cafe_id = :kho)
      ORDER BY t.sort, a.id LIMIT :limit OFFSET :offset`,
-    { tool: tool?.id ?? null, status, limit: Math.min(500, Math.max(1, limit)), offset: Math.max(0, offset) });
+    { tool: tool?.id ?? null, status, anyKho: kho === undefined ? 1 : 0, kho: kho?.id ?? null, limit: Math.min(500, Math.max(1, limit)), offset: Math.max(0, offset) });
   return rows.map((a) => publicAccount(ctx, a));
 }
 
@@ -144,6 +159,8 @@ export function stockSummary(ctx) {
   const counts = all(ctx.db, 'SELECT tool_id, status, COUNT(*) AS n FROM accounts GROUP BY tool_id, status');
   const codes = new Map(all(ctx.db, "SELECT tool_id, COUNT(*) AS n FROM redeem_codes WHERE status = 'ready' GROUP BY tool_id").map((r) => [r.tool_id, r.n]));
   const avail = new Map(toolAvailability(ctx).map((x) => [x.tool.id, x]));
+  const cafes = new Map(all(ctx.db, 'SELECT id, name, qs_slug FROM cafes').map((c) => [c.id, c]));
+  const pools = poolSeats(ctx);
   return all(ctx.db, 'SELECT * FROM tools ORDER BY sort, id').map((t) => {
     const accounts = Object.fromEntries(ACCOUNT_STATUSES.map((s) => [s, 0]));
     for (const c of counts) if (c.tool_id === t.id) accounts[c.status] = c.n;
@@ -153,6 +170,11 @@ export function stockSummary(ctx) {
       free: a ? a.free : 0, reserved: a ? a.reserved : 0, expiringSoon: a ? a.expiring : 0,
       usedToday: toolUsedToday(ctx, t.id), dailyCap: t.daily_cap ?? null, holdersDefault: t.holders_default,
       accounts, redeemCodes: t.login_type === 'redeem' ? codes.get(t.id) || 0 : undefined,
+      // Chỗ trống theo kho (chưa trừ dự phòng / lượt mỗi ngày): kho chung + từng kho riêng của quán.
+      kho: pools.filter((p) => p.tool_id === t.id).map((p) => {
+        const c = p.cafe_id ? cafes.get(p.cafe_id) : null;
+        return { cafeId: p.cafe_id ?? null, name: c ? c.name : 'Kho chung', shop: c?.qs_slug || null, accounts: p.n, free: p.free };
+      }),
     };
   });
 }
@@ -164,7 +186,8 @@ export function dropRotateTasks(ctx, accountId, by) {
 }
 
 /**
- * Sửa 1 tài khoản (API kho). patch: {label, holders, password, totp, keepPassword, status: 'ready' | 'retired' | 'quarantined'}.
+ * Sửa 1 tài khoản (API kho). patch: {label, holders, password, totp, keepPassword, status: 'ready' | 'retired' | 'quarantined', cafeId}.
+ *  - cafeId: chuyển kho — id quán = kho riêng của quán đó, null = kho chung. Khách đang dùng vẫn dùng tiếp; chỉ lượt giao sau theo kho mới.
  *  - Tài khoản đang có việc "đổi mật khẩu / làm mới" (sau lượt dùng, cách ly, 6h sáng): gửi mật khẩu mới hoặc status 'ready'
  *    = xong việc đó, đi đúng đường của nút "Đã xong" ở Việc tay (cùng điều kiện: loại mật khẩu phải có mật khẩu mới…).
  *    Còn khách đang dùng thì chưa mở lại (status vẫn needs_rotation).
@@ -196,9 +219,12 @@ export function updateAccount(ctx, accountId, patch, by) {
     if (!totp) return fail('bad_totp', 'Khoá 2FA không hợp lệ (chuỗi chữ A–Z, số 2–7, hoặc link otpauth://).');
   }
   const label = has('label') ? (String(patch.label ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120) || null) : undefined;
+  if (has('cafeId') && patch.cafeId !== null && !get(ctx.db, 'SELECT 1 FROM cafes WHERE id = ?', Number(patch.cafeId) || 0)) return fail('cafe_unknown', 'Không có quán này.');
+  const moveKho = has('cafeId') && (patch.cafeId === null ? null : Number(patch.cafeId)) !== (a.cafe_id ?? null);
 
   try { return tx(ctx.db, () => {
     if (label !== undefined) run(ctx.db, 'UPDATE accounts SET label = ? WHERE id = ?', label, a.id);
+    if (moveKho) run(ctx.db, 'UPDATE accounts SET cafe_id = ? WHERE id = ?', patch.cafeId === null ? null : Number(patch.cafeId), a.id);
     if (holders != null) run(ctx.db, 'UPDATE accounts SET max_holders = ? WHERE id = ?', holders, a.id);
     let message = 'Đã lưu.';
     const task = get(ctx.db, "SELECT id FROM rotation_tasks WHERE account_id = ? AND kind = 'rotate' AND status = 'todo' ORDER BY id LIMIT 1", a.id);
@@ -230,7 +256,8 @@ export function updateAccount(ctx, accountId, patch, by) {
         message = 'Đã mở lại, tài khoản sẵn sàng giao.';
       }
     }
-    logEvent(ctx, { type: 'account_updated', accountId: a.id, data: { by, fields: Object.keys(patch).filter((k) => has(k)), status: patch.status || null } });
+    logEvent(ctx, { type: 'account_updated', accountId: a.id, data: { by, fields: Object.keys(patch).filter((k) => has(k) && (k !== 'cafeId' || moveKho)), status: patch.status || null,
+      ...(moveKho ? { kho: patch.cafeId === null ? 'Kho chung' : get(ctx.db, 'SELECT name FROM cafes WHERE id = ?', Number(patch.cafeId)).name } : {}) } });
     return { ok: true, message, account: publicAccount(ctx, get(ctx.db, 'SELECT * FROM accounts WHERE id = ?', a.id)) };
   }); } catch (e) {
     // Lỗi nghiệp vụ giữa chừng → cả lần sửa bị huỷ (rollback), trả lỗi rõ ràng.

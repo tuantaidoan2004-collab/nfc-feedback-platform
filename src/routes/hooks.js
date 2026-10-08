@@ -11,7 +11,7 @@ import { issueQsVoucher, formatCode } from '../domain/vouchers.js';
 import { get, run } from '../db/index.js';
 import { startOfLocalDay } from '../lib/time.js';
 import { COUNTED, toolAvailability, toolClosing } from '../domain/quota.js';
-import { addAccounts, addRedeemCodes, validateAccount, parseAccountLine, listAccounts, stockSummary, updateAccount, publicAccount, ACCOUNT_STATUSES } from '../domain/stock.js';
+import { addAccounts, addRedeemCodes, resolveKho, validateAccount, parseAccountLine, listAccounts, stockSummary, updateAccount, publicAccount, ACCOUNT_STATUSES } from '../domain/stock.js';
 
 /** Chữ ký: header X-Signature = sha256=<HMAC(MAIL_WEBHOOK_SECRET, nguyên body)> (Cloudflare Email Worker trong extras/ tự ký). */
 function verifyMailAuth(rq, raw) {
@@ -101,8 +101,8 @@ function cafeStatus(ctx, cafe) {
     shop: cafe.qs_slug, name: cafe.name, status: cafe.status, pausedBy: cafe.paused_by || null,
     dailyQuota: cafe.daily_quota, usedToday: used, link: `${ctx.config.baseUrl}/qs/${cafe.qs_slug}`,
     // Khối "Công cụ làm việc" trên trang quán hiện "Tạm hết" đúng lúc: công cụ nào khách ở quán này nhận được ngay bây giờ.
-    // Chỉ có / không — không số tài khoản, không email. Kho dùng chung mọi quán nên `available` = quán còn suất + kho còn chỗ.
-    tools: toolAvailability(ctx).map(({ tool, free }) => {
+    // Chỉ có / không — không số tài khoản, không email. `available` = quán còn suất + kho riêng của quán hoặc kho chung còn chỗ.
+    tools: toolAvailability(ctx, null, cafe.id).map(({ tool, free }) => {
       const closing = toolClosing(ctx, tool);
       const open = cafe.status === 'active' && used < cafe.daily_quota;
       return { slug: tool.slug, name: tool.name, available: open && free > 0 && !closing, reason: cafe.status !== 'active' ? 'cafe_paused' : !open ? 'cafe_full' : closing ? 'tool_closing' : free > 0 ? null : 'sold_out' };
@@ -208,7 +208,14 @@ export function registerKhoApi(router) {
       if (body.status && !ACCOUNT_STATUSES.includes(body.status)) return bad('bad_status', `status: ${ACCOUNT_STATUSES.join(' | ')}`);
       const limit = Number.parseInt(body.limit, 10) || 200;
       const offset = Number.parseInt(body.offset, 10) || 0;
-      return rq.sendJson(200, { ok: true, accounts: listAccounts(ctx, { tool, status: body.status || null, limit, offset }) });
+      // shop: "<mã quán QS>" = kho riêng của quán đó; "chung" = kho chung; bỏ trống = mọi kho.
+      let kho;
+      if (Object.hasOwn(body, 'shop') && body.shop !== undefined) {
+        const k = resolveKho(ctx, body.shop, { byShop: true });
+        if (!k.ok) return bad('shop_unknown', k.message, 404);
+        kho = k.cafe;
+      }
+      return rq.sendJson(200, { ok: true, accounts: listAccounts(ctx, { tool, status: body.status || null, kho, limit, offset }) });
     }
 
     if (action === 'get') {
@@ -221,8 +228,12 @@ export function registerKhoApi(router) {
       if (!tool) return bad('tool_unknown', 'Không có công cụ này (xem action summary để biết mã công cụ).', 404);
       const label = String(body.label ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120) || null;
       const dryRun = body.dryRun === true;
+      // shop: "<mã quán QS>" → kho riêng của quán đó (chỉ khách ở quán đó nhận); bỏ trống = kho chung.
+      const kho = resolveKho(ctx, body.shop, { byShop: true });
+      if (!kho.ok) return bad('shop_unknown', kho.message, 404);
       let r;
       if (tool.login_type === 'redeem') {
+        if (kho.cafe) return bad('shop_not_supported', 'Mã / link nhận quà chỉ có kho chung — bỏ shop.');
         const values = Array.isArray(body.codes) ? body.codes : Array.isArray(body.lines) ? body.lines : null;
         if (!values) return bad('no_items', 'Công cụ mã / link nhận quà: gửi codes: ["…"].');
         if (values.length > MAX_ADD) return bad('too_many_items', `Tối đa ${MAX_ADD} mục mỗi lần.`);
@@ -234,10 +245,10 @@ export function registerKhoApi(router) {
         if (!items) return bad('no_items', 'Gửi accounts: [{email, password, totp, holders}] hoặc lines: ["email|mật khẩu"].');
         if (items.length > MAX_ADD) return bad('too_many_items', `Tối đa ${MAX_ADD} tài khoản mỗi lần.`);
         // Công cụ "làm mới mỗi ngày" (ChatGPT): mặc định chờ tạo Project rồi mới giao, giống ô tick ở trang quản trị.
-        r = addAccounts(ctx, { tool, items, label, setup: body.setup !== false, by: KHO_BY, dryRun });
+        r = addAccounts(ctx, { tool, items, label, setup: body.setup !== false, by: KHO_BY, dryRun, cafeId: kho.cafe?.id ?? null });
       }
-      if (!dryRun && r.added) logEvent(ctx, { type: 'qs_api_stock_added', data: { tool: tool.slug, added: r.added, skipped: r.skipped.length } });
-      return rq.sendJson(dryRun ? 200 : r.added ? 201 : 200, { ok: true, dryRun, tool: tool.slug, ...r });
+      if (!dryRun && r.added) logEvent(ctx, { type: 'qs_api_stock_added', cafeId: kho.cafe?.id ?? null, data: { tool: tool.slug, added: r.added, skipped: r.skipped.length } });
+      return rq.sendJson(dryRun ? 200 : r.added ? 201 : 200, { ok: true, dryRun, tool: tool.slug, shop: kho.cafe ? kho.cafe.qs_slug || null : 'chung', ...r });
     }
 
     if (action === 'update') {
@@ -245,7 +256,13 @@ export function registerKhoApi(router) {
       if (!a) return bad('not_found', 'Không có tài khoản này.', 404);
       const patch = {};
       for (const k of ['label', 'holders', 'password', 'totp', 'keepPassword', 'status']) if (Object.hasOwn(body, k)) patch[k] = body[k];
-      if (!Object.keys(patch).length) return bad('nothing', 'Không có gì để sửa (label, holders, password, totp, status).');
+      // Chuyển kho: shop "<mã quán QS>" = kho riêng của quán; "chung" / null = kho chung.
+      if (Object.hasOwn(body, 'shop')) {
+        const k = resolveKho(ctx, body.shop, { byShop: true });
+        if (!k.ok) return bad('shop_unknown', k.message, 404);
+        patch.cafeId = k.cafe?.id ?? null;
+      }
+      if (!Object.keys(patch).length) return bad('nothing', 'Không có gì để sửa (label, holders, password, totp, status, shop).');
       const r = updateAccount(ctx, a.id, patch, KHO_BY);
       return r.ok ? rq.sendJson(200, r) : bad(r.code, r.message, r.code === 'not_found' ? 404 : r.code === 'task_rejected' || r.code === 'not_usable' ? 409 : 400);
     }

@@ -446,7 +446,7 @@
       if (r.unauthorized) { location.reload(); return; }
       const hint = $('[data-code-hint]', box);
       if (hint && typeof r.codeRequestsLeft === 'number') {
-        hint.textContent = r.codeRequestsLeft > 0 ? `Còn ${r.codeRequestsLeft} lần lấy mã · mỗi lần cần đang ở quán, trên máy này` : 'Đã hết lượt lấy mã cho slot này.';
+        hint.textContent = r.codeRequestsLeft > 0 ? hint.textContent.replace(/Còn \d+ lần/, `Còn ${r.codeRequestsLeft} lần`) : 'Đã hết lượt lấy mã cho slot này.';
       }
       if (r.status === 'totp') { showTotp(r); return; }
       if (r.status === 'open') {

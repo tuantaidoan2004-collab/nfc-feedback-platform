@@ -14,14 +14,14 @@ import { createBatch, voidVoucher, voidBatch, unbindVoucher, extendSlot, formatC
 import { lockCustomer, unlockCustomer, addStrike, lockDevice, unlockDevice, lockCard, unlockCard, customerRisk } from '../domain/risk.js';
 import { eraseCustomer } from '../domain/auth.js';
 import { deliverManualCode, MANUAL_CODE_KINDS } from '../domain/codes.js';
-import { accountLoad, toolAvailability, toolUsedToday, USABLE_SQL, COUNTED } from '../domain/quota.js';
+import { accountLoad, toolAvailability, toolUsedToday, poolSeats, USABLE_SQL, COUNTED } from '../domain/quota.js';
 import { quarantineAccount, DEFAULT_TOOL_PATTERNS } from '../domain/mail.js';
 import { statsSince, cafeReport } from '../domain/stats.js';
 import { freeTextProblem, POLICY_MESSAGE } from '../lib/policy.js';
 import { rotateBotSeen } from './worker.js';
 import { QS_EVENT } from '../qs-event.js';
 import { createCafe, shopFromInput, qsPageInfo } from '../domain/presence.js';
-import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes, updateAccount, dropRotateTasks } from '../domain/stock.js';
+import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes, updateAccount, dropRotateTasks, resolveKho } from '../domain/stock.js';
 import {
   adminPage, csrfField, postButton, table, t, sev, badge, csvFile, eventSummary, secHead, stat, chips, link, icon, dayLabel,
   EVENT_LABEL, TICKET_ERROR, SLOT_STATUS, ACCOUNT_STATUS, LOGIN_TYPE, TASK_KIND, TASK_REASON, END_REASON, REUSE, ALERT_HINT, ACCOUNT_TONE, SLOT_TONE,
@@ -82,8 +82,10 @@ const A = (fn) => async (rq) => {
   const r = (await fn(rq, f)) || {};
   if (r.rendered) return; // fn đã tự vẽ lại trang (vd. form lỗi giữ nguyên chữ đã gõ)
   const to = typeof f.back === 'string' && f.back.startsWith('/admin') ? f.back : (r.to || '/admin');
-  const base = to.replace(/([?&])msg=[^&]*&?/g, '$1').replace(/[?&]$/, '');
-  rq.redirect(r.msg ? `${base}${base.includes('?') ? '&' : '?'}msg=${encodeURIComponent(r.msg)}` : base);
+  // "#them" phải nằm sau msg=… (để trước thì msg rơi vào phần # → không hiện báo).
+  const [path, hash] = to.split('#');
+  const base = path.replace(/([?&])msg=[^&]*&?/g, '$1').replace(/[?&]$/, '');
+  rq.redirect(`${r.msg ? `${base}${base.includes('?') ? '&' : '?'}msg=${encodeURIComponent(r.msg)}` : base}${hash ? `#${hash}` : ''}`);
 };
 
 /** JSON cho trang trực duyệt: POST cần header x-csrf. */
@@ -296,9 +298,44 @@ function waitingByTool(ctx) {
 }
 const waitingText = (w) => (w ? `${w.n} tài khoản chờ ${w.setup >= w.n ? 'tạo Project' : 'việc tay'}` : null);
 
+/**
+ * Kho riêng từng quán: chỗ còn giao theo kho của mỗi món — chỉ món nào có kho riêng mới có dòng này.
+ * → Map(toolId → "chung 0 · Orenchi 5 · Bamos Coffee 10") (chưa trừ dự phòng / lượt mỗi ngày).
+ */
+function khoText(ctx) {
+  const names = new Map(all(ctx.db, 'SELECT id, name FROM cafes').map((c) => [c.id, c.name]));
+  const by = new Map();
+  for (const r of poolSeats(ctx)) (by.get(r.tool_id) || by.set(r.tool_id, []).get(r.tool_id)).push(r);
+  const out = new Map();
+  for (const [toolId, list] of by) {
+    if (!list.some((r) => r.cafe_id != null)) continue;
+    const shared = list.find((r) => r.cafe_id == null)?.free ?? 0;
+    out.set(toolId, [`chung ${Math.max(0, shared)}`, ...list.filter((r) => r.cafe_id != null).map((r) => `${names.get(r.cafe_id) || `quán #${r.cafe_id}`} ${Math.max(0, r.free)}`)].join(' · '));
+  }
+  return out;
+}
+
+/**
+ * Quán đang mở mà khách ở đó không nhận được món (kho riêng của quán + kho chung đã hết) trong khi quán khác vẫn còn.
+ * → Map(toolId → [tên quán]). Chưa có kho riêng nào thì mọi quán chung 1 kho → không có gì để báo.
+ */
+function cafeShortages(ctx, stock) {
+  const out = new Map();
+  if (!get(ctx.db, "SELECT 1 FROM accounts WHERE cafe_id IS NOT NULL AND status != 'retired' LIMIT 1")) return out;
+  const left = new Set(stock.filter((x) => x.free > 0).map((x) => x.tool.id));
+  for (const c of all(ctx.db, "SELECT id, name FROM cafes WHERE status = 'active' ORDER BY id")) {
+    for (const x of toolAvailability(ctx, null, c.id)) {
+      if (left.has(x.tool.id) && x.free <= 0) (out.get(x.tool.id) || out.set(x.tool.id, []).get(x.tool.id)).push(c.name);
+    }
+  }
+  return out;
+}
+
 function stockTiles(ctx, stock) {
   if (!stock.length) return html`<p class="empty">Chưa bật món nào — vào <a href="/admin/tools">Công cụ</a> để bật.</p>`;
   const waiting = waitingByTool(ctx);
+  const kho = khoText(ctx);
+  const short = cafeShortages(ctx, stock);
   return html`<div class="stock-row">${stock.map(({ tool, free, reserved, expiring }) => {
     const wait = waitingText(waiting.get(tool.id));
     const today = toolUsedToday(ctx, tool.id);
@@ -306,6 +343,7 @@ function stockTiles(ctx, stock) {
     return html`<a class="stock ${free <= 0 ? 'red' : free <= 3 ? 'yellow' : ''}" href="/admin/accounts?tool=${tool.id}">
       <b>${tool.name}</b><span class="big">${free <= 0 ? (capHit ? 'Hết lượt' : 'Hết kho') : free}</span>
       <span class="muted">${free > 0 ? 'còn giao · ' : ''}hôm nay ${today}${tool.daily_cap != null ? `/${tool.daily_cap}` : ''}${reserved ? ` · +${reserved} dự phòng` : ''}</span>
+      ${kho.get(tool.id) ? html`<span class="muted">kho: ${kho.get(tool.id)}</span>` : ''}${short.get(tool.id) ? html`<span class="warn-text">Hết ở quán: ${short.get(tool.id).join(', ')}</span>` : ''}
       ${expiring ? html`<span class="warn-text">${expiring} tài khoản hết hạn trong 24 giờ</span>` : ''}${wait ? html`<span class="warn-text">${wait}</span>` : ''}</a>`;
   })}</div>`;
 }
@@ -423,6 +461,7 @@ export function registerAdminRoutes(router) {
     const stock = toolAvailability(ctx);
     const tasks = todoTasks(ctx);
     const out = stock.filter((x) => x.free <= 0);
+    const short = [...cafeShortages(ctx, stock)].map(([toolId, cafes]) => `${stock.find((x) => x.tool.id === toolId).tool.name} (${cafes.join(', ')})`);
     // "Việc của bạn hôm nay" như app Bot nhắc hạn: mỗi viên = 1 loại việc, bấm sang đúng trang để làm.
     const todo = [
       [nav.alerts, 'báo đỏ trong 2 giờ', '/admin/live', true],
@@ -430,6 +469,7 @@ export function registerAdminRoutes(router) {
       [nav.extend, 'khách xin gia hạn', '/admin/gia-han', false],
       [nav.canva, 'khách Canva bot chưa mời / gỡ được', '/admin/canva', true],
       [out.length, `món không giao được: ${out.map((x) => x.tool.name).join(', ')}`, '#kho', false],
+      [short.length, `món hết ở quán (kho riêng + kho chung): ${short.join('; ')}`, '#kho', false],
       [nav.orphans, 'mã mồ côi trong 24 giờ', '/admin/mails', true],
     ].filter(([n]) => n > 0);
     view(rq, {
@@ -482,6 +522,14 @@ ${secHead('Cảnh báo 2 giờ qua', { link: ['/admin/events?sev=red', 'Mở Nh�
       title: x.title, howTo: x.howTo, kept: x.kept.length ? KEPT_TEXT(x.kept) : null, canCode: x.canCode, codeOpen: x.codeOpen,
       code: x.code ? { value: x.code.value, atText: t(x.code.at, o) } : null, lastError: k.last_error ? `Bot báo lỗi (${k.attempts} lần): ${k.last_error}` : null };
   };
+  const liveStock = (ctx) => {
+    const stock = toolAvailability(ctx);
+    const w = waitingByTool(ctx);
+    const kho = khoText(ctx);
+    const short = cafeShortages(ctx, stock);
+    return stock.map(({ tool, free, reserved, expiring }) => ({ id: tool.id, name: tool.name, today: toolUsedToday(ctx, tool.id), cap: tool.daily_cap, free, reserved, expiring,
+      waiting: waitingText(w.get(tool.id)), kho: kho.get(tool.id) || null, short: short.get(tool.id)?.join(', ') || null }));
+  };
   router.get('/admin/api/live', J((rq) => {
     const { ctx } = rq;
     const o = off(ctx);
@@ -489,8 +537,7 @@ ${secHead('Cảnh báo 2 giờ qua', { link: ['/admin/events?sev=red', 'Mở Nh�
       ok: true,
       now: ctx.now(),
       // Kho hôm nay: giao bao nhiêu / giới hạn, còn giao được bao nhiêu — chủ thấy sắp hết để nạp hàng / nâng lượt.
-      stock: ((w) => toolAvailability(ctx).map(({ tool, free, reserved, expiring }) => ({ id: tool.id, name: tool.name, today: toolUsedToday(ctx, tool.id), cap: tool.daily_cap, free, reserved, expiring,
-        waiting: waitingText(w.get(tool.id)) })))(waitingByTool(ctx)),
+      stock: liveStock(ctx),
       tasks: todoTasks(ctx).map((k) => ({ ...liveTaskInfo(ctx, k, o),
         id: k.id, kind: k.kind, kindText: TASK_KIND[k.kind] || k.kind, setup: k.reason === 'setup', tool: k.tool_name, toolId: k.tool_id, email: k.login_email, accountId: k.account_id, detail: k.detail,
         reason: TASK_REASON[k.reason] || k.reason, reasonCode: k.reason, loginType: k.login_type, createdText: t(k.created_at, o), phoneMasked: k.phone ? maskPhone(k.phone) : null,
@@ -1019,34 +1066,45 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
     const toolId = Number(rq.query.tool) || 0;
     // Mặc định ẩn tài khoản "Ngừng dùng" (đã dọn) cho gọn; bấm chip "Ngừng dùng" để xem lại.
     const status = ACCOUNT_STATUS[rq.query.status] ? rq.query.status : '';
+    // Kho: '' = mọi kho, 'chung' = kho chung, id quán = kho riêng của quán đó.
+    const cafes = all(ctx.db, 'SELECT id, name FROM cafes ORDER BY id');
+    const kho = rq.query.kho === 'chung' || cafes.some((c) => String(c.id) === rq.query.kho) ? rq.query.kho : '';
     const where = [status ? 'a.status = :status' : "a.status != 'retired'"];
     const params = status ? { status } : {};
     if (toolId) { where.push('a.tool_id = :tool'); params.tool = toolId; }
+    if (kho === 'chung') where.push('a.cafe_id IS NULL');
+    else if (kho) { where.push('a.cafe_id = :kho'); params.kho = Number(kho); }
     const rows = all(ctx.db,
-      `SELECT a.*, t.name AS tool_name, t.reuse, t.slot_hours, t.account_days, ${USABLE_SQL} AS usable FROM accounts a JOIN tools t ON t.id = a.tool_id
+      `SELECT a.*, t.name AS tool_name, t.reuse, t.slot_hours, t.account_days, ${USABLE_SQL} AS usable, k.name AS kho_name
+       FROM accounts a JOIN tools t ON t.id = a.tool_id LEFT JOIN cafes k ON k.id = a.cafe_id
        WHERE ${where.join(' AND ')} ORDER BY t.sort, a.status != 'ready', a.id LIMIT 500`, params);
+    const khoOf = new Map(all(ctx.db, `SELECT cafe_id, COUNT(*) AS n FROM accounts WHERE status != 'retired' ${toolId ? 'AND tool_id = ?' : ''} GROUP BY cafe_id`, ...(toolId ? [toolId] : [])).map((r) => [r.cafe_id, r.n]));
+    const khoNote = khoText(ctx);
+    const khoOpts = { chung: 'Kho chung — mọi quán', ...Object.fromEntries(cafes.map((c) => [String(c.id), `Kho riêng: ${c.name}`])) };
     const stockOf = new Map(all(ctx.db, "SELECT tool_id, COUNT(*) AS n FROM accounts WHERE status != 'retired' GROUP BY tool_id").map((r) => [r.tool_id, r.n]));
     const codesOf = new Map(all(ctx.db, "SELECT tool_id, SUM(status = 'ready') AS n, COUNT(*) AS total FROM redeem_codes GROUP BY tool_id").map((r) => [r.tool_id, r]));
     const byStatus = new Map(all(ctx.db, `SELECT status, COUNT(*) AS n FROM accounts ${toolId ? 'WHERE tool_id = ?' : ''} GROUP BY status`, ...(toolId ? [toolId] : [])).map((r) => [r.status, r.n]));
     const avail = new Map(toolAvailability(ctx).map((x) => [x.tool.id, x]));
     const taskOf = new Map(all(ctx.db, "SELECT account_id, MIN(id) AS id FROM rotation_tasks WHERE status = 'todo' GROUP BY account_id").map((r) => [r.account_id, r.id]));
     const toolCount = (x) => (x.login_type === 'redeem' ? codesOf.get(x.id)?.n || 0 : stockOf.get(x.id) || 0);
-    const url = ({ tool = toolId, st = status } = {}) => {
+    const url = ({ tool = toolId, st = status, k = kho } = {}) => {
       const p = new URLSearchParams();
       if (tool) p.set('tool', tool);
       if (st) p.set('status', st);
+      if (k) p.set('kho', k);
       return `/admin/accounts${p.size ? `?${p}` : ''}`;
     };
     const toolOpts = Object.fromEntries(tools.map((x) => [String(x.id), `${x.name} (${LOGIN_TYPE[x.login_type]})`]));
     // Form nhập: chỉ công cụ đang bật, chọn sẵn công cụ đang lọc (dán xong CapCut rồi dán Adobe không bị rơi nhầm vào công cụ đầu danh sách).
     const importOpts = Object.fromEntries(tools.filter((x) => x.enabled).map((x) => [String(x.id), toolOpts[String(x.id)]]));
     const wsTools = tools.filter((x) => x.enabled && x.workspace_bot);
+    const labels = all(ctx.db, "SELECT label, COUNT(*) AS n FROM accounts WHERE status != 'retired' AND label IS NOT NULL GROUP BY label ORDER BY label LIMIT 50");
     const accRow = (a) => {
       const load = accountLoad(ctx, a.id);
       const task = taskOf.get(a.id);
       return [
         html`<a href="/admin/accounts/${a.id}">${a.id}</a>`,
-        html`${link.acc(a.id, a.login_email)}${a.label ? html`<span class="sub">${a.label}</span>` : ''}`,
+        html`${link.acc(a.id, a.login_email)}${a.kho_name ? html` ${badge(`Kho ${a.kho_name}`, 'info')}` : ''}${a.label ? html`<span class="sub">${a.label}</span>` : ''}`,
         html`${badge(ACCOUNT_STATUS[a.status] || a.status, ACCOUNT_TONE[a.status] ?? 'yellow')}${a.totp_enc ? html` ${badge('2FA', 'info')}` : ''}${a.usable || a.status === 'retired' ? '' : html` ${badge('Thiếu mật khẩu / 2FA — không giao', 'red')}`}${a.status !== 'retired' && accountExpiry(a, ctx.now()).expired ? html` ${badge('Quá hạn — không giao', 'red')}` : ''}${a.status_reason ? html`<span class="sub">${a.status_reason}</span>` : ''}${task ? html`<a class="go" href="/admin/tasks#task-${task}">Làm việc tay ›</a>` : ''}`,
         load ? html`<a href="/admin/slots?account=${a.id}" title="Xem khách đang dùng">${load}/${a.max_holders}</a>` : `0/${a.max_holders}`,
         t(a.last_assigned_at, o), t(a.last_rotated_at, o),
@@ -1061,7 +1119,7 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
       const av = avail.get(x.id);
       return html`${secHead(x.name, {
         n: list.length,
-        note: html`${LOGIN_TYPE[x.login_type] || x.login_type} · còn giao được <b>${av?.free ?? 0}</b>${av?.reserved ? ` (+${av.reserved} dự phòng)` : ''}${x.enabled ? '' : ' · món đang tắt'}`,
+        note: html`${LOGIN_TYPE[x.login_type] || x.login_type} · còn giao được <b>${av?.free ?? 0}</b>${av?.reserved ? ` (+${av.reserved} dự phòng)` : ''}${khoNote.get(x.id) ? ` · kho: ${khoNote.get(x.id)}` : ''}${x.enabled ? '' : ' · món đang tắt'}`,
         link: [`/admin/tools/${x.id}`, 'Cài đặt món'],
       })}
 ${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối'], list.map(accRow),
@@ -1078,17 +1136,25 @@ ${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Gia
       body: html`${chips([[url({ tool: 0 }), 'Mọi món', null, !toolId], ...tools.filter((x) => x.enabled || toolCount(x)).map((x) => [url({ tool: x.id }), x.name, toolCount(x), toolId === x.id])])}
 ${chips([[url({ st: '' }), 'Đang có', [...byStatus].filter(([k]) => k !== 'retired').reduce((n, [, v]) => n + v, 0), !status],
   ...Object.entries(ACCOUNT_STATUS).map(([k, label]) => [url({ st: k }), label, byStatus.get(k) || 0, status === k])])}
+${cafes.length ? chips([[url({ k: '' }), 'Mọi kho', null, !kho], [url({ k: 'chung' }), 'Kho chung', khoOf.get(null) || 0, kho === 'chung'],
+  ...cafes.filter((c) => khoOf.get(c.id) || kho === String(c.id)).map((c) => [url({ k: String(c.id) }), `Kho ${c.name}`, khoOf.get(c.id) || 0, kho === String(c.id)])]) : ''}
 ${sections}
 ${!rows.length && !toolId && !sections.some(Boolean) ? html`<p class="empty">${status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống.'}</p>` : ''}
 ${empty.length ? html`<p class="warn">Chưa có hàng: ${empty.map((x, i) => html`${i ? ', ' : ''}<a href="/admin/accounts?tool=${x.id}#them">${x.name}</a>`)} — khách không nhận được các món này. Bấm tên món để dán thêm.</p>` : ''}
 ${secHead('Thêm vào kho', { id: 'them', note: 'mỗi dòng 1 tài khoản' })}
 <form method="post" action="/admin/accounts" class="acard grid">${csrfField(csrf)}
   ${field('Công cụ', select('tool_id', importOpts, importOpts[rq.query.tool] ? rq.query.tool : ''))}
+  ${cafes.length ? field('Kho', select('kho', khoOpts, kho || 'chung'), 'Kho riêng: chỉ khách ở quán đó nhận. Quán dùng kho riêng trước, hết thì lấy kho chung.') : ''}
   ${field('Nhãn chung (tuỳ chọn)', html`<input name="label">`)}
   ${wsTools.length ? html`<label class="check">${checkbox('setup', true)} Món "làm mới mỗi ngày" (${wsTools.map((x) => x.name).join(', ')}): chờ bạn tạo sẵn Project "${ctx.settings().workspacePrefix} 1…N" rồi mới giao (bỏ tick nếu bạn đã tự tạo; món khác không ảnh hưởng)</label>` : ''}
   <div class="wide">${field('Danh sách', html`<textarea name="lines" rows="8" placeholder="${[...tools.filter((x) => x.enabled).map((x) => `${x.name}: ${LINE_FORMAT[x.login_type] || 'email'}`), '(Thêm |số ở cuối dòng nếu muốn khác số khách mặc định của công cụ)'].join('\n')}"></textarea>`,
     html`Mỗi dòng 1 tài khoản, các ô cách nhau bằng <code>|</code>. Số cuối dòng = số khách dùng chung (bỏ trống = theo cài đặt của công cụ). Khoá 2FA: chuỗi chữ hoặc link <code>otpauth://</code> — chỉ lưu trên máy chủ, khách chỉ thấy mã 6 số.`)}</div>
-  <button class="btn">Thêm vào kho</button></form>`,
+  <button class="btn">Thêm vào kho</button></form>
+${cafes.length && labels.length ? html`${secHead('Chuyển kho theo nhãn', { id: 'chuyen-kho', note: 'cả nhóm tài khoản cùng nhãn (trừ "Ngừng dùng")' })}
+<form method="post" action="/admin/accounts/chuyen-kho" class="acard grid">${csrfField(csrf)}
+  ${field('Nhãn', select('label', Object.fromEntries(labels.map((l) => [l.label, `${l.label} (${l.n} tài khoản)`])), ''))}
+  ${field('Chuyển sang', select('kho', khoOpts, 'chung'), 'Khách đang dùng vẫn dùng tiếp; lượt giao sau theo kho mới.')}
+  <button class="btn">Chuyển kho</button></form>` : ''}`,
     });
   }));
 
@@ -1098,12 +1164,31 @@ ${secHead('Thêm vào kho', { id: 'them', note: 'mỗi dòng 1 tài khoản' })}
     if (!tool) return go('/admin/accounts', 'Chọn công cụ.');
     const lines = String(f.lines || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     const label = f.label?.trim() || null;
+    const kho = resolveKho(ctx, f.kho);
+    if (!kho.ok) return go(`/admin/accounts?tool=${tool.id}#them`, kho.message);
+    if (kho.cafe && tool.login_type === 'redeem') return go(`/admin/accounts?tool=${tool.id}#them`, 'Mã / link nhận quà chỉ có kho chung — chọn "Kho chung".');
     const r = tool.login_type === 'redeem'
       ? addRedeemCodes(ctx, { tool, values: lines, label, by: BY })
-      : addAccounts(ctx, { tool, items: lines.map((l) => parseAccountLine(tool, l)), label, setup: f.setup === '1', by: BY });
+      : addAccounts(ctx, { tool, items: lines.map((l) => parseAccountLine(tool, l)), label, setup: f.setup === '1', by: BY, cafeId: kho.cafe?.id ?? null });
     const errors = r.skipped.map((x) => `${x.email}: ${x.message}`);
     const what = tool.login_type === 'redeem' ? 'mã / link' : 'tài khoản';
-    return go(`/admin/accounts?tool=${tool.id}`, `Đã thêm ${r.added} ${what}.${errors.length ? ' Bỏ qua: ' + errors.slice(0, 5).join('; ') : ''}`);
+    return go(`/admin/accounts?tool=${tool.id}${kho.cafe ? `&kho=${kho.cafe.id}` : ''}`,
+      `Đã thêm ${r.added} ${what}${kho.cafe ? ` vào kho riêng ${kho.cafe.name}` : ''}.${errors.length ? ' Bỏ qua: ' + errors.slice(0, 5).join('; ') : ''}`);
+  }));
+
+  // Chuyển cả nhóm tài khoản cùng nhãn sang kho khác (vd. 10 CapCut nhãn "Bamos" → kho riêng Bamos). Không đụng tài khoản đã ngừng dùng.
+  router.post('/admin/accounts/chuyen-kho', A((rq, f) => {
+    const { ctx } = rq;
+    const label = String(f.label ?? '').trim();
+    const kho = resolveKho(ctx, f.kho);
+    if (!label) return go('/admin/accounts#chuyen-kho', 'Chọn nhãn.');
+    if (!kho.ok) return go('/admin/accounts#chuyen-kho', kho.message);
+    const to = kho.cafe?.id ?? null;
+    const moved = run(ctx.db, "UPDATE accounts SET cafe_id = ? WHERE label = ? AND status != 'retired' AND cafe_id IS NOT ?", to, label, to).changes;
+    const name = kho.cafe ? `kho riêng ${kho.cafe.name}` : 'kho chung';
+    if (!moved) return go(`/admin/accounts?kho=${kho.cafe?.id ?? 'chung'}`, `Các tài khoản nhãn "${label}" đã ở ${name}.`);
+    logEvent(ctx, { type: 'accounts_kho_moved', cafeId: to, data: { label, moved, kho: kho.cafe ? kho.cafe.name : 'Kho chung', by: BY } });
+    return go(`/admin/accounts?kho=${kho.cafe?.id ?? 'chung'}`, `Đã chuyển ${moved} tài khoản nhãn "${label}" sang ${name}.`);
   }));
 
   router.get('/admin/accounts/:id', P((rq) => {
@@ -1122,6 +1207,7 @@ ${secHead('Thêm vào kho', { id: 'them', note: 'mỗi dòng 1 tài khoản' })}
     // "Chờ đổi mật khẩu" chỉ hiện khi tài khoản đang ở trạng thái đó (hệ thống đặt, kèm việc tay) — không chọn tay được.
     const statusOpts = Object.fromEntries(Object.entries(ACCOUNT_STATUS).filter(([k]) => k !== 'needs_rotation' || a.status === k));
     const exp = accountExpiry(a, ctx.now());
+    const cafes = all(ctx.db, 'SELECT id, name FROM cafes ORDER BY id');
     view(rq, {
       title: a.login_email, heading: a.login_email, active: '/admin/accounts',
       crumbs: [['/admin/accounts', 'Kho tài khoản'], [`/admin/accounts?tool=${a.tool_id}`, a.tool_name]],
@@ -1131,6 +1217,8 @@ ${secHead('Thêm vào kho', { id: 'them', note: 'mỗi dòng 1 tài khoản' })}
 ${secHead('Sửa tài khoản')}
 <form method="post" action="/admin/accounts/${a.id}" class="acard grid">${csrfField(csrf)}
   ${field('Nhãn', html`<input name="label" value="${a.label || ''}">`)}
+  ${cafes.length ? field('Kho', select('kho', { chung: 'Kho chung — mọi quán', ...Object.fromEntries(cafes.map((c) => [String(c.id), `Kho riêng: ${c.name}`])) }, a.cafe_id ? String(a.cafe_id) : 'chung'),
+    'Kho riêng: chỉ khách ở quán đó nhận. Khách đang dùng vẫn dùng tiếp.') : ''}
   ${field('Số người dùng cùng lúc', html`<input name="max_holders" type="number" min="1" max="${a.workspace_bot ? MAX_WORKSPACES : 50}" value="${a.max_holders}">`, a.workspace_bot ? `Tối đa ${MAX_WORKSPACES} Project (workspace).` : 'Từ 1 đến 50.')}
   ${field('Trạng thái', select('status', statusOpts, a.status), rotate
     ? (pw ? 'Đang có việc tay: dán mật khẩu mới vừa đổi bên hãng rồi Lưu (hoặc bấm "Đã xong" ở Việc tay) — xong việc thì tự về Sẵn sàng.' : 'Đang có việc tay: làm xong rồi chọn "Sẵn sàng" (hoặc bấm "Đã xong" ở Việc tay).')
@@ -1160,6 +1248,11 @@ ${table(['Lúc', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [t(m.
     const a = get(ctx.db, 'SELECT * FROM accounts WHERE id = ?', id(rq));
     if (!a) return go('/admin/accounts', 'Không có tài khoản này.');
     const patch = { label: f.label ?? '', holders: String(f.max_holders ?? '').trim() || undefined, password: f.password, totp: f.totp, keepPassword: f.keepPassword === '1' };
+    if (f.kho !== undefined) {
+      const kho = resolveKho(ctx, f.kho);
+      if (!kho.ok) return go(`/admin/accounts/${a.id}`, `Chưa lưu: ${kho.message}`);
+      patch.cafeId = kho.cafe?.id ?? null;
+    }
     // Chỉ gửi trạng thái khi chủ đổi; "Chờ đổi mật khẩu" do hệ thống đặt (kèm việc tay) → dùng nút "Tạo việc làm mới" / "Cách ly".
     if (f.status && f.status !== a.status && ['ready', 'retired', 'quarantined'].includes(f.status)) patch.status = f.status;
     const r = updateAccount(ctx, a.id, patch, BY);

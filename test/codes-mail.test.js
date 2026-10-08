@@ -143,7 +143,7 @@ test('lấy mã phải đang ở quán: về nhà (hết lượt vào) → need_
   ctx.clock.advance(31 * MIN);
   const r = req();
   assert.equal(r.status, 'need_entry');
-  assert.match(r.message, /quét mã QR trên bàn/);
+  assert.match(r.message, /ở quầy hoặc trên bàn/);
   makeTap(ctx, { card, deviceId });
   assert.equal(req().status, 'open');
 });

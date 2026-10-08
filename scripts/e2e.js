@@ -555,7 +555,8 @@ async function main() {
     await J.get(`/c/${links[1]}`);
     await login(J, '0904000004');
     const jc = await J.post('/api/claim', { toolId: tool.capcut });
-    check('Chip không bật bộ đếm: mở link là tính, nhưng mỗi thẻ có giới hạn suất / ngày (card_quota)', ic.data?.status === 'active' && jc.data?.code === 'card_quota', [ic.data, jc.data]);
+    // Quán 1 thẻ ở quầy POS (08/10): hạn mức thẻ = max(cardDailyClaims, suất quán) → cardDailyClaims = 1 không chặn khi quán còn suất.
+    check('Chip không bật bộ đếm: mở link là tính; hạn mức thẻ không thấp hơn suất quán (quán 1 thẻ ở quầy)', ic.data?.status === 'active' && jc.data?.status === 'active', [ic.data, jc.data]);
     await admin('/admin/settings', { cardDailyClaims: '6' });
     check('Trang quán: thẻ Bàn 1 "Đã bật" bộ đếm, Bàn 2 "Chưa thấy"', /Đã bật[\s\S]*Chưa thấy/.test((await owner.get(`/admin/cafes/${plain.id}`)).text));
 
