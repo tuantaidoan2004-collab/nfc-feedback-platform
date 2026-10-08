@@ -731,3 +731,14 @@ body.q::before { opacity: .5;
 [data-acc-target].nudge { border-radius: 16px; animation: acc-nudge 1.6s var(--ease) 2; }
 @keyframes acc-nudge { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 35% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 75%, transparent), 0 0 28px color-mix(in srgb, var(--gold) 35%, transparent); } }
 [data-acc-target].nudge .chip-btn { animation: tap-pop .5s .2s cubic-bezier(.3, 1.6, .5, 1) 2; }
+
+/* ---------- Cuộn xuống → nền tối dần (chủ yêu cầu 08/10: "lướt xuống là Background tối để nổi bật chữ lên") ----------
+ * app.js đặt --qd (0 ở đầu trang → 1 khi cuộn ~150px). Lớp phủ nằm trên ảnh + lá/hoa, dưới nội dung; ảnh quán chỉ còn le lói.
+ * O'renchi: đêm sân vườn — xanh rêu đen, ánh đèn vàng còn hắt ở trên. Bamos: nửa đêm 24h — xanh than, ánh ngọc + đồng. */
+.qbg::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: var(--qd, 0); transition: opacity .18s linear; }
+.q-orenchi .qbg::after {
+  background: radial-gradient(110% 38% at 50% -4%, rgba(240, 182, 100, .16), transparent 70%), radial-gradient(80% 40% at 100% 100%, rgba(47, 94, 64, .22), transparent 70%),
+    linear-gradient(180deg, rgba(17, 21, 17, .88), rgba(13, 16, 13, .94) 40%, rgba(11, 13, 11, .97)); }
+.q-bamos .qbg::after {
+  background: radial-gradient(110% 38% at 50% -4%, rgba(108, 196, 214, .14), transparent 70%), radial-gradient(80% 40% at 0% 100%, rgba(201, 148, 103, .16), transparent 70%),
+    linear-gradient(180deg, rgba(17, 23, 27, .88), rgba(14, 18, 21, .94) 40%, rgba(12, 15, 17, .97)); }

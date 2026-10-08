@@ -1,5 +1,9 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.4 — chỉ giao diện khách (API không đổi)
+
+- Trang quán Bamos / O'renchi: lướt xuống thì ảnh quán phía sau tối dần (O'renchi xanh rêu đêm, Bamos xanh than) để chữ và danh sách món nổi rõ; lướt lên ảnh sáng lại.
+
 ## Mới ở 2.1.3 — chỉ trang quản trị (API không đổi)
 
 - Kho tài khoản: mỗi kho 1 ô (Kho chung / kho riêng từng quán — số tài khoản, lượt trống theo món, kho cho ai), bấm ô để lọc; xem mọi kho thì bảng chia theo kho.

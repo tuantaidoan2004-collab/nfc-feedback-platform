@@ -670,6 +670,19 @@
     }
   }
 
+  // Cảnh quán: cuộn xuống → ảnh quán phía sau tối dần (chủ yêu cầu 08/10: "lướt xuống là nền tối để nổi bật chữ"). --qd 0…1 trên body, ui.css phủ lớp tối theo nó.
+  const qScroll = document.body.classList.contains('q') && $('[data-scroll]');
+  if (qScroll) {
+    let raf = 0;
+    const dim = () => {
+      raf = 0;
+      const t = Math.min(1, Math.max(0, (qScroll.scrollTop - 8) / 140));
+      document.body.style.setProperty('--qd', (t * t * (3 - 2 * t)).toFixed(3));
+    };
+    qScroll.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(dim); }, { passive: true });
+    dim();
+  }
+
   // Chọn món: nảy nhẹ + rung khẽ (phản hồi "đã nhận" — ngưỡng Doherty).
   $('#claim-form')?.addEventListener('change', (e) => {
     const t = e.target.closest('.tile');
