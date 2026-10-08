@@ -13,18 +13,22 @@ const ERRORS: Record<string, string> = {
   OWNER_ROLE_REQUIRED: 'Chỉ tài khoản chủ shop kích hoạt được thẻ.',
   IMPERSONATION_READ_ONLY: 'Quản trị không thay đổi thẻ của shop.',
   INVALID_CARD: 'Tên thẻ cần từ 1 đến 60 ký tự.',
-  SHOP_UNAVAILABLE: 'Trang của shop chưa phát hành hoặc đang tạm khoá, nên chưa kích hoạt được thẻ.',
+  SHOP_UNAVAILABLE: 'Trang đó chưa phát hành hoặc đang tạm dừng, nên thẻ đang chạy chưa chuyển sang được.',
+  PAGE_CLOSED: 'Trang đó đã đóng.',
 };
 
 export default function CardsPanel({ endpoint, origin, page = null }: { endpoint: string; origin: string; page?: string | null }) {
   const [list, setList] = useState<List | null>(null), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(''), [pages, setPages] = useState<{ slug: string; label: string; state: string }[]>([]), [target, setTarget] = useState(page ?? '');
   const load = useCallback(async () => {
     try {
       const response = await fetch(`${endpoint}/cards`, { cache: 'no-store' });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) { setNotice(ERRORS[body.error] ?? 'Chưa tải được danh sách thẻ.'); return; }
       setList(body);
+      // The shop's pages, for the page a card opens (Tài 08/10: a card could only ever go to the first page).
+      const listed = await fetch(`${endpoint}/pages`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (listed?.pages) setPages((listed.pages as { slug: string; label: string; state: string }[]).filter(p => p.state !== 'closed'));
     } catch { setNotice('Không thể kết nối. Vui lòng thử lại.'); }
   }, [endpoint]);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
@@ -52,7 +56,7 @@ export default function CardsPanel({ endpoint, origin, page = null }: { endpoint
 
   return <section className={styles.panel} aria-label="Thẻ NFC" data-cards>
     <h2>Thẻ NFC</h2>
-    <p className={styles.hint}>Mỗi thẻ mở một trang của quán (cột Trang); số liệu được tách theo từng thẻ. Thẻ mới thuộc trang đang chọn ở trên. Ghi đúng link của thẻ vào chip NFC, rồi kích hoạt và chạm thử.</p>
+    <p className={styles.hint}>Mỗi thẻ mở một trang của quán (cột Trang); số liệu được tách theo từng thẻ. Đổi trang của thẻ ở cột Trang; thẻ mới mở trang chọn ở ô bên dưới. Ghi đúng link của thẻ vào chip NFC, rồi kích hoạt và chạm thử.</p>
     {list && <p className={styles.hint} data-card-count>Đang hoạt động: <strong>{list.active}</strong> thẻ.</p>}
     <p role="status" className={styles.notice} data-cards-notice>{notice}</p>
     {list && <div className={styles.tableWrap}><table className={styles.table}>
@@ -61,7 +65,11 @@ export default function CardsPanel({ endpoint, origin, page = null }: { endpoint
         <td><code>{card.code}</code></td>
         <td><input aria-label={`Tên thẻ ${card.code}`} defaultValue={card.label} maxLength={60} placeholder="Ví dụ: Bàn 3"
           onBlur={e => { const value = e.target.value.trim(); if (value && value !== card.label) void send('PATCH', { id: card.id, label: value }, 'Đã đổi tên thẻ.'); }} /></td>
-        <td data-card-page>{card.page}</td>
+        <td data-card-page>{pages.length > 1
+          ? <select aria-label={`Trang của thẻ ${card.code}`} value={card.page} disabled={busy}
+              onChange={e => void send('PATCH', { id: card.id, page: e.target.value }, `Thẻ ${card.code} giờ mở trang /${e.target.value}.`)}>
+              {pages.map(p => <option key={p.slug} value={p.slug}>{p.label || 'Trang'} · /{p.slug}</option>)}</select>
+          : card.page}</td>
         <td><span className={styles.status} data-card-state={card.state}>{STATES[card.state]}</span></td>
         <td><button type="button" className={styles.noteButton} onClick={() => void copy(card)}>{link(card).replace(/^https?:\/\//, '')}</button></td>
         <td className={styles.rowButtons}>
@@ -71,8 +79,11 @@ export default function CardsPanel({ endpoint, origin, page = null }: { endpoint
       </tr>)}</tbody>
     </table></div>}
     <form className={styles.actions} onSubmit={e => { e.preventDefault(); const label = name.trim() || `Thẻ ${(list?.cards.length ?? 0) + 1}`;
-      void send('POST', page ? { label, page } : { label }, `Đã nhân bản thẻ "${label}"${page ? ` cho trang ${page}` : ''}. Thẻ mới chưa kích hoạt.`).then(ok => { if (ok) setName(''); }); }}>
+      void send('POST', target ? { label, page: target } : { label }, `Đã nhân bản thẻ "${label}"${target ? ` cho trang /${target}` : ''}. Thẻ mới chưa kích hoạt.`).then(ok => { if (ok) setName(''); }); }}>
       <label>Tên thẻ mới<input value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder="Ví dụ: Bàn 3" /></label>
+      {pages.length > 1 && <label>Mở trang<select value={target} onChange={e => setTarget(e.target.value)}>
+        {!page && <option value="">Trang đầu tiên</option>}
+        {pages.map(p => <option key={p.slug} value={p.slug}>{p.label || 'Trang'} · /{p.slug}</option>)}</select></label>}
       <button disabled={busy}>Nhân bản thẻ</button>
     </form>
   </section>;

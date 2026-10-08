@@ -55,7 +55,7 @@ export class OwnerCards {
 
   async update(credential: OwnerCredential, slug: string, body: unknown) {
     const data = body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : {};
-    const change = 'label' in data ? shape(body, ['id', 'label']) : shape(body, ['id', 'state']);
+    const change = 'label' in data ? shape(body, ['id', 'label']) : 'page' in data ? shape(body, ['id', 'page']) : shape(body, ['id', 'state']);
     if (typeof change.id !== 'string' || !uuid.test(change.id)) throw new OwnerError(400, 'INVALID_CARD');
     return transaction(this.pool, async db => {
       const access = await authorize(db, credential, slug, 'write');
@@ -66,6 +66,16 @@ export class OwnerCards {
         await db.query('UPDATE tags SET location_label=$3 WHERE shop_id=$1 AND id=$2', [access.shopId, change.id, label(change.label)]);
         await recordActivity(db, access, 'card.rename', `${label(change.label)} (${card.public_code})`, { from: card.location_label ?? '' });
         return { id: change.id, label: label(change.label) };
+      }
+      // Tài 08/10: a card moves to another page of the shop (O'renchi's card onto its new page), as one written to the chip
+      // cannot be rewritten in the shop. A live card goes only onto a live page; a closed page takes no card.
+      if ('page' in change) {
+        const page = await pageOf(db, access.shopId, typeof change.page === 'string' ? change.page : '-');
+        if (page.state === 'closed') throw new OwnerError(409, 'PAGE_CLOSED');
+        if (card.state === 'active' && page.state !== 'active') throw new OwnerError(409, 'SHOP_UNAVAILABLE');
+        await db.query('UPDATE tags SET page_id=$3 WHERE shop_id=$1 AND id=$2', [access.shopId, change.id, page.pageId]);
+        await recordActivity(db, access, 'card.page', `${card.location_label ?? ''} (${card.public_code})`, { page: page.slug });
+        return { id: change.id, page: page.slug };
       }
       if (change.state !== 'active' && change.state !== 'disabled') throw new OwnerError(400, 'INVALID_CARD');
       if (change.state === card.state) return { id: change.id, state: card.state };

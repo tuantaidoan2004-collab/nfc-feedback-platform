@@ -102,6 +102,16 @@ test('a card belongs to one page, opens that page, and goes live only on a live 
  const live=(await f.resolver.live({slug:shop.slug})).context;
  for(const forged of [{...live,entryKey:`direct:page:${vip.pageId}`},{...live,tagId:card.id,entryKey:`tag:${card.id}`}])
   await expect(new VisitRatingRepository(f.db,undefined,publishingVisitPolicy(forged)).registerVisit(forged,randomUUID(),'load',hash(forged))).rejects.toThrow('RENDER_CONTEXT_MISMATCH');
+ // Tài 08/10: a card written to its chip moves to another page of the shop and opens it at once; a live card never onto a dark page.
+ const first=(await cards.list(shop.token,shop.slug)).cards.find(c=>c.code===shop.tagCode)!;
+ expect(await cards.update(shop.token,shop.slug,{id:first.id,page:'phong-vip'})).toEqual({id:first.id,page:'phong-vip'});
+ expect((await cards.list(shop.token,shop.slug)).cards.find(c=>c.id===first.id)!.page).toBe('phong-vip');
+ // A live card follows its new page at once.
+ await cards.update(shop.token,shop.slug,{id:card.id,page:shop.slug});
+ expect((await f.resolver.live({code:card.code})).pageId).toBe(shop.pageId);
+ await expect(cards.update(shop.token,shop.slug,{id:card.id,page:'quay-bar'})).rejects.toMatchObject({status:409,code:'SHOP_UNAVAILABLE'});
+ await expect(cards.update(shop.token,shop.slug,{id:card.id,page:'khong-co'})).rejects.toMatchObject({code:'PAGE_NOT_FOUND'});
+ expect(await cards.update(shop.token,shop.slug,{id:dark.id,page:shop.slug})).toEqual({id:dark.id,page:shop.slug});
 });
 
 test("another shop's page is out of reach from every door",async({f})=>{
