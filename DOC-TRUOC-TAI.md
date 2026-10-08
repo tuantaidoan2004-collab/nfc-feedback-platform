@@ -1,4 +1,9 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.9 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.10 ngày 08/10/2026
+
+## Mới ở 2.1.10 — chỉ giao diện khách (API không đổi)
+
+- Khách bị chặn vì đã nhận đủ lượt (daily_limit, monthly_limit, lifetime_cap, cooldown, device_phone_limit): thẻ "Liên hệ Tiệm" thành câu chọc nhẹ + lý do +
+  nút "Nhắn Tiệm để nhận thêm 💬" (Zalo), soi đèn như 2.1.8; vuốt / chạm ngoài là về bình thường. Khối QS không ảnh hưởng.
 
 ## Mới ở 2.1.9 — chỉ giao diện khách (API không đổi)
 

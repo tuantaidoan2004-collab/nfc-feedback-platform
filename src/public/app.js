@@ -219,6 +219,34 @@
   const isInvite = () => sel()?.dataset.login === 'team_invite';
   const inviteEmail = () => (claimForm?.inviteEmail?.value || '').trim();
 
+  // Bị chặn vì đã nhận đủ lượt (chủ yêu cầu 08/10/2026): thẻ "Liên hệ Tiệm" thành "Nhắn Tiệm để nhận thêm" kèm lý do, soi đèn như lúc quay lại từ app
+  // (viền vàng chạy quanh, phần khác mờ; vuốt lên / xuống, chạm ra ngoài là về bình thường).
+  // Câu chọc nhẹ theo lý do bị chặn (chủ yêu cầu "text vui vẻ, chọc khách nhẹ"), lý do thật của máy chủ ghi ngay dưới.
+  const TEASE = {
+    daily_limit: 'Ơ kìa, nay bạn lấy 1 món rồi mà 😏 Ghiền đồ Pro rồi đúng hông?',
+    monthly_limit: 'Tháng này bạn cày dữ thiệt 😆 Tiệm phục luôn á!',
+    lifetime_cap: 'Thử hoài vậy là mê thiệt rồi đó nha 😏',
+    cooldown: 'Món này bạn mới xài xong mà — dính rồi phải hông 😆',
+    device_phone_limit: 'Máy này có chủ rồi nha, đổi email hông qua mắt Tiệm được đâu 😜',
+  };
+  const MORE = Object.keys(TEASE);
+  function askMore(message, code) {
+    const c = $('[data-contact]');
+    if (!c) return false;
+    const h = document.createElement('strong');
+    h.className = 'more-h';
+    h.textContent = TEASE[code] || 'Bạn nhận đủ lượt rồi nè 😆';
+    const why = $('span', c);
+    why.textContent = message || '';
+    why.hidden = !message;
+    c.prepend(h);
+    $('b', c).textContent = 'Nhắn Tiệm để nhận thêm 💬';
+    c.classList.add('more');
+    if (claimForm) say(claimForm, '');
+    c.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+    spotlight(c, null);
+    return true;
+  }
   async function claim(picked, email) {
     const r = await api('/api/claim', { toolId: Number(picked.value), inviteEmail: picked.dataset.login === 'team_invite' ? email : undefined });
     if (r.status === 'active' || r.status === 'pending_invite') { store('tbq-pick', null); location.href = `${BASE}/me`; return null; }
@@ -245,6 +273,8 @@
     const flash = load('tbq-msg');
     if (flash) { say(claimForm, flash, 'err'); store('tbq-msg', null); }
     paint();
+    const more = load('tbq-more');
+    if (more) { store('tbq-more', null); setTimeout(() => askMore(more.message, more.code), still ? 0 : 400); }
     claimForm.addEventListener('change', (e) => {
       if (e.target.name !== 'toolId') return;
       say(claimForm, '');
@@ -270,6 +300,7 @@
       cta.disabled = false;
       if (!r) return;
       if (r.unauthorized) { location.reload(); return; }
+      if (MORE.includes(r.code) && askMore(r.message, r.code)) return;
       say(claimForm, r.message || 'Chưa nhận được slot.', 'err');
     });
   }
@@ -396,7 +427,8 @@
         say(otpForm, 'Ngon! Đang lấy vé cho bạn…', 'ok');
         const c = await claim(picked, inviteEmail());
         if (!c) return;
-        if (c.message) store('tbq-msg', c.message);
+        if (MORE.includes(c.code)) store('tbq-more', { message: c.message || '', code: c.code });
+        else if (c.message) store('tbq-msg', c.message);
       }
       location.reload();
     }
