@@ -1,5 +1,8 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.8 — chỉ giao diện khách (API không đổi)
+- Trang vé: quay lại từ app → ô kế tiếp (mật khẩu / lấy mã) viền vàng chạy quanh, phần khác mờ; vuốt lên / xuống, chạm ra ngoài hoặc chép xong là về bình thường.
+
 ## Mới ở 2.1.7 — chỉ giao diện khách (API không đổi)
 - Trang vé: bỏ dòng "Chưa có app? Tải … · dùng bản web"; lời nhắc "Quay lại rồi nè…" chỉ hiện khi khách đã thật sự rời trang (sang app) rồi quay lại.
 

@@ -728,9 +728,16 @@ body.q::before { opacity: .5;
 .acc-card .acc-miss { margin: -2px 0 0; }
 .acc-next { margin: 2px 2px 0; font-size: 14px; font-weight: 600; color: var(--gold); animation: q-rise .5s var(--ease) both; }
 .cp.done small::after { content: ' ✓'; color: var(--mint); font-weight: 700; }
-[data-acc-target].nudge { border-radius: 16px; animation: acc-nudge 1.6s var(--ease) 2; }
-@keyframes acc-nudge { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 35% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 75%, transparent), 0 0 28px color-mix(in srgb, var(--gold) 35%, transparent); } }
-[data-acc-target].nudge .chip-btn { animation: tap-pop .5s .2s cubic-bezier(.3, 1.6, .5, 1) 2; }
+/* Soi đèn (app.js spotlight): quay lại từ app → ô kế tiếp viền vàng chạy quanh, phần khác mờ; vuốt / chạm ngoài là hết */
+.spot-dim { filter: blur(3px) brightness(.5); transition: filter .35s var(--ease); }
+[data-acc-target] { position: relative; border-radius: 16px; transition: box-shadow .35s var(--ease); }
+[data-acc-target].spot { box-shadow: 0 0 34px color-mix(in srgb, var(--gold) 30%, transparent); }
+[data-acc-target].spot::before { content: ''; position: absolute; inset: -2px; border-radius: 17px; padding: 2px; pointer-events: none; z-index: 1;
+  background: conic-gradient(from var(--a, 0deg), color-mix(in srgb, var(--gold) 18%, transparent) 0 52%, var(--gold) 72%, #fff1c2 78%, var(--gold) 84%, color-mix(in srgb, var(--gold) 18%, transparent) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin-a 2.2s linear infinite; }
+[data-acc-target].spot .chip-btn { animation: tap-pop .5s .3s cubic-bezier(.3, 1.6, .5, 1) 2; }
+.spot-on .acc-next { text-shadow: 0 0 18px color-mix(in srgb, var(--gold) 45%, transparent); }
+@media (prefers-reduced-motion: reduce) { [data-acc-target].spot::before { animation: none; background: var(--gold); } .spot-dim { transition: none; } }
 
 /* ---------- Cuộn xuống → nền tối dần (chủ yêu cầu 08/10: "lướt xuống là Background tối để nổi bật chữ lên") ----------
  * app.js đặt --qd (0 ở đầu trang → 1 khi cuộn ~150px). Lớp phủ nằm trên ảnh + lá/hoa, dưới nội dung; ảnh quán chỉ còn le lói.

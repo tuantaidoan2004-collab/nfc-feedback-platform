@@ -109,10 +109,51 @@
     const target = $('[data-acc-target]');
     if (hint) hint.hidden = false;
     if (target) {
-      target.classList.remove('nudge'); void target.offsetWidth; target.classList.add('nudge');
       target.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+      spotlight(target, hint);
     }
   };
+
+  // Soi đèn (chủ yêu cầu 08/10/2026): quay lại từ app → ô cần làm tiếp (mật khẩu / lấy mã) có viền vàng chạy quanh, mọi thứ khác mờ đi
+  // (insight: email dán rồi, giờ tới mật khẩu). Vuốt lên / xuống, chạm ra ngoài, hoặc chép xong → trang về bình thường.
+  // Mờ bằng filter trên các phần "anh em" dọc đường từ ô đó lên <body> (không dùng lớp phủ z-index — tránh lỗi lớp chồng của animation).
+  function spotlight(target, hint) {
+    const dimmed = [];
+    const dim = (sib) => {
+      if (sib === hint || sib.matches('script, style, .qbg')) return;
+      if (hint && sib.contains(hint)) { [...sib.children].forEach(dim); return; } // lời nhắc nằm trong khối này: mờ phần còn lại, giữ lời nhắc rõ
+      sib.classList.add('spot-dim'); dimmed.push(sib);
+    };
+    for (let el = target; el && el !== document.body; el = el.parentElement) {
+      for (const sib of el.parentElement?.children || []) if (sib !== el) dim(sib);
+    }
+    target.classList.add('spot');
+    document.body.classList.add('spot-on');
+    let y0 = null;
+    const off = () => {
+      dimmed.forEach((d) => d.classList.remove('spot-dim'));
+      target.classList.remove('spot');
+      document.body.classList.remove('spot-on');
+      document.removeEventListener('touchstart', start, true);
+      document.removeEventListener('touchmove', move, true);
+      document.removeEventListener('wheel', off, true);
+      document.removeEventListener('click', tap, true);
+    };
+    const start = (e) => { y0 = e.touches[0]?.clientY ?? null; };
+    const move = (e) => { if (y0 != null && Math.abs((e.touches[0]?.clientY ?? y0) - y0) > 10) off(); };
+    const tap = (e) => {
+      if (!target.contains(e.target)) { e.preventDefault(); e.stopPropagation(); return off(); } // chạm ra ngoài: chỉ tắt soi đèn, không bấm nhầm
+      if (e.target.closest('[data-copy], [data-act], button, a')) setTimeout(off, 900); // chép mật khẩu / lấy mã xong → để thấy "Đã chép" rồi mới tắt
+    };
+    // Chờ cuộn tự động (scrollIntoView) xong rồi mới nghe vuốt / lăn chuột.
+    setTimeout(() => {
+      if (!target.classList.contains('spot')) return;
+      document.addEventListener('touchstart', start, { capture: true, passive: true });
+      document.addEventListener('touchmove', move, { capture: true, passive: true });
+      document.addEventListener('wheel', off, { capture: true, passive: true });
+    }, still ? 50 : 600);
+    document.addEventListener('click', tap, true);
+  }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { if (opened) away = true; } else setTimeout(afterOpen, 250);
   });
