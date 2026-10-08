@@ -1,4 +1,9 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.9 ngày 08/10/2026
+
+## Mới ở 2.1.9 — chỉ giao diện khách (API không đổi)
+
+- Bảng giữ chỗ (email → mã 6 số): bàn phím điện thoại không còn che ô nhập. Bảng khớp vùng nhìn thấy (visualViewport), nằm ngay trên bàn phím,
+  ô đang gõ / ô đồng ý / dòng báo lỗi tự cuộn vào tầm nhìn. Sửa kèm: bảng bị lệch xuống 20px (margin của .wrap). Đo 6 khổ iPhone / Android đều đạt.
 
 ## Mới ở 2.1.8 — chỉ giao diện khách (API không đổi)
 - Trang vé: quay lại từ app → ô kế tiếp (mật khẩu / lấy mã) viền vàng chạy quanh, phần khác mờ; vuốt lên / xuống, chạm ra ngoài hoặc chép xong là về bình thường.

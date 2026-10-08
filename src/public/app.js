@@ -41,11 +41,20 @@
     return j;
   }
 
+  /** Cuộn khung `box` để thấy `el` (chỉ cuộn khung, không đụng trang). start = đưa el lên sát đầu khung. */
+  function reveal(box, el, start = false) {
+    const b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+    if (start || r.top < b.top) box.scrollTop += r.top - b.top - 12;
+    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom + 12;
+  }
   function say(el, text, kind = '') {
     const m = el.classList?.contains('msg') ? el : $('.msg', el);
     if (!m) return;
     m.textContent = text || '';
     m.className = `msg${kind ? ' ' + kind : ''}`;
+    // Bảng giữ chỗ lúc bàn phím mở: dòng báo ở cuối bảng dễ bị khuất → cuộn tới.
+    const box = text && m.closest('.sheet-wrap.kb .sheet');
+    if (box) reveal(box, m);
   }
   const pad = (n) => String(n).padStart(2, '0');
   function fmt(ms, withHours) {
@@ -287,7 +296,7 @@
   }
   function closeSheet() {
     sheet.classList.remove('open');
-    setTimeout(() => { sheet.hidden = true; lastFocus?.focus?.(); }, still ? 0 : 300);
+    setTimeout(() => { sheet.hidden = true; sheet.classList.remove('kb'); sheet.style.top = sheet.style.height = sheet.style.bottom = ''; lastFocus?.focus?.(); }, still ? 0 : 300);
   }
   if (sheet && otpForm) {
     const panes = $$('[data-pane]', otpForm);
@@ -298,6 +307,24 @@
     otpForm.classList.add('js');
     showPane(1);
     sheet.addEventListener('click', (e) => { if (e.target.closest('[data-sheet-close]')) closeSheet(); });
+
+    // Bàn phím iPhone / Android không làm co khung cố định → bảng nằm yên dưới đáy, bàn phím che mất ô mã (chủ chụp màn 08/10).
+    // Khớp khung bảng đúng vùng còn nhìn thấy (visualViewport): bảng nằm ngay trên bàn phím, cao quá thì cuộn trong bảng, ô đang gõ luôn hiện.
+    const vv = window.visualViewport;
+    const fitSheet = () => {
+      if (!vv || sheet.hidden) return;
+      const kb = window.innerHeight - vv.height > 80;
+      sheet.classList.toggle('kb', kb);
+      sheet.style.top = kb ? `${Math.round(vv.offsetTop)}px` : '';
+      sheet.style.height = kb ? `${Math.round(vv.height)}px` : '';
+      sheet.style.bottom = kb ? 'auto' : '';
+      // Ô email: đưa lên đầu bảng để thấy luôn ô đồng ý + nút gửi bên dưới (máy nhỏ). Ô mã: chỉ cần thấy 6 ô.
+      const f = document.activeElement;
+      if (kb && f && otpForm.contains(f)) reveal(otpForm, f.closest('.otp') || f, f === otpForm.phone);
+    };
+    vv?.addEventListener('resize', fitSheet);
+    vv?.addEventListener('scroll', fitSheet);
+    otpForm.addEventListener('focusin', () => setTimeout(fitSheet, 60));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
 
     const sendBtn = $('[data-act=send-otp]', otpForm);
@@ -331,6 +358,7 @@
       if (!otpForm.consent.checked) {
         otpForm.consent.closest('label').classList.add('need');
         say(otpForm, 'Bạn tích ô đồng ý giúp Tiệm nha.', 'err');
+        if (sheet.classList.contains('kb')) reveal(otpForm, otpForm.consent.closest('label'));
         return;
       }
       otpForm.consent.closest('label').classList.remove('need');

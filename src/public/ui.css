@@ -162,11 +162,17 @@ input.need { border-color: var(--red); }
 .contact-tiem b::after { content: ' ›'; }
 
 /* ---------- Bảng giữ chỗ (trượt từ đáy, kiểu bảng của iOS) ---------- */
-.sheet-wrap { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-wrap { position: fixed; inset: 0; margin: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
 .sheet-dim { position: absolute; inset: 0; background: rgba(0, 0, 0, .6); opacity: 0; transition: opacity .25s; }
 .sheet { position: relative; width: 100%; max-width: 480px; max-height: 92dvh; overflow-y: auto; background: #23231d; border-radius: 28px 28px 0 0; text-align: center;
   padding: 10px 22px calc(26px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line-2); transform: translateY(100%); transition: transform .35s var(--ease); }
 .sheet-wrap.open .sheet-dim { opacity: 1; }
+/* Đang mở bàn phím (app.js fitSheet): khung = vùng nhìn thấy; bảng sát bàn phím, gọn lại, cuộn trong bảng. */
+.sheet-wrap.kb .sheet { max-height: 100%; padding-top: 18px; padding-bottom: 14px; }
+.sheet-wrap.kb .pick-sum, .sheet-wrap.kb .grab { display: none; }
+.sheet-wrap.kb .sheet h2 { font-size: 22px; padding: 0 34px; }
+.sheet-wrap.kb .sheet .sub { margin: 6px auto 12px; font-size: 14px; }
+.sheet-wrap.kb .otp i { height: 50px; }
 .sheet-wrap.open .sheet { transform: none; }
 .grab { display: block; width: 38px; height: 5px; border-radius: 5px; background: var(--line-2); margin: 0 auto 14px; }
 .sheet-x { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--card-2); color: var(--text-2); font-size: 13px; cursor: pointer; }
