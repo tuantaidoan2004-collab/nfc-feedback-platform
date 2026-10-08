@@ -203,6 +203,20 @@ test('workspace theo thứ tự: khách nhận chỗ nhỏ nhất còn trống, 
   assert.match(page, /Mã phiếu \(nhận ở quán\)/);
 });
 
+test('CapCut dùng chung 2 khách: không có Project nên khách không thấy "Slot N" (chỉ ChatGPT, Claude có)', () => {
+  const { ctx, acct, guest } = setup();
+  acct('capcut', 'cc-a@kho.test', { password: 'Pw#1', max: 2 });
+  acct('claude', 'cl-a@kho.test', { max: 3 });
+  const [g1, g2, g3] = [guest(), guest(), guest()];
+  for (const g of [g1, g2]) assert.equal(g.claim('capcut').status, 'active');
+  assert.deepEqual([g1, g2].map((g) => g.view().seat), [1, 2]); // vẫn giữ số chỗ trong quản trị
+  assert.deepEqual([g1, g2].map((g) => g.view().workspace), [null, null]);
+  const page = String(mePage(ctx, { customer: byId(ctx, 'customers', g2.customer.id), view: g2.view() }));
+  assert.doesNotMatch(page, /Slot 2/);
+  assert.equal(g3.claim('claude').status, 'active');
+  assert.equal(g3.view().workspace.name, 'Slot 1');
+});
+
 test('gia hạn: mã gia hạn +1 ngày; 6h sáng khách thường hết, bot vẫn làm mới tài khoản nhưng GIỮ Project của khách gia hạn', async () => {
   const { ctx, acct, guest } = setup(); // T0 = 20:00
   const a = acct('chatgpt', 'gpt-a@kho.test', { password: 'Pw#1', totp: SECRET });

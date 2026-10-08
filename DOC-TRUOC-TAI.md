@@ -1,5 +1,8 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.6 — chỉ máy chủ (API không đổi, database không đổi)
+- Khách chỉ thấy "Slot N" / workspace với món có Project (ChatGPT, Claude, hoặc món bật "Làm mới mỗi ngày"). CapCut, Adobe… dùng chung không còn hiện "Slot N" (domain/claims.js hasProjects).
+
 ## Mới ở 2.1.5 — chỉ giao diện khách (API không đổi)
 - Trang vé (/me): thẻ "Tài khoản của bạn" bớt chữ — dòng "Tự chép sẵn email…" chỉ hiện "✓ Đã chép email" sau khi bấm nút mở; lời nhắc trong Zalo / Messenger rút còn 1 dòng; bỏ dòng "Workspace của bạn: Slot N" (vé đã ghi), chỉ còn link "Mở Slot N của bạn ↗" khi có link Project.
 

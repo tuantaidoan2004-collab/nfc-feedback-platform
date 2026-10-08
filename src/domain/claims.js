@@ -245,6 +245,13 @@ export function keptSeats(ctx, accountId) {
      ORDER BY s.seat`, accountId, ctx.now() + HOUR);
 }
 
+/**
+ * Món có Project (workspace) riêng cho từng khách trên tài khoản dùng chung: chỉ ChatGPT, Claude (hoặc món bật "Làm mới mỗi ngày").
+ * CapCut, Adobe… dùng chung mà không có Project → khách không thấy "Slot N" (chủ báo 08/10/2026).
+ */
+const PROJECT_TOOLS = new Set(['chatgpt', 'claude']);
+export const hasProjects = (tool) => !!tool && (PROJECT_TOOLS.has(tool.slug) || !!tool.workspace_bot);
+
 /** Tên workspace (Project) của chỗ n: "<workspacePrefix> n". */
 export const workspaceName = (ctx, seat) => `${ctx.settings().workspacePrefix || 'Slot'} ${seat}`;
 
@@ -435,8 +442,8 @@ export function currentSlotView(ctx, customerId, deviceId) {
     password,
     seat: slot.seat,
     seatTotal: account?.max_holders ?? null,
-    // Workspace (Project) của khách: tên theo số chỗ; có link khi bot đã tạo (ChatGPT).
-    workspace: slot.seat && account?.max_holders > 1 ? { name: ws?.name || workspaceName(ctx, slot.seat), url: ws?.url || null } : null,
+    // Workspace (Project) của khách — chỉ món có Project (hasProjects): tên theo số chỗ; có link khi bot đã tạo (ChatGPT).
+    workspace: slot.seat && account?.max_holders > 1 && hasProjects(fullTool) ? { name: ws?.name || workspaceName(ctx, slot.seat), url: ws?.url || null } : null,
     needVoucher,
     hasBoundVoucher: needVoucher && !!boundVoucher(ctx, customerId, fullTool, slot.cafe_id),
     hasAutoVoucher: needVoucher && deviceMatches && !!deviceVoucher(ctx, { deviceId, customerId, tool: fullTool, cafeId: slot.cafe_id }),
