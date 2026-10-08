@@ -1,5 +1,10 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.2 — chỉ giao diện khách (API không đổi)
+
+- Trang quán Bamos / O'renchi mở trên máy tính: ảnh biển giữ đúng bề ngang cột trang (trước phóng theo cả màn hình, đè lên chữ).
+- Dòng "O’renchi ✕ TBQ Space" / "[logo Bamos] ✕ TBQ Space" hiện rõ ngay dưới ảnh biển (trang chọn món + trang vé).
+
 ## Mới ở 2.1.1 — chỉ giao diện khách (API không đổi)
 
 - Trang khách của quán Bamos / O'renchi dùng **ảnh thật của quán** (ảnh chủ quán đăng trên Google Maps) làm nền, biển quán thật làm đầu trang, đồ hoạ động phủ lên.

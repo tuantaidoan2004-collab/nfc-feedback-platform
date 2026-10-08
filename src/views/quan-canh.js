@@ -115,7 +115,7 @@ export function hero(theme) {
   ${cafeMark(theme, 'qh-name')}
   <p class="qh-sub">${theme.sub}</p>
   <p class="qh-hand" aria-hidden="true">${theme.hand[0]}<br>${theme.hand[1]}</p>
-  <p class="qh-with"><span class="qw-x" aria-hidden="true">✕</span>${withTbq()}</p>
+  <p class="qh-with">${theme.photo ? cafeMark(theme, 'qw-cafe') : ''}<span class="qw-x" aria-hidden="true">✕</span>${withTbq()}</p>
   <p class="qh-free">Miễn phí tại quán</p>
 </div>`;
 }

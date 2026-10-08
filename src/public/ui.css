@@ -677,22 +677,28 @@ body.q::before { opacity: .5;
 .q-bamos .qshade { background: linear-gradient(180deg, rgba(16, 30, 40, .45) 0%, color-mix(in srgb, var(--bg) 58%, transparent) 34%, color-mix(in srgb, var(--bg) 88%, transparent) 70%, var(--bg) 100%); }
 @keyframes q-ken { from { transform: scale(1.02); } to { transform: scale(1.12) translate(-2%, 1.5%); } }
 /* Ảnh có biển quán thật (O'renchi, Bamos): biển rơi vào khoảng trống đầu trang, làm tiêu đề. Biển nằm ở 21–47% bề ngang ảnh tính từ đỉnh. */
-.qphoto { top: 30px; height: auto; animation: q-fade 1.6s ease both, q-ken 26s ease-in-out infinite alternate; transform-origin: 50% 18%; }
+.qphoto { top: 30px; height: auto; left: calc(50% - 50 * var(--pw)); width: calc(100 * var(--pw)); animation: q-fade 1.6s ease both, q-ken 26s ease-in-out infinite alternate; transform-origin: 50% 18%; }
 @keyframes q-ken { from { transform: scale(1); } to { transform: scale(1.05); } }
 .q .qshade { inset: 0; height: auto;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 30%, transparent) 0, color-mix(in srgb, var(--bg) 6%, transparent) calc(30px + 18vw),
-    color-mix(in srgb, var(--bg) 18%, transparent) calc(30px + 47vw), color-mix(in srgb, var(--bg) 72%, transparent) calc(30px + 72vw), var(--bg) calc(30px + 100vw)); }
-.q-bamos .qshade { background: linear-gradient(180deg, rgba(16, 30, 40, .4) 0, rgba(16, 30, 40, .12) calc(30px + 26vw),
-    color-mix(in srgb, var(--bg) 22%, transparent) calc(30px + 47vw), color-mix(in srgb, var(--bg) 78%, transparent) calc(30px + 72vw), var(--bg) calc(30px + 100vw)); }
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 30%, transparent) 0, color-mix(in srgb, var(--bg) 6%, transparent) calc(30px + 18 * var(--pw)),
+    color-mix(in srgb, var(--bg) 18%, transparent) calc(30px + 47 * var(--pw)), color-mix(in srgb, var(--bg) 72%, transparent) calc(30px + 72 * var(--pw)), var(--bg) calc(30px + 100 * var(--pw))); }
+.q-bamos .qshade { background: linear-gradient(180deg, rgba(16, 30, 40, .4) 0, rgba(16, 30, 40, .12) calc(30px + 26 * var(--pw)),
+    color-mix(in srgb, var(--bg) 22%, transparent) calc(30px + 47 * var(--pw)), color-mix(in srgb, var(--bg) 78%, transparent) calc(30px + 72 * var(--pw)), var(--bg) calc(30px + 100 * var(--pw))); }
+/* Màn hình rộng (máy tính): ảnh + khoảng chừa cho biển tính theo bề ngang cột trang (520px) thay vì cả màn hình — trước đó biển phóng to đè lên chữ. */
+:root { --pw: 1vw; }
+@media (min-width: 560px) {
+  :root { --pw: 5.2px; }
+  .qphoto { -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+}
 .q-orenchi .qphoto { opacity: 1; filter: saturate(1.05) contrast(1.04); }
 .q-bamos .qphoto { opacity: 1; filter: brightness(.86) saturate(.95); }
-.qh-photo { padding-top: clamp(90px, calc(46.9vw - 66px), 200px); }
+.qh-photo { padding-top: clamp(90px, calc(46.9 * var(--pw) - 66px), 200px); }
 .qh-photo .qh-kicker, .qh-photo .qh-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .qh-photo .qh-sub { margin-top: 2px; text-shadow: 0 1px 10px rgba(0, 0, 0, .8); color: var(--text); }
 .qh-orenchi.qh-photo .qh-stage { top: -66px; }
 .qh-bamos.qh-photo .qh-stage { top: -70px; }
-.qh-photo .qh-hand { bottom: 22px; }
-.qh-bamos.qh-photo { padding-top: clamp(110px, calc(46.9vw - 40px), 230px); }
+.qh-photo .qh-hand { bottom: -12px; } /* cạnh dòng "Miễn phí tại quán" — không đè chữ TBQ lẫn biển trong ảnh */
+.qh-bamos.qh-photo { padding-top: clamp(110px, calc(46.9 * var(--pw) - 40px), 230px); }
 /* Bớt rối (chủ hỏi "Rối không" 08/10): trang vé / trang chủ bớt hoa (cành + bông rơi); trăng nhỏ lại. Ảnh vẫn rõ — biển thật làm đầu trang (.qb-photo). */
 .q:not(.q-hero) .branch, .fall.f2 { display: none; }
 .q:not(.q-hero) .fall.f3 { display: none; }
@@ -700,11 +706,14 @@ body.q::before { opacity: .5;
 .qbg .sky { width: min(100%, 480px); left: 50%; transform: translateX(-50%); }
 /* Trang vé / trang chủ tận dụng ảnh quán ("thiết kế để tận dụng", 08/10): chừa khoảng cho biển thật hiện rõ, dải "× TBQ Space" ngay dưới biển,
  * nội dung bắt đầu sau đó. Biển nằm tới ~47% bề ngang ảnh (ảnh đặt top 30px); khung trang bắt đầu dưới thanh TBQ (~66px). */
-.qband.qb-photo { height: auto; display: block; margin: -8px -20px 6px; padding: calc(30px + 47vw - 66px) 20px 0; }
-.q-bamos .qband.qb-photo { padding-top: calc(30px + 56vw - 66px); }
+.qband.qb-photo { height: auto; display: block; margin: -8px -20px 6px; padding: calc(30px + 47 * var(--pw) - 66px) 20px 0; }
+.q-bamos .qband.qb-photo { padding-top: calc(30px + 56 * var(--pw) - 66px); }
 .qb-photo .qb-deco { height: 56px; top: -10px; }
 .qb-photo .qb-row { justify-content: center; }
-.qb-photo .qb-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Chủ muốn giữ dòng "O'renchi ✕ TBQ" / "Bamos ✕ TBQ" (08/10) — tên quán hiện lại cạnh dấu ✕, cả trang chọn món lẫn trang vé. */
+.qw-cafe, .qb-photo .qb-name { font: italic 600 24px/1 var(--serif); padding: 0 .06em .04em; background: linear-gradient(90deg, var(--q-a2), var(--q-a) 50%, var(--q-a2));
+  -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 1px 8px rgba(0, 0, 0, .85)); white-space: nowrap; }
+.qw-cafe.logo, .qb-photo .qb-name.logo { width: 86px; height: auto; padding: 0; background: none; }
 .qb-photo .qb-row .qw-tbq b { text-shadow: 0 1px 10px rgba(0, 0, 0, .85); }
 .qb-photo .qb-free { margin-top: 4px; text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--q-a2);
   text-shadow: 0 1px 8px rgba(0, 0, 0, .8); animation: q-fade .7s .6s both; }
