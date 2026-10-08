@@ -121,7 +121,7 @@
       copy(a.dataset.copyFirst, $('[data-cp=email] [data-copy]'));
       $('[data-cp=email]')?.classList.add('done');
       const note = $('[data-acc-auto]');
-      if (note) { note.textContent = '✓ Đã chép email — vào app dán vào ô email nha'; note.classList.add('ok'); }
+      if (note) { note.textContent = '✓ Đã chép email'; note.classList.add('ok'); note.hidden = false; }
       opened = true;
     }
     if (!canApp || !(a.dataset.app || a.dataset.appLink)) return; // máy tính: mở trang web như link thường

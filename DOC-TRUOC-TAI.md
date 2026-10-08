@@ -1,5 +1,8 @@
 # Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.1.0 ngày 08/10/2026
 
+## Mới ở 2.1.5 — chỉ giao diện khách (API không đổi)
+- Trang vé (/me): thẻ "Tài khoản của bạn" bớt chữ — dòng "Tự chép sẵn email…" chỉ hiện "✓ Đã chép email" sau khi bấm nút mở; lời nhắc trong Zalo / Messenger rút còn 1 dòng; bỏ dòng "Workspace của bạn: Slot N" (vé đã ghi), chỉ còn link "Mở Slot N của bạn ↗" khi có link Project.
+
 ## Mới ở 2.1.4 — chỉ giao diện khách (API không đổi)
 
 - Trang quán Bamos / O'renchi: lướt xuống thì ảnh quán phía sau tối dần (O'renchi xanh rêu đêm, Bamos xanh than) để chữ và danh sách món nổi rõ; lướt lên ảnh sáng lại.

@@ -198,7 +198,7 @@ test('workspace theo thứ tự: khách nhận chỗ nhỏ nhất còn trống, 
   assert.deepEqual(gs.map((g) => g.view().workspace.name), ['Slot 1', 'Slot 2', 'Slot 3']);
   assert.equal(gs[1].view().workspace.url, 'https://chatgpt.com/g/g-p-abc-slot-2/project');
   const page = String(mePage(ctx, { customer: byId(ctx, 'customers', gs[1].customer.id), view: gs[1].view() }));
-  assert.match(page, /Workspace của bạn: <b>Slot 2<\/b>/);
+  assert.match(page, /Mở <b>Slot 2<\/b> của bạn/);
   assert.match(page, /href="https:\/\/chatgpt\.com\/g\/g-p-abc-slot-2\/project"/);
   assert.match(page, /Mã phiếu \(nhận ở quán\)/);
 });
