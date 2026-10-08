@@ -97,12 +97,14 @@
     if (ios && a.dataset.appLink) { a.href = a.dataset.appLink; a.removeAttribute('target'); }
   });
   if ((android || ios) && inApp) $$('[data-in-app]').forEach((p) => { p.hidden = false; });
-  $$('[data-app-get]').forEach((a) => { a.href = android ? a.dataset.android : a.dataset.ios; });
 
+  // Lời nhắc "Quay lại rồi nè" chỉ hiện khi khách đã thật sự rời trang (sang app / tab khác) rồi quay lại — không hiện chỉ vì bấm nút
+  // (iPhone hỏi "Mở trong CapCut?" mà trang vẫn còn trước mặt). Chủ yêu cầu 08/10/2026.
   let opened = false;
+  let away = false;
   const afterOpen = () => {
-    if (!opened) return;
-    opened = false;
+    if (!opened || !away) return;
+    opened = false; away = false;
     const hint = $('[data-acc-next]');
     const target = $('[data-acc-target]');
     if (hint) hint.hidden = false;
@@ -111,8 +113,11 @@
       target.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
     }
   };
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(afterOpen, 250); });
-  window.addEventListener('pageshow', () => setTimeout(afterOpen, 250));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { if (opened) away = true; } else setTimeout(afterOpen, 250);
+  });
+  window.addEventListener('pagehide', () => { if (opened) away = true; });
+  window.addEventListener('pageshow', (e) => { if (e.persisted && opened) away = true; setTimeout(afterOpen, 250); });
 
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[data-app], a[data-app-link], a[data-copy-first]');
@@ -122,7 +127,7 @@
       $('[data-cp=email]')?.classList.add('done');
       const note = $('[data-acc-auto]');
       if (note) { note.textContent = '✓ Đã chép email'; note.classList.add('ok'); note.hidden = false; }
-      opened = true;
+      opened = true; away = false;
     }
     if (!canApp || !(a.dataset.app || a.dataset.appLink)) return; // máy tính: mở trang web như link thường
     const pkg = a.dataset.appAndroid;
@@ -131,8 +136,6 @@
       const [scheme, rest] = a.dataset.app.split('://');
       const go = () => { location.href = android ? `intent://${rest}#Intent;scheme=${scheme};package=${pkg};end` : a.dataset.app; };
       setTimeout(go, a.dataset.copyFirst ? 120 : 0); // chờ chép email xong
-      // App chưa cài (iPhone báo không mở được) → trang vẫn hiện sau 1,8 giây: hiện "Chưa có app? Tải … · dùng bản web".
-      setTimeout(() => { if (document.visibilityState === 'visible') $$('[data-app-miss]').forEach((p) => { p.hidden = false; }); }, 1800);
     } else if (android) {
       e.preventDefault();
       const u = new URL(a.dataset.appLink);

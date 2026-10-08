@@ -124,7 +124,7 @@ test('vé: link gửi cho máy khác bị từ chối; link không vé chỉ hi�
     // CapCut: nút "Mở" giữ link web (laptop) và kèm scheme app để điện thoại mở thẳng app.
     const me = (await c.get('/me', UA)).text;
     assert.match(me, /href="https:\/\/www\.capcut\.com\/login"[^>]*data-app="capcut:\/\/main\/tabbar\?index=0" data-app-android="com\.lemon\.lvoverseas"/);
-    assert.match(me, /data-app-miss hidden/);
+    assert.doesNotMatch(me, /Chưa có app/); // chủ bỏ dòng này 08/10/2026
   } finally {
     await srv.close();
   }

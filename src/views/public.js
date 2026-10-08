@@ -486,12 +486,11 @@ function accountCard(ctx, v, { rows, code = '', codeFold = '' }) {
   const app = appOf(t);
   // Bớt chữ (chủ yêu cầu 08/10/2026): dòng "đã chép email" chỉ hiện sau khi bấm; tên Slot đã có trên vé nên chỉ hiện link Project nếu có.
   // UI tâm lý (chủ yêu cầu 08/10/2026): 1 nút chính lên đầu; bấm là tự chép email + mở thẳng app; quay lại trang thì dòng kế tiếp (mật khẩu / lấy mã)
-  // sáng lên kèm lời nhắc; dòng đã chép có ✓. "Chưa có app?" chỉ hiện khi mở app không được (app.js).
+  // sáng lên kèm lời nhắc; dòng đã chép có ✓. Bỏ dòng "Chưa có app? Tải … · dùng bản web" (chủ yêu cầu 08/10/2026 — iPhone hỏi "Mở trong app?" làm dòng này hiện nhầm).
   return html`<section class="steps acc-card" data-acc>
   <h2>Tài khoản của bạn</h2>
   ${t.login_url ? html`${openBtn(t, 'btn acc-open', false, v.accountEmail || '')}
   <p class="acc-auto" data-acc-auto hidden></p>` : ''}
-  ${app?.scheme ? html`<p class="hint acc-miss" data-app-miss hidden>Chưa có app? <a href="${app.ios}" data-app-get data-ios="${app.ios}" data-android="https://play.google.com/store/apps/details?id=${app.android}" target="_blank" rel="noopener noreferrer">Tải ${app.name}</a> · <a href="${t.login_url}" target="_blank" rel="noopener noreferrer">dùng bản web</a></p>` : ''}
   ${app ? html`<p class="hint acc-miss" data-in-app hidden>Bấm ⋯ → <b>Mở bằng trình duyệt</b> để vào app ${app.name}</p>` : ''}
   <div class="acc-rows">${rows}</div>
   ${v.workspace?.url ? html`<p class="pg-acc-ws"><a href="${v.workspace.url}" target="_blank" rel="noopener noreferrer">Mở <b>${v.workspace.name}</b> của bạn ↗</a></p>` : ''}
