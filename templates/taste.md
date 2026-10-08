@@ -90,6 +90,8 @@ sửa hoặc xoá, không chồng. Số đo theo đơn vị trang (khổ 390).
   cho chữ thường (`rieng-chinh`, không có thì tự chọn), âm thanh thành nút loa (mặc định tắt).
 - Logo trên nền trắng: tách nền bằng cách xoá phần nền **nối với mép ảnh** (giữ chữ trắng bên trong); ảnh PNG trong suốt thì **không**
   đặt `shadow` (bóng sẽ thành hình chữ nhật).
+- Quán cà phê (nhóm `quan`, 08/10 O'renchi): `la-monstera`, `day-den` (dây đèn võng, `loop: "twinkle"`), `ly-da`, `ghe-may`, `mai-ton`
+  (mặt nhà mái tôn, đặt chữ tên quán bên trong như biển hiệu).
 - Mây: `may-troi` (ba lớp trôi, màu từ các điểm của gradient); bầu trời đêm: `sao-troi`.
 
 ## Icon

@@ -32,6 +32,8 @@ export type Guest = {
   erase: () => Promise<EraseResult>; ready: boolean;
 };
 const GuestContext = createContext<Guest | null>(null);
+/** The guest's session where there is one (a live page); null in the editor and in still pictures. */
+export const useGuestIfAny = (): Guest | null => useContext(GuestContext);
 export function useGuest(): Guest {
   const guest = useContext(GuestContext);
   if (!guest) throw new Error('useGuest outside GuestCore');

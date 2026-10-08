@@ -15,7 +15,7 @@ export const metadata = { title: 'Kho chi tiết', robots: { index: false, follo
 
 const ICON_SHOW = ['google', 'google-tron', 'google-net', 'maps', 'maps-mau', 'maps-net', 'maps-giay', 'instagram', 'instagram-dac', 'instagram-net',
   'tiktok', 'tiktok-vuong', 'tiktok-net', 'web', 'web-tro', 'globe', 'link', 'zalo', 'facebook'] as const;
-const GROUPS: [string, string][] = [['sao', 'Sao lấp lánh'], ['tim', 'Tim'], ['cuoi', 'Mặt cười'], ['dau', 'Dấu vẽ tay']];
+const GROUPS: [string, string][] = [['sao', 'Sao lấp lánh'], ['tim', 'Tim'], ['cuoi', 'Mặt cười'], ['dau', 'Dấu vẽ tay'], ['quan', 'Quán: cây, đèn, ly, ghế, mái']];
 /** Each sticker as a page would use it: plain, turned, roughened with crayon; in three of the mockups' colours. */
 const LOOKS = [{ color: '#ff4fb4', r: 0, grain: false }, { color: '#b59cff', r: -14, grain: false }, { color: '#f1ece0', r: 10, grain: true }];
 /** Brush stamps laid like make-up powder: a wide thin spray, a cloud, a stroke, a dab, then loose grain over all (nền kiểu Sentry). */

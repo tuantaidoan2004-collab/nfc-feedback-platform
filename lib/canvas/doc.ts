@@ -189,13 +189,14 @@ export const LINKS_LOOKS = ['icons', 'pills', 'rows'] as const;
 export type LinksEl = Box & { t: 'links'; look: typeof LINKS_LOOKS[number]; style?: 'mau' | 'net' | 'dac'; color?: Color; bg?: Fill; gap?: number; size?: number;
   order?: LinkSlot[]; items?: { slot: LinkSlot; url: string; label?: string }[]; own?: true };
 /**
- * Chỗ báo hiệu sự kiện (kịch bản mục 8; Tài 08/10: "nhìn phát là quán này có collab"): the picture of a collab -- the shop's logo
- * and the organizer's, on white -- in a card with a gradient ring and a "Hôm nay có sự kiện" tag, in the first section near the
- * shop's name. A tap scrolls to the event's block (khúc B, lib/events/section.ts). It shows only while /gov has `event` open for
- * the shop; otherwise it is gone, as a slot without the shop's data is. Never next to the Google button (layout.ts).
+ * Logo collab của quán (kịch bản mục 8; Tài 08/10: "orenchi và bamos là riêng, là chào riêng, nhưng đều chạy về link long"): the picture
+ * of a collab -- the shop's logo and the organizer's, on white -- in a card with a gradient ring, wherever the page puts it (never next
+ * to the Google button, layout.ts). It is where the guest taps: the event's first button is folded into it (its label a note on the
+ * card's edge, its popout motion around the card) and it opens the organizer's page (components/canvas/live.tsx EventSpot). It shows
+ * only while /gov has `event` open for the shop; otherwise it is gone, as a slot without the shop's data is.
  */
 export type EventSpotEl = Box & { t: 'event'; event: string; src: string;
-  /** What the shop calls its regulars ("Bamos'er", Tài 08/10): the event's block then says it is for them. */
+  /** No longer shown (08/10: the event's words left the page). Still read, so pages saved with it stay valid. */
   fans?: string };
 export type El = Leaf | FeedbackEl | StackEl | DeckEl | LinksEl | EventSpotEl;
 

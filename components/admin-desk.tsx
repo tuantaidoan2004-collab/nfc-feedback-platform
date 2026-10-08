@@ -25,7 +25,7 @@ const ERRORS: Record<string, string> = {
   MEDIA_TOO_LARGE: 'Tệp quá lớn (ảnh tối đa 5 MB, video 4 MB).', UNSUPPORTED_MEDIA: 'Chỉ nhận JPG, PNG, WebP, MP4.', STORE_REFUSED: 'Kho ảnh từ chối tệp, thử lại.',
   UPLOADS_NOT_CONFIGURED: 'Máy chủ chưa có kho ảnh.', NO_KNOBS: 'Mẫu này chưa có núm.', NO_GOOGLE_LINK: 'Quán chưa có Place ID: điền ở "Thông tin quán".',
   PAGE_NOT_SYNCED: 'Trang còn link mẫu ở chỗ khách bấm được.', DRAFT_CONFLICT: 'Bản nháp vừa đổi ở nơi khác — tải lại trang.',
-  POLICY_GOOGLE_NOT_FIRST_SCREEN: 'Nút Google bị đẩy khỏi màn hình đầu.', POLICY_GOOGLE_EVENT_NEAR: 'Chỗ báo hiệu sự kiện sát nút Google.', POLICY_GOOGLE_EXCHANGE: 'Có chữ đổi quà lấy đánh giá.', MEDIA_PENDING: 'Có ảnh chưa duyệt.',
+  POLICY_GOOGLE_NOT_FIRST_SCREEN: 'Nút Google bị đẩy khỏi màn hình đầu.', POLICY_GOOGLE_EVENT_NEAR: 'Logo collab sát nút Google.', POLICY_GOOGLE_EXCHANGE: 'Có chữ đổi quà lấy đánh giá.', MEDIA_PENDING: 'Có ảnh chưa duyệt.',
   NOT_FOUND: 'Yêu cầu này đã đóng hoặc không còn.', SERVICE_UNAVAILABLE: 'Máy chủ đang gián đoạn, thử lại.',
 };
 const explain = (code: string) => {

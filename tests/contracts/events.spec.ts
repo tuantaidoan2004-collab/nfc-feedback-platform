@@ -4,7 +4,7 @@ import { freeTextProblem } from '../../lib/publishing/policy';
 import { fold } from '../../lib/text-fold';
 import { EVENTS, EVENT_KEYS, eventBlock, eventOrigin, isEventKey } from '../../lib/events/catalog';
 import { issueTicket, throughCard, ticketKey } from '../../lib/events/ticket';
-import { baseColor, contrast, eventSection, withOpenEvents } from '../../lib/events/section';
+import { baseColor, contrast, eventSection, hasSign, withOpenEvents } from '../../lib/events/section';
 import { validateDoc, walk } from '../../lib/canvas/validate';
 import { mediaOf, placeAll } from '../../lib/canvas/layout';
 import { assertPublishable } from '../../lib/publishing/policy';
@@ -33,7 +33,7 @@ test('the platform\'s words for an event pass the shop\'s trip-wire and never me
   for (const key of EVENT_KEYS) {
     const e = EVENTS[key];
     const both = (w: { vi: string; en?: string }) => [w.vi, w.en ?? ''];
-    const words = [e.organizer, e.name, ...both(e.title), ...both(e.summary), ...both(e.note), ...e.rules.flatMap(both), ...e.links.flatMap(link => both(link.label)),
+    const words = [e.organizer, e.name, ...both(e.title), ...both(e.summary),
       ...e.items.flatMap(item => [...both(item.label), ...('pop' in item ? item.pop.flatMap(both) : [])])];
     for (const value of words) {
       expect(freeTextProblem(value), value).toBeNull();
@@ -49,8 +49,6 @@ test('the platform\'s words for an event pass the shop\'s trip-wire and never me
 test('the block links to the organizer with the shop\'s code, in lower case and escaped; the ticket rides only on the item that takes it', () => {
   const plain = eventBlock(TBQ, 'QuanMau', null, {});
   expect(plain.items.map(item => [item.key, item.href])).toEqual([['nhan', 'https://thu.tiembanquyen.site/colap/qs/quanmau']]);
-  // The organizer's policy on its own address; its Zalo as it is.
-  expect(plain.links.map(link => link.href)).toEqual(['https://thu.tiembanquyen.site/colap/privacy', 'https://zalo.me/0988428496']);
   expect(plain.title).toEqual(EVENTS[TBQ].title);
   expect(eventBlock(TBQ, 'a/../b?x', null, {}).items[0].href).toBe('https://thu.tiembanquyen.site/colap/qs/a%2F..%2Fb%3Fx');
   const ticketed = eventBlock(TBQ, 'QuanMau', '1.2.a b.c', {});
@@ -98,7 +96,7 @@ test('only a live page opened through the shop\'s card earns a ticket: not its p
   expect(throughCard({ scope: 'live', entryKey: null })).toBe(false);
 });
 
-test('khúc B on every template: its own section, a rule above it, legible words, the organizer\'s links and nothing of Google', () => {
+test('khúc B on every template: its own section, a rule above it, the event\'s buttons and no words, nothing of Google', () => {
   expect(CANVAS_TEMPLATES.length).toBeGreaterThan(0);
   for (const template of CANVAS_TEMPLATES) {
     const block = eventBlock(TBQ, 'quanmau', 'ticket', {});
@@ -118,13 +116,9 @@ test('khúc B on every template: its own section, a rule above it, legible words
       expect(el.x + el.w, `${at} ${el.id}`).toBeLessThanOrEqual(390);
       expect(el.y + el.h, `${at} ${el.id}`).toBeLessThanOrEqual(section.h);
     }
-    // No title or summary (Tài 08/10): the collab is told in the first section, by its sign. What the guest gets, the organizer's
-    // rules and links, and the line saying who runs it.
-    expect(texts.map(text => text.id), at).toEqual([`${TBQ}-note`, `${TBQ}-rules-title`, ...block.rules.map((_, i) => `${TBQ}-rule-${i}`),
-      ...block.links.map(link => `${TBQ}-link-${link.key}`), `${TBQ}-by`]);
-    expect(texts.filter(text => text.link).map(text => text.link), at).toEqual(block.links.map(link => link.href));
-    const by = texts.find(text => text.id.endsWith('-by'))!;
-    for (const value of [by.words.vi, by.words.en!]) expect(freeTextProblem(value), value).toBeNull();
+    // Only the rule and the buttons (Tài 08/10: "xoá hết mấy dòng chữ, bỏ luôn chính sách vì bên đó có").
+    expect(texts, at).toEqual([]);
+    expect(section.els.length, at).toBe(1 + block.items.length);
   }
 });
 
@@ -140,7 +134,7 @@ const googleRect = (config: ReturnType<typeof withSign>) => {
   return placeAll(config.doc).find(p => p.id === id)!.rect;
 };
 
-test('an event\'s sign in the first section: a known event and a picture, kept off the Google button, its picture an upload to review', () => {
+test('a collab logo: a known event and a picture, kept off the Google button, its picture an upload to review', () => {
   const probe = withSign({ x: 0, y: 0, w: 10, h: 10 }), g = googleRect(probe);
   // Clear of the button by more than the gap: publishable, and its picture goes through the image review like any other.
   const far = withSign({ x: 20, y: g.y + g.h + 48, w: 300, h: 90 });
@@ -166,10 +160,8 @@ test('the sign shows only while /gov has its event open for the shop; closing it
   expect(signs(config.doc)).toBe(1);
   const plain = pageFromTemplate(CANVAS_TEMPLATES[0].key, 'Shop fixture');
   expect(withOpenEvents(plain.doc, [])).toBe(plain.doc);
-  // The sign may name the shop's regulars: the block is then for them, otherwise for every guest of the shop.
-  const by = (doc: typeof config.doc) => (eventSection(doc, eventBlock(TBQ, 'quanmau', null, {})).els.find(el => el.id === `${TBQ}-by`) as TextEl).words.vi;
-  expect(by(plain.doc)).toBe('Do Tiệm Bản Quyền tổ chức · dành cho mọi khách của quán');
-  (config.doc.sections[0].els.at(-1) as EventSpotEl).fans = "Bamos'er";
-  expect(by(config.doc)).toBe("Do Tiệm Bản Quyền tổ chức · dành cho Bamos'er");
+  // A page with its own collab logo is tapped there: no block of buttons is added for that event (components/canvas/event.tsx).
+  expect(hasSign(config.doc, TBQ)).toBe(true);
+  expect(hasSign(plain.doc, TBQ)).toBe(false);
   expect(validateDoc(config.doc)).toBeTruthy();
 });

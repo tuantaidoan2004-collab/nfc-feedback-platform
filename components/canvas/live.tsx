@@ -11,7 +11,8 @@ import { createContext, useContext, useEffect, useRef, useState, type CSSPropert
 import type { DeckCard, EventSpotEl, FeedbackEl, GoogleEl, LangEl, LegalEl } from '@/lib/canvas/doc';
 import { paint } from '@/lib/canvas/paint';
 import CanvasIcon from './icons';
-import { LegalLine, guestCopy, useGuest } from '../guest/core';
+import { LegalLine, guestCopy, useGuest, useGuestIfAny } from '../guest/core';
+import { EVENTS, isEventKey, type EventBlock } from '@/lib/events/catalog';
 import { WordsView } from './words';
 
 const FEEDBACK_ICONS: Record<FeedbackEl['icon'], string> = {
@@ -260,22 +261,29 @@ export function EventTaps({ event, items, children }: { event: string; items: { 
   }}>{children}</div>;
 }
 
+/** The events /gov opened for the shop, with their finished links (a ticket when the guest came through the card): given by the live page. */
+const EventLinksContext = createContext<EventBlock[]>([]);
+export function EventLinks({ blocks, children }: { blocks: EventBlock[]; children: ReactNode }) {
+  return <EventLinksContext.Provider value={blocks}>{children}</EventLinksContext.Provider>;
+}
+
 /**
- * Chỗ báo hiệu sự kiện (doc.ts EventSpotEl): the collab's picture in a ringed card under a "Hôm nay có sự kiện" tag. A tap glides
- * to the event's block (khúc B) and makes its button glow for a moment, so the guest sees where to go next.
+ * Logo collab của quán (doc.ts EventSpotEl; Tài 08/10): mỗi quán một logo, một lời chào riêng, nhưng đều chạy về cùng trang của
+ * bên tổ chức. Chính logo là chỗ bấm — nút đầu tiên của sự kiện gộp vào đây: nhãn của nút thành dòng ghi chú trên mép logo, hiệu ứng
+ * popout của nút (uiverse.io dexter-st/itchy-wolverine-84, MIT: hai thẻ nhỏ bật ra, bốn góc toả ra rồi thu về) chạy quanh logo.
+ * Bấm thì mở trang của bên tổ chức ở tab mới, kèm mã quán và vé như nút cũ. Ngoài trang khách thật (Bàn dựng, ảnh chụp) không có link.
  */
-const SPOT_TAG = { vi: 'Hôm nay có sự kiện', en: 'Event today' };
 export function EventSpot({ el }: { el: EventSpotEl }) {
-  const target = `khuc-b-${el.event}`;
-  return <a className="cv-spot" href={`#${target}`} onClick={click => {
-    const block = document.querySelector<HTMLElement>(`[data-section="${target}"]`);
-    if (!block) return;
-    click.preventDefault();
-    block.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const button = block.querySelector<HTMLElement>('.cv-btn');
-    if (button) { button.classList.remove('cv-ping'); void button.offsetWidth; button.classList.add('cv-ping'); }
-  }}>
+  const guest = useGuestIfAny();
+  const item = useContext(EventLinksContext).find(block => block.key === el.event)?.items[0];
+  const def = isEventKey(el.event) ? EVENTS[el.event].items[0] : undefined;
+  const label = item?.label ?? def?.label, pop = item?.pop ?? def?.pop;
+  return <a className="cv-spot" href={item?.href} target="_blank" rel="noopener noreferrer"
+    onClick={() => { if (item) guest?.event('event_tapped', { event: el.event, item: item.key }); }}>
+    {pop && <><span className="cv-pop-card cv-spot-pop-up" aria-hidden="true"><WordsView words={pop[0]} /></span>
+      <span className="cv-pop-card cv-spot-pop-down" aria-hidden="true"><WordsView words={pop[1]} /></span></>}
     <span className="cv-spot-card"><img src={el.src} alt="" decoding="async" /></span>
-    <span className="cv-spot-tag"><span className="cv-spot-dot" aria-hidden="true" /><WordsView words={SPOT_TAG} /></span>
+    {label && <span className="cv-spot-tag"><span className="cv-spot-dot" aria-hidden="true" /><WordsView words={label} /></span>}
+    {[0, 1, 2, 3].map(i => <svg key={i} className="cv-pop-corner" viewBox="-1 1 32 32" aria-hidden="true"><path d="M32,32C14.355,32,0,17.645,0,0h.985c0,17.102,13.913,31.015,31.015,31.015v.985Z" /></svg>)}
   </a>;
 }

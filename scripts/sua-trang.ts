@@ -41,7 +41,7 @@ type Saved = { quan: string; trang: string; banNhap: number; mau: string; ten: s
 const WHY: Record<string, string> = {
   PAGE_NOT_SYNCED: 'Trang còn link mẫu (trang chủ của Zalo/Facebook/TikTok… hoặc link về Quite Sensational) ở phần tử không có chỗ của quán.',
   POLICY_GOOGLE_NOT_FIRST_SCREEN: 'Nút Google bị đẩy khỏi màn hình đầu (khúc đầu, trên vạch 560).', POLICY_GOOGLE_TWICE: 'Có hai nút Google.',
-  POLICY_GOOGLE_EVENT_NEAR: 'Chỗ báo hiệu sự kiện sát nút Google (cách ít nhất 40 đơn vị, đặt gần tên quán/logo).',
+  POLICY_GOOGLE_EVENT_NEAR: 'Logo collab sát nút Google (cách ít nhất 40 đơn vị).',
   POLICY_GOOGLE_EXCHANGE: 'Có chữ đổi quà lấy đánh giá hoặc gợi ý nội dung đánh giá (luật Google).', POLICY_GOOGLE_LINK: 'Có link viết đánh giá Google ngoài nút Google.',
   INVALID_CONFIG: 'Tài liệu trang sai dạng.', MEDIA_PENDING: 'Có ảnh đang chờ duyệt.', MEDIA_REJECTED: 'Có ảnh đã bị từ chối.', MEDIA_UNKNOWN: 'Có ảnh không phải của quán.',
   DRAFT_CONFLICT: 'Bản nháp đã đổi từ lúc lấy ra. Chạy lại "lay".', PAGE_CLOSED: 'Trang đã đóng.', SHOP_SUSPENDED: 'Quán đang bị khoá.',

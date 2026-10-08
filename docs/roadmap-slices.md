@@ -17,7 +17,7 @@ Nguồn: `rieng/kich-ban.md` mục 3, 3b, 7, 8, 10 (2b), 13. Làm lần lượt 
 | G2 ✅ 06/10 | Onboarding "Bạn là…" ba lối (chủ mới / Admin Tài tạo sẵn → Zalo → link đặt mật khẩu một lần / nhân viên); khách tự đến quét VietQR 10k, trừ tháng đầu; Tài bấm "Đã nhận" | Extra |
 | G3 ✅ 06/10 | Nhân viên xin vào quán bằng @chủ quán / link trang / link thẻ / mã quán, chủ hoặc người có quyền Thành viên duyệt và chọn vai; nhật ký `member.join`/`member.decline` (nhờ sửa đã có `edit.request`); `/gov` đếm số lần Admin Tài dựng/sửa | Extra |
 | G3b ✅ 06/10 | VIP: thêm địa chỉ quán (tên, Place ID), chuyển qua lại giữa các quán; địa chỉ không có gói riêng, theo hạn của quán chính (`shops.main_shop_id`); quán chính còn địa chỉ không hạ dưới VIP. Chưa làm: gỡ/tách địa chỉ | Extra |
-| G4 | Collab: chỗ báo hiệu ở khúc A + khối khúc B theo `slot`, danh mục `/gov`, quán mua 100k một lần; dựng lại "Công cụ làm việc" (Tiệm Bản Quyền) trên canvas | Max |
+| G4 | Collab: logo collab riêng của quán là chỗ bấm sang bên tổ chức (08/10), danh mục `/gov`, quán mua 100k một lần; dựng lại "Công cụ làm việc" (Tiệm Bản Quyền) trên canvas | Max |
 | G5 ✅ 06/10 | Khúc "Vì sao có Quite Sensational" trên landing (`components/qs/landing/why.tsx`) | High |
 
 ## 0. Thứ tự của đợt cải tổ UI/UX (audit 27/09)

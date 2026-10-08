@@ -6,6 +6,7 @@ import { PublishingError } from '@/lib/publishing/config';
 import { ShopUnpaid } from '@/lib/publishing/repository';
 import CanvasPage from './canvas/render';
 import EventSections from './canvas/event';
+import { EventLinks } from './canvas/live';
 import { eventBlock } from '@/lib/events/catalog';
 import { withOpenEvents } from '@/lib/events/section';
 import { issueTicket, throughCard } from '@/lib/events/ticket';
@@ -48,8 +49,8 @@ export default async function PublishedPage({target}:{target:Target}) {
   // is how the organizer knows they are in the shop, without asking the shop for anything (lib/events/ticket.ts).
   const card = throughCard(page.context);
   const events = page.events.map(key => eventBlock(key, page.shopSlug, card ? issueTicket(key, page.shopSlug) : null));
-  // An event's sign in the first section (khúc A) shows only while its event is open, like the block itself.
+  // A shop's collab logo shows only while its event is open, and is then where the guest taps (live.tsx EventSpot, EventLinks).
   const doc = withOpenEvents(page.config.doc, page.events);
-  return <CanvasPage doc={doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}
-    afterFirst={<EventSections doc={doc} blocks={events} />}/>;
+  return <EventLinks blocks={events}><CanvasPage doc={doc} mode="live" slug={page.slug} googleUrl={page.googleUrl} render={{proof:page.proof,preview:page.context.scope==='test'}}
+    afterFirst={<EventSections doc={doc} blocks={events} />}/></EventLinks>;
 }

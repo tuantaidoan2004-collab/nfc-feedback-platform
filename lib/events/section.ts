@@ -1,18 +1,19 @@
-import type { ButtonEl, El, EventSpotEl, PageDoc, Section, TextEl } from '../canvas/doc';
+import type { ButtonEl, El, PageDoc, Section, TextEl } from '../canvas/doc';
 import { walk } from '../canvas/validate';
 import type { EventBlock, EventKey } from './catalog';
 
 /**
- * Khúc B trên trang canvas: một sự kiện của bên tổ chức thành **một khúc canvas thật** — chỉ các nút của sự kiện —, đặt giữa khúc đầu và phần còn lại
+ * Khúc của sự kiện trên trang canvas, cho trang **chưa có logo collab** (trang có logo thì logo là chỗ bấm, `hasSign`): một khúc canvas thật
+ * chỉ gồm vạch ngăn và các nút của sự kiện, không chữ nào khác (Tài 08/10), đặt giữa khúc đầu và phần còn lại
  * (components/canvas/render.tsx `afterFirst`). Khúc này không nằm trong tài liệu của quán, chủ quán không sửa được và không
  * phải làm gì; nó mượn nét của chính trang để mỗi quán một vẻ:
  *
  * - nền: màu trang chạy tiếp ở dưới khúc cuối (giống dòng chân trang), nên khúc B nối liền với trang;
- * - chữ: màu chữ đầu tiên của template nếu đủ tương phản trên nền đó, không thì trắng / gần đen;
+ * - mực (vạch ngăn, nút không có kiểu riêng): màu chữ đầu tiên của template nếu đủ tương phản trên nền đó, không thì trắng / gần đen;
  * - nút: kiểu nút của template (pill, gradient, ring…) với màu của nó; template không có nút hợp thì pill đảo màu.
  *
  * Luật Google (docs/google-policy.md luật 4 và 8): khúc này không bao giờ là khúc đầu (nút Google luôn ở màn hình đầu,
- * khúc đầu cao hết màn hình), có một vạch ngăn với phần của quán, và câu cuối nói rõ ai tổ chức, dành cho mọi khách.
+ * khúc đầu cao hết màn hình) và có một vạch ngăn với phần của quán.
  */
 const W = 390;
 const BTN_W = 310;
@@ -57,17 +58,12 @@ export function eventSection(doc: PageDoc, block: EventBlock): Section {
       // The label is a sentence, not a shop's one-word link: never smaller than 15 units, whatever the template's buttons use.
       size: Math.min(18, Math.max(15, model.size ?? 16)), weight: model.weight, spacing: model.spacing, shadow: model.shadow }
     : { id: `${block.key}-${key}`, t: 'button', x: (W - BTN_W) / 2, y, w: BTN_W, h, look: 'pill', label, link: href, bg: ink, fg: base, font: 'sans', size: 16, weight: 650 };
-  const text = (id: string, y: number, height: number, words: TextEl['words'], extra: Partial<TextEl>): TextEl =>
-    ({ id: `${block.key}-${id}`, t: 'text', x: 32, y, w: W - 64, h: height, words, font: 'sans', size: 14, color: ink, align: 'center', ...extra });
-
-  // Tài 08/10: the collab itself is told in the first section, by the event's sign (doc.ts EventSpotEl); here the button, what the
-  // guest gets, the organizer's own rules and links, and who it is for -- the shop's regulars when the sign names them.
-  const fans = all.find((el): el is EventSpotEl => el.t === 'event' && el.event === block.key)?.fans;
-  let y = 56;
+    let y = 56;
   const els: El[] = [
-    // Vạch ngăn: khúc B tách khỏi phần của quán ở trên (luật 8).
+    // Vạch ngăn: khúc của sự kiện tách khỏi phần của quán ở trên (luật 8).
     { id: `${block.key}-rule`, t: 'shape', shape: 'rect', x: (W - 56) / 2, y: 14, w: 56, h: 2, radius: 1, fill: ink, o: .28 },
   ];
+  // Only the buttons (Tài 08/10: no words, no rules -- the organizer's own page has them).
   for (const item of block.items) {
     if (item.pop) {
       // The popout button keeps its own lime (uiverse dexter-st/itchy-wolverine-84); its corner marks take the page's ink.
@@ -76,26 +72,11 @@ export function eventSection(doc: PageDoc, block: EventBlock): Section {
       y += 56 + 40;
     } else { els.push(button(item.key, item.label, item.href, y)); y += h + 12; }
   }
-  els.push(text('note', y, 40, block.note, { size: 14.5, weight: 600, line: 1.4 }));
-  y += 52;
-  els.push(text('rules-title', y, 18, { vi: `Chính sách của ${block.organizer}`, en: `${block.organizer}'s rules` }, { size: 12, weight: 700, o: .8 }));
-  y += 24;
-  block.rules.forEach((rule, i) => {
-    els.push(text(`rule-${i}`, y, 34, { vi: `• ${rule.vi}`, en: rule.en && `• ${rule.en}` }, { x: 40, w: W - 80, size: 11.5, line: 1.4, align: 'left', o: .78 }));
-    y += 38;
-  });
-  y += 4;
-  // One link centred, two side by side meeting at the middle.
-  const pair = block.links.length > 1;
-  block.links.slice(0, 2).forEach((link, i) => els.push(text(`link-${link.key}`, y, 16, link.label,
-    { ...(pair ? { x: i ? W / 2 + 8 : 32, w: W / 2 - 40, align: i ? 'left' : 'right' } : {}), size: 11.5, underline: true, link: link.href, o: .85 })));
-  y += 30;
-  els.push(text('by', y, 16, fans
-    ? { vi: `Do ${block.organizer} tổ chức · dành cho ${fans}`, en: `By ${block.organizer} · for ${fans}` }
-    : { vi: `Do ${block.organizer} tổ chức · dành cho mọi khách của quán`, en: `By ${block.organizer} · for every guest of the shop` },
-    { size: 11, o: .6 }));
-  return { id: `khuc-b-${block.key}`, name: block.title.vi, h: y + 16 + 28, bg: { fill: base }, els };
+  return { id: `khuc-b-${block.key}`, name: block.title.vi, h: y + 8, bg: { fill: base }, els };
 }
+
+/** The page carries its own collab logo for this event (doc.ts EventSpotEl): the logo is then where the guest taps, and no block is added. */
+export const hasSign = (doc: PageDoc, key: string) => elements(doc).some(el => el.t === 'event' && el.event === key);
 
 /**
  * The page as a guest sees it today: an event's sign (doc.ts EventSpotEl) stays only while /gov has its event open for the shop,
