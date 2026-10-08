@@ -121,6 +121,10 @@ test('vé: link gửi cho máy khác bị từ chối; link không vé chỉ hi�
     const ok = await c.post('/api/claim', { toolId: tools.capcut.id });
     assert.equal(ok.json.status, 'active', ok.text);
     assert.equal((await c.get('/api/me')).json.view.password, 'Secret#123');
+    // CapCut: nút "Mở" giữ link web (laptop) và kèm scheme app để điện thoại mở thẳng app.
+    const me = (await c.get('/me', UA)).text;
+    assert.match(me, /href="https:\/\/www\.capcut\.com\/login"[^>]*data-app="capcut:\/\/main\/tabbar\?index=0" data-app-android="com\.lemon\.lvoverseas"/);
+    assert.match(me, /data-app-miss hidden/);
   } finally {
     await srv.close();
   }

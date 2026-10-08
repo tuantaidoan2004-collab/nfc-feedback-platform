@@ -7,23 +7,24 @@ import { parseTotpSecret } from '../lib/totp.js';
 import { hit, reset } from '../lib/ratelimit.js';
 import { logEvent } from '../lib/events.js';
 import { normalizePhone, normalizeEmail, maskPhone, displayPhone } from '../lib/phone.js';
-import { SETTING_DEFS, saveSetting } from '../lib/settings.js';
-import { HOUR, MIN, DAY, startOfLocalDay, startOfLocalMonth } from '../lib/time.js';
+import { SETTING_DEFS, SETTING_RANGE, SETTING_GROUPS, SETTING_CHOICES, checkSetting, pairProblems } from '../lib/settings.js';
+import { HOUR, MIN, DAY, startOfLocalDay, startOfLocalMonth, fmtLocal } from '../lib/time.js';
 import { completeTask, revokeSlot, createTask, blockingHolders, keptSeats, workspaceName } from '../domain/claims.js';
-import { createBatch, voidVoucher, unbindVoucher, extendSlot, formatCode, VOUCHER_KINDS } from '../domain/vouchers.js';
+import { createBatch, voidVoucher, voidBatch, unbindVoucher, extendSlot, formatCode, VOUCHER_KINDS, isAutoBatch, autoBatchSql } from '../domain/vouchers.js';
 import { lockCustomer, unlockCustomer, addStrike, lockDevice, unlockDevice, lockCard, unlockCard, customerRisk } from '../domain/risk.js';
 import { eraseCustomer } from '../domain/auth.js';
-import { deliverManualCode } from '../domain/codes.js';
+import { deliverManualCode, MANUAL_CODE_KINDS } from '../domain/codes.js';
 import { accountLoad, toolAvailability, toolUsedToday, USABLE_SQL, COUNTED } from '../domain/quota.js';
 import { quarantineAccount, DEFAULT_TOOL_PATTERNS } from '../domain/mail.js';
 import { statsSince, cafeReport } from '../domain/stats.js';
 import { freeTextProblem, POLICY_MESSAGE } from '../lib/policy.js';
+import { rotateBotSeen } from './worker.js';
 import { QS_EVENT } from '../qs-event.js';
 import { createCafe, shopFromInput, qsPageInfo } from '../domain/presence.js';
-import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes } from '../domain/stock.js';
+import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes, updateAccount, dropRotateTasks } from '../domain/stock.js';
 import {
-  adminPage, csrfField, postButton, table, t, sev, badge, tile, csvFile, eventSummary,
-  EVENT_LABEL, SLOT_STATUS, ACCOUNT_STATUS, LOGIN_TYPE, TASK_KIND, TASK_REASON, END_REASON, REUSE, ALERT_HINT,
+  adminPage, csrfField, postButton, table, t, sev, badge, csvFile, eventSummary, secHead, stat, chips, link, icon, dayLabel,
+  EVENT_LABEL, TICKET_ERROR, SLOT_STATUS, ACCOUNT_STATUS, LOGIN_TYPE, TASK_KIND, TASK_REASON, END_REASON, REUSE, ALERT_HINT, ACCOUNT_TONE, SLOT_TONE,
 } from '../views/admin.js';
 
 const SESSION_HOURS = 12;
@@ -38,8 +39,27 @@ function auth(rq) {
 }
 
 function view(rq, opts) {
-  rq.sendHtml(200, adminPage({ csrf: rq.state.admin?.csrf, flash: rq.query.msg, ...opts }));
+  const { ctx } = rq;
+  rq.sendHtml(200, adminPage({ csrf: rq.state.admin?.csrf, flash: rq.query.msg, nav: navCounts(ctx), today: dayLabel(ctx.now(), off(ctx)), ...opts }));
 }
+
+/** Số đếm trên thanh bên: đỏ = việc chờ chủ làm, xám = để biết. */
+function navCounts(ctx) {
+  const n = (sql, ...p) => get(ctx.db, sql, ...p)?.n || 0;
+  const now = ctx.now();
+  return {
+    tasks: n("SELECT COUNT(*) AS n FROM rotation_tasks WHERE status = 'todo'"),
+    extend: n("SELECT COUNT(*) AS n FROM extend_requests r JOIN slots s ON s.id = r.slot_id WHERE r.status = 'pending' AND s.status = 'active'"),
+    alerts: n("SELECT COUNT(*) AS n FROM events WHERE severity = 'red' AND created_at > ?", now - 2 * HOUR),
+    canva: n("SELECT COUNT(*) AS n FROM rotation_tasks WHERE status = 'todo' AND kind IN ('invite_member', 'remove_member') AND alerted_at IS NOT NULL"),
+    orphans: n("SELECT COUNT(*) AS n FROM mails WHERE verdict = 'orphan' AND received_at > ?", now - DAY),
+    ready: n("SELECT COUNT(*) AS n FROM accounts WHERE status = 'ready'"),
+    cafes: n("SELECT COUNT(*) AS n FROM cafes WHERE status = 'active'"),
+    slots: n("SELECT COUNT(*) AS n FROM slots WHERE status = 'active'"),
+  };
+}
+
+const plus = (label) => html`${icon('plus')}${label}`;
 
 /** Trang GET cần đăng nhập. */
 const P = (fn) => async (rq) => {
@@ -60,6 +80,7 @@ const A = (fn) => async (rq) => {
   const f = await rq.form();
   if (!safeEqual(f._csrf, rq.state.admin.csrf)) throw new HttpError(403, 'Phiên làm việc đã đổi. Tải lại trang rồi thử lại.');
   const r = (await fn(rq, f)) || {};
+  if (r.rendered) return; // fn đã tự vẽ lại trang (vd. form lỗi giữ nguyên chữ đã gõ)
   const to = typeof f.back === 'string' && f.back.startsWith('/admin') ? f.back : (r.to || '/admin');
   const base = to.replace(/([?&])msg=[^&]*&?/g, '$1').replace(/[?&]$/, '');
   rq.redirect(r.msg ? `${base}${base.includes('?') ? '&' : '?'}msg=${encodeURIComponent(r.msg)}` : base);
@@ -84,7 +105,6 @@ const off = (ctx) => ctx.settings().timezoneOffsetMin;
 // ---------- Truy vấn dùng chung ----------
 
 const QS_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
-const TICKET_ERROR = { invalid: 'vé sai', expired: 'vé cũ', used_elsewhere: 'mở trên máy khác' };
 /** Chữ khách thấy trong Cài đặt: phải qua luật Google của QS. */
 const PUBLIC_TEXT_SETTINGS = ['eventTitle'];
 
@@ -115,30 +135,46 @@ function reportRange(ctx, key) {
   return { key: k, label: R[k][0], since: R[k][1], until: R[k][2], options: Object.entries(R).map(([k2, v]) => [k2, v[0]]) };
 }
 
-/** Kho mã / link nhận quà (công cụ loại redeem). toolId = null → mọi công cụ redeem. */
-function redeemBlock(ctx, csrf, toolId) {
-  const tools = all(ctx.db, "SELECT id, name FROM tools WHERE login_type = 'redeem'" + (toolId ? ' AND id = ?' : ''), ...(toolId ? [toolId] : []));
-  if (!tools.length) return '';
+/**
+ * Hạn giao của tài khoản — đúng như FRESH_SQL (domain/quota.js) dùng khi giao: quá hạn thì hệ thống không giao dù trạng thái "Sẵn sàng".
+ * a: hàng accounts kèm reuse, slot_hours, account_days của công cụ. → {at: ms | null, expired}
+ */
+function accountExpiry(a, now) {
+  const ends = [];
+  if (a.reuse === 'once') ends.push(a.created_at + a.slot_hours * HOUR);
+  if (a.account_days != null) ends.push(a.created_at + a.account_days * DAY);
+  const at = ends.length ? Math.min(...ends) : null;
+  return { at, expired: at != null && at <= now };
+}
+
+/** Mẫu 1 dòng nhập kho theo kiểu đăng nhập (khớp parseAccountLine / addRedeemCodes) — khung mẫu ô "Danh sách" lấy từ cài đặt món thật. */
+const LINE_FORMAT = {
+  email_code: 'email', password: 'email|mật khẩu', password_totp: 'email|mật khẩu|khoá 2FA',
+  team_invite: 'email chủ nhóm|số ghế', redeem: 'mỗi dòng 1 mã hoặc 1 link https',
+};
+
+/** Kho mã / link nhận quà của 1 công cụ loại redeem (vd. Gemini): mỗi khách 1 mã. */
+function redeemSection(ctx, csrf, tool) {
   const o = off(ctx);
-  return tools.map((tool) => {
-    const rows = all(ctx.db,
-      `SELECT r.*, c.phone FROM redeem_codes r LEFT JOIN slots s ON s.id = r.slot_id LEFT JOIN customers c ON c.id = s.customer_id
-       WHERE r.tool_id = ? ORDER BY r.status = 'ready' DESC, r.id DESC LIMIT 200`, tool.id);
-    const left = rows.filter((r) => r.status === 'ready').length;
-    return html`<h2>${tool.name}: mã / link nhận quà — còn ${left}</h2>
+  const rows = all(ctx.db,
+    `SELECT r.*, c.phone, c.id AS customer_id FROM redeem_codes r LEFT JOIN slots s ON s.id = r.slot_id LEFT JOIN customers c ON c.id = s.customer_id
+     WHERE r.tool_id = ? ORDER BY r.status = 'ready' DESC, r.id DESC LIMIT 200`, tool.id);
+  const left = rows.filter((r) => r.status === 'ready').length;
+  return html`${secHead(tool.name, { n: `còn ${left}`, note: 'Mã / link nhận quà — mỗi khách 1 mã', link: [`/admin/tools/${tool.id}`, 'Cài đặt món'] })}
 ${table(['#', 'Mã / link', 'Trạng thái', 'Giao cho', 'Lúc giao', ''], rows.map((r) => [
   r.id, html`<code>${r.value.length > 60 ? r.value.slice(0, 57) + '…' : r.value}</code>`,
-  badge(r.status === 'ready' ? 'Còn' : r.status === 'given' ? 'Đã giao' : 'Đã bỏ', r.status === 'ready' ? 'ok' : r.status === 'given' ? '' : 'yellow'),
-  r.phone ? maskPhone(r.phone) : '', t(r.given_at, o),
+  badge(r.status === 'ready' ? 'Còn' : r.status === 'given' ? 'Đã giao' : 'Đã bỏ', r.status === 'ready' ? 'ok' : r.status === 'given' ? 'info' : ''),
+  link.cust(r.customer_id, r.phone), t(r.given_at, o),
   r.status === 'ready' ? postButton(`/admin/redeem/${r.id}/void`, 'Bỏ', csrf, { confirm: 'Bỏ mã này (không giao cho ai)?' }) : '',
-]), 'Chưa có mã nào. Thêm ở ô "Thêm tài khoản" bên dưới, chọn công cụ này.')}`;
-  });
+]), 'Chưa có mã nào. Dán vào ô "Thêm vào kho" bên dưới, chọn món này.')}`;
 }
 
 function todoTasks(ctx) {
   return all(ctx.db,
-    `SELECT r.*, a.login_email, a.status AS account_status, t.name AS tool_name, t.login_type,
-            (SELECT c.phone FROM slots s JOIN customers c ON c.id = s.customer_id WHERE s.id = r.slot_id) AS phone
+    `SELECT r.*, a.login_email, a.tool_id, a.status AS account_status, a.created_at AS account_created_at, t.name AS tool_name, t.login_type,
+            t.workspace_bot, t.auto_worker, t.reuse, t.slot_hours, t.account_days, t.mail_code, a.max_holders,
+            (SELECT c.phone FROM slots s JOIN customers c ON c.id = s.customer_id WHERE s.id = r.slot_id) AS phone,
+            (SELECT s.customer_id FROM slots s WHERE s.id = r.slot_id) AS customer_id
      FROM rotation_tasks r JOIN accounts a ON a.id = r.account_id JOIN tools t ON t.id = a.tool_id
      WHERE r.status = 'todo' ORDER BY r.id`);
 }
@@ -165,48 +201,179 @@ function workspacesBlock(ctx, a, csrf) {
     const seat = i + 1;
     const w = ws.get(seat);
     const h = holders.get(seat);
-    return [seat, w?.name || workspaceName(ctx, seat), w?.url ? html`<a href="${w.url}" target="_blank" rel="noopener noreferrer">mở</a>` : html`<span class="muted">chưa có link</span>`,
-      h ? html`<a href="/admin/customers/${get(ctx.db, 'SELECT customer_id FROM slots WHERE id = ?', h.id).customer_id}">${maskPhone(h.phone)}</a> tới ${t(h.expires_at, off(ctx))}${kept.has(seat) ? html` ${badge(`gia hạn ${h.extended_days} ngày — bot giữ Project`, 'ok')}` : ''}` : html`<span class="muted">trống</span>`,
+    return [seat, w?.name || workspaceName(ctx, seat), w?.url ? html`<a href="${w.url}" target="_blank" rel="noopener noreferrer">mở ↗</a>` : html`<span class="muted">chưa có link</span>`,
+      h ? html`${link.cust(get(ctx.db, 'SELECT customer_id FROM slots WHERE id = ?', h.id).customer_id, h.phone)} tới ${t(h.expires_at, off(ctx))}${kept.has(seat) ? html` ${badge(`gia hạn ${h.extended_days} ngày — bot giữ Project`, 'ok')}` : ''}` : html`<span class="muted">trống</span>`,
       w ? t(w.updated_at, off(ctx)) : '—'];
   });
-  return html`<h2>Workspace (Project) theo thứ tự</h2>
+  return html`${secHead('Workspace (Project) theo thứ tự', { note: `${a.max_holders} chỗ` })}
 ${table(['Chỗ', 'Tên', 'Link', 'Khách', 'Bot tạo lúc'], rows)}
-${a.workspace_bot ? html`<p>${task ? html`${badge(`Đang chờ làm mới (${TASK_REASON[task.reason] || task.reason})`, 'yellow')}${task.last_error ? html` <small class="muted">${task.last_error}</small>` : ''}`
-    : postButton(`/admin/accounts/${a.id}/reset`, 'Tạo việc làm mới ngay', csrf, { confirm: 'Tạo việc tay: xoá mọi Project + chat (trừ khách gia hạn), đăng xuất mọi thiết bị, tạo lại Project. Khách đang dùng phải chờ hết giờ. Tiếp tục?' })}</p>` : ''}`;
+${a.workspace_bot ? html`<div class="actions">${task ? html`${badge(`Đang chờ làm mới (${TASK_REASON[task.reason] || task.reason})`, 'yellow')} <a class="go" href="/admin/tasks#task-${task.id}">Mở việc tay ›</a>${task.last_error ? html` <small class="muted">${task.last_error}</small>` : ''}`
+    : postButton(`/admin/accounts/${a.id}/reset`, 'Tạo việc làm mới ngay', csrf, { confirm: 'Tạo việc tay: xoá mọi Project + chat (trừ khách gia hạn), đăng xuất mọi thiết bị, tạo lại Project. Khách đang dùng phải chờ hết giờ. Tiếp tục?' })}</div>` : ''}`;
 }
 
+/**
+ * Tình trạng 1 việc tay (todoTasks) để chủ biết việc nào phải làm / đợi / bỏ — trang Việc tay, Tổng quan và Theo dõi (API live) dùng chung.
+ *  bot:  'doing' (bot đang giữ việc) | 'stuck' (bot báo chưa làm được → làm tay) | 'auto' (bot sẽ tự làm) | null (việc của chủ)
+ *  busy: số khách thường còn đang dùng tài khoản — đổi mật khẩu / đăng xuất bây giờ sẽ đá họ ra; busyUntil: lúc người cuối hết giờ
+ *  drop: 'cancel' (tài khoản đã ngừng dùng) | 'retire' (quá hạn, chưa ngừng) | null — việc đổi mật khẩu thừa, bỏ được
+ *  title / howTo: tên việc + cách làm (việc "tạo Project" của tài khoản mới không phải đổi mật khẩu)
+ *  canCode: tài khoản đăng nhập bằng mã qua email → nút "Lấy mã đăng nhập"; codeOpen: đang chờ mã cho chủ; code: {value, at} mã vừa về
+ *  kept: tên Project phải giữ (khách đã gia hạn)
+ */
+function taskInfo(ctx, k) {
+  const now = ctx.now();
+  // Việc làm mới chỉ là của bot khi có bot làm mới đang chạy (rotateBotSeen); chưa có thì là việc của chủ.
+  const botTool = k.kind === 'rotate' ? !!k.workspace_bot && !!rotateBotSeen(ctx) : !!k.auto_worker;
+  const bot = !botTool ? null : k.lease_until > now ? 'doing' : k.alerted_at ? 'stuck' : 'auto';
+  const title = k.kind === 'rotate' && k.reason === 'setup' ? 'Tạo Project' : TASK_KIND[k.kind] || k.kind;
+  if (k.kind !== 'rotate') return { bot, title, howTo: null, busy: 0, busyUntil: null, drop: null, canCode: false, codeOpen: false, code: null, kept: [] };
+  const prefix = ctx.settings().workspacePrefix || 'Slot';
+  const canCode = k.login_type === 'email_code' || !!k.mail_code;
+  const howTo = k.reason === 'setup'
+    ? `Đăng nhập ${k.login_email}${canCode ? ' (bấm "Lấy mã đăng nhập" — mã hiện ngay ở đây)' : ''}, tạo ${k.max_holders > 1 ? `${k.max_holders} Project "${prefix} 1" … "${prefix} ${k.max_holders}"` : `Project "${prefix} 1"`} rồi bấm Đã xong.`
+    : canCode && k.login_type === 'email_code' ? 'Bấm "Lấy mã đăng nhập" để vào tài khoản (mã hiện ngay ở đây), làm mới rồi đăng xuất mọi thiết bị, bấm Đã xong.' : null;
+  const codeOpen = canCode && k.code_until >= now;
+  const m = canCode && k.code_until ? get(ctx.db,
+    "SELECT code, received_at FROM mails WHERE account_id = ? AND verdict = 'owner' AND code IS NOT NULL AND received_at >= ? ORDER BY id DESC LIMIT 1",
+    k.account_id, k.code_until - OWNER_CODE_WINDOW) : null;
+  const code = m ? { value: m.code, at: m.received_at } : null;
+  const kept = keptSeats(ctx, k.account_id).map((x) => workspaceName(ctx, x.seat));
+  const busy = blockingHolders(ctx, k.account_id);
+  const busyUntil = busy ? get(ctx.db, "SELECT MAX(expires_at) AS t FROM slots WHERE account_id = ? AND status IN ('active', 'pending_invite')", k.account_id).t : null;
+  const expired = accountExpiry({ created_at: k.account_created_at, reuse: k.reuse, slot_hours: k.slot_hours, account_days: k.account_days }, now).expired;
+  const drop = k.account_status === 'retired' ? 'cancel' : expired ? 'retire' : null;
+  return { bot, title, howTo, busy, busyUntil, drop, canCode, codeOpen, code, kept };
+}
+// Chủ bấm "Lấy mã đăng nhập": mã về hộp thư kho trong 10 phút là của chủ (codes.js onLoginCode).
+const OWNER_CODE_WINDOW = 10 * MIN;
+const TASK_BOT = { doing: ['Bot đang làm…', 'info'], stuck: ['Bot chưa làm được — bạn làm tay', 'red'], auto: ['Bot sẽ tự làm', 'info'] };
+const KEPT_TEXT = (names) => `Không xoá Project: ${names.join(', ')} (khách đã gia hạn) — vì vậy đừng bấm "Delete all chats", xoá từng Project / đoạn chat còn lại.`;
+const TASK_DROP = { cancel: 'Bỏ việc (tài khoản đã ngừng dùng)', retire: 'Tài khoản quá hạn — ngừng dùng & bỏ việc' };
+
 function tasksBlock(ctx, list, csrf, back) {
-  if (!list.length) return html`<p class="muted">Không có việc tay nào.</p>`;
+  if (!list.length) return html`<p class="empty">✓ Không có việc tay nào.</p>`;
+  const infos = new Map(list.map((k) => [k.id, taskInfo(ctx, k)]));
+  const info = (k) => infos.get(k.id);
   return list.map((k) => html`
-<div class="acard">
-  <div class="acard-head"><b>${TASK_KIND[k.kind] || k.kind}</b> · ${k.tool_name} · <code>${k.login_email}</code>
-    <span class="muted">· ${TASK_REASON[k.reason] || k.reason} · ${t(k.created_at, off(ctx))}${k.phone ? ' · khách ' + maskPhone(k.phone) : ''}</span></div>
+<div class="task" id="task-${k.id}">
+  <div class="task-h">${badge(info(k).title, k.kind === 'rotate' && k.reason !== 'setup' ? 'yellow' : 'info')} <b>${link.tool(k.tool_id, k.tool_name)}</b> ${link.acc(k.account_id, k.login_email)}${info(k).bot ? html` ${badge(...TASK_BOT[info(k).bot])}` : ''}</div>
+  <div class="task-m">${TASK_REASON[k.reason] || k.reason} · ${t(k.created_at, off(ctx))}${k.phone ? html` · khách ${link.cust(k.customer_id, k.phone)}` : ''}</div>
   ${k.detail ? html`<p>${k.kind === 'invite_member' ? 'Mời email' : k.kind === 'remove_member' ? 'Gỡ email' : 'Ghi chú'}: <code>${k.detail}</code></p>` : ''}
-  ${k.kind === 'rotate' && keptSeats(ctx, k.account_id).length ? html`<p>${badge('Giữ lại', 'ok')} Không xoá Project: <b>${keptSeats(ctx, k.account_id).map((x) => workspaceName(ctx, x.seat)).join(', ')}</b> (khách đã gia hạn) — vì vậy đừng bấm "Delete all chats", xoá từng Project / đoạn chat còn lại.</p>` : ''}
-  ${k.last_error ? html`<p class="muted">Bot báo lỗi (${k.attempts} lần): ${k.last_error}</p>` : ''}
+  ${info(k).howTo ? html`<p class="how">${info(k).howTo}</p>` : ''}
+  ${info(k).kept.length ? html`<p>${badge('Giữ lại', 'ok')} ${KEPT_TEXT(info(k).kept)}</p>` : ''}
+  ${info(k).canCode ? html`<p class="owner-code">${info(k).code ? html`Mã đăng nhập: <code class="big-code">${info(k).code.value}</code> <small class="muted">về lúc ${t(info(k).code.at, off(ctx))}</small> `
+    : info(k).codeOpen ? html`<span class="muted">Đang chờ mã về hộp thư kho… (tải lại trang sau khi bấm gửi mã bên hãng)</span> ` : ''}${postButton(`/admin/tasks/${k.id}/code`, info(k).codeOpen ? 'Chờ thêm 10 phút' : 'Lấy mã đăng nhập', csrf, { cls: 'btn-mini', fields: { back } })}</p>` : ''}
+  ${k.last_error ? html`<p class="red-text">Bot báo lỗi (${k.attempts} lần): ${k.last_error}</p>` : ''}
+  ${info(k).busy ? html`<p class="warn">Còn <b>${info(k).busy}</b> khách đang dùng tài khoản này (tới ${t(info(k).busyUntil, off(ctx))}) — đổi mật khẩu / đăng xuất bây giờ sẽ đá họ ra. Nên đợi họ hết giờ rồi làm.</p>` : ''}
+  ${info(k).drop ? html`<p class="muted">${k.account_status === 'retired' ? 'Tài khoản đã ngừng dùng, không giao nữa — không cần đổi mật khẩu.' : 'Tài khoản đã quá hạn, hệ thống không giao nữa — có thể ngừng dùng và bỏ việc này.'}
+    ${postButton(`/admin/tasks/${k.id}/cancel`, TASK_DROP[info(k).drop], csrf, { cls: 'btn-mini', confirm: 'Bỏ việc đổi mật khẩu này?', fields: { back } })}</p>` : ''}
   <form method="post" action="/admin/tasks/${k.id}/done" class="row">
     ${csrfField(csrf)}<input type="hidden" name="back" value="${back}">
     ${k.kind === 'rotate' && (k.login_type === 'password' || k.login_type === 'password_totp') ? html`<input name="newPassword" placeholder="Mật khẩu mới vừa đổi bên hãng" autocomplete="off"${k.login_type === 'password' ? html` required` : ''}>` : ''}
     ${k.kind === 'rotate' && k.login_type === 'password_totp' ? html`<input name="newTotp" placeholder="Khoá 2FA mới (chỉ khi đổi 2FA)" autocomplete="off">` : ''}
-    ${k.kind === 'rotate' && k.login_type === 'password_totp' && k.reason !== 'quarantine' ? html`<label class="muted"><input type="checkbox" name="keepPassword" value="1"> Giữ mật khẩu cũ — chỉ đăng xuất mọi thiết bị</label>` : ''}
+    ${k.kind === 'rotate' && k.login_type === 'password_totp' && k.reason !== 'quarantine' ? html`<label class="check muted"><input type="checkbox" name="keepPassword" value="1"> Giữ mật khẩu cũ — chỉ đăng xuất mọi thiết bị</label>` : ''}
     <button class="btn-mini ok">Đã xong</button>
   </form>
 </div>`);
 }
 
-function alertsTable(ctx, rows) {
-  return table(['Lúc', 'Mức', 'Sự kiện', 'Khách', 'Tài khoản / quán', 'Chi tiết'], rows.map((e) => [
-    t(e.created_at, off(ctx)), sev(e.severity), EVENT_LABEL[e.type] || e.type,
-    e.customer_id ? html`<a href="/admin/customers/${e.customer_id}">${maskPhone(e.phone)}</a>` : '',
-    e.login_email || e.cafe_name || '', eventSummary(e.data),
-  ]), 'Không có cảnh báo.');
+/** Cảnh báo dạng danh sách (giống trang Theo dõi): lúc · nhãn · khách / tài khoản / quán (đều bấm được) · nên làm gì. */
+function alertsList(ctx, rows, empty = 'Không có cảnh báo.') {
+  if (!rows.length) return html`<p class="empty">✓ ${empty}</p>`;
+  return html`<div class="alerts">${rows.map((e) => html`<div class="alert-item ${e.severity}">
+  <span class="at">${t(e.created_at, off(ctx))}</span>
+  <div><b>${EVENT_LABEL[e.type] || e.type}</b>${e.customer_id ? html` · ${link.cust(e.customer_id, e.phone)}` : ''}${e.account_id && e.login_email ? html` · ${link.acc(e.account_id, e.login_email)}` : ''}${e.cafe_id && e.cafe_name ? html` · ${link.cafe(e.cafe_id, e.cafe_name)}` : ''}${eventSummary(e.data, e.type) ? html` <span class="muted">— ${eventSummary(e.data, e.type)}</span>` : ''}
+    ${ALERT_HINT[e.type] ? html`<div class="hint">→ Nên làm: ${ALERT_HINT[e.type]}</div>` : ''}</div>
+</div>`)}</div>`;
 }
+
+/** Kho hôm nay: mỗi món 1 ô — đỏ = không giao được nữa, vàng = còn ≤ 3. Bấm → kho của món đó. (Trang Theo dõi vẽ y hệt bằng admin.js.) */
+/** Số tài khoản đang chờ việc tay theo món (vd. 8 ChatGPT chờ tạo Project) — "Hết kho" mà có số này thì là chờ bạn, không phải hết hàng. */
+function waitingByTool(ctx) {
+  return new Map(all(ctx.db,
+    `SELECT a.tool_id, COUNT(DISTINCT a.id) AS n, SUM(r.reason = 'setup') AS setup FROM rotation_tasks r JOIN accounts a ON a.id = r.account_id
+     WHERE r.status = 'todo' AND r.kind = 'rotate' AND a.status IN ('needs_rotation', 'quarantined') GROUP BY a.tool_id`).map((r) => [r.tool_id, r]));
+}
+const waitingText = (w) => (w ? `${w.n} tài khoản chờ ${w.setup >= w.n ? 'tạo Project' : 'việc tay'}` : null);
+
+function stockTiles(ctx, stock) {
+  if (!stock.length) return html`<p class="empty">Chưa bật món nào — vào <a href="/admin/tools">Công cụ</a> để bật.</p>`;
+  const waiting = waitingByTool(ctx);
+  return html`<div class="stock-row">${stock.map(({ tool, free, reserved, expiring }) => {
+    const wait = waitingText(waiting.get(tool.id));
+    const today = toolUsedToday(ctx, tool.id);
+    const capHit = tool.daily_cap != null && today >= tool.daily_cap;
+    return html`<a class="stock ${free <= 0 ? 'red' : free <= 3 ? 'yellow' : ''}" href="/admin/accounts?tool=${tool.id}">
+      <b>${tool.name}</b><span class="big">${free <= 0 ? (capHit ? 'Hết lượt' : 'Hết kho') : free}</span>
+      <span class="muted">${free > 0 ? 'còn giao · ' : ''}hôm nay ${today}${tool.daily_cap != null ? `/${tool.daily_cap}` : ''}${reserved ? ` · +${reserved} dự phòng` : ''}</span>
+      ${expiring ? html`<span class="warn-text">${expiring} tài khoản hết hạn trong 24 giờ</span>` : ''}${wait ? html`<span class="warn-text">${wait}</span>` : ''}</a>`;
+  })}</div>`;
+}
+
+const MAIL_KIND = { login_code: 'Mã đăng nhập', security_alert: 'Cảnh báo bảo mật', password_reset: 'Đặt lại mật khẩu', magic_link: 'Link đăng nhập', new_signin: 'Đăng nhập mới', billing: 'Hoá đơn', other: 'Khác', unknown_recipient: 'Lạ người nhận' };
+const MAIL_VERDICT = {
+  matched: ['đã giao mã', 'ok'], owner: ['mã của chủ (việc tay)', 'ok'], late: ['về trễ', 'yellow'], replaced: ['thay mã mới', 'ok'], orphan: ['mồ côi', 'red'], orphan_wait: ['chờ người nhận', 'yellow'],
+  parse_failed: ['không đọc được mã', 'yellow'], quarantined: ['đã cách ly tài khoản', 'red'], alerted: ['đã báo chủ', 'yellow'], ignored: ['bỏ qua', ''],
+};
+const mailVerdict = (m) => (m.verdict ? badge(...(MAIL_VERDICT[m.verdict] || [m.verdict, ''])) : '');
+
+/** Ô "nơi xảy ra" của 1 sự kiện: tài khoản / quán, bấm được. */
+const eventWhere = (e) => html`${e.account_id && e.login_email ? link.acc(e.account_id, e.login_email) : e.cafe_id && e.cafe_name ? link.cafe(e.cafe_id, e.cafe_name) : ''}${e.slot_id ? html`<span class="sub">slot ${link.slot(e.slot_id)}</span>` : ''}`;
 
 function field(label, input, hint = '') {
   return html`<label class="field"><span>${label}</span>${input}${hint ? html`<small>${hint}</small>` : ''}</label>`;
 }
 const select = (name, options, current) => html`<select name="${name}">${Object.entries(options).map(([v, l]) => html`<option value="${v}"${String(current) === v ? html` selected` : ''}>${l}</option>`)}</select>`;
 const checkbox = (name, on) => html`<input type="checkbox" name="${name}" value="1"${on ? html` checked` : ''}>`;
+
+/** Trang sửa / thêm công cụ. Lưu lỗi thì vẽ lại với chữ chủ vừa gõ (flash = lỗi), không bắt gõ lại từ đầu. */
+function toolForm(rq, x, { isNew, flash, saved = x } = {}) {
+  const { ctx } = rq;
+  // saved = bản đang lưu trong máy (đầu trang, số kho); x = chữ trong form (có thể là chữ vừa gõ chưa lưu được).
+  const used = isNew ? null : get(ctx.db, "SELECT COUNT(*) AS n FROM slots WHERE tool_id = ? AND status = 'active'", x.id).n;
+  const bots = { any: get(ctx.db, "SELECT MAX(updated_at) AS t FROM kv WHERE key LIKE 'worker:%'")?.t || null, rotate: rotateBotSeen(ctx) };
+  const stockN = isNew ? null : saved.login_type === 'redeem'
+    ? get(ctx.db, "SELECT COUNT(*) AS n FROM redeem_codes WHERE tool_id = ? AND status = 'ready'", saved.id).n
+    : get(ctx.db, "SELECT COUNT(*) AS n FROM accounts WHERE tool_id = ? AND status != 'retired'", saved.id).n;
+  view(rq, {
+    ...(flash ? { flash, flashError: true } : {}),
+    title: isNew ? 'Thêm công cụ' : saved.name, active: '/admin/tools', crumbs: [['/admin/tools', 'Công cụ']],
+    sub: isNew ? 'Món mới hiện cho khách khi bật và có hàng trong kho' : html`${saved.enabled ? badge('Đang bật', 'ok') : badge('Tắt')} ${LOGIN_TYPE[saved.login_type] || saved.login_type}`,
+    actions: isNew ? '' : html`<a class="btn-mini" href="/admin/accounts?tool=${x.id}">Kho: ${stockN} ${saved.login_type === 'redeem' ? 'mã' : 'tài khoản'} ›</a>
+      <a class="btn-mini" href="/admin/slots?tool=${x.id}">Đang dùng: ${used} ›</a>${x.voucher_code ? html`<a class="btn-mini" href="/admin/vouchers">Mã phiếu ›</a>` : ''}`,
+    body: html`<form method="post" action="/admin/tools/${isNew ? 'new' : x.id}" class="acard grid">${csrfField(rq.state.admin.csrf)}
+  <h3>Khách thấy gì</h3>
+  ${field('Tên hiển thị', html`<input name="name" value="${x.name || ''}" required>`)}
+  ${isNew ? field('Slug', html`<input name="slug" value="${x.slug || ''}" pattern="[a-z0-9-]+" required>`, `Chữ thường, không dấu — đặt rồi KHÔNG đổi được. Có mẫu thư mặc định cho: ${Object.keys(DEFAULT_TOOL_PATTERNS).join(', ')}`)
+    : field('Slug', html`<input value="${x.slug}" readonly aria-readonly="true">`, 'Không đổi được: mẫu thư mã của hãng, API kho của QS, mã phiếu và icon đều theo slug này.')}
+  ${field('Cách đăng nhập', select('login_type', LOGIN_TYPE, x.login_type), `Mời vào nhóm (Canva): khách nhập email tài khoản của họ; nhập kho mỗi dòng = 1 nhóm: email chủ nhóm|số ghế.${stockN ? ` Kho đang có ${stockN} ${saved.login_type === 'redeem' ? 'mã' : 'tài khoản'} — muốn đổi thì ngừng dùng hết trước.` : ''}`)}
+  ${field('Link trang đăng nhập', html`<input name="login_url" value="${x.login_url || ''}" type="url">`)}
+  <div class="wide">${field('Hướng dẫn cho khách', html`<textarea name="instructions" rows="4">${x.instructions || ''}</textarea>`, 'Mỗi dòng 1 ý.')}</div>
+  <h3>Thư mã từ hãng</h3>
+  ${field('Mẫu người gửi thư mã (regex)', html`<input name="sender_pattern" value="${x.sender_pattern === '' ? '-' : x.sender_pattern ?? ''}">`, 'Để trống = dùng mẫu mặc định theo slug. Nhập "-" = không kiểm tra người gửi.')}
+  ${field('Regex bóc mã (tuỳ chọn)', html`<input name="code_regex" value="${x.code_regex || ''}">`, 'Có 1 nhóm bắt, ví dụ: code is (\\d{6}). Để trống = tự tìm dãy 6 số.')}
+  <h3>Thời gian &amp; lượt</h3>
+  ${field('Số giờ dùng', html`<input name="slot_hours" type="number" min="1" value="${x.slot_hours}">`, '24 = 1 ngày, 168 = 7 ngày.')}
+  ${field('Số khách / tài khoản (mặc định khi nhập kho)', html`<input name="holders_default" type="number" min="1" value="${x.holders_default ?? 1}">`, 'Vd. ChatGPT 5, CapCut 2, Adobe 2. Dòng nhập kho ghi số khác thì theo dòng đó. Nhiều khách → mỗi khách nhận "Slot 1, 2…".')}
+  ${field('Hết lượt thì', select('reuse', REUSE, x.reuse || 'rotate'))}
+  ${field('Hết lượt lúc (giờ VN)', html`<input name="end_hour" type="number" min="0" max="23" value="${x.end_hour ?? ''}" placeholder="trống = đủ thời gian ở trên">`, 'Vd. 6 = ai nhận lúc nào trong ngày cũng dùng tới 6h sáng hôm sau, 6h bạn đăng xuất mọi thiết bị (ChatGPT, Claude).')}
+  ${field('Tài khoản tự hết sau (ngày, kể từ lúc nhập kho)', html`<input name="account_days" type="number" min="1" value="${x.account_days ?? ''}" placeholder="trống = không tự hết">`, 'Vd. 7 cho Claude / CapCut / Adobe dùng thử: quá hạn không giao, khách không được hứa quá ngày tài khoản hết.')}
+  ${field('Lượt tối đa / ngày (cả hệ thống)', html`<input name="daily_cap" type="number" min="0" value="${x.daily_cap ?? ''}">`, 'Để trống = không giới hạn (chỉ giới hạn theo kho).')}
+  ${field('Chờ bao nhiêu ngày mới nhận lại', html`<input name="cooldown_days" type="number" min="0" value="${x.cooldown_days}">`)}
+  ${field('Tối đa số lần / khách', html`<input name="lifetime_cap" type="number" min="1" value="${x.lifetime_cap}">`)}
+  ${field('Thứ tự', html`<input name="sort" type="number" value="${x.sort}">`)}
+  <h3>Tuỳ chọn</h3>
+  <label class="check">${checkbox('rotation_required', x.rotation_required)} Hết hạn thì tạo việc đổi mật khẩu + đăng xuất</label>
+  <label class="check">${checkbox('auto_worker', x.auto_worker)} Mời vào nhóm: bot trên máy của Tiệm tự mời / gỡ (scripts/canva-bot.js). Bot chưa làm xong sau vài phút → trang Theo dõi báo bạn làm tay${bots.any ? ` · bot hỏi việc lần cuối ${fmtLocal(bots.any, off(ctx))}` : ' · chưa thấy bot nào chạy'}</label>
+  <label class="check">${checkbox('mail_code', x.mail_code)} Loại mật khẩu: hãng hay gửi mã qua email khi đăng nhập (vd. Adobe) → khách có nút "Lấy mã"</label>
+  <label class="check">${checkbox('reserve_account', x.reserve_account)} Giữ 1 tài khoản dự phòng: trong ngày không giao; lúc các tài khoản khác chờ "Đăng xuất mọi thiết bị" (6h sáng) thì mới giao — khách sáng sớm không gặp "Tạm hết". Cần ít nhất 2 tài khoản</label>
+  <label class="check">${checkbox('voucher_code', x.voucher_code)} Cần mã phiếu khi lấy mã đăng nhập (mã 2FA / mã email): có email tài khoản mà không có mã phiếu (phát ở quán) thì không lấy được mã. Tạo mã ở trang Mã phiếu</label>
+  <label class="check">${checkbox('workspace_bot', x.workspace_bot)} Làm mới mỗi ngày giữ chỗ cho khách gia hạn: việc "làm mới" (xoá Project + chat, đăng xuất mọi thiết bị, tạo lại Project "Slot 1…N", tối đa 8) được tạo khi chỉ còn khách đã gia hạn — chủ làm tay ở trang Việc tay, giữ Project của khách gia hạn. Cần ô "Hết lượt lúc".${bots.rotate ? ` Bot làm mới đang chạy (hỏi việc lúc ${fmtLocal(bots.rotate, off(ctx))}).` : ' Chưa có bot làm mới nào chạy → việc này là của bạn.'}</label>
+  <label class="check">${checkbox('high_value', x.high_value)} Công cụ giá trị cao (cộng điểm rủi ro giờ cao điểm)</label>
+  <label class="check">${checkbox('enabled', x.enabled)} Đang bật</label>
+  <button class="btn">Lưu</button></form>`,
+  });
+}
 
 // ---------- Route ----------
 
@@ -215,8 +382,8 @@ export function registerAdminRoutes(router) {
     if (auth(rq)) return rq.redirect('/admin');
     rq.sendHtml(200, adminPage({
       title: 'Đăng nhập', flash: rq.query.msg,
-      body: html`<form method="post" action="/admin/login" class="acard login">
-        <h1>Quản trị Tiệm Bản Quyền</h1><input type="hidden" name="next" value="${safeNext(rq.query.next)}">
+      body: html`<form method="post" action="/admin/login" class="acard">
+        <h2>Đăng nhập quản trị</h2><input type="hidden" name="next" value="${safeNext(rq.query.next)}">
         ${field('Mật khẩu quản trị', html`<input type="password" name="password" autocomplete="current-password" required autofocus>`)}
         <button class="btn">Đăng nhập</button></form>`,
     }));
@@ -252,40 +419,69 @@ export function registerAdminRoutes(router) {
     const { ctx } = rq;
     const s = statsSince(ctx);
     const csrf = rq.state.admin.csrf;
+    const nav = navCounts(ctx);
+    const stock = toolAvailability(ctx);
+    const tasks = todoTasks(ctx);
+    const out = stock.filter((x) => x.free <= 0);
+    // "Việc của bạn hôm nay" như app Bot nhắc hạn: mỗi viên = 1 loại việc, bấm sang đúng trang để làm.
+    const todo = [
+      [nav.alerts, 'báo đỏ trong 2 giờ', '/admin/live', true],
+      [nav.tasks, 'việc tay chờ làm', '/admin/tasks', false],
+      [nav.extend, 'khách xin gia hạn', '/admin/gia-han', false],
+      [nav.canva, 'khách Canva bot chưa mời / gỡ được', '/admin/canva', true],
+      [out.length, `món không giao được: ${out.map((x) => x.tool.name).join(', ')}`, '#kho', false],
+      [nav.orphans, 'mã mồ côi trong 24 giờ', '/admin/mails', true],
+    ].filter(([n]) => n > 0);
     view(rq, {
-      title: 'Tổng quan', active: '/admin',
+      title: 'Tổng quan', heading: 'Hôm nay', active: '/admin',
+      actions: html`<a class="btn-line" href="/admin/live">${icon('pulse')}Mở Theo dõi</a>`,
       body: html`
-<h1>Hôm nay</h1>
-<div class="tiles">
-  ${tile('Lượt vào', `${s.taps} (${s.tapDevices} máy)`)}${tile('Nhận slot', s.claims)}${tile('Đang chạy', s.activeNow)}
-  ${tile('Giao mã', s.codesDelivered)}${tile('Mã mồ côi', s.orphans, s.orphans ? 'red' : '')}${tile('Báo đỏ', s.redEvents, s.redEvents ? 'red' : '')}
-  ${tile('Việc tay', s.todoTasks, s.todoTasks ? 'yellow' : '')}
+<div class="acard"><p class="todo-h">${icon('check')}Việc của bạn hôm nay</p>
+  ${todo.length ? html`<div class="todo">${todo.map(([n, label, href, red]) => html`<a class="${red ? 'red' : ''}" href="${href}"><b>${n}</b>${label}</a>`)}</div>`
+    : html`<p class="all-clear">✓ Không còn việc nào chờ bạn.</p>`}
 </div>
-<p class="muted">Kho: ${Object.entries(s.accounts).map(([k, v]) => `${ACCOUNT_STATUS[k] || k} ${v}`).join(' · ') || 'trống'} ·
-  <a href="/admin/live">Mở trang theo dõi (tự làm mới, có âm báo)</a></p>
-<h2>Quán</h2>
+<div class="stats">
+  ${stat('Lượt vào', s.taps, { icon: 'enter', tone: 'info', sub: `${s.tapDevices} máy khác nhau`, href: '/admin/cafes' })}
+  ${stat('Nhận slot', s.claims, { icon: 'key', tone: 'success', href: '/admin/slots' })}
+  ${stat('Đang chạy', s.activeNow, { icon: 'play', tone: 'accent', href: '/admin/slots' })}
+  ${stat('Giao mã', s.codesDelivered, { icon: 'send', tone: 'plum', href: '/admin/events?type=code_delivered' })}
+  ${stat('Mã mồ côi', s.orphans, { icon: 'mail', tone: 'danger', hot: s.orphans > 0, href: '/admin/events?type=code_orphan' })}
+  ${stat('Báo đỏ', s.redEvents, { icon: 'alert', tone: 'danger', hot: s.redEvents > 0, href: '/admin/events?sev=red' })}
+  ${stat('Việc tay', s.todoTasks, { icon: 'check', tone: 'warning', hot: s.todoTasks > 0, href: '/admin/tasks' })}
+</div>
+${secHead('Kho hôm nay', { id: 'kho', note: 'còn giao được · bấm để xem tài khoản', link: ['/admin/accounts', 'Mở Kho tài khoản'] })}
+${stockTiles(ctx, stock)}
+${secHead('Quán', { n: s.perCafe.length, link: ['/admin/cafes', 'Mở Quán'] })}
 ${table(['Quán', 'Lối vào', 'Suất hôm nay', ''], s.perCafe.map((c) => [
-  html`<a href="/admin/cafes/${c.id}">${c.name}</a>`, c.qs_slug ? `Trang quán QS: ${c.qs_slug}` : 'Thẻ NFC riêng', `${c.claims}/${c.daily_quota}`,
-  html`<a href="/admin/cafes/${c.id}/report">Thống kê</a>`,
+  link.cafe(c.id, c.name), c.qs_slug ? `Trang quán QS: ${c.qs_slug}` : 'Thẻ NFC riêng',
+  html`<a href="/admin/slots?cafe=${c.id}">${c.claims}/${c.daily_quota}</a>`,
+  html`<a class="go" href="/admin/cafes/${c.id}/report">Thống kê ›</a>`,
 ]), 'Chưa có quán nào. Vào "Quán" để thêm.')}
-<h2>Việc tay</h2>${tasksBlock(ctx, todoTasks(ctx), csrf, '/admin')}
-<h2>Cảnh báo 24 giờ</h2>${alertsTable(ctx, recentAlerts(ctx, ctx.now() - DAY, 40))}`,
+${secHead('Việc tay', { n: tasks.length, link: ['/admin/tasks', 'Mở Việc tay'] })}
+${tasksBlock(ctx, tasks.slice(0, 3), csrf, '/admin')}
+${tasks.length > 3 ? html`<p><a class="go" href="/admin/tasks">Còn ${tasks.length - 3} việc nữa ›</a></p>` : ''}
+${secHead('Cảnh báo 24 giờ', { link: ['/admin/events?sev=red', 'Mở Nhật ký'] })}
+${alertsList(ctx, recentAlerts(ctx, ctx.now() - DAY, 40), 'Không có cảnh báo trong 24 giờ qua.')}`,
     });
   }));
 
   // ----- Trực duyệt -----
   router.get('/admin/live', P((rq) => view(rq, {
-    title: 'Theo dõi', active: '/admin/live', live: true,
+    title: 'Theo dõi', active: '/admin/live', live: true, sub: 'Tự làm mới mỗi 10 giây · kêu khi có cảnh báo đỏ · mở sẵn trên điện thoại',
+    actions: html`<span class="live-dot" data-live-status>Đang tải…</span><button type="button" class="btn-line" data-act="enable-sound">Bật âm báo</button>`,
     body: html`
-<div class="live-head"><h1>Theo dõi</h1>
-  <button type="button" class="btn-mini" data-act="enable-sound">🔔 Bật âm báo & thông báo</button>
-  <span class="muted" data-live-status>Đang tải…</span></div>
-<p class="muted">Trang tự làm mới mỗi 10 giây, có âm báo khi có cảnh báo đỏ. Mở sẵn trên điện thoại. Không có ca nào phải duyệt tay: ca vàng làm theo Cài đặt.</p>
-<h2>Kho hôm nay</h2><div id="live-stock"></div>
-<h2>Việc tay <span data-count="tasks"></span></h2><div id="live-tasks"></div>
-<h2>Cảnh báo 2 giờ qua</h2><div id="live-alerts"></div>`,
+${secHead('Kho hôm nay', { note: 'còn giao được', link: ['/admin/accounts', 'Mở Kho tài khoản'] })}<div id="live-stock"></div>
+${secHead(html`Việc tay<span class="sec-n" data-count="tasks" hidden></span>`, { link: ['/admin/tasks', 'Mở Việc tay'] })}<div id="live-tasks"></div>
+${secHead('Cảnh báo 2 giờ qua', { link: ['/admin/events?sev=red', 'Mở Nhật ký'] })}<div id="live-alerts"></div>
+<p class="muted">Không có ca nào phải duyệt tay: ca vàng làm theo <a href="/admin/settings">Cài đặt</a>.</p>`,
   })));
 
+  const liveTaskInfo = (ctx, k, o) => {
+    const x = taskInfo(ctx, k);
+    return { bot: x.bot ? TASK_BOT[x.bot] : null, busy: x.busy, busyUntilText: x.busyUntil ? t(x.busyUntil, o) : null, drop: x.drop ? TASK_DROP[x.drop] : null,
+      title: x.title, howTo: x.howTo, kept: x.kept.length ? KEPT_TEXT(x.kept) : null, canCode: x.canCode, codeOpen: x.codeOpen,
+      code: x.code ? { value: x.code.value, atText: t(x.code.at, o) } : null, lastError: k.last_error ? `Bot báo lỗi (${k.attempts} lần): ${k.last_error}` : null };
+  };
   router.get('/admin/api/live', J((rq) => {
     const { ctx } = rq;
     const o = off(ctx);
@@ -293,15 +489,17 @@ ${table(['Quán', 'Lối vào', 'Suất hôm nay', ''], s.perCafe.map((c) => [
       ok: true,
       now: ctx.now(),
       // Kho hôm nay: giao bao nhiêu / giới hạn, còn giao được bao nhiêu — chủ thấy sắp hết để nạp hàng / nâng lượt.
-      stock: toolAvailability(ctx).map(({ tool, free, reserved, expiring }) => ({ id: tool.id, name: tool.name, today: toolUsedToday(ctx, tool.id), cap: tool.daily_cap, free, reserved, expiring })),
-      tasks: todoTasks(ctx).map((k) => ({
-        id: k.id, kind: k.kind, kindText: TASK_KIND[k.kind] || k.kind, tool: k.tool_name, email: k.login_email, detail: k.detail,
+      stock: ((w) => toolAvailability(ctx).map(({ tool, free, reserved, expiring }) => ({ id: tool.id, name: tool.name, today: toolUsedToday(ctx, tool.id), cap: tool.daily_cap, free, reserved, expiring,
+        waiting: waitingText(w.get(tool.id)) })))(waitingByTool(ctx)),
+      tasks: todoTasks(ctx).map((k) => ({ ...liveTaskInfo(ctx, k, o),
+        id: k.id, kind: k.kind, kindText: TASK_KIND[k.kind] || k.kind, setup: k.reason === 'setup', tool: k.tool_name, toolId: k.tool_id, email: k.login_email, accountId: k.account_id, detail: k.detail,
         reason: TASK_REASON[k.reason] || k.reason, reasonCode: k.reason, loginType: k.login_type, createdText: t(k.created_at, o), phoneMasked: k.phone ? maskPhone(k.phone) : null,
+        customerId: k.customer_id,
       })),
       alerts: recentAlerts(ctx, ctx.now() - 2 * HOUR, 60).map((e) => ({
         id: e.id, severity: e.severity, type: e.type, label: EVENT_LABEL[e.type] || e.type, at: e.created_at, atText: t(e.created_at, o),
-        phoneMasked: e.phone ? maskPhone(e.phone) : null, customerId: e.customer_id, account: e.login_email, cafe: e.cafe_name, summary: eventSummary(e.data),
-        hint: ALERT_HINT[e.type] || null,
+        phoneMasked: e.phone ? maskPhone(e.phone) : null, customerId: e.customer_id, account: e.login_email, accountId: e.account_id, cafe: e.cafe_name, cafeId: e.cafe_id,
+        summary: eventSummary(e.data, e.type), hint: ALERT_HINT[e.type] || null,
       })),
     };
   }));
@@ -312,6 +510,36 @@ ${table(['Quán', 'Lối vào', 'Suất hôm nay', ''], s.perCafe.map((c) => [
       newTotp: String(b.newTotp || '').trim() || undefined });
   }));
 
+  // Bỏ việc đổi mật khẩu thừa: chỉ cho tài khoản đã ngừng dùng, hoặc quá hạn (khi đó ngừng dùng luôn). Việc khác phải làm xong.
+  const cancelTask = (ctx, taskId) => {
+    const k = todoTasks(ctx).find((x) => x.id === taskId);
+    if (!k) return { ok: false, message: 'Việc này đã xử lý rồi.' };
+    const drop = taskInfo(ctx, k).drop;
+    if (!drop) return { ok: false, message: 'Chỉ bỏ được việc đổi mật khẩu của tài khoản đã ngừng dùng hoặc quá hạn.' };
+    if (drop === 'retire') updateAccount(ctx, k.account_id, { status: 'retired' }, BY);
+    dropRotateTasks(ctx, k.account_id, BY);
+    logEvent(ctx, { type: 'task_cancelled', accountId: k.account_id, data: { taskId, by: BY } });
+    return { ok: true, message: drop === 'retire' ? 'Đã ngừng dùng tài khoản quá hạn và bỏ việc.' : 'Đã bỏ việc.' };
+  };
+  router.post('/admin/api/tasks/:id/cancel', J((rq) => cancelTask(rq.ctx, id(rq))));
+
+  // "Lấy mã đăng nhập" cho chủ làm việc tay trên tài khoản đăng nhập bằng mã qua email: 10 phút tới mã về là của chủ
+  // (không báo mã mồ côi, không cộng điểm khách cũ). Mã hiện trên thẻ việc (Việc tay / Theo dõi / Tổng quan).
+  const openOwnerCode = (ctx, taskId) => {
+    const k = todoTasks(ctx).find((x) => x.id === taskId);
+    if (!k) return { ok: false, message: 'Việc này đã xử lý rồi.' };
+    if (!taskInfo(ctx, k).canCode) return { ok: false, message: 'Tài khoản này không đăng nhập bằng mã qua email.' };
+    run(ctx.db, 'UPDATE rotation_tasks SET code_until = ? WHERE id = ?', ctx.now() + OWNER_CODE_WINDOW, taskId);
+    logEvent(ctx, { type: 'owner_code_opened', accountId: k.account_id, data: { taskId, by: BY } });
+    return { ok: true, message: `Bấm gửi mã bên ${k.tool_name} cho ${k.login_email} — mã về trong 10 phút sẽ hiện ở thẻ việc này.` };
+  };
+  router.post('/admin/api/tasks/:id/code', J((rq) => openOwnerCode(rq.ctx, id(rq))));
+  router.post('/admin/tasks/:id/code', A((rq, f) => {
+    const back = ['/admin', '/admin/tasks'].includes(f.back) ? f.back : '/admin/tasks';
+    return go(back, openOwnerCode(rq.ctx, id(rq)).message);
+  }));
+  router.post('/admin/tasks/:id/cancel', A((rq) => go('/admin/tasks', cancelTask(rq.ctx, id(rq)).message)));
+
   router.post('/admin/tasks/:id/done', A((rq, f) => {
     const r = completeTask(rq.ctx, id(rq), { by: BY, newPassword: f.newPassword?.trim() || undefined, keepPassword: f.keepPassword === '1', newTotp: f.newTotp?.trim() || undefined });
     return go('/admin/tasks', r.message);
@@ -321,16 +549,20 @@ ${table(['Quán', 'Lối vào', 'Suất hôm nay', ''], s.perCafe.map((c) => [
   router.get('/admin/tasks', P((rq) => {
     const { ctx } = rq;
     const done = all(ctx.db,
-      `SELECT r.*, a.login_email, t.name AS tool_name FROM rotation_tasks r JOIN accounts a ON a.id = r.account_id JOIN tools t ON t.id = a.tool_id
+      `SELECT r.*, a.login_email, a.tool_id, t.name AS tool_name FROM rotation_tasks r JOIN accounts a ON a.id = r.account_id JOIN tools t ON t.id = a.tool_id
        WHERE r.status != 'todo' ORDER BY r.id DESC LIMIT 50`);
+    const todo = todoTasks(ctx);
     view(rq, {
-      title: 'Việc tay', active: '/admin/tasks',
-      body: html`<h1>Việc tay cần làm</h1>
-<p class="muted">Đổi mật khẩu: đổi mật khẩu tài khoản, bấm "Đăng xuất khỏi mọi thiết bị" trong cài đặt của hãng, rồi bấm Đã xong.</p>
-${tasksBlock(ctx, todoTasks(ctx), rq.state.admin.csrf, '/admin/tasks')}
-<h2>Đã xử lý gần đây</h2>
+      title: 'Việc tay', heading: 'Việc tay cần làm', active: '/admin/tasks',
+      sub: todo.length ? `${todo.length} việc đang chờ bạn` : 'Không có việc nào đang chờ',
+      body: html`<details class="help"><summary>Làm việc tay thế nào?</summary>
+<p>Đổi mật khẩu: đổi mật khẩu tài khoản trên trang của hãng, bấm "Đăng xuất khỏi mọi thiết bị" trong cài đặt của hãng, dán mật khẩu mới vào ô rồi bấm <b>Đã xong</b>.
+Mời / gỡ nhóm Canva: làm trên Canva rồi bấm Đã xong (bot trên máy Mac thường tự làm — xem <a href="/admin/canva">Canva</a>).</p></details>
+${tasksBlock(ctx, todo, rq.state.admin.csrf, '/admin/tasks')}
+${secHead('Đã xử lý gần đây', { n: done.length })}
 ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', 'Bởi'], done.map((k) => [
-  k.id, TASK_KIND[k.kind] || k.kind, `${k.tool_name} — ${k.login_email}`, k.detail || '', k.status, t(k.done_at, off(ctx)), k.done_by || '',
+  k.id, TASK_KIND[k.kind] || k.kind, html`${link.acc(k.account_id, k.login_email)}<span class="sub">${link.tool(k.tool_id, k.tool_name)}</span>`, k.detail || '',
+  k.status === 'done' ? badge('Xong', 'ok') : k.status === 'cancelled' ? badge('Huỷ') : badge(k.status, 'yellow'), t(k.done_at, off(ctx)), k.done_by || '',
 ]))}`,
     });
   }));
@@ -339,6 +571,20 @@ ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', '
   // Quán là dữ liệu NỘI BỘ của Tiệm: tên, mã quán trên QS (nếu quán dùng QS), số suất / ngày, thẻ NFC riêng của Tiệm (nếu có).
   // Không xin chủ quán quyền gì, không đặt màn hình / mã quầy. Khách vào bằng 1 trong 2 lối: khối "Công cụ làm việc" trên trang
   // quán của QS (vé, Tài bật ở /gov), hoặc thẻ NFC riêng của Tiệm trên bàn (/c/<mã thẻ>).
+  // Giờ mở cửa: điền cả 2 hoặc trống cả 2 (24 giờ). Bắt đầu = kết thúc → inHourRange luôn sai → quán đóng cả ngày (lỗi cũ).
+  const cafeFields = (f) => {
+    const open = hourOrNull(f.open_hour);
+    const close = hourOrNull(f.close_hour);
+    if ((open == null) !== (close == null)) return { error: 'Điền cả giờ bắt đầu và giờ kết thúc, hoặc để trống cả 2 (= mở 24 giờ).' };
+    if (open != null && open === close) return { error: `Giờ bắt đầu và kết thúc đều là ${open}h → quán sẽ đóng cả ngày. Muốn mở 24 giờ thì để trống cả 2.` };
+    const quota = int(f.daily_quota, 20);
+    if (!(quota >= 0 && quota <= 500)) return { error: 'Số suất mới / ngày từ 0 đến 500.' };
+    return { open, close, quota };
+  };
+  // Chữ vừa gõ (form lỗi) → dạng dòng cafes cho cafeForm.
+  const typed = (f, base = {}) => ({ ...base, name: f.name ?? base.name, address: f.address ?? base.address, qs_slug: f.qs_slug ?? base.qs_slug,
+    daily_quota: f.daily_quota ?? base.daily_quota, open_hour: f.open_hour ?? base.open_hour, close_hour: f.close_hour ?? base.close_hour, status: f.status ?? base.status });
+
   const cafeForm = (c = {}) => html`
     ${field('Tên quán', html`<input name="name" value="${c.name || ''}"${c.id ? ' required' : ''} placeholder="${c.id ? '' : 'Để trống nếu đã dán link QS'}">`)}
     ${field('Địa chỉ', html`<input name="address" value="${c.address || ''}">`)}
@@ -347,47 +593,62 @@ ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', '
     ${field('Giờ bắt đầu', html`<input name="open_hour" type="number" min="0" max="23" value="${c.open_hour ?? ''}">`, 'Để trống cả 2 = 24 giờ')}
     ${field('Giờ kết thúc', html`<input name="close_hour" type="number" min="0" max="23" value="${c.close_hour ?? ''}">`)}`;
 
-  router.get('/admin/cafes', P((rq) => {
+  // Quán do QS tự thêm (Tài bấm Mở chương trình cho quán chưa có ở Tiệm) → chủ kiểm có phải quán thật không.
+  const qsCreated = (ctx) => new Map(all(ctx.db,
+    "SELECT cafe_id, MIN(created_at) AS at FROM events WHERE type = 'qs_api_cafe_opened' AND json_extract(data, '$.created') = 1 GROUP BY cafe_id").map((r) => [r.cafe_id, r.at]));
+  const qsBadge = (ctx, at) => (at ? html` <span title="Tài mở chương trình trên QS lúc ${fmtLocal(at, off(ctx))}">${badge('QS tự thêm', 'info')}</span>` : '');
+
+  const cafesPage = (rq, { flash, form } = {}) => {
     const { ctx } = rq;
+    const fromQs = qsCreated(ctx);
     const dayStart = startOfLocalDay(ctx.now(), ctx.settings().timezoneOffsetMin);
     const cafes = all(ctx.db, `SELECT f.*, (SELECT COUNT(*) FROM cards k WHERE k.cafe_id = f.id AND k.kind = 'nfc') AS cards,
       (SELECT COUNT(*) FROM slots s WHERE s.cafe_id = f.id AND s.created_at >= ? AND ${COUNTED}) AS used_today FROM cafes f ORDER BY f.id`, dayStart);
     view(rq, {
-      title: 'Quán & thẻ', active: '/admin/cafes',
-      body: html`<h1>Quán</h1>
-<p class="muted">Hai lối vào, đều do Tiệm lo (không cần chủ quán làm gì):
+      ...(flash ? { flash, flashError: true } : {}),
+      title: 'Quán & thẻ', heading: 'Quán', active: '/admin/cafes',
+      sub: `${cafes.filter((c) => c.status === 'active').length} quán đang chạy · ${cafes.reduce((n, c) => n + c.used_today, 0)} suất đã nhận hôm nay`,
+      actions: html`<a class="btn" href="#them">${plus('Thêm quán')}</a>`,
+      body: html`<details class="help"><summary>Khách vào quán bằng lối nào?</summary>
+<p>Hai lối vào, đều do Tiệm lo (không cần chủ quán làm gì):
   <b>trang quán QS</b> — khách chạm thẻ / quét QR của QS → bấm "${QS_EVENT.items[0].label}" → <code>${ctx.config.baseUrl}/qs/&lt;mã quán QS&gt;</code> kèm vé;
-  <b>thẻ NFC riêng của Tiệm</b> trên bàn → <code>${ctx.config.baseUrl}/c/&lt;mã thẻ&gt;</code>.</p>
-${table(['Quán', 'Mã quán QS', 'Thẻ riêng', 'Hôm nay / suất mỗi ngày', 'Giờ', 'Trạng thái'], cafes.map((c) => [
-  html`<a href="/admin/cafes/${c.id}">${c.name}</a> · <a href="/admin/cafes/${c.id}/report">Thống kê</a>`, c.qs_slug || '—', c.cards || '—',
+  <b>thẻ NFC riêng của Tiệm</b> trên bàn → <code>${ctx.config.baseUrl}/c/&lt;mã thẻ&gt;</code>.</p></details>
+${table(['Quán', 'Lối vào', 'Hôm nay / suất mỗi ngày', 'Giờ', 'Trạng thái', ''], cafes.map((c) => [
+  html`${link.cafe(c.id, c.name)}${c.address ? html`<span class="sub">${c.address}</span>` : ''}${qsBadge(ctx, fromQs.get(c.id))}`,
+  html`${c.qs_slug ? html`Trang quán QS <code>${c.qs_slug}</code>` : ''}${c.cards ? html`${c.qs_slug ? html`<br>` : ''}${c.cards} thẻ NFC riêng` : ''}${!c.qs_slug && !c.cards ? html`<span class="muted">chưa có lối vào</span>` : ''}`,
   html`<form method="post" action="/admin/cafes/${c.id}/quota" class="inline">${csrfField(rq.state.admin.csrf)}${c.used_today} /
     <input name="daily_quota" type="number" min="0" value="${c.daily_quota}" class="num-mini" aria-label="Suất mỗi ngày"><button class="btn-mini">Lưu</button></form>`,
-  c.open_hour == null ? '24h' : `${c.open_hour}h–${c.close_hour}h`, c.status === 'active' ? 'Đang chạy' : 'Tạm dừng',
+  c.open_hour == null || c.close_hour == null ? '24h' : `${c.open_hour}h–${c.close_hour}h`,
+  c.status === 'active' ? badge('Đang chạy', 'ok') : badge(c.paused_by === 'qs' ? 'Tạm dừng (QS)' : 'Tạm dừng', 'yellow'),
+  html`<a class="go" href="/admin/slots?cafe=${c.id}">Slot ›</a> &nbsp; <a class="go" href="/admin/cafes/${c.id}/report">Thống kê ›</a>`,
 ]), 'Chưa có quán nào.')}
-<h2>Thêm quán</h2>
-<form method="post" action="/admin/cafes" class="acard grid">${csrfField(rq.state.admin.csrf)}${cafeForm()}<button class="btn">Thêm quán</button></form>`,
+${secHead('Thêm quán', { id: 'them' })}
+<form method="post" action="/admin/cafes" class="acard grid">${csrfField(rq.state.admin.csrf)}${cafeForm(form)}<button class="btn">Thêm quán</button></form>`,
     });
-  }));
+  };
+  router.get('/admin/cafes', P((rq) => cafesPage(rq)));
 
   router.post('/admin/cafes', A(async (rq, f) => {
     const { ctx } = rq;
+    const fail = (msg) => { cafesPage(rq, { flash: `Chưa thêm: ${msg}`, form: typed(f) }); return { rendered: true }; };
     const slug = qsSlug(ctx, f.qs_slug);
-    if (slug.error) return go('/admin/cafes', slug.error);
+    if (slug.error) return fail(slug.error);
+    const v = cafeFields(f);
+    if (v.error) return fail(v.error);
     // Có link QS mà để trống tên / địa chỉ → đọc từ trang quán QS.
     const page = slug.value && (!f.name?.trim() || !f.address?.trim()) ? await qsPageInfo(ctx, slug.value) : null;
-    if (slug.value && !f.name?.trim() && !page) return go('/admin/cafes', `Không mở được trang quán QS "${slug.value}". Kiểm tra lại link, hoặc gõ tên quán.`);
-    if (!f.name?.trim() && !page?.name) return go('/admin/cafes', 'Cần nhập tên quán.');
+    if (slug.value && !f.name?.trim() && !page) return fail(`không mở được trang quán QS "${slug.value}". Kiểm tra lại link, hoặc gõ tên quán.`);
+    if (!f.name?.trim() && !page?.name) return fail('cần nhập tên quán.');
     const cid = createCafe(ctx, {
       name: f.name?.trim() || page.name, address: f.address?.trim() || page?.address || null, qsSlug: slug.value,
-      dailyQuota: int(f.daily_quota, 20), openHour: hourOrNull(f.open_hour), closeHour: hourOrNull(f.close_hour),
+      dailyQuota: v.quota, openHour: v.open, closeHour: v.close,
     });
     return go(`/admin/cafes/${cid}`, slug.value ? 'Đã thêm quán. Nhắn Tài bật sự kiện cho quán này ở /gov của QS.' : 'Đã thêm quán. Tạo thẻ NFC ở dưới rồi ghi link vào chip.');
   }));
 
-  router.get('/admin/cafes/:id', P((rq) => {
+  const cafePage = (rq, c, { flash, form } = {}) => {
     const { ctx } = rq;
-    const c = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', id(rq));
-    if (!c) throw new HttpError(404, 'Không có quán này.');
+    const qsAt = qsCreated(ctx).get(c.id);
     const csrf = rq.state.admin.csrf;
     const day = ctx.now() - DAY;
     const qs = get(ctx.db,
@@ -401,31 +662,37 @@ ${table(['Quán', 'Mã quán QS', 'Thẻ riêng', 'Hôm nay / suất mỗi ngày
               (SELECT COUNT(*) FROM taps WHERE card_id = k.id AND created_at > ?) AS taps_24h,
               (SELECT COUNT(*) FROM taps WHERE card_id = k.id AND verdict IN ('replay', 'forged') AND created_at > ?) AS bad_24h
        FROM cards k WHERE k.cafe_id = ? AND k.kind = 'nfc' ORDER BY k.id`, day, day, c.id);
+    const today = get(ctx.db, `SELECT COUNT(*) AS n FROM slots s WHERE s.cafe_id = ? AND s.created_at >= ? AND ${COUNTED}`, c.id, startOfLocalDay(ctx.now(), off(ctx))).n;
     view(rq, {
-      title: c.name, active: '/admin/cafes',
-      body: html`<h1>${c.name}</h1>
-<p><a class="btn-mini" href="/admin/cafes/${c.id}/report">📊 Thống kê quán (nội bộ)</a></p>
-${c.qs_slug ? '' : html`<div class="acard"><p>Quán chưa dùng QS: khách vào bằng <b>thẻ NFC riêng của Tiệm</b> (tạo thẻ ở dưới). Lượt vào 24 giờ qua: <b>${qs.taps}</b> (${qs.devices} máy) · Lần cuối: ${t(qs.last, off(ctx))}.
-  Quán dùng QS thì điền "Mã quán trên Quite Sensational" ở form dưới.</p></div>`}
-<div class="acard"${c.qs_slug ? '' : ' hidden'}>
-  <h2>Nối với trang quán (Quite Sensational — tính năng của Tài)</h2>
+      ...(flash ? { flash, flashError: true } : {}),
+      title: c.name, active: '/admin/cafes', crumbs: [['/admin/cafes', 'Quán']],
+      sub: html`${c.status === 'active' ? badge('Đang chạy', 'ok') : badge(c.paused_by === 'qs' ? 'Tạm dừng (QS)' : 'Tạm dừng', 'yellow')}${qsBadge(ctx, qsAt)} ${c.address || ''}${c.qs_slug ? html` · trang quán QS <code>${c.qs_slug}</code>` : ' · thẻ NFC riêng của Tiệm'}`,
+      actions: html`<a class="btn-mini" href="/admin/slots?cafe=${c.id}">Slot của quán ›</a><a class="btn-line" href="/admin/cafes/${c.id}/report">${icon('chart')}Thống kê quán</a>`,
+      body: html`${qsAt && !get(ctx.db, 'SELECT 1 FROM slots WHERE cafe_id = ? LIMIT 1', c.id) ? html`<p class="warn">${badge('QS tự thêm', 'info')} Quán này do Tài mở chương trình trên QS lúc ${t(qsAt, off(ctx))} (Tiệm chưa có quán này nên tự thêm, ${c.daily_quota} suất / ngày). Kiểm tra đúng quán thật chưa — không phải thì chọn Tạm dừng.</p>` : ''}
+<div class="stats">
+  ${stat('Hôm nay / suất', `${today}/${c.daily_quota}`, { icon: 'key', tone: 'success', href: `/admin/slots?cafe=${c.id}`, hot: today >= c.daily_quota && c.daily_quota > 0 })}
+  ${stat('Lượt vào 24 giờ', qs.taps, { icon: 'enter', tone: 'info', sub: `${qs.devices} máy · lần cuối ${t(qs.last, off(ctx))}` })}
+  ${stat('Link bị từ chối 24 giờ', bad.reduce((n, b) => n + b.n, 0), { icon: 'alert', tone: 'danger', hot: bad.length > 0, sub: bad.length ? bad.map((b) => `${TICKET_ERROR[b.error] || b.error} ${b.n}`).join(' · ') : 'không có', href: `/admin/events?type=ticket_rejected&cafe=${c.id}` })}
+  ${stat('Thẻ NFC riêng', cards.length, { icon: 'ticket', tone: 'plum', href: '#the' })}
+</div>
+${c.qs_slug ? '' : html`<p class="warn">Quán chưa dùng QS: khách vào bằng <b>thẻ NFC riêng của Tiệm</b> (tạo thẻ ở dưới). Quán dùng QS thì điền "Mã quán trên Quite Sensational" ở form dưới.</p>`}
+<details class="help"${c.qs_slug ? '' : ' hidden'}><summary>Nối với trang quán (Quite Sensational — tính năng của Tài)</summary>
   <p>Khách chạm thẻ / quét QR trên bàn → trang quán trên QS → khối "${QS_EVENT.title}" → bấm "${QS_EVENT.items[0].label}" → sang
     <code class="break">${ctx.config.baseUrl}/qs/${c.qs_slug || '<mã quán>'}</code> kèm vé (nút "${QS_EVENT.items[1].label}" → trang giới thiệu Tiệm).
     Vé chứng minh khách vừa mở trang quán bằng thẻ / QR trên bàn; link trang quán lan trên mạng không có vé nên không nhận được.</p>
-  <p>Mã quán trên QS: ${c.qs_slug ? html`<b>${c.qs_slug}</b>` : 'chưa dùng QS'} · Lượt vào 24 giờ qua (cả 2 lối): <b>${qs.taps}</b> (${qs.devices} máy) · Lần cuối: ${t(qs.last, off(ctx))}</p>
-  <p class="muted">Link bị từ chối 24 giờ qua: ${bad.length ? bad.map((b) => `${TICKET_ERROR[b.error] || b.error} ${b.n}`).join(' · ') : 'không có'}.
-    Nhiều "vé sai" → kiểm tra QS_TICKET_KEY (TBQ) có trùng NFC_EVENT_TBQ_KEY (QS) không.</p>
-  <p class="muted">Bên QS: Tài bấm "Mở" ở cột Sự kiện cho quán này trong /gov. Quán không phải làm gì. Xem docs/phoi-hop-voi-QS.md.</p>
-</div>
+  <p>Nhiều "vé sai" → kiểm tra QS_TICKET_KEY (TBQ) có trùng NFC_EVENT_TBQ_KEY (QS) không.
+    Bên QS: Tài bấm "Mở" ở cột Sự kiện cho quán này trong /gov. Quán không phải làm gì. Xem docs/phoi-hop-voi-QS.md.</p>
+</details>
+${secHead('Thông tin quán')}
 <form method="post" action="/admin/cafes/${c.id}" class="acard grid">${csrfField(csrf)}
-  ${cafeForm(c)}
-  ${field('Trạng thái', select('status', { active: 'Đang chạy', paused: 'Tạm dừng' }, c.status))}
+  ${cafeForm(form || c)}
+  ${field('Trạng thái', select('status', { active: 'Đang chạy', paused: 'Tạm dừng' }, (form || c).status), c.paused_by === 'qs' ? 'QS đang tạm dừng quán này (Tài bấm Đóng). Chọn Đang chạy = bạn mở lại.' : '')}
   <button class="btn">Lưu</button></form>
-<h2>Thẻ NFC riêng của Tiệm (${cards.length})</h2>
-<p class="muted">Dùng cho quán chưa có QS (quán có QS thì thẻ / QR của QS đã đủ). Ghi link vào chip NTAG213/215/216 bằng app NFC Tools
+${secHead(`Thẻ NFC riêng của Tiệm (${cards.length})`, { id: 'the', link: [`/admin/cafes/${c.id}/cards.csv`, 'Tải CSV tất cả link'] })}
+<details class="help"><summary>Ghi link vào chip thế nào?</summary>
+<p>Dùng cho quán chưa có QS (quán có QS thì thẻ / QR của QS đã đủ). Ghi link vào chip NTAG213/215/216 bằng app NFC Tools
   hoặc NXP TagWriter (bản ghi URL). <b>Nên bật "UID + counter mirror"</b> và thêm <code>?m=</code> vào cuối link: mỗi lần chạm, chip gửi kèm
-  bộ đếm → link bị chụp / chép mang về nhà không dùng lại được. Chưa bật thì ai có link là mở được (chỉ còn giới hạn ${ctx.settings().cardDailyClaims} suất / thẻ / ngày).
-  <a href="/admin/cafes/${c.id}/cards.csv">Tải CSV tất cả link</a></p>
+  bộ đếm → link bị chụp / chép mang về nhà không dùng lại được. Chưa bật thì ai có link là mở được (chỉ còn giới hạn ${ctx.settings().cardDailyClaims} suất / thẻ / ngày).</p></details>
 ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ / giả 24h', 'Lần cuối', 'Trạng thái', ''], cards.map((k) => [
   k.label || `#${k.id}`, html`<code class="break">${ctx.config.baseUrl}/c/${k.token}</code>`,
   k.last_counter != null ? badge('Đã bật', 'ok') : badge('Chưa thấy', 'yellow'),
@@ -437,16 +704,21 @@ ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ /
     ${postButton(`/admin/cards/${k.id}/rotate`, 'Đổi link', csrf, { confirm: 'Link cũ sẽ ngừng hoạt động, phải ghi lại chip. Tiếp tục?', fields: { back } })}`,
 ]), 'Chưa có thẻ.')}
 <form method="post" action="/admin/cafes/${c.id}/cards" class="acard grid">${csrfField(csrf)}
-  <h3>Tạo thẻ hàng loạt</h3>
+  <h3>Tạo thẻ mới</h3>
   ${field('Số thẻ', html`<input name="count" type="number" min="1" max="100" value="10">`)}
   ${field('Tiền tố nhãn', html`<input name="prefix" value="Bàn">`)}
   ${field('Bắt đầu từ số', html`<input name="start" type="number" min="1" value="${cards.length + 1}">`)}
   <button class="btn">Tạo thẻ</button></form>`,
     });
+  };
+  router.get('/admin/cafes/:id', P((rq) => {
+    const c = get(rq.ctx.db, 'SELECT * FROM cafes WHERE id = ?', id(rq));
+    if (!c) throw new HttpError(404, 'Không có quán này.');
+    cafePage(rq, c);
   }));
 
   router.post('/admin/cafes/:id/quota', A((rq, f) => {
-    const q = Math.max(0, int(f.daily_quota, 20));
+    const q = Math.min(500, Math.max(0, int(f.daily_quota, 20) || 0));
     run(rq.ctx.db, 'UPDATE cafes SET daily_quota = ? WHERE id = ?', q, id(rq));
     logEvent(rq.ctx, { type: 'settings_saved', cafeId: id(rq), data: { daily_quota: q, by: BY } });
     return go('/admin/cafes', `Đã đặt ${q} suất / ngày.`);
@@ -454,15 +726,20 @@ ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ /
 
   router.post('/admin/cafes/:id', A((rq, f) => {
     const { ctx } = rq;
+    const c = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', id(rq));
+    if (!c) throw new HttpError(404, 'Không có quán này.');
+    const fail = (msg) => { cafePage(rq, c, { flash: `Chưa lưu: ${msg}`, form: typed(f, c) }); return { rendered: true }; };
+    if (!f.name?.trim()) return fail('cần tên quán.');
     const slug = qsSlug(ctx, f.qs_slug, id(rq));
-    if (slug.error) return go(`/admin/cafes/${id(rq)}`, slug.error);
+    if (slug.error) return fail(slug.error);
+    const v = cafeFields(f);
+    if (v.error) return fail(v.error);
     // Đổi trạng thái thì ghi chủ là người đổi (QS không mở lại quán chủ đã dừng); không đổi thì giữ nguyên.
     const status = f.status === 'paused' ? 'paused' : 'active';
     run(ctx.db,
       `UPDATE cafes SET name = ?, address = ?, qs_slug = ?, daily_quota = ?, open_hour = ?, close_hour = ?, status = ?,
         paused_by = CASE WHEN status = ? THEN paused_by ELSE ? END WHERE id = ?`,
-      f.name?.trim() || 'Quán', f.address?.trim() || null, slug.value, int(f.daily_quota, 20),
-      hourOrNull(f.open_hour), hourOrNull(f.close_hour), status, status, status === 'paused' ? 'admin' : null, id(rq));
+      f.name.trim(), f.address?.trim() || null, slug.value, v.quota, v.open, v.close, status, status, status === 'paused' ? 'admin' : null, id(rq));
     return go(`/admin/cafes/${id(rq)}`, 'Đã lưu.');
   }));
 
@@ -508,34 +785,33 @@ ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ /
     const maxHour = Math.max(1, ...r.byHour);
     const used = r.byDay.filter((d) => d.trials || d.taps || d.zalo);
     view(rq, {
-      title: `Thống kê — ${r.cafe.name}`, active: '/admin/cafes',
-      body: html`<h1>Thống kê: ${r.cafe.name}</h1>
-<p class="row noprint">${range.options.map(([k, label]) => (k === range.key ? badge(label, 'ok') : html`<a class="btn-mini" href="?range=${k}">${label}</a>`))}
-  <a class="btn-mini" href="/admin/cafes/${r.cafe.id}/report.csv?range=${range.key}">Tải CSV theo ngày</a>
-  <a class="btn-mini" href="/admin/cafes/${r.cafe.id}">← Về trang quán</a></p>
-<p class="muted">${range.label}: ${dm(r.byDay[0].day)} – ${dm(r.byDay.at(-1).day)}. Số liệu nội bộ của Tiệm (chỉ có số đếm, không có số điện thoại hay thông tin cá nhân) — để biết quán nào kéo được khách.</p>
-<div class="tiles">
-  ${tile('Lượt vào', r.taps)}${tile('Máy khác nhau', r.tapDevices)}
-  ${tile('Lượt dùng thử', r.trials)}${tile('Khách khác nhau', r.customers)}
-  ${tile('Khách quay lại', `${r.returning} (${pct(r.returning, r.customers)})`)}
-  ${tile('Bấm "Mua qua Zalo"', r.zaloClicks)}
-  ${tile('Ngày hết suất', `${r.fullDays}/${r.byDay.length}`, r.fullDays ? 'yellow' : '')}
-  ${tile('Báo đỏ tại quán', r.redAlerts, r.redAlerts ? 'red' : '')}
+      title: `Thống kê — ${r.cafe.name}`, heading: `Thống kê: ${r.cafe.name}`, active: '/admin/cafes',
+      crumbs: [['/admin/cafes', 'Quán'], [`/admin/cafes/${r.cafe.id}`, r.cafe.name]],
+      sub: `${range.label}: ${dm(r.byDay[0].day)} – ${dm(r.byDay.at(-1).day)} · số liệu nội bộ, chỉ có số đếm (không có SĐT / thông tin cá nhân)`,
+      actions: html`<a class="btn-mini noprint" href="/admin/cafes/${r.cafe.id}/report.csv?range=${range.key}">Tải CSV theo ngày</a>`,
+      body: html`<div class="noprint">${chips(range.options.map(([k, label]) => [`?range=${k}`, label, null, k === range.key]))}</div>
+<div class="stats">
+  ${stat('Lượt vào', r.taps, { icon: 'enter', tone: 'info' })}${stat('Máy khác nhau', r.tapDevices, { icon: 'grid', tone: 'ink' })}
+  ${stat('Lượt dùng thử', r.trials, { icon: 'key', tone: 'success' })}${stat('Khách khác nhau', r.customers, { icon: 'users', tone: 'accent' })}
+  ${stat('Khách quay lại', r.returning, { icon: 'users', tone: 'plum', sub: pct(r.returning, r.customers) })}
+  ${stat('Bấm "Mua qua Zalo"', r.zaloClicks, { icon: 'bubble', tone: 'info' })}
+  ${stat('Ngày hết suất', `${r.fullDays}/${r.byDay.length}`, { icon: 'clock', tone: 'warning', hot: r.fullDays > 0 })}
+  ${stat('Báo đỏ tại quán', r.redAlerts, { icon: 'alert', tone: 'danger', hot: r.redAlerts > 0 })}
 </div>
-${r.fullDays ? html`<p class="muted">Có ${r.fullDays} ngày hết suất (đang để ${r.cafe.daily_quota} suất/ngày) → khách đến sau không nhận được. Cân nhắc tăng "Số suất mới / ngày" nếu kho còn tài khoản.</p>` : ''}
+${r.fullDays ? html`<p class="warn">Có ${r.fullDays} ngày hết suất (đang để ${r.cafe.daily_quota} suất/ngày) → khách đến sau không nhận được. Cân nhắc tăng "Số suất mới / ngày" ở <a href="/admin/cafes/${r.cafe.id}">trang quán</a> nếu kho còn tài khoản.</p>` : ''}
 <p class="muted">Khách quay lại = đã dùng thử ở quán này vào một ngày trước đó. Bấm "Mua qua Zalo" = bấm nút mua sau khi hết lượt (mỗi máy tính 1 lần/ngày), chưa phải đơn đã chốt.</p>
-<h2>Theo công cụ</h2>
+${secHead('Theo công cụ')}
 ${table(['Công cụ', 'Lượt dùng thử', 'Tỉ lệ'], r.byTool.map((x) => [x.name, x.n, pct(x.n, r.trials)]), 'Chưa có lượt dùng thử.')}
-<h2>Theo giờ trong ngày</h2>
+${secHead('Theo giờ trong ngày')}
 ${r.trials ? table(['Giờ', 'Lượt dùng thử', ''], r.byHour.map((n, h) => [
   `${String(h).padStart(2, '0')}:00–${String(h).padStart(2, '0')}:59`, n, html`<progress class="hbar" max="${maxHour}" value="${n}"></progress>`,
-])) : html`<p class="muted">Chưa có lượt dùng thử.</p>`}
-<h2>Theo lối vào</h2>
+])) : html`<p class="empty">Chưa có lượt dùng thử.</p>`}
+${secHead('Theo lối vào')}
 ${table(['Lối vào', 'Lượt vào', 'Lượt dùng thử', 'Trạng thái'], r.byCard.map((k) => [
   k.kind === 'qs' ? 'Trang quán (QS)' : `Thẻ NFC: ${k.label || '#' + k.id}`, k.taps, k.trials,
-  k.status === 'active' ? '' : badge('Đang khoá', 'red'),
+  k.status === 'active' ? badge('Hoạt động', 'ok') : badge('Đang khoá', 'red'),
 ]), 'Chưa có lối vào nào.')}
-<h2>Theo ngày</h2>
+${secHead('Theo ngày')}
 ${table(['Ngày', 'Lượt vào', 'Máy', 'Dùng thử', 'Khách', 'Bấm Zalo', ''], used.slice().reverse().map((d) => [
   dm(d.day), d.taps, d.devices, d.trials, d.customers, d.zalo, d.full ? badge('Hết suất', 'yellow') : '',
 ]), 'Chưa có hoạt động trong khoảng này.')}`,
@@ -561,12 +837,15 @@ ${table(['Ngày', 'Lượt vào', 'Máy', 'Dùng thử', 'Khách', 'Bấm Zalo',
     const o = off(ctx);
     const now = ctx.now();
     const tools = all(ctx.db, "SELECT * FROM tools WHERE login_type = 'team_invite' ORDER BY sort, id");
-    const bots = all(ctx.db, "SELECT key, value, updated_at FROM kv WHERE key LIKE 'worker:%' ORDER BY updated_at DESC");
+    // Bot đang làm 1 việc (vd. mời mất vài phút) không báo về → vẫn tính là đang chạy nếu còn giữ việc (lease).
+    const busy = new Set(all(ctx.db, "SELECT DISTINCT worker FROM rotation_tasks WHERE status = 'todo' AND lease_until > ? AND worker IS NOT NULL", now).map((r) => r.worker));
+    const bots = all(ctx.db, "SELECT key, value, updated_at FROM kv WHERE key LIKE 'worker:%' ORDER BY updated_at DESC")
+      .map((b) => ({ ...b, name: b.key.slice(7) }));
     const teams = all(ctx.db,
       `SELECT a.*, t.name AS tool_name,
         (SELECT COUNT(*) FROM slots s WHERE s.account_id = a.id AND s.status = 'active') AS using_n,
         (SELECT COUNT(*) FROM slots s WHERE s.account_id = a.id AND s.status = 'pending_invite') AS waiting_n
-       FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE t.login_type = 'team_invite' ORDER BY a.id`);
+       FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE t.login_type = 'team_invite' AND a.status != 'retired' ORDER BY a.id`);
     // Mỗi khách Canva 1 dòng: slot + việc bot mới nhất của slot đó.
     const rows = all(ctx.db,
       `SELECT s.*, c.phone, a.login_email AS team_email, f.name AS cafe_name,
@@ -576,34 +855,41 @@ ${table(['Ngày', 'Lượt vào', 'Máy', 'Dùng thử', 'Khách', 'Bấm Zalo',
        LEFT JOIN rotation_tasks r ON r.id = (SELECT MAX(id) FROM rotation_tasks WHERE slot_id = s.id AND kind IN ('invite_member', 'remove_member'))
        WHERE t.login_type = 'team_invite' AND s.status != 'rejected' ORDER BY s.id DESC LIMIT 200`);
     const stateOf = (x) => {
-      if (x.status === 'pending_invite') return x.alerted_at ? '🔴 Chờ mời — bot chưa làm được' : '⏳ Chờ bot mời';
-      if (x.status === 'active') return '🟢 Đang dùng';
-      if (x.task_kind === 'remove_member' && x.task_status === 'todo') return x.alerted_at ? '🔴 Hết hạn — bot chưa gỡ được' : '⏳ Hết hạn — chờ bot gỡ';
-      if (x.task_kind === 'remove_member' && x.task_status === 'done') return '⚪ Đã gỡ khỏi nhóm';
-      return `⚪ ${SLOT_STATUS[x.status] || x.status}`;
+      if (x.status === 'pending_invite') return x.alerted_at ? badge('Chờ mời — bot chưa làm được', 'red') : badge('Chờ bot mời', 'info');
+      if (x.status === 'active') return badge('Đang dùng', 'ok');
+      if (x.task_kind === 'remove_member' && x.task_status === 'todo') return x.alerted_at ? badge('Hết hạn — bot chưa gỡ được', 'red') : badge('Hết hạn — chờ bot gỡ', 'yellow');
+      if (x.task_kind === 'remove_member' && x.task_status === 'done') return badge('Đã gỡ khỏi nhóm');
+      return badge(SLOT_STATUS[x.status] || x.status);
     };
-    const live = (b) => now - b.updated_at < 2 * MIN;
+    const live = (b) => now - b.updated_at < 2 * MIN || busy.has(b.name);
+    // Bot tên cũ (đổi máy / đổi tên bot): đã có bot khác liên lạc sau nó hơn 1 giờ, hoặc im hơn 1 ngày → xám "không chạy nữa", không đỏ mãi.
+    const replaced = (b) => now - b.updated_at > DAY || bots.some((x) => x !== b && x.updated_at > b.updated_at + HOUR);
+    const botState = (b) => (live(b) ? badge(busy.has(b.name) ? 'Đang làm việc' : 'Đang chạy', 'ok') : replaced(b) ? badge('Không chạy nữa') : badge('Tắt / mất kết nối', 'red'));
     const csrf = rq.state.admin.csrf;
+    const canvaTool = tools[0];
     view(rq, {
-      title: 'Canva', active: '/admin/canva',
-      body: html`<h1>Canva — mời vào nhóm</h1>
-<h2>Bot trên máy Mac</h2>
-${bots.length ? table(['Bot', 'Trạng thái', 'Lần cuối liên lạc'], bots.map((b) => [b.key.slice(7), live(b) ? '🟢 Đang chạy' : '🔴 Tắt / mất kết nối', t(b.updated_at, o)]))
+      title: 'Canva', heading: 'Canva — mời vào nhóm', active: '/admin/canva',
+      sub: bots.some(live) ? 'Bot trên máy Mac đang chạy' : 'Bot trên máy Mac đang tắt',
+      actions: canvaTool ? html`<a class="btn-mini" href="/admin/accounts?tool=${canvaTool.id}">Nhóm trong kho ›</a><a class="btn-mini" href="/admin/tools/${canvaTool.id}">Cài đặt món ›</a>` : '',
+      body: html`${secHead('Bot trên máy Mac')}
+${bots.length ? table(['Bot', 'Trạng thái', 'Lần cuối liên lạc'], bots.map((b) => [b.name, botState(b), t(b.updated_at, o)]))
     : html`<p class="warn">Chưa có bot nào kết nối. Trên máy Mac: <code>npm run canva-bot</code> (xem README mục Canva).</p>`}
-<h2>Nhóm Canva (trong Kho tài khoản)</h2>
-${tools.length ? '' : html`<p class="warn">Chưa có công cụ kiểu "Mời vào nhóm". Chạy <code>npm run pilot</code> hoặc thêm ở trang Công cụ.</p>`}
+${secHead('Nhóm Canva', { n: teams.length, note: 'trong Kho tài khoản', link: canvaTool ? [`/admin/accounts?tool=${canvaTool.id}`, 'Mở kho Canva'] : null })}
+${tools.length ? '' : html`<p class="warn">Chưa có công cụ kiểu "Mời vào nhóm". Chạy <code>npm run pilot</code> hoặc thêm ở trang <a href="/admin/tools">Công cụ</a>.</p>`}
 ${table(['Email chủ nhóm', 'Ghế', 'Đang dùng', 'Chờ mời', 'Còn trống', 'Trạng thái'], teams.map((a) => [
-  html`<a href="/admin/accounts/${a.id}">${a.login_email}</a>`, a.max_holders, a.using_n, a.waiting_n, Math.max(0, a.max_holders - a.using_n - a.waiting_n),
-  ACCOUNT_STATUS[a.status] || a.status,
+  link.acc(a.id, a.login_email), a.max_holders, a.using_n ? html`<a href="/admin/slots?account=${a.id}">${a.using_n}</a>` : 0, a.waiting_n,
+  a.status === 'ready' ? Math.max(0, a.max_holders - a.using_n - a.waiting_n) : html`<span class="muted">không giao</span>`,
+  badge(ACCOUNT_STATUS[a.status] || a.status, ACCOUNT_TONE[a.status] ?? 'yellow'),
 ]), 'Chưa nhập nhóm nào. Vào Kho tài khoản → chọn Canva Pro → dán: email chủ nhóm|số ghế.')}
-<h2>Khách Canva</h2>
+${secHead('Khách Canva', { n: rows.length })}
 ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng thái', 'Mời lúc', 'Hết hạn', 'Bot', ''], rows.map((x) => [
-  html`<a href="/admin/slots?id=${x.id}">${x.id}</a>`, html`<a href="/admin/customers/${x.customer_id}">${maskPhone(x.phone)}</a>`,
-  html`<code>${x.invite_email || ''}</code>`, x.cafe_name || '', x.team_email || '', stateOf(x), t(x.started_at, o), t(x.expires_at, o),
-  x.task_id ? html`${x.task_status === 'done' ? `xong (${x.done_by || ''})` : `${x.attempts} lần thử`}${x.last_error ? html`<br><small class="muted">${x.last_error}</small>` : ''}` : '',
-  x.task_id && x.task_status === 'todo' ? html`<form method="post" action="/admin/tasks/${x.task_id}/done" class="inline">${csrfField(csrf)}<input type="hidden" name="back" value="/admin/canva">
+  link.slot(x.id), link.cust(x.customer_id, x.phone),
+  html`<code>${x.invite_email || ''}</code>`, link.cafe(x.cafe_id, x.cafe_name), x.account_id ? link.acc(x.account_id, x.team_email) : '', stateOf(x),
+  x.status === 'pending_invite' ? html`<span class="muted">chờ từ ${t(x.created_at, o)}</span>` : t(x.started_at, o), x.status === 'pending_invite' ? html`<span class="muted">tính từ lúc mời</span>` : t(x.expires_at, o),
+  x.task_id ? html`${x.task_status === 'done' ? `xong (${x.done_by || ''})` : x.task_status === 'cancelled' ? 'đã huỷ' : `${x.attempts} lần thử`}${x.last_error && x.task_status === 'todo' ? html`<br><small class="muted">${x.last_error}</small>` : ''}` : '',
+  html`${x.task_id && x.task_status === 'todo' ? html`<form method="post" action="/admin/tasks/${x.task_id}/done" class="inline">${csrfField(csrf)}<input type="hidden" name="back" value="/admin/canva">
     <button class="btn-mini ok" title="Bạn đã tự làm trên Canva">${x.task_kind === 'invite_member' ? 'Đã mời tay' : 'Đã gỡ tay'}</button></form>
-    ${x.attempts ? html`<form method="post" action="/admin/canva/tasks/${x.task_id}/retry" class="inline">${csrfField(csrf)}<button class="btn-mini">Cho bot thử lại</button></form>` : ''}` : '',
+    ${x.attempts ? html`<form method="post" action="/admin/canva/tasks/${x.task_id}/retry" class="inline">${csrfField(csrf)}<button class="btn-mini">Cho bot thử lại</button></form>` : ''}` : ''}${x.status === 'pending_invite' ? slotEndButton(ctx, x, csrf, '/admin/canva') : ''}`,
 ]), 'Chưa có khách nhận Canva.')}
 <p class="muted">Bot chỉ nhận email khách và email chủ nhóm. Bot không bao giờ gỡ chủ nhóm / quản trị / giáo viên. Vai trò khi mời: giữ "Học sinh" như Canva đặt sẵn.</p>`,
     });
@@ -624,16 +910,20 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
     // Công cụ dùng 1 lần (CapCut Pro dùng thử): tài khoản nhập kho quá thời hạn 1 slot không giao nữa → nói rõ cho chủ biết vì sao "Còn giao được" = 0.
     const stale = new Map(all(ctx.db, `SELECT a.tool_id, COUNT(*) AS n FROM accounts a JOIN tools t ON t.id = a.tool_id
       WHERE t.reuse = 'once' AND a.status = 'ready' AND a.created_at <= ? - t.slot_hours * 3600000 GROUP BY a.tool_id`, ctx.now()).map((r) => [r.tool_id, r.n]));
+    const dur = (x) => (x.slot_hours % 24 === 0 ? `${x.slot_hours / 24} ngày` : `${x.slot_hours} giờ`);
     view(rq, {
       title: 'Công cụ', active: '/admin/tools',
-      body: html`<h1>Công cụ</h1>
-<p><a class="btn-mini" href="/admin/tools/new">+ Thêm công cụ</a></p>
-${table(['Thứ tự', 'Công cụ', 'Slug', 'Đăng nhập', 'Thời gian', 'Hôm nay / lượt mỗi ngày', 'Chờ nhận lại', 'Tối đa/khách', 'Kho', 'Còn giao được', 'Bật'], tools.map((x) => [
-  x.sort, html`<a href="/admin/tools/${x.id}">${x.name}</a>`, x.slug, LOGIN_TYPE[x.login_type] || x.login_type,
-  x.end_hour != null ? `tới ${x.end_hour}h sáng` : x.slot_hours % 24 === 0 ? `${x.slot_hours / 24} ngày` : `${x.slot_hours} giờ`,
+      sub: `${tools.filter((x) => x.enabled).length} món đang bật · bấm tên món để sửa, bấm số kho để xem tài khoản`,
+      actions: html`<a class="btn" href="/admin/tools/new">${plus('Thêm công cụ')}</a>`,
+      body: html`${table(['Món', 'Đăng nhập', 'Thời gian', 'Hôm nay / lượt mỗi ngày', 'Mỗi khách', 'Kho', 'Còn giao được', 'Trạng thái'], tools.map((x) => [
+  html`${link.tool(x.id, x.name)}<span class="sub">${x.slug} · thứ tự ${x.sort}</span>`, LOGIN_TYPE[x.login_type] || x.login_type,
+  x.end_hour != null ? `tới ${x.end_hour}h sáng` : dur(x),
   html`<form method="post" action="/admin/tools/${x.id}/cap" class="inline">${csrfField(rq.state.admin.csrf)}${toolUsedToday(ctx, x.id)} /
     <input name="daily_cap" type="number" min="0" value="${x.daily_cap ?? ''}" placeholder="∞" class="num-mini" aria-label="Lượt tối đa mỗi ngày"><button class="btn-mini">Lưu</button></form>`,
-  `${x.cooldown_days} ngày`, x.lifetime_cap, x.login_type === 'redeem' ? `${redeemLeft.get(x.id) || 0} mã` : html`${counts.get(x.id) || 0}${stale.get(x.id) ? html` <small class="muted">(${stale.get(x.id)} nhập quá ${x.slot_hours % 24 === 0 ? `${x.slot_hours / 24} ngày` : `${x.slot_hours} giờ`}, hết Pro — không giao)</small>` : ''}`, html`${avail.get(x.id)?.free ?? 0}${avail.get(x.id)?.reserved ? html` <small class="muted">(+${avail.get(x.id).reserved} dự phòng cho ${x.end_hour ?? 6}h sáng)</small>` : ''}`, x.enabled ? '✓' : '—',
+  html`tối đa ${x.lifetime_cap} lần<span class="sub">chờ ${x.cooldown_days} ngày mới nhận lại</span>`,
+  html`<a href="/admin/accounts?tool=${x.id}">${x.login_type === 'redeem' ? `${redeemLeft.get(x.id) || 0} mã` : `${counts.get(x.id) || 0} tài khoản`}</a>${stale.get(x.id) ? html`<span class="sub">${stale.get(x.id)} nhập quá ${dur(x)}, hết Pro — không giao</span>` : ''}`,
+  html`${(avail.get(x.id)?.free ?? 0) > 0 ? html`<b>${avail.get(x.id).free}</b>` : x.enabled ? badge('Hết', 'red') : '—'}${avail.get(x.id)?.reserved ? html`<span class="sub">+${avail.get(x.id).reserved} dự phòng cho ${x.end_hour ?? 6}h sáng</span>` : ''}`,
+  x.enabled ? badge('Đang bật', 'ok') : badge('Tắt'),
 ]), 'Chưa có công cụ.')}`,
     });
   }));
@@ -643,36 +933,7 @@ ${table(['Thứ tự', 'Công cụ', 'Slug', 'Đăng nhập', 'Thời gian', 'H�
     const isNew = rq.params.id === 'new';
     const x = isNew ? { slot_hours: 24, cooldown_days: 30, lifetime_cap: 2, rotation_required: 1, enabled: 1, sort: 0, login_type: 'email_code', reuse: 'rotate', holders_default: 1 } : get(ctx.db, 'SELECT * FROM tools WHERE id = ?', id(rq));
     if (!x) throw new HttpError(404, 'Không có công cụ này.');
-    view(rq, {
-      title: isNew ? 'Thêm công cụ' : x.name, active: '/admin/tools',
-      body: html`<h1>${isNew ? 'Thêm công cụ' : x.name}</h1>
-<form method="post" action="/admin/tools/${isNew ? 'new' : x.id}" class="acard grid">${csrfField(rq.state.admin.csrf)}
-  ${field('Tên hiển thị', html`<input name="name" value="${x.name || ''}" required>`)}
-  ${field('Slug', html`<input name="slug" value="${x.slug || ''}" pattern="[a-z0-9-]+" required>`, `Chữ thường, không dấu. Có mẫu thư mặc định cho: ${Object.keys(DEFAULT_TOOL_PATTERNS).join(', ')}`)}
-  ${field('Cách đăng nhập', select('login_type', LOGIN_TYPE, x.login_type), 'Mời vào nhóm (Canva): khách nhập email tài khoản của họ; nhập kho mỗi dòng = 1 nhóm: email chủ nhóm|số ghế.')}
-  ${field('Link trang đăng nhập', html`<input name="login_url" value="${x.login_url || ''}" type="url">`)}
-  ${field('Hướng dẫn cho khách', html`<textarea name="instructions" rows="4">${x.instructions || ''}</textarea>`, 'Mỗi dòng 1 ý.')}
-  ${field('Mẫu người gửi thư mã (regex)', html`<input name="sender_pattern" value="${x.sender_pattern ?? ''}">`, 'Để trống = dùng mẫu mặc định theo slug. Nhập "-" = không kiểm tra người gửi.')}
-  ${field('Regex bóc mã (tuỳ chọn)', html`<input name="code_regex" value="${x.code_regex || ''}">`, 'Có 1 nhóm bắt, ví dụ: code is (\\d{6}). Để trống = tự tìm dãy 6 số.')}
-  ${field('Số giờ dùng', html`<input name="slot_hours" type="number" min="1" value="${x.slot_hours}">`, '24 = 1 ngày, 168 = 7 ngày.')}
-  ${field('Số khách / tài khoản (mặc định khi nhập kho)', html`<input name="holders_default" type="number" min="1" value="${x.holders_default ?? 1}">`, 'Vd. ChatGPT 5, CapCut 2, Adobe 2. Dòng nhập kho ghi số khác thì theo dòng đó. Nhiều khách → mỗi khách nhận "Slot 1, 2…".')}
-  ${field('Hết lượt thì', select('reuse', REUSE, x.reuse || 'rotate'))}
-  ${field('Hết lượt lúc (giờ VN)', html`<input name="end_hour" type="number" min="0" max="23" value="${x.end_hour ?? ''}" placeholder="trống = đủ thời gian ở trên">`, 'Vd. 6 = ai nhận lúc nào trong ngày cũng dùng tới 6h sáng hôm sau, 6h bạn đăng xuất mọi thiết bị (ChatGPT, Claude).')}
-  ${field('Tài khoản tự hết sau (ngày, kể từ lúc nhập kho)', html`<input name="account_days" type="number" min="1" value="${x.account_days ?? ''}" placeholder="trống = không tự hết">`, 'Vd. 7 cho Claude / CapCut / Adobe dùng thử: quá hạn không giao, khách không được hứa quá ngày tài khoản hết.')}
-  ${field('Lượt tối đa / ngày (cả hệ thống)', html`<input name="daily_cap" type="number" min="0" value="${x.daily_cap ?? ''}">`, 'Để trống = không giới hạn (chỉ giới hạn theo kho).')}
-  ${field('Chờ bao nhiêu ngày mới nhận lại', html`<input name="cooldown_days" type="number" min="0" value="${x.cooldown_days}">`)}
-  ${field('Tối đa số lần / khách', html`<input name="lifetime_cap" type="number" min="1" value="${x.lifetime_cap}">`)}
-  ${field('Thứ tự', html`<input name="sort" type="number" value="${x.sort}">`)}
-  <label class="check">${checkbox('rotation_required', x.rotation_required)} Hết hạn thì tạo việc đổi mật khẩu + đăng xuất</label>
-  <label class="check">${checkbox('auto_worker', x.auto_worker)} Mời vào nhóm: bot trên máy của Tiệm tự mời / gỡ (scripts/canva-bot.js). Bot chưa làm xong sau vài phút → trang Theo dõi báo bạn làm tay</label>
-  <label class="check">${checkbox('mail_code', x.mail_code)} Loại mật khẩu: hãng hay gửi mã qua email khi đăng nhập (vd. Adobe) → khách có nút "Lấy mã"</label>
-  <label class="check">${checkbox('reserve_account', x.reserve_account)} Giữ 1 tài khoản dự phòng: trong ngày không giao; lúc các tài khoản khác chờ "Đăng xuất mọi thiết bị" (6h sáng) thì mới giao — khách sáng sớm không gặp "Tạm hết". Cần ít nhất 2 tài khoản</label>
-  <label class="check">${checkbox('voucher_code', x.voucher_code)} Cần mã phiếu khi lấy mã đăng nhập (mã 2FA / mã email): có email tài khoản mà không có mã phiếu (phát ở quán) thì không lấy được mã. Tạo mã ở trang Mã phiếu</label>
-  <label class="check">${checkbox('workspace_bot', x.workspace_bot)} Làm mới mỗi ngày giữ chỗ cho khách gia hạn: việc "làm mới" (xoá Project + chat, đăng xuất mọi thiết bị, tạo lại Project "Slot 1…N", tối đa 8) được tạo khi chỉ còn khách đã gia hạn — chủ làm tay ở trang Việc tay, giữ Project của khách gia hạn</label>
-  <label class="check">${checkbox('high_value', x.high_value)} Công cụ giá trị cao (cộng điểm rủi ro giờ cao điểm)</label>
-  <label class="check">${checkbox('enabled', x.enabled)} Đang bật</label>
-  <button class="btn">Lưu</button></form>`,
-    });
+    toolForm(rq, x, { isNew });
   }));
 
   // Sửa nhanh "lượt / ngày" ngay trên danh sách (vận hành độc lập: hết lượt giữa ngày phải nâng nhanh, không mở từng trang).
@@ -686,78 +947,146 @@ ${table(['Thứ tự', 'Công cụ', 'Slug', 'Đăng nhập', 'Thời gian', 'H�
 
   router.post('/admin/tools/:id', A((rq, f) => {
     const { ctx } = rq;
-    const slug = String(f.slug || '').trim().toLowerCase();
-    if (!/^[a-z0-9-]+$/.test(slug) || !f.name?.trim()) return go('/admin/tools', 'Cần tên và slug hợp lệ.');
+    const isNew = rq.params.id === 'new';
+    const old = isNew ? null : get(ctx.db, 'SELECT * FROM tools WHERE id = ?', id(rq));
+    if (!isNew && !old) return go('/admin/tools', 'Không có công cụ này.');
+    // Slug cố định sau khi tạo: mẫu thư mã mặc định, API kho QS (/hooks/qs/kho), mã phiếu (vouchers.tools) và icon đều theo slug.
+    const slug = isNew ? String(f.slug || '').trim().toLowerCase() : old.slug;
     let sender = String(f.sender_pattern ?? '').trim();
     sender = sender === '' ? null : sender === '-' ? '' : sender;
-    for (const r of [sender, f.code_regex]) {
-      if (r) { try { new RegExp(r); } catch { return go('/admin/tools', `Regex không hợp lệ: ${r}`); } }
-    }
-    // Tên và hướng dẫn hiện trên trang khách → cùng luật Google với Quite Sensational (kiểm từng dòng như khách đọc).
-    for (const line of [f.name, ...String(f.instructions || '').split(/\r?\n/)]) {
-      const problem = freeTextProblem(line);
-      if (problem) return go('/admin/tools', `Không lưu: "${String(line).trim().slice(0, 80)}" ${POLICY_MESSAGE[problem]}.`);
-    }
     const p = {
-      slug, name: f.name.trim(), login_type: LOGIN_TYPE[f.login_type] ? f.login_type : 'email_code', login_url: f.login_url?.trim() || null,
+      slug, name: String(f.name || '').trim(), login_type: LOGIN_TYPE[f.login_type] ? f.login_type : 'email_code', login_url: f.login_url?.trim() || null,
       instructions: f.instructions?.trim() || null, sender_pattern: sender, code_regex: f.code_regex?.trim() || null,
       slot_hours: Math.max(1, int(f.slot_hours, 24)), cooldown_days: Math.max(0, int(f.cooldown_days, 30)), lifetime_cap: Math.max(1, int(f.lifetime_cap, 2)),
       rotation_required: f.rotation_required === '1', high_value: f.high_value === '1', enabled: f.enabled === '1', sort: int(f.sort, 0),
       reuse: f.reuse === 'once' ? 'once' : 'rotate', mail_code: f.mail_code === '1', auto_worker: f.auto_worker === '1', end_hour: hourOrNull(f.end_hour),
       account_days: int(f.account_days) > 0 ? int(f.account_days) : null,
       daily_cap: int(f.daily_cap) == null || Number.isNaN(int(f.daily_cap)) ? null : Math.max(0, int(f.daily_cap)),
-      holders_default: Math.max(1, int(f.holders_default, 1)), reserve_account: f.reserve_account === '1',
+      holders_default: Math.min(50, Math.max(1, int(f.holders_default, 1))), reserve_account: f.reserve_account === '1',
       voucher_code: f.voucher_code === '1', workspace_bot: f.workspace_bot === '1',
     };
     if (p.workspace_bot) p.holders_default = Math.min(MAX_WORKSPACES, p.holders_default);
+    // Lỗi → vẽ lại form với đúng chữ vừa gõ (trước: về danh sách, mất hết).
+    const fail = (msg) => {
+      toolForm(rq, { ...old, ...p, sender_pattern: f.sender_pattern ?? '', id: old?.id }, { isNew, flash: `Chưa lưu: ${msg}`, saved: old || undefined });
+      return { rendered: true };
+    };
+    if (!/^[a-z0-9-]+$/.test(slug)) return fail('slug chỉ gồm chữ thường không dấu, số và dấu gạch ngang.');
+    if (!p.name) return fail('cần tên hiển thị.');
+    if (p.login_url && !/^https:\/\/[^\s]+$/.test(p.login_url)) return fail('link trang đăng nhập phải bắt đầu bằng https://');
+    for (const r of [sender, p.code_regex]) {
+      if (r) { try { new RegExp(r); } catch { return fail(`regex không hợp lệ: ${r}`); } }
+    }
+    // Tên và hướng dẫn hiện trên trang khách → cùng luật Google với Quite Sensational (kiểm từng dòng như khách đọc).
+    for (const line of [p.name, ...String(p.instructions || '').split(/\r?\n/)]) {
+      const problem = freeTextProblem(line);
+      if (problem) return fail(`"${String(line).trim().slice(0, 80)}" ${POLICY_MESSAGE[problem]}.`);
+    }
+    // Đổi cách đăng nhập khi kho còn hàng → tài khoản cũ thiếu mật khẩu / 2FA (khách nhận mật khẩu trống) hoặc thừa.
+    if (old && p.login_type !== old.login_type) {
+      const n = old.login_type === 'redeem'
+        ? get(ctx.db, "SELECT COUNT(*) AS n FROM redeem_codes WHERE tool_id = ? AND status = 'ready'", old.id).n
+        : get(ctx.db, "SELECT COUNT(*) AS n FROM accounts WHERE tool_id = ? AND status != 'retired'", old.id).n;
+      if (n) return fail(`kho còn ${n} ${old.login_type === 'redeem' ? 'mã' : 'tài khoản'} kiểu "${LOGIN_TYPE[old.login_type]}". Ngừng dùng hết (Kho tài khoản) rồi mới đổi cách đăng nhập, hoặc thêm món mới.`);
+    }
+    if (p.workspace_bot && p.end_hour == null) return fail('"Làm mới mỗi ngày" cần ô "Hết lượt lúc" (vd. 6) — Project chỉ được giữ cho khách gia hạn khi món hết lượt theo giờ.');
+    const codeTool = p.login_type === 'email_code' || p.login_type === 'password_totp' || (p.login_type === 'password' && p.mail_code);
+    if (p.voucher_code && !codeTool) return fail('"Cần mã phiếu" chỉ dùng cho món khách bấm Lấy mã (mã qua email, mã 2FA, hoặc mật khẩu + mã qua email).');
+    if (p.mail_code && !['password', 'password_totp'].includes(p.login_type)) p.mail_code = false;
     try {
-      if (rq.params.id === 'new') {
+      if (isNew) {
         run(ctx.db, `INSERT INTO tools(slug, name, login_type, login_url, instructions, sender_pattern, code_regex, slot_hours, cooldown_days, lifetime_cap, rotation_required, high_value, enabled, sort, reuse, mail_code, daily_cap, holders_default, auto_worker, end_hour, account_days, reserve_account, voucher_code, workspace_bot)
           VALUES(:slug, :name, :login_type, :login_url, :instructions, :sender_pattern, :code_regex, :slot_hours, :cooldown_days, :lifetime_cap, :rotation_required, :high_value, :enabled, :sort, :reuse, :mail_code, :daily_cap, :holders_default, :auto_worker, :end_hour, :account_days, :reserve_account, :voucher_code, :workspace_bot)`, p);
       } else {
-        run(ctx.db, `UPDATE tools SET slug = :slug, name = :name, login_type = :login_type, login_url = :login_url, instructions = :instructions,
+        run(ctx.db, `UPDATE tools SET name = :name, login_type = :login_type, login_url = :login_url, instructions = :instructions,
           sender_pattern = :sender_pattern, code_regex = :code_regex, slot_hours = :slot_hours, cooldown_days = :cooldown_days, lifetime_cap = :lifetime_cap,
           rotation_required = :rotation_required, high_value = :high_value, enabled = :enabled, sort = :sort, reuse = :reuse, mail_code = :mail_code,
           daily_cap = :daily_cap, holders_default = :holders_default, auto_worker = :auto_worker, end_hour = :end_hour, account_days = :account_days,
-          reserve_account = :reserve_account, voucher_code = :voucher_code, workspace_bot = :workspace_bot WHERE id = :id`, { ...p, id: id(rq) });
+          reserve_account = :reserve_account, voucher_code = :voucher_code, workspace_bot = :workspace_bot WHERE id = :id`, (({ slug: _, ...rest }) => ({ ...rest, id: old.id }))(p));
       }
     } catch (e) {
-      return go('/admin/tools', /UNIQUE/.test(String(e)) ? 'Slug đã tồn tại.' : `Lỗi: ${e.message}`);
+      return fail(/UNIQUE/.test(String(e)) ? `slug "${slug}" đã có món khác dùng.` : e.message);
     }
-    return go('/admin/tools', 'Đã lưu công cụ.');
+    return go('/admin/tools', `Đã lưu ${p.name}.`);
   }));
 
   // ----- Kho tài khoản -----
   router.get('/admin/accounts', P((rq) => {
     const { ctx } = rq;
     const csrf = rq.state.admin.csrf;
+    const o = off(ctx);
     const tools = all(ctx.db, 'SELECT * FROM tools ORDER BY sort, id');
-    const where = [];
-    const params = {};
-    if (rq.query.tool) { where.push('a.tool_id = :tool'); params.tool = Number(rq.query.tool); }
-    if (rq.query.status) { where.push('a.status = :status'); params.status = rq.query.status; }
+    const toolId = Number(rq.query.tool) || 0;
+    // Mặc định ẩn tài khoản "Ngừng dùng" (đã dọn) cho gọn; bấm chip "Ngừng dùng" để xem lại.
+    const status = ACCOUNT_STATUS[rq.query.status] ? rq.query.status : '';
+    const where = [status ? 'a.status = :status' : "a.status != 'retired'"];
+    const params = status ? { status } : {};
+    if (toolId) { where.push('a.tool_id = :tool'); params.tool = toolId; }
     const rows = all(ctx.db,
-      `SELECT a.*, t.name AS tool_name, ${USABLE_SQL} AS usable FROM accounts a JOIN tools t ON t.id = a.tool_id
-       ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY t.sort, a.id LIMIT 500`, params);
+      `SELECT a.*, t.name AS tool_name, t.reuse, t.slot_hours, t.account_days, ${USABLE_SQL} AS usable FROM accounts a JOIN tools t ON t.id = a.tool_id
+       WHERE ${where.join(' AND ')} ORDER BY t.sort, a.status != 'ready', a.id LIMIT 500`, params);
+    const stockOf = new Map(all(ctx.db, "SELECT tool_id, COUNT(*) AS n FROM accounts WHERE status != 'retired' GROUP BY tool_id").map((r) => [r.tool_id, r.n]));
+    const codesOf = new Map(all(ctx.db, "SELECT tool_id, SUM(status = 'ready') AS n, COUNT(*) AS total FROM redeem_codes GROUP BY tool_id").map((r) => [r.tool_id, r]));
+    const byStatus = new Map(all(ctx.db, `SELECT status, COUNT(*) AS n FROM accounts ${toolId ? 'WHERE tool_id = ?' : ''} GROUP BY status`, ...(toolId ? [toolId] : [])).map((r) => [r.status, r.n]));
+    const avail = new Map(toolAvailability(ctx).map((x) => [x.tool.id, x]));
+    const taskOf = new Map(all(ctx.db, "SELECT account_id, MIN(id) AS id FROM rotation_tasks WHERE status = 'todo' GROUP BY account_id").map((r) => [r.account_id, r.id]));
+    const toolCount = (x) => (x.login_type === 'redeem' ? codesOf.get(x.id)?.n || 0 : stockOf.get(x.id) || 0);
+    const url = ({ tool = toolId, st = status } = {}) => {
+      const p = new URLSearchParams();
+      if (tool) p.set('tool', tool);
+      if (st) p.set('status', st);
+      return `/admin/accounts${p.size ? `?${p}` : ''}`;
+    };
     const toolOpts = Object.fromEntries(tools.map((x) => [String(x.id), `${x.name} (${LOGIN_TYPE[x.login_type]})`]));
     // Form nhập: chỉ công cụ đang bật, chọn sẵn công cụ đang lọc (dán xong CapCut rồi dán Adobe không bị rơi nhầm vào công cụ đầu danh sách).
     const importOpts = Object.fromEntries(tools.filter((x) => x.enabled).map((x) => [String(x.id), toolOpts[String(x.id)]]));
+    const wsTools = tools.filter((x) => x.enabled && x.workspace_bot);
+    const accRow = (a) => {
+      const load = accountLoad(ctx, a.id);
+      const task = taskOf.get(a.id);
+      return [
+        html`<a href="/admin/accounts/${a.id}">${a.id}</a>`,
+        html`${link.acc(a.id, a.login_email)}${a.label ? html`<span class="sub">${a.label}</span>` : ''}`,
+        html`${badge(ACCOUNT_STATUS[a.status] || a.status, ACCOUNT_TONE[a.status] ?? 'yellow')}${a.totp_enc ? html` ${badge('2FA', 'info')}` : ''}${a.usable || a.status === 'retired' ? '' : html` ${badge('Thiếu mật khẩu / 2FA — không giao', 'red')}`}${a.status !== 'retired' && accountExpiry(a, ctx.now()).expired ? html` ${badge('Quá hạn — không giao', 'red')}` : ''}${a.status_reason ? html`<span class="sub">${a.status_reason}</span>` : ''}${task ? html`<a class="go" href="/admin/tasks#task-${task}">Làm việc tay ›</a>` : ''}`,
+        load ? html`<a href="/admin/slots?account=${a.id}" title="Xem khách đang dùng">${load}/${a.max_holders}</a>` : `0/${a.max_holders}`,
+        t(a.last_assigned_at, o), t(a.last_rotated_at, o),
+      ];
+    };
+    const groups = new Map();
+    for (const a of rows) (groups.get(a.tool_id) || groups.set(a.tool_id, []).get(a.tool_id)).push(a);
+    const sections = tools.filter((x) => (toolId ? x.id === toolId : true)).map((x) => {
+      if (x.login_type === 'redeem') return !status && (toolId || codesOf.get(x.id)?.n) ? redeemSection(ctx, csrf, x) : '';
+      const list = groups.get(x.id) || [];
+      if (!list.length && !toolId) return '';
+      const av = avail.get(x.id);
+      return html`${secHead(x.name, {
+        n: list.length,
+        note: html`${LOGIN_TYPE[x.login_type] || x.login_type} · còn giao được <b>${av?.free ?? 0}</b>${av?.reserved ? ` (+${av.reserved} dự phòng)` : ''}${x.enabled ? '' : ' · món đang tắt'}`,
+        link: [`/admin/tools/${x.id}`, 'Cài đặt món'],
+      })}
+${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối'], list.map(accRow),
+  status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống — dán tài khoản ở ô "Thêm vào kho" bên dưới.', { cls: 't-acc' })}`;
+    });
+    // Món đang bật mà chưa có hàng: gom 1 dòng (không vẽ bảng rỗng), bấm tên → mở ô thêm, chọn sẵn món đó.
+    const empty = toolId || status ? [] : tools.filter((x) => x.enabled && !toolCount(x));
+    const stale = all(ctx.db, `SELECT a.created_at, t.reuse, t.slot_hours, t.account_days FROM accounts a JOIN tools t ON t.id = a.tool_id
+      WHERE a.status = 'ready' ${toolId ? 'AND a.tool_id = ?' : ''}`, ...(toolId ? [toolId] : [])).filter((a) => accountExpiry(a, ctx.now()).expired).length;
     view(rq, {
       title: 'Kho tài khoản', active: '/admin/accounts',
-      body: html`<h1>Kho tài khoản</h1>
-<form method="get" class="row">${select('tool', { '': 'Mọi công cụ', ...toolOpts }, rq.query.tool || '')}${select('status', { '': 'Mọi trạng thái', ...ACCOUNT_STATUS }, rq.query.status || '')}<button class="btn-mini">Lọc</button></form>
-${redeemBlock(ctx, csrf, rq.query.tool ? Number(rq.query.tool) : null)}
-${table(['#', 'Công cụ', 'Nhãn', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối'], rows.map((a) => [
-  html`<a href="/admin/accounts/${a.id}">${a.id}</a>`, html`${a.tool_name}${a.totp_enc ? html` <small class="muted">· 2FA</small>` : ''}`, a.label || '', html`<code>${a.login_email}</code>`,
-  html`${badge(ACCOUNT_STATUS[a.status] || a.status, a.status === 'ready' ? 'ok' : a.status === 'quarantined' ? 'red' : 'yellow')}${a.status_reason ? html` <small class="muted">${a.status_reason}</small>` : ''}${a.usable ? '' : html` ${badge('Thiếu mật khẩu / 2FA — không giao', 'red')}`}`,
-  `${accountLoad(ctx, a.id)}/${a.max_holders}`, t(a.last_assigned_at, off(ctx)), t(a.last_rotated_at, off(ctx)),
-]), 'Kho trống.')}
-<h2>Thêm tài khoản</h2>
+      sub: `${byStatus.get('ready') || 0} sẵn sàng · ${byStatus.get('needs_rotation') || 0} chờ đổi mật khẩu${byStatus.get('quarantined') ? ` · ${byStatus.get('quarantined')} cách ly` : ''}${stale ? ` · ${stale} quá hạn (không giao)` : ''}`,
+      actions: html`<a class="btn" href="${toolId ? `?tool=${toolId}` : ''}#them">${plus('Thêm vào kho')}</a>`,
+      body: html`${chips([[url({ tool: 0 }), 'Mọi món', null, !toolId], ...tools.filter((x) => x.enabled || toolCount(x)).map((x) => [url({ tool: x.id }), x.name, toolCount(x), toolId === x.id])])}
+${chips([[url({ st: '' }), 'Đang có', [...byStatus].filter(([k]) => k !== 'retired').reduce((n, [, v]) => n + v, 0), !status],
+  ...Object.entries(ACCOUNT_STATUS).map(([k, label]) => [url({ st: k }), label, byStatus.get(k) || 0, status === k])])}
+${sections}
+${!rows.length && !toolId && !sections.some(Boolean) ? html`<p class="empty">${status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống.'}</p>` : ''}
+${empty.length ? html`<p class="warn">Chưa có hàng: ${empty.map((x, i) => html`${i ? ', ' : ''}<a href="/admin/accounts?tool=${x.id}#them">${x.name}</a>`)} — khách không nhận được các món này. Bấm tên món để dán thêm.</p>` : ''}
+${secHead('Thêm vào kho', { id: 'them', note: 'mỗi dòng 1 tài khoản' })}
 <form method="post" action="/admin/accounts" class="acard grid">${csrfField(csrf)}
   ${field('Công cụ', select('tool_id', importOpts, importOpts[rq.query.tool] ? rq.query.tool : ''))}
   ${field('Nhãn chung (tuỳ chọn)', html`<input name="label">`)}
-  <label class="check">${checkbox('setup', true)} Công cụ có "làm mới mỗi ngày": chờ bạn tạo sẵn Project "${ctx.settings().workspacePrefix} 1…N" rồi mới giao (bỏ tick nếu bạn đã tự tạo)</label>
-  <div class="wide">${field('Danh sách', html`<textarea name="lines" rows="8" placeholder="Mật khẩu + 2FA (ChatGPT):  email|mật khẩu|khoá 2FA&#10;Mật khẩu (CapCut, Adobe):  email|mật khẩu&#10;Mã qua email (Claude):      email&#10;Nhóm Canva:                 email chủ nhóm|số ghế&#10;Mã / link nhận quà (Gemini): mỗi dòng 1 mã hoặc 1 link https&#10;(Thêm |số ở cuối dòng nếu muốn khác số khách mặc định của công cụ)"></textarea>`,
+  ${wsTools.length ? html`<label class="check">${checkbox('setup', true)} Món "làm mới mỗi ngày" (${wsTools.map((x) => x.name).join(', ')}): chờ bạn tạo sẵn Project "${ctx.settings().workspacePrefix} 1…N" rồi mới giao (bỏ tick nếu bạn đã tự tạo; món khác không ảnh hưởng)</label>` : ''}
+  <div class="wide">${field('Danh sách', html`<textarea name="lines" rows="8" placeholder="${[...tools.filter((x) => x.enabled).map((x) => `${x.name}: ${LINE_FORMAT[x.login_type] || 'email'}`), '(Thêm |số ở cuối dòng nếu muốn khác số khách mặc định của công cụ)'].join('\n')}"></textarea>`,
     html`Mỗi dòng 1 tài khoản, các ô cách nhau bằng <code>|</code>. Số cuối dòng = số khách dùng chung (bỏ trống = theo cài đặt của công cụ). Khoá 2FA: chuỗi chữ hoặc link <code>otpauth://</code> — chỉ lưu trên máy chủ, khách chỉ thấy mã 6 số.`)}</div>
   <button class="btn">Thêm vào kho</button></form>`,
     });
@@ -779,48 +1108,62 @@ ${table(['#', 'Công cụ', 'Nhãn', 'Email / tên đăng nhập', 'Trạng thá
 
   router.get('/admin/accounts/:id', P((rq) => {
     const { ctx } = rq;
-    const a = get(ctx.db, 'SELECT a.*, t.name AS tool_name, t.login_type, t.workspace_bot FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE a.id = ?', id(rq));
+    const a = get(ctx.db, 'SELECT a.*, t.name AS tool_name, t.login_type, t.workspace_bot, t.reuse, t.slot_hours, t.account_days FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE a.id = ?', id(rq));
     if (!a) throw new HttpError(404, 'Không có tài khoản này.');
     const csrf = rq.state.admin.csrf;
-    const slots = all(ctx.db, `SELECT s.*, c.phone FROM slots s JOIN customers c ON c.id = s.customer_id WHERE s.account_id = ? ORDER BY s.id DESC LIMIT 30`, a.id);
+    const o = off(ctx);
+    const slots = all(ctx.db, `SELECT s.*, c.phone, f.name AS cafe_name FROM slots s JOIN customers c ON c.id = s.customer_id LEFT JOIN cafes f ON f.id = s.cafe_id
+      WHERE s.account_id = ? ORDER BY s.id DESC LIMIT 30`, a.id);
     const mails = all(ctx.db, 'SELECT * FROM mails WHERE account_id = ? ORDER BY id DESC LIMIT 20', a.id);
+    const tasks = all(ctx.db, "SELECT * FROM rotation_tasks WHERE account_id = ? AND status = 'todo' ORDER BY id", a.id);
+    const load = accountLoad(ctx, a.id);
+    const pw = a.login_type === 'password' || a.login_type === 'password_totp';
+    const rotate = tasks.find((k) => k.kind === 'rotate');
+    // "Chờ đổi mật khẩu" chỉ hiện khi tài khoản đang ở trạng thái đó (hệ thống đặt, kèm việc tay) — không chọn tay được.
+    const statusOpts = Object.fromEntries(Object.entries(ACCOUNT_STATUS).filter(([k]) => k !== 'needs_rotation' || a.status === k));
+    const exp = accountExpiry(a, ctx.now());
     view(rq, {
-      title: a.login_email, active: '/admin/accounts',
-      body: html`<h1>${a.tool_name} — <code>${a.login_email}</code></h1>
-<p>${badge(ACCOUNT_STATUS[a.status] || a.status)} ${a.status_reason || ''} · Đang dùng ${accountLoad(ctx, a.id)}/${a.max_holders}</p>
+      title: a.login_email, heading: a.login_email, active: '/admin/accounts',
+      crumbs: [['/admin/accounts', 'Kho tài khoản'], [`/admin/accounts?tool=${a.tool_id}`, a.tool_name]],
+      sub: html`${badge(ACCOUNT_STATUS[a.status] || a.status, ACCOUNT_TONE[a.status] ?? 'yellow')}${exp.expired && a.status !== 'retired' ? html` ${badge('Quá hạn — không giao', 'red')}` : ''} ${a.status_reason || ''} · ${link.tool(a.tool_id, a.tool_name)} · nhập kho ${t(a.created_at, o)}${exp.at ? ` · ${exp.expired ? 'hết hạn' : 'hết hạn lúc'} ${t(exp.at, o)}` : ''}`,
+      actions: html`<a class="btn-mini" href="/admin/slots?account=${a.id}">Đang dùng ${load}/${a.max_holders} ›</a>`,
+      body: html`${tasks.map((k) => html`<p class="warn">Đang có việc tay: <b>${TASK_KIND[k.kind] || k.kind}</b> (${TASK_REASON[k.reason] || k.reason}) — <a href="/admin/tasks#task-${k.id}">mở Việc tay ›</a></p>`)}
+${secHead('Sửa tài khoản')}
 <form method="post" action="/admin/accounts/${a.id}" class="acard grid">${csrfField(csrf)}
   ${field('Nhãn', html`<input name="label" value="${a.label || ''}">`)}
-  ${field('Số người dùng cùng lúc', html`<input name="max_holders" type="number" min="1"${a.workspace_bot ? html` max="${MAX_WORKSPACES}"` : ''} value="${a.max_holders}">`, a.workspace_bot ? `Tối đa ${MAX_WORKSPACES} Project (workspace).` : '')}
-  ${field('Trạng thái', select('status', ACCOUNT_STATUS, a.status), 'Chuyển về "Sẵn sàng" chỉ khi đã đổi mật khẩu và đăng xuất mọi thiết bị.')}
-  ${a.login_type === 'password' || a.login_type === 'password_totp' ? field('Mật khẩu mới', html`<input name="password" autocomplete="off" placeholder="Để trống = giữ nguyên">`) : ''}
+  ${field('Số người dùng cùng lúc', html`<input name="max_holders" type="number" min="1" max="${a.workspace_bot ? MAX_WORKSPACES : 50}" value="${a.max_holders}">`, a.workspace_bot ? `Tối đa ${MAX_WORKSPACES} Project (workspace).` : 'Từ 1 đến 50.')}
+  ${field('Trạng thái', select('status', statusOpts, a.status), rotate
+    ? (pw ? 'Đang có việc tay: dán mật khẩu mới vừa đổi bên hãng rồi Lưu (hoặc bấm "Đã xong" ở Việc tay) — xong việc thì tự về Sẵn sàng.' : 'Đang có việc tay: làm xong rồi chọn "Sẵn sàng" (hoặc bấm "Đã xong" ở Việc tay).')
+    : 'Cách ly = thu hồi ngay khách đang dùng + tạo việc đổi mật khẩu. Ngừng dùng = không giao nữa, khách đang dùng vẫn dùng tới hết giờ.')}
+  ${pw ? field('Mật khẩu mới', html`<input name="password" autocomplete="off" placeholder="Để trống = giữ nguyên">`) : ''}
   ${a.login_type === 'password_totp' ? field('Khoá 2FA mới', html`<input name="totp" autocomplete="off" placeholder="${a.totp_enc ? 'Đã có — để trống = giữ nguyên' : 'Chưa có khoá 2FA!'}">`, 'Khi đổi 2FA trên trang của hãng, dán khoá mới vào đây.') : ''}
+  ${rotate && a.login_type === 'password_totp' && rotate.reason !== 'quarantine' ? html`<label class="check">${checkbox('keepPassword', false)} Giữ mật khẩu cũ — chỉ đăng xuất mọi thiết bị (khi chọn "Sẵn sàng")</label>` : ''}
   <button class="btn">Lưu</button></form>
+${a.status !== 'quarantined' ? html`<div class="actions">${postButton(`/admin/accounts/${a.id}/quarantine`, 'Cách ly ngay (thu hồi slot đang chạy)', csrf, { cls: 'btn-mini danger', confirm: 'Cách ly tài khoản và thu hồi mọi slot đang chạy?' })}</div>` : ''}
 ${workspacesBlock(ctx, a, csrf)}
-${a.status !== 'quarantined' ? postButton(`/admin/accounts/${a.id}/quarantine`, 'Cách ly ngay (thu hồi slot đang chạy)', csrf, { cls: 'btn-mini danger', confirm: 'Cách ly tài khoản và thu hồi mọi slot đang chạy?' }) : ''}
-<h2>Lịch sử giao</h2>
-${table(['Slot', 'Chỗ', 'Khách', 'Trạng thái', 'Bắt đầu', 'Kết thúc', 'Lý do'], slots.map((s) => [
-  s.id, s.seat ? `Slot ${s.seat}` : '', html`<a href="/admin/customers/${s.customer_id}">${maskPhone(s.phone)}</a>`, SLOT_STATUS[s.status] || s.status, t(s.started_at, off(ctx)), t(s.ended_at, off(ctx)), END_REASON[s.end_reason] || s.end_reason || '',
-]))}
-<h2>Thư gần đây</h2>
-${table(['Lúc', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [t(m.received_at, off(ctx)), html`<a href="/admin/mails/${m.id}">${m.subject || '(không tiêu đề)'}</a>`, m.kind, m.verdict || '']))}`,
+${secHead('Lịch sử giao', { n: slots.length, link: [`/admin/slots?account=${a.id}`, 'Xem ở trang Slot'] })}
+${table(['Slot', 'Chỗ', 'Khách', 'Quán', 'Trạng thái', 'Bắt đầu', 'Kết thúc'], slots.map((s) => [
+  link.slot(s.id), s.seat ? `Slot ${s.seat}` : '', link.cust(s.customer_id, s.phone), link.cafe(s.cafe_id, s.cafe_name),
+  html`${badge(SLOT_STATUS[s.status] || s.status, SLOT_TONE[s.status] ?? '')}${s.end_reason ? html`<span class="sub">${END_REASON[s.end_reason] || s.end_reason}</span>` : ''}`,
+  t(s.started_at, o), t(s.ended_at, o),
+]), 'Chưa giao cho ai.')}
+${secHead('Thư gần đây', { n: mails.length, link: ['/admin/mails', 'Mở Thư'] })}
+${table(['Lúc', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [t(m.received_at, o), html`<a href="/admin/mails/${m.id}">${m.subject || '(không tiêu đề)'}</a>`, MAIL_KIND[m.kind] || m.kind, mailVerdict(m)]), 'Chưa có thư nào về tài khoản này.')}`,
     });
   }));
 
+  // Đi chung đường với API kho (updateAccount): Cách ly = thu hồi khách + tạo việc đổi mật khẩu; về Sẵn sàng khi đang có việc tay
+  // = làm xong việc đó (cùng luật nút "Đã xong": loại mật khẩu phải dán mật khẩu mới); dán mật khẩu mới lúc đang chờ đổi = xong việc.
+  // Trước đây form ghi thẳng trạng thái → cách ly mà khách vẫn dùng, "Chờ đổi mật khẩu" không có việc tay (kẹt), mở lại bằng mật khẩu cũ.
   router.post('/admin/accounts/:id', A((rq, f) => {
     const { ctx } = rq;
-    const status = ACCOUNT_STATUS[f.status] ? f.status : 'ready';
-    const wsBot = get(ctx.db, 'SELECT t.workspace_bot FROM accounts a JOIN tools t ON t.id = a.tool_id WHERE a.id = ?', id(rq))?.workspace_bot;
-    const max = Math.max(1, int(f.max_holders, 1));
-    run(ctx.db, 'UPDATE accounts SET label = ?, max_holders = ?, status = ?, status_reason = CASE WHEN ? = status THEN status_reason ELSE ? END WHERE id = ?',
-      f.label?.trim() || null, wsBot ? Math.min(MAX_WORKSPACES, max) : max, status, status, `Đổi tay bởi ${BY}`, id(rq));
-    if (f.password?.trim()) run(ctx.db, 'UPDATE accounts SET password_enc = ?, last_rotated_at = ? WHERE id = ?', encrypt(f.password.trim(), ctx.config.dataKey), ctx.now(), id(rq));
-    if (f.totp?.trim()) {
-      const secret = parseTotpSecret(f.totp);
-      if (!secret) return go(`/admin/accounts/${id(rq)}`, 'Khoá 2FA không hợp lệ — các mục khác đã lưu.');
-      run(ctx.db, 'UPDATE accounts SET totp_enc = ? WHERE id = ?', encrypt(secret, ctx.config.dataKey), id(rq));
-    }
-    logEvent(ctx, { type: 'account_updated', accountId: id(rq), data: { status, by: BY } });
-    return go(`/admin/accounts/${id(rq)}`, 'Đã lưu.');
+    const a = get(ctx.db, 'SELECT * FROM accounts WHERE id = ?', id(rq));
+    if (!a) return go('/admin/accounts', 'Không có tài khoản này.');
+    const patch = { label: f.label ?? '', holders: String(f.max_holders ?? '').trim() || undefined, password: f.password, totp: f.totp, keepPassword: f.keepPassword === '1' };
+    // Chỉ gửi trạng thái khi chủ đổi; "Chờ đổi mật khẩu" do hệ thống đặt (kèm việc tay) → dùng nút "Tạo việc làm mới" / "Cách ly".
+    if (f.status && f.status !== a.status && ['ready', 'retired', 'quarantined'].includes(f.status)) patch.status = f.status;
+    const r = updateAccount(ctx, a.id, patch, BY);
+    return go(`/admin/accounts/${a.id}`, r.ok ? r.message : `Chưa lưu: ${r.message}`);
   }));
 
   // Tạo việc làm mới tài khoản ngay (vd. nghi khách cũ còn vào được). Còn khách thường đang dùng thì bot chờ họ hết giờ.
@@ -849,6 +1192,7 @@ ${table(['Lúc', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [t(m.
   }));
 
   // ----- Khách -----
+  const custName = (c) => (c.phone.startsWith('del:') ? `(đã xoá dữ liệu) #${c.id}` : displayPhone(c.phone));
   router.get('/admin/customers', P((rq) => {
     const { ctx } = rq;
     const q = String(rq.query.q || '').trim();
@@ -860,17 +1204,27 @@ ${table(['Lúc', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [t(m.
         : q.includes('@') || /[a-z]/i.test(q) ? all(ctx.db, "SELECT * FROM customers WHERE phone LIKE ? ESCAPE '\\' ORDER BY id DESC LIMIT 100", `%${q.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`)
         : digits.length >= 3 ? all(ctx.db, 'SELECT * FROM customers WHERE phone LIKE ? ORDER BY id DESC LIMIT 100', `%${digits}`)
           : [];
+    } else if (rq.query.f === 'locked') {
+      rows = all(ctx.db, "SELECT * FROM customers WHERE status = 'locked' ORDER BY id DESC LIMIT 200");
+    } else if (rq.query.f === 'live') {
+      rows = all(ctx.db, "SELECT * FROM customers WHERE id IN (SELECT customer_id FROM slots WHERE status IN ('active', 'pending_invite')) ORDER BY id DESC LIMIT 200");
     } else {
       rows = all(ctx.db, 'SELECT * FROM customers ORDER BY id DESC LIMIT 50');
     }
+    const fl = q ? '' : ['locked', 'live'].includes(rq.query.f) ? rq.query.f : '';
+    const nLocked = get(ctx.db, "SELECT COUNT(*) AS n FROM customers WHERE status = 'locked'").n;
+    const nLive = get(ctx.db, "SELECT COUNT(DISTINCT customer_id) AS n FROM slots WHERE status IN ('active', 'pending_invite')").n;
+    const live = new Map(all(ctx.db, "SELECT customer_id, COUNT(*) AS n FROM slots WHERE status = 'active' GROUP BY customer_id").map((r) => [r.customer_id, r.n]));
     view(rq, {
       title: 'Khách', active: '/admin/customers',
-      body: html`<h1>Khách</h1>
-<form method="get" class="row"><input name="q" value="${q}" placeholder="Email, SĐT hoặc 3 số cuối"><button class="btn-mini">Tìm</button></form>
-${table(['#', 'Email / SĐT', 'Trạng thái', 'Vi phạm', 'Điểm rủi ro', 'Tham gia'], rows.map((c) => [
-  html`<a href="/admin/customers/${c.id}">${c.id}</a>`, html`<a href="/admin/customers/${c.id}">${c.phone.startsWith('del:') ? '(đã xoá dữ liệu)' : displayPhone(c.phone)}</a>`,
+      sub: q ? `Tìm "${q}": ${rows.length} khách` : fl ? `${rows.length} khách ${fl === 'locked' ? 'đang khoá' : 'đang dùng'}` : `${get(ctx.db, 'SELECT COUNT(*) AS n FROM customers').n} khách · đang xem 50 khách mới nhất`,
+      body: html`${q ? '' : chips([['/admin/customers', 'Mới nhất', null, !fl], ['/admin/customers?f=live', 'Đang dùng', nLive, fl === 'live'], ['/admin/customers?f=locked', 'Đang khoá', nLocked, fl === 'locked']])}
+<form method="get" class="row tight"><input name="q" value="${q}" placeholder="Email, SĐT hoặc 3 số cuối" aria-label="Tìm khách"><button class="btn-mini">Tìm</button>${q ? html`<a class="go" href="/admin/customers">Bỏ tìm</a>` : ''}</form>
+${table(['#', 'Email / SĐT', 'Trạng thái', 'Đang dùng', 'Vi phạm', 'Điểm rủi ro', 'Tham gia'], rows.map((c) => [
+  html`<a href="/admin/customers/${c.id}">${c.id}</a>`, html`<a href="/admin/customers/${c.id}">${custName(c)}</a>`,
   c.status === 'locked' ? badge(c.locked_until ? `Khoá đến ${t(c.locked_until, off(ctx))}` : 'Khoá vĩnh viễn', 'red') : badge('Bình thường', 'ok'),
-  c.strikes, customerRisk(ctx, c), t(c.created_at, off(ctx)),
+  live.get(c.id) ? html`<a href="/admin/slots?customer=${c.id}">${live.get(c.id)} slot</a>` : '—',
+  c.strikes || '—', customerRisk(ctx, c), t(c.created_at, off(ctx)),
 ]), q ? 'Không tìm thấy.' : 'Chưa có khách.')}`,
     });
   }));
@@ -888,42 +1242,47 @@ ${table(['#', 'Email / SĐT', 'Trạng thái', 'Vi phạm', 'Điểm rủi ro', 
     const devices = all(ctx.db,
       `SELECT d.*, dc.first_seen_at, (SELECT COUNT(*) FROM device_customers x WHERE x.device_id = d.id AND x.customer_id != ?) AS others
        FROM device_customers dc JOIN devices d ON d.id = dc.device_id WHERE dc.customer_id = ? ORDER BY dc.first_seen_at DESC`, c.id, c.id);
-    const events = all(ctx.db, 'SELECT * FROM events WHERE customer_id = ? ORDER BY id DESC LIMIT 100', c.id);
+    const events = all(ctx.db, `SELECT e.*, a.login_email, f.name AS cafe_name FROM events e LEFT JOIN accounts a ON a.id = e.account_id LEFT JOIN cafes f ON f.id = e.cafe_id
+      WHERE e.customer_id = ? ORDER BY e.id DESC LIMIT 100`, c.id);
     view(rq, {
-      title: displayPhone(c.phone), active: '/admin/customers',
-      body: html`<h1>${c.phone.startsWith('del:') ? '(đã xoá dữ liệu)' : displayPhone(c.phone)}</h1>
-<p>${c.status === 'locked' ? badge(`Khoá ${c.locked_until ? 'đến ' + t(c.locked_until, off(ctx)) : 'vĩnh viễn'}: ${c.lock_reason || ''}`, 'red') : badge('Bình thường', 'ok')}
-  · Vi phạm: ${c.strikes} · Điểm rủi ro: ${customerRisk(ctx, c)} · Đồng ý điều khoản ${c.consent_version} lúc ${t(c.consent_at, off(ctx))}</p>
-<div class="row wrap">
+      title: custName(c), heading: custName(c), active: '/admin/customers',
+      crumbs: [['/admin/customers', 'Khách']],
+      sub: html`${c.status === 'locked' ? badge(`Khoá ${c.locked_until ? 'đến ' + t(c.locked_until, off(ctx)) : 'vĩnh viễn'}: ${c.lock_reason || ''}`, 'red') : badge('Bình thường', 'ok')}
+  · Vi phạm: ${c.strikes} · Điểm rủi ro: ${customerRisk(ctx, c)} · Đồng ý điều khoản ${c.consent_version} lúc ${t(c.consent_at, off(ctx))}`,
+      actions: html`<a class="btn-mini" href="/admin/slots?customer=${c.id}">Slot của khách ›</a><a class="btn-mini" href="/admin/gia-han?customer=${c.id}">Gia hạn ›</a>`,
+      body: html`<div class="actions">
   ${c.status === 'locked'
     ? postButton(`/admin/customers/${c.id}/unlock`, 'Mở khoá', csrf, { cls: 'btn-mini ok' })
     : html`<form method="post" action="/admin/customers/${c.id}/lock" class="inline" data-confirm="Khoá khách này và thu hồi slot?">${csrfField(csrf)}
         <input name="days" type="number" min="1" placeholder="Số ngày (trống = vĩnh viễn)"><input name="reason" placeholder="Lý do"><button class="btn-mini danger">Khoá</button></form>`}
   <form method="post" action="/admin/customers/${c.id}/strike" class="inline" data-confirm="Ghi 1 vi phạm? (lần 2 khoá 7 ngày, lần 3 khoá vĩnh viễn)">${csrfField(csrf)}<input name="reason" placeholder="Lý do vi phạm"><button class="btn-mini">Ghi vi phạm</button></form>
   ${postButton(`/admin/customers/${c.id}/risk-reset`, 'Xoá điểm rủi ro', csrf)}
-  ${postButton(`/admin/customers/${c.id}/erase`, 'Xoá dữ liệu cá nhân', csrf, { cls: 'btn-mini danger', confirm: 'Xoá email / SĐT và dữ liệu cá nhân của khách này? Không hoàn tác được.' })}
+  ${c.phone.startsWith('del:') ? '' : postButton(`/admin/customers/${c.id}/erase`, 'Xoá dữ liệu cá nhân', csrf, { cls: 'btn-mini danger', confirm: 'Xoá email / SĐT, email Canva và dữ liệu cá nhân của khách này? Slot đang chạy sẽ kết thúc. Không hoàn tác được.' })}
 </div>
 <form method="post" action="/admin/customers/${c.id}/note" class="acard">${csrfField(csrf)}
   ${field('Ghi chú nội bộ', html`<textarea name="note" rows="2">${c.note || ''}</textarea>`)}<button class="btn-mini">Lưu ghi chú</button></form>
-<h2>Slot</h2>
+${secHead('Slot', { n: slots.length, link: [`/admin/slots?customer=${c.id}`, 'Xem ở trang Slot'] })}
 ${table(['#', 'Công cụ', 'Tài khoản', 'Quán', 'Trạng thái', 'Điểm', 'Tạo', 'Hết hạn / kết thúc', ''], slots.map((s) => [
-  s.id, s.tool_name, s.login_email || '', `${s.cafe_name || ''}${s.card_label ? ' — ' + s.card_label : ''}`,
-  html`${SLOT_STATUS[s.status] || s.status}${s.end_reason ? html` <small class="muted">${END_REASON[s.end_reason] || s.end_reason}</small>` : ''}`, s.risk_score,
+  link.slot(s.id), link.tool(s.tool_id, s.tool_name), link.acc(s.account_id, s.login_email), link.cafe(s.cafe_id, s.cafe_name, s.card_label),
+  html`${badge(SLOT_STATUS[s.status] || s.status, SLOT_TONE[s.status] ?? '')}${s.end_reason ? html`<span class="sub">${END_REASON[s.end_reason] || s.end_reason}</span>` : ''}${s.extended_days ? html`<span class="sub">gia hạn ${s.extended_days} ngày</span>` : ''}`, s.risk_score,
   t(s.created_at, off(ctx)), t(s.ended_at || s.expires_at, off(ctx)),
-  s.status === 'active' ? postButton(`/admin/slots/${s.id}/revoke`, 'Thu hồi', csrf, { confirm: 'Thu hồi slot này?', fields: { back } }) : '',
-]))}
-<h2>Thiết bị</h2>
+  slotEndButton(ctx, s, csrf, back),
+]), 'Khách chưa nhận món nào.')}
+${secHead('Thiết bị', { n: devices.length })}
 ${table(['Mã máy', 'Trạng thái', 'Điểm', 'Khách khác', 'Lần đầu', 'Lần cuối', ''], devices.map((d) => [
-  html`<code>${d.id.slice(0, 10)}…</code>`, d.status, d.risk, d.others, t(d.first_seen_at, off(ctx)), t(d.last_seen_at, off(ctx)),
-  d.status === 'locked' ? postButton(`/admin/devices/${d.id}/unlock`, 'Mở', csrf, { fields: { back } }) : postButton(`/admin/devices/${d.id}/lock`, 'Khoá máy', csrf, { fields: { back } }),
+  html`<code>${d.id.slice(0, 10)}…</code>`, d.status === 'locked' ? badge('Khoá', 'red') : badge('Bình thường', 'ok'), d.risk, d.others || '—', t(d.first_seen_at, off(ctx)), t(d.last_seen_at, off(ctx)),
+  d.status === 'locked' ? postButton(`/admin/devices/${d.id}/unlock`, 'Mở', csrf, { fields: { back } })
+    : postButton(`/admin/devices/${d.id}/lock`, 'Khoá máy', csrf, { cls: 'btn-mini danger', fields: { back }, confirm: d.others ? `Máy này còn ${d.others} khách khác dùng — khoá máy thì họ cũng không nhận được nữa. Khoá?` : 'Khoá máy này? Mọi khách dùng máy này sẽ không nhận được nữa.' }),
 ]))}
-<h2>Nhật ký</h2>
-${table(['Lúc', 'Mức', 'Sự kiện', 'Chi tiết', 'IP'], events.map((e) => [t(e.created_at, off(ctx)), sev(e.severity), EVENT_LABEL[e.type] || e.type, eventSummary(e.data), e.ip || '']))}`,
+${secHead('Nhật ký', { n: events.length })}
+${table(['Lúc', 'Mức', 'Sự kiện', 'Nơi', 'Chi tiết', 'IP'], events.map((e) => [t(e.created_at, off(ctx)), sev(e.severity), EVENT_LABEL[e.type] || e.type, eventWhere(e), eventSummary(e.data, e.type), e.ip || '']))}`,
     });
   }));
 
   router.post('/admin/customers/:id/lock', A((rq, f) => {
     const days = int(f.days);
+    // Trống = vĩnh viễn; 0 / số âm trước đây cũng thành vĩnh viễn (hoặc khoá đã hết hạn) → báo nhập lại.
+    if (days != null && !(days >= 1 && days <= 3650)) return go(`/admin/customers/${id(rq)}`, 'Số ngày khoá từ 1 đến 3650 (để trống = khoá vĩnh viễn). Chưa khoá.');
     lockCustomer(rq.ctx, id(rq), { reason: f.reason?.trim() || 'Khoá thủ công', untilMs: days ? rq.ctx.now() + days * DAY : null, by: BY });
     return go(`/admin/customers/${id(rq)}`, 'Đã khoá khách.');
   }));
@@ -934,6 +1293,7 @@ ${table(['Lúc', 'Mức', 'Sự kiện', 'Chi tiết', 'IP'], events.map((e) => 
   }));
   router.post('/admin/customers/:id/risk-reset', A((rq) => {
     run(rq.ctx.db, 'UPDATE customers SET risk = 0, risk_updated_at = ? WHERE id = ?', rq.ctx.now(), id(rq));
+    logEvent(rq.ctx, { type: 'risk_reset', customerId: id(rq), data: { by: BY } });
     return go(`/admin/customers/${id(rq)}`, 'Đã xoá điểm rủi ro.');
   }));
   router.post('/admin/customers/:id/note', A((rq, f) => {
@@ -961,56 +1321,74 @@ ${table(['Lúc', 'Mức', 'Sự kiện', 'Chi tiết', 'IP'], events.map((e) => 
     if (rq.query.batch) { where.push('v.batch = :batch'); params.batch = String(rq.query.batch); }
     if (VOUCHER_KINDS[rq.query.kind]) { where.push('v.kind = :kind'); params.kind = rq.query.kind; }
     if (['active', 'used', 'void'].includes(rq.query.status)) { where.push('v.status = :status'); params.status = rq.query.status; }
+    // Phiếu tự động (chạm thẻ / trang quán QS, sống 60 phút) mỗi lượt khách 1 mã → mặc định ẩn khỏi danh sách cho khỏi ngập phiếu in.
+    const src = ['auto', 'all'].includes(rq.query.src) ? rq.query.src : '';
+    if (!rq.query.batch && !q && src !== 'all') where.push(src === 'auto' ? autoBatchSql('v.batch') : `NOT ${autoBatchSql('v.batch')}`);
+    const here = rq.path + (rq.url.search || '');
     const rows = all(ctx.db,
       `SELECT v.*, c.phone, f.name AS cafe_name FROM vouchers v LEFT JOIN customers c ON c.id = v.customer_id LEFT JOIN cafes f ON f.id = v.cafe_id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY v.id DESC LIMIT 300`, params);
     const batches = all(ctx.db,
       `SELECT batch, kind, MIN(days) AS days, MIN(note) AS note, MIN(created_at) AS created_at, COUNT(*) AS n,
               SUM(status = 'used') AS used, SUM(uses > 0) AS touched, SUM(status = 'void') AS voided
-       FROM vouchers GROUP BY batch ORDER BY MIN(id) DESC LIMIT 30`);
+       FROM vouchers WHERE NOT ${autoBatchSql()} GROUP BY batch ORDER BY MIN(id) DESC LIMIT 30`);
+    const now = ctx.now();
+    const autoDays = all(ctx.db,
+      `SELECT substr(batch, instr(batch, '-20') + 1) AS day, COUNT(*) AS n, SUM(uses > 0) AS used, SUM(status = 'active' AND uses = 0 AND expires_at <= ?) AS expired
+       FROM vouchers WHERE ${autoBatchSql()} GROUP BY day ORDER BY day DESC LIMIT 7`, now);
     const needTools = tools.filter((x) => x.voucher_code);
+    const expired = (v) => v.status === 'active' && v.expires_at && v.expires_at <= now;
     const kindLabel = (v) => (v.kind === 'extend' ? `${VOUCHER_KINDS.extend} ${v.days} ngày` : VOUCHER_KINDS[v.kind]);
     view(rq, {
       title: 'Mã phiếu', active: '/admin/vouchers',
-      body: html`<h1>Mã phiếu</h1>
-<p class="muted">Khách cần <b>mã phiếu</b> mới lấy được mã đăng nhập của ${needTools.length ? needTools.map((x) => x.name).join(', ') : html`<b>công cụ nào bật "Cần mã phiếu"</b> (chưa có — bật ở trang Công cụ)`}.
-Có email tài khoản mà không có mã phiếu thì không lấy được mã. Phiếu phát ở quán; mã gia hạn gửi khách qua Zalo khi khách mua thêm ngày.</p>
+      sub: html`Cần mã phiếu khi lấy mã đăng nhập: ${needTools.length ? needTools.map((x, i) => html`${i ? ', ' : ''}${link.tool(x.id, x.name)}`) : 'chưa món nào (bật "Cần mã phiếu" ở trang Công cụ)'}`,
+      actions: html`<a class="btn" href="#tao">${plus('Tạo lô mã')}</a>`,
+      body: html`<details class="help"><summary>Mã phiếu dùng để làm gì?</summary>
+<p>Khách cần <b>mã phiếu</b> mới lấy được mã đăng nhập của ${needTools.length ? needTools.map((x) => x.name).join(', ') : html`<b>công cụ nào bật "Cần mã phiếu"</b> (chưa có — bật ở trang <a href="/admin/tools">Công cụ</a>)`}.
+Có email tài khoản mà không có mã phiếu thì không lấy được mã. Phiếu phát ở quán. Khách muốn dùng thêm ngày thì nhắn Zalo — bạn gia hạn ở trang <a href="/admin/gia-han">Gia hạn</a>, không cần mã.</p></details>
+${secHead('Lô phiếu in', { n: batches.length })}
+${table(['Lô', 'Loại', 'Ghi chú', 'Tạo lúc', 'Số mã', 'Đã dùng', 'Huỷ', ''], batches.map((b) => [
+  html`<a href="/admin/vouchers?batch=${b.batch}#ma">${b.batch}</a>`, b.kind === 'extend' ? `Gia hạn ${b.days} ngày` : VOUCHER_KINDS[b.kind], b.note || '', t(b.created_at, o),
+  b.n, b.kind === 'forever' ? `${b.touched} đã gắn` : b.used, b.voided || '',
+  html`<a class="btn-mini" href="/admin/vouchers/in?batch=${b.batch}" target="_blank">In phiếu</a> <a class="btn-mini" href="/admin/vouchers.csv?batch=${b.batch}">CSV</a>
+    ${b.n - b.voided - (b.kind === 'forever' ? 0 : b.used) > 0 ? postButton(`/admin/vouchers/batch/void`, 'Huỷ cả lô', csrf, { cls: 'btn-mini danger', confirm: `Huỷ mọi mã còn dùng được của lô ${b.batch}? (vd. mất xấp phiếu)`, fields: { batch: b.batch, back: here } }) : ''}`,
+]), 'Chưa in lô nào. Tạo ở mục "Tạo lô mã" bên dưới.')}
+${secHead('Phiếu tự động', { note: 'khách chạm thẻ / vào từ trang quán QS — tự cấp, sống ' + (ctx.settings().autoVoucherTtlMin || 60) + ' phút, không cần in', link: ['/admin/vouchers?src=auto#ma', 'Xem mã'] })}
+${autoDays.length ? table(['Ngày', 'Đã cấp', 'Khách đã dùng', 'Hết hạn chưa dùng'], autoDays.map((d) => [d.day, d.n, d.used, d.expired]))
+    : html`<p class="empty">Chưa cấp phiếu tự động nào.</p>`}
+${secHead(`Mã${rq.query.batch ? ` trong lô ${rq.query.batch}` : src === 'auto' ? ' tự động' : ' gần đây'}`, { id: 'ma', n: rows.length, link: rq.query.batch || src ? ['/admin/vouchers#ma', 'Phiếu in'] : null })}
+<form method="get" class="row tight"><input name="q" value="${rq.query.q || ''}" placeholder="Tìm mã" aria-label="Tìm mã">
+  ${select('kind', { '': 'Mọi loại', ...VOUCHER_KINDS }, rq.query.kind || '')}
+  ${select('status', { '': 'Mọi trạng thái', active: 'Còn dùng được', used: 'Đã dùng', void: 'Đã huỷ' }, rq.query.status || '')}
+  ${rq.query.batch ? '' : select('src', { '': 'Phiếu in', auto: 'Phiếu tự động', all: 'Cả hai' }, src)}
+  ${rq.query.batch ? html`<input type="hidden" name="batch" value="${rq.query.batch}">` : ''}<button class="btn-mini">Lọc</button></form>
+${table(['Mã', 'Loại', 'Công cụ', 'Quán', 'Đã dùng', 'Gắn khách', 'Trạng thái', 'Hết hạn', 'Dùng lần cuối', ''], rows.map((v) => [
+  html`<code>${formatCode(v.code)}</code>`, kindLabel(v), v.tools || 'mọi', v.cafe_id ? link.cafe(v.cafe_id, v.cafe_name) : 'mọi',
+  `${v.uses}${v.max_uses != null ? `/${v.max_uses}` : ''}`, link.cust(v.customer_id, v.phone),
+  badge(v.status === 'active' ? (expired(v) ? 'Hết hạn' : 'Còn dùng') : v.status === 'used' ? 'Đã dùng' : 'Đã huỷ',
+    v.status === 'active' && !expired(v) ? 'ok' : v.status === 'void' ? 'red' : ''),
+  t(v.expires_at, o), t(v.last_used_at, o),
+  html`${v.status === 'active' && !expired(v) ? postButton(`/admin/vouchers/${v.id}/void`, 'Huỷ', csrf, { cls: 'btn-mini danger', confirm: 'Huỷ mã này? Khách giữ phiếu sẽ không dùng được.', fields: { back: here } }) : ''}
+    ${v.kind === 'forever' && v.customer_id ? postButton(`/admin/vouchers/${v.id}/unbind`, 'Gỡ khách', csrf, { confirm: 'Gỡ khách khỏi mã? Người dùng tiếp theo sẽ gắn vào.', fields: { back: here } }) : ''}`,
+]), 'Không có mã nào.')}
+${secHead('Tạo lô mã', { id: 'tao' })}
 <form method="post" action="/admin/vouchers" class="acard grid">${csrfField(csrf)}
-  <h3>Tạo lô mã</h3>
-  ${field('Loại', select('kind', { once: 'Lấy mã 1 lần (phát ở quán)', forever: 'Lấy mã vĩnh viễn (gắn khách đầu tiên dùng)', extend: 'Gia hạn (dùng thêm N ngày, 1 lần)' }, 'once'))}
+  ${field('Loại', select('kind', { once: 'Lấy mã 1 lần (phát ở quán)', forever: 'Lấy mã vĩnh viễn (gắn khách đầu tiên dùng)' }, 'once'))}
   ${field('Số mã', html`<input name="count" type="number" min="1" max="500" value="20" required>`)}
-  ${field('Số ngày gia hạn', html`<input name="days" type="number" min="1" max="30" value="1">`, 'Chỉ dùng cho loại Gia hạn.')}
   ${field('Hạn dùng mã (ngày)', html`<input name="expiresDays" type="number" min="1" max="3650" placeholder="trống = không hết hạn">`)}
   ${field('Quán', select('cafeId', { '': 'Mọi quán', ...Object.fromEntries(cafes.map((c) => [String(c.id), c.name])) }, ''), 'Chọn quán = phiếu chỉ dùng cho khách nhận slot ở quán đó.')}
   ${field('Ghi chú', html`<input name="note" maxlength="200" placeholder="vd. Phiếu quán A tuần 41">`)}
-  <div class="wide"><span>Dùng cho công cụ (không tick = mọi công cụ):</span>
-    ${tools.map((x) => html`<label class="check"><input type="checkbox" name="tool_${x.slug}" value="1"> ${x.name}</label>`)}</div>
-  <button class="btn">Tạo mã</button></form>
-<h2>Các lô</h2>
-${table(['Lô', 'Loại', 'Ghi chú', 'Tạo lúc', 'Số mã', 'Đã dùng', 'Huỷ', ''], batches.map((b) => [
-  html`<a href="/admin/vouchers?batch=${b.batch}">${b.batch}</a>`, b.kind === 'extend' ? `Gia hạn ${b.days} ngày` : VOUCHER_KINDS[b.kind], b.note || '', t(b.created_at, o),
-  b.n, b.kind === 'forever' ? `${b.touched} đã gắn` : b.used, b.voided || '',
-  html`<a class="btn-mini" href="/admin/vouchers/in?batch=${b.batch}" target="_blank">In phiếu</a> <a class="btn-mini" href="/admin/vouchers.csv?batch=${b.batch}">CSV</a>`,
-]), 'Chưa tạo mã nào.')}
-<h2>Mã${rq.query.batch ? ` trong lô ${rq.query.batch}` : ' gần đây'}</h2>
-<form method="get" class="row"><input name="q" value="${rq.query.q || ''}" placeholder="Tìm mã">
-  ${select('kind', { '': 'Mọi loại', ...VOUCHER_KINDS }, rq.query.kind || '')}
-  ${select('status', { '': 'Mọi trạng thái', active: 'Còn dùng được', used: 'Đã dùng', void: 'Đã huỷ' }, rq.query.status || '')}
-  ${rq.query.batch ? html`<input type="hidden" name="batch" value="${rq.query.batch}">` : ''}<button class="btn-mini">Lọc</button></form>
-${table(['Mã', 'Loại', 'Công cụ', 'Quán', 'Đã dùng', 'Gắn khách', 'Trạng thái', 'Hết hạn', 'Dùng lần cuối', ''], rows.map((v) => [
-  html`<code>${formatCode(v.code)}</code>`, kindLabel(v), v.tools || 'mọi', v.cafe_name || 'mọi',
-  `${v.uses}${v.max_uses != null ? `/${v.max_uses}` : ''}`, v.phone ? maskPhone(v.phone) : '',
-  badge(v.status === 'active' ? (v.expires_at && v.expires_at <= ctx.now() ? 'Hết hạn' : 'Còn dùng') : v.status === 'used' ? 'Đã dùng' : 'Đã huỷ',
-    v.status === 'active' && !(v.expires_at && v.expires_at <= ctx.now()) ? 'ok' : v.status === 'void' ? 'red' : ''),
-  t(v.expires_at, o), t(v.last_used_at, o),
-  html`${v.status === 'active' ? postButton(`/admin/vouchers/${v.id}/void`, 'Huỷ', csrf, { confirm: 'Huỷ mã này? Khách giữ phiếu sẽ không dùng được.' }) : ''}
-    ${v.kind === 'forever' && v.customer_id ? postButton(`/admin/vouchers/${v.id}/unbind`, 'Gỡ khách', csrf, { confirm: 'Gỡ SĐT khỏi mã? Người dùng tiếp theo sẽ gắn vào.' }) : ''}`,
-]), 'Không có mã nào.')}`,
+  <div class="wide">${needTools.length ? html`<span>Dùng cho công cụ (không tick = mọi món cần phiếu):</span>
+    ${needTools.map((x) => html`<label class="check"><input type="checkbox" name="tool_${x.slug}" value="1"> ${x.name}</label>`)}`
+    : html`<p class="warn">Chưa món nào bật "Cần mã phiếu" — mã tạo ra sẽ chưa dùng vào việc gì. Bật ở trang <a href="/admin/tools">Công cụ</a>.</p>`}</div>
+  <button class="btn">Tạo mã</button></form>`,
     });
   }));
 
   router.post('/admin/vouchers', A((rq, f) => {
     const { ctx } = rq;
+    // Mã gia hạn: khách không còn chỗ nhập (gia hạn qua Zalo, chủ bấm ở trang Gia hạn) → không tạo nữa.
+    if (f.kind === 'extend') return go('/admin/gia-han', 'Không cần mã gia hạn nữa — nhận tiền qua Zalo rồi bấm Gia hạn ở đây.');
     const tools = Object.keys(f).filter((k) => k.startsWith('tool_') && f[k] === '1').map((k) => k.slice(5));
     const r = createBatch(ctx, {
       kind: f.kind, count: f.count, days: f.days, tools, cafeId: int(f.cafeId), expiresDays: f.expiresDays, note: f.note?.trim() || null, by: BY,
@@ -1022,7 +1400,10 @@ ${table(['Mã', 'Loại', 'Công cụ', 'Quán', 'Đã dùng', 'Gắn khách', '
   // Trang in: mỗi mã 1 phiếu nhỏ, cắt ra phát ở quán. Không lộ email / mật khẩu.
   router.get('/admin/vouchers/in', P((rq) => {
     const { ctx } = rq;
-    const rows = all(ctx.db, "SELECT * FROM vouchers WHERE batch = ? AND status = 'active' ORDER BY id", String(rq.query.batch || ''));
+    // Chỉ in mã còn dùng được (bỏ mã hết hạn); phiếu tự động không in.
+    const rows = isAutoBatch(rq.query.batch) ? [] : all(ctx.db, "SELECT * FROM vouchers WHERE batch = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > ?) ORDER BY id",
+      String(rq.query.batch || ''), ctx.now());
+    const site = ctx.config.baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const names = new Map(all(ctx.db, 'SELECT slug, name FROM tools').map((x) => [x.slug, x.name]));
     const title = ctx.settings().eventTitle;
     const o = off(ctx);
@@ -1041,7 +1422,8 @@ ${table(['Mã', 'Loại', 'Công cụ', 'Quán', 'Đã dùng', 'Gắn khách', '
   <h3>${title}</h3>
   <p class="muted">${v.kind === 'extend' ? `Mã gia hạn ${v.days} ngày` : v.kind === 'forever' ? 'Mã phiếu dùng nhiều lần' : 'Mã phiếu lấy mã đăng nhập'}${v.tools ? ` · ${v.tools.split(',').map((x) => names.get(x) || x).join(', ')}` : ''}</p>
   <div class="code">${formatCode(v.code)}</div>
-  <p>${v.kind === 'extend' ? 'Nhập ở ô "Dùng thêm" trên trang slot của bạn.' : 'Nhập ở ô "Mã phiếu" khi bấm Lấy mã trên trang slot của bạn.'}</p>
+  <p>${v.kind === 'extend' ? 'Nhắn Zalo Tiệm kèm mã này để được gia hạn.' : 'Nhập ở ô "Mã phiếu" khi bấm Lấy mã trên trang slot của bạn.'}</p>
+  ${v.kind === 'extend' ? '' : html`<p class="muted">Trang slot: ${site}/me</p>`}
   ${v.expires_at ? html`<p class="muted">Dùng trước ${t(v.expires_at, o)}</p>` : ''}
 </div>`)}</div></body></html>`);
   }));
@@ -1051,51 +1433,83 @@ ${table(['Mã', 'Loại', 'Công cụ', 'Quán', 'Đã dùng', 'Gắn khách', '
     const batch = String(rq.query.batch || '');
     const rows = all(ctx.db, 'SELECT * FROM vouchers WHERE batch = ? ORDER BY id', batch);
     const csv = csvFile([['Mã', 'Loại', 'Số ngày', 'Công cụ', 'Trạng thái', 'Đã dùng', 'Hết hạn'],
-      ...rows.map((v) => [formatCode(v.code), VOUCHER_KINDS[v.kind], v.days ?? '', v.tools || 'mọi', v.status, v.uses, t(v.expires_at, off(ctx))])]);
+      ...rows.map((v) => [formatCode(v.code), VOUCHER_KINDS[v.kind], v.days ?? '', v.tools || 'mọi',
+        v.status === 'void' ? 'Đã huỷ' : v.status === 'used' ? 'Đã dùng' : v.expires_at && v.expires_at <= ctx.now() ? 'Hết hạn' : 'Còn dùng',
+        v.uses, v.expires_at ? fmtLocal(v.expires_at, off(ctx)) : ''])]);
     rq.send(200, csv, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ma-phieu-${batch.replace(/[^\w-]/g, '')}.csv"` });
   }));
 
+  router.post('/admin/vouchers/batch/void', A((rq, f) => {
+    const n = voidBatch(rq.ctx, String(f.batch || ''), BY);
+    return go('/admin/vouchers', n ? `Đã huỷ ${n} mã của lô ${f.batch}.` : 'Lô này không còn mã nào dùng được.');
+  }));
   router.post('/admin/vouchers/:id/void', A((rq) => go('/admin/vouchers', voidVoucher(rq.ctx, id(rq), BY) ? 'Đã huỷ mã.' : 'Mã đã dùng hết hoặc đã huỷ.')));
   router.post('/admin/vouchers/:id/unbind', A((rq) => go('/admin/vouchers', unbindVoucher(rq.ctx, id(rq), BY) ? 'Đã gỡ khách khỏi mã.' : 'Mã chưa gắn khách nào.')));
 
   // ----- Gia hạn -----
+  // Khách bấm "Gia hạn" trên trang slot → nhắn Zalo Tiệm (kèm email). Chủ nhận tiền, tìm khách ở đây rồi bấm Gia hạn.
+  // (Khách không còn ô nhập mã gia hạn / nút xin gia hạn từ phiên 30 — bảng extend_requests chỉ còn dữ liệu cũ.)
   router.get('/admin/gia-han', P((rq) => {
     const { ctx } = rq;
     const csrf = rq.state.admin.csrf;
     const o = off(ctx);
+    const maxDays = Number(ctx.settings().maxExtendDays) || 7;
+    const q = String(rq.query.q || '').trim();
+    const customerId = Number(rq.query.customer) > 0 ? Number(rq.query.customer) : null;
+    const where = ["s.status = 'active'", "t.login_type != 'redeem'"];
+    const params = {};
+    if (customerId) { where.push('s.customer_id = :cid'); params.cid = customerId; }
+    if (q) {
+      const digits = q.replace(/^#/, '');
+      if (/^\d{1,7}$/.test(digits)) { where.push("(s.id = :sid OR c.phone LIKE :tail)"); params.sid = Number(digits); params.tail = `%${digits}`; }
+      else { where.push("c.phone LIKE :like ESCAPE '\\'"); params.like = `%${q.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`; }
+    }
     const reqs = all(ctx.db,
-      `SELECT r.*, s.expires_at, s.extended_days, s.seat, c.phone, t.name AS tool_name, a.login_email FROM extend_requests r
+      `SELECT r.*, s.expires_at, s.extended_days, s.seat, s.tool_id, s.account_id, c.phone, t.name AS tool_name, a.login_email FROM extend_requests r
        JOIN slots s ON s.id = r.slot_id JOIN customers c ON c.id = r.customer_id JOIN tools t ON t.id = s.tool_id LEFT JOIN accounts a ON a.id = s.account_id
-       WHERE r.status = 'pending' ORDER BY r.id`);
+       WHERE r.status = 'pending' AND s.status = 'active' ORDER BY r.id`);
     const live = all(ctx.db,
       `SELECT s.*, c.phone, t.name AS tool_name, a.login_email FROM slots s JOIN customers c ON c.id = s.customer_id JOIN tools t ON t.id = s.tool_id
-       LEFT JOIN accounts a ON a.id = s.account_id WHERE s.status = 'active' AND t.login_type != 'redeem' ORDER BY s.expires_at LIMIT 300`);
+       LEFT JOIN accounts a ON a.id = s.account_id WHERE ${where.join(' AND ')} ORDER BY s.expires_at LIMIT 300`, params);
+    const filtered = Boolean(q || customerId);
     const extendForm = (slotId, days) => html`<form method="post" action="/admin/gia-han/${slotId}" class="inline">${csrfField(csrf)}
-      <input name="days" type="number" min="1" max="30" value="${days}" class="num-mini" aria-label="Số ngày"><button class="btn-mini ok">Gia hạn</button></form>`;
+      ${filtered ? html`<input type="hidden" name="back" value="${rq.path + rq.url.search}">` : ''}
+      <input name="days" type="number" min="1" max="${maxDays}" value="${Math.min(days, maxDays)}" class="num-mini" aria-label="Số ngày"><button class="btn-mini ok">Gia hạn</button></form>`;
+    const who = customerId ? (live[0] ? maskPhone(live[0].phone) : `khách #${customerId}`) : null;
     view(rq, {
-      title: 'Gia hạn', active: '/admin/gia-han',
-      body: html`<h1>Gia hạn (khách dùng thêm)</h1>
-<p class="muted">Khách xin dùng thêm trên trang slot → hiện ở đây. Nhận tiền qua Zalo rồi bấm <b>Gia hạn</b> (trang khách tự cập nhật).
-Hoặc tạo <a href="/admin/vouchers">mã gia hạn</a> gửi khách tự nhập. Khách đã gia hạn: lấy mã không cần mã phiếu / không cần ở quán;
-6h sáng bot vẫn làm mới tài khoản nhưng giữ Project của khách, khách đăng nhập lại. Tối đa ${ctx.settings().maxExtendDays} ngày tính từ hôm nay, không quá hạn tài khoản.</p>
-<h2>Yêu cầu đang chờ (${reqs.length})</h2>
+      title: 'Gia hạn', heading: who ? `Gia hạn — ${who}` : 'Gia hạn — khách dùng thêm', active: '/admin/gia-han',
+      sub: reqs.length ? `${reqs.length} yêu cầu cũ đang chờ` : 'Khách nhắn Zalo kèm email → tìm email ở đây → nhận tiền rồi bấm Gia hạn',
+      actions: filtered ? html`<a class="btn-mini" href="/admin/gia-han">Bỏ lọc — xem mọi slot</a>` : '',
+      body: html`<details class="help"><summary>Gia hạn hoạt động thế nào?</summary>
+<p>Khách bấm <b>Gia hạn</b> trên trang slot → mở Zalo Tiệm, nhắn kèm email đã nhận. Bạn nhận tiền qua Zalo, gõ email (hoặc số slot) vào ô tìm bên dưới rồi bấm <b>Gia hạn</b> — trang khách tự cập nhật.
+Khách đã gia hạn: lấy mã không cần mã phiếu / không cần ở quán; 6h sáng bot vẫn làm mới tài khoản nhưng giữ Project của khách, khách đăng nhập lại.
+Mỗi lần tối đa ${maxDays} ngày tính từ hôm nay (đổi ở <a href="/admin/settings">Cài đặt</a>), không quá hạn của tài khoản.</p></details>
+${reqs.length ? html`${secHead(`Yêu cầu đang chờ (${reqs.length})`, { note: 'gửi từ bản cũ, trước khi khách chuyển sang nhắn Zalo' })}
 ${table(['Lúc', 'Khách', 'Công cụ', 'Tài khoản / chỗ', 'Đang hết lúc', 'Xin thêm', ''], reqs.map((r) => [
-  t(r.created_at, o), html`<a href="/admin/customers/${r.customer_id}">${maskPhone(r.phone)}</a>`, r.tool_name,
-  html`${r.login_email || ''}${r.seat ? ` · ${workspaceName(ctx, r.seat)}` : ''}`, t(r.expires_at, o), `${r.days} ngày`,
+  t(r.created_at, o), link.cust(r.customer_id, r.phone), link.tool(r.tool_id, r.tool_name),
+  html`${link.acc(r.account_id, r.login_email)}${r.seat ? html`<span class="sub">${workspaceName(ctx, r.seat)}</span>` : ''}`, t(r.expires_at, o), `${r.days} ngày`,
   html`${extendForm(r.slot_id, r.days)} ${postButton(`/admin/gia-han/req/${r.id}/decline`, 'Bỏ qua', csrf)}`,
-]), 'Không có yêu cầu nào.')}
-<h2>Slot đang chạy</h2>
+]))}` : ''}
+${secHead('Slot đang chạy', { n: live.length, note: filtered ? `tìm "${q || who}"` : 'sớm hết hạn ở trên', link: ['/admin/slots', 'Mở Slot'] })}
+<form method="get" class="row tight" role="search"><input name="q" value="${q}" placeholder="Email khách, SĐT hoặc số slot" aria-label="Tìm slot để gia hạn"><button class="btn-mini">Tìm</button>${filtered ? html`<a class="go" href="/admin/gia-han">Bỏ tìm</a>` : ''}</form>
 ${table(['#', 'Khách', 'Công cụ', 'Tài khoản / chỗ', 'Hết lúc', 'Đã gia hạn', ''], live.map((s) => [
-  s.id, html`<a href="/admin/customers/${s.customer_id}">${maskPhone(s.phone)}</a>`, s.tool_name,
-  html`${s.login_email || ''}${s.seat ? ` · ${workspaceName(ctx, s.seat)}` : ''}`, t(s.expires_at, o), s.extended_days ? `${s.extended_days} ngày` : '',
+  link.slot(s.id), link.cust(s.customer_id, s.phone), link.tool(s.tool_id, s.tool_name),
+  html`${link.acc(s.account_id, s.login_email)}${s.seat ? html`<span class="sub">${workspaceName(ctx, s.seat)}</span>` : ''}`, t(s.expires_at, o), s.extended_days ? badge(`${s.extended_days} ngày`, 'ok') : '—',
   extendForm(s.id, 1),
-]), 'Không có slot nào đang chạy.')}`,
+]), filtered ? 'Không thấy slot đang chạy nào khớp. Khách hết giờ rồi thì phải nhận lại ở quán.' : 'Không có slot nào đang chạy.')}`,
     });
   }));
 
   router.post('/admin/gia-han/:id', A((rq, f) => {
-    const r = extendSlot(rq.ctx, id(rq), { days: int(f.days, 1), by: BY });
-    return go('/admin/gia-han', r.message);
+    const { ctx } = rq;
+    const back = String(f.back || '').startsWith('/admin/gia-han?') ? f.back : '/admin/gia-han';
+    const r = extendSlot(ctx, id(rq), { days: int(f.days, 1), by: BY });
+    if (!r.ok) {
+      // Câu của domain viết cho khách ("Nhắn Zalo Tiệm…") → nói lại cho chủ.
+      const ADMIN_MSG = { cannot_extend: 'Tài khoản của slot này sắp hết hạn nên không gia hạn thêm được — đổi khách sang tài khoản khác.' };
+      return go(back, ADMIN_MSG[r.code] || r.message);
+    }
+    return go(back, `Slot #${id(rq)}: ${r.capped ? 'gia hạn tới mức tối đa cho phép' : `đã thêm ${int(f.days, 1)} ngày`} — dùng tới ${fmtLocal(r.until, off(ctx))}.`);
   }));
 
   router.post('/admin/gia-han/req/:id/decline', A((rq) => {
@@ -1106,49 +1520,102 @@ ${table(['#', 'Khách', 'Công cụ', 'Tài khoản / chỗ', 'Hết lúc', 'Đ�
   }));
 
   // ----- Slot -----
+  // Nút "Thu hồi" (slot đang dùng) / "Huỷ" (Canva chưa mời được) — câu hỏi lại nói rõ chuyện gì xảy ra sau đó. back = trang quay về.
+  const slotEndButton = (ctx, s, csrf, back) => {
+    if (s.status === 'pending_invite') {
+      return postButton(`/admin/slots/${s.id}/revoke`, 'Huỷ', csrf, { cls: 'btn-mini danger', fields: { back },
+        confirm: `Huỷ slot #${s.id}? Khách chưa được mời vào nhóm (vd. gõ sai email) — trả ghế, không tính lượt, khách nhận lại được.` });
+    }
+    if (s.status !== 'active') return '';
+    const x = get(ctx.db, `SELECT t.login_type, t.reuse, t.rotation_required, a.status AS acc_status,
+        (SELECT COUNT(*) FROM slots o WHERE o.account_id = s.account_id AND o.status IN ('active', 'pending_invite') AND o.id != s.id) AS others
+       FROM slots s JOIN tools t ON t.id = s.tool_id LEFT JOIN accounts a ON a.id = s.account_id WHERE s.id = ?`, s.id);
+    let then = '';
+    if (!s.account_id) then = '';
+    else if (x.login_type === 'team_invite') then = ' Bot sẽ gỡ khách khỏi nhóm.';
+    else if (x.reuse === 'once') then = x.others ? '' : ' Tài khoản dùng 1 lần này sẽ ngừng dùng.';
+    else if (x.rotation_required && x.acc_status !== 'retired') {
+      then = x.others ? ` Tài khoản dùng chung còn ${x.others} khách khác — sẽ có việc đổi mật khẩu ngay, làm việc đó sẽ đá cả họ ra.` : ' Sẽ có việc đổi mật khẩu ở Việc tay.';
+    }
+    return postButton(`/admin/slots/${s.id}/revoke`, 'Thu hồi', csrf, { cls: 'btn-mini danger', fields: { back }, confirm: `Thu hồi slot #${s.id}? Khách mất quyền dùng ngay.${then}` });
+  };
   router.get('/admin/slots', P((rq) => {
     const { ctx } = rq;
     const csrf = rq.state.admin.csrf;
+    // Lọc theo link chéo từ các trang khác: ?id= (1 slot), ?tool=, ?account=, ?cafe=, ?customer=.
+    const F = { id: 's.id', tool: 's.tool_id', account: 's.account_id', cafe: 's.cafe_id', customer: 's.customer_id' };
+    const filters = Object.entries(F).filter(([k]) => Number(rq.query[k]) > 0).map(([k, col]) => [k, col, Number(rq.query[k])]);
+    const cond = filters.map(([, col, v]) => ` AND ${col} = ${v}`).join('');
     const q = (where, limit) => all(ctx.db,
       `SELECT s.*, c.phone, t.name AS tool_name, a.login_email, f.name AS cafe_name, k.label AS card_label FROM slots s
        JOIN customers c ON c.id = s.customer_id JOIN tools t ON t.id = s.tool_id LEFT JOIN accounts a ON a.id = s.account_id
-       LEFT JOIN cafes f ON f.id = s.cafe_id LEFT JOIN cards k ON k.id = s.card_id WHERE ${where} ORDER BY s.id DESC LIMIT ${limit}`);
+       LEFT JOIN cafes f ON f.id = s.cafe_id LEFT JOIN cards k ON k.id = s.card_id WHERE ${where}${cond} ORDER BY s.id DESC LIMIT ${limit}`);
     const row = (s) => [
-      s.id, html`<a href="/admin/customers/${s.customer_id}">${maskPhone(s.phone)}</a>`, s.tool_name, s.login_email || '',
-      `${s.cafe_name || ''}${s.card_label ? ' — ' + s.card_label : ''}`, html`${SLOT_STATUS[s.status] || s.status}${s.end_reason ? html` <small class="muted">${END_REASON[s.end_reason] || s.end_reason}</small>` : ''}`,
-      t(s.started_at || s.created_at, off(ctx)), t(s.ended_at || s.expires_at, off(ctx)), s.code_requests,
+      link.slot(s.id), link.cust(s.customer_id, s.phone), link.tool(s.tool_id, s.tool_name), html`${link.acc(s.account_id, s.login_email)}${s.seat ? html`<span class="sub">Slot ${s.seat}</span>` : ''}`,
+      link.cafe(s.cafe_id, s.cafe_name, s.card_label),
+      html`${badge(SLOT_STATUS[s.status] || s.status, SLOT_TONE[s.status] ?? '')}${s.end_reason ? html`<span class="sub">${END_REASON[s.end_reason] || s.end_reason}</span>` : ''}${s.extended_days ? html`<span class="sub">gia hạn ${s.extended_days} ngày</span>` : ''}`,
+      s.status === 'pending_invite' ? html`<span class="muted">chờ mời từ ${t(s.created_at, off(ctx))}</span>` : t(s.started_at || s.created_at, off(ctx)),
+      s.status === 'pending_invite' ? html`<span class="muted">tính từ lúc mời</span>` : t(s.ended_at || s.expires_at, off(ctx)), s.code_requests || '—',
     ];
-    const live = q("s.status = 'active'", 300);
+    const here = rq.path + (rq.url.search || '');
+    const live = q("s.status IN ('active', 'pending_invite')", 300);
+    const ended = q("s.status IN ('expired', 'revoked', 'rejected')", 100);
+    // Tên của bộ lọc đang bật — tra thẳng bảng (lọc không ra slot nào vẫn có tên thật, trước ghi "Slot — công cụ").
+    const nameOf = (sql, v, dflt) => get(ctx.db, sql, v)?.n ?? dflt;
+    const NAME = {
+      id: (v) => `slot #${v}`,
+      tool: (v) => nameOf('SELECT name AS n FROM tools WHERE id = ?', v, `công cụ #${v}`),
+      account: (v) => nameOf('SELECT login_email AS n FROM accounts WHERE id = ?', v, `tài khoản #${v}`),
+      cafe: (v) => nameOf('SELECT name AS n FROM cafes WHERE id = ?', v, `quán #${v}`),
+      customer: (v) => { const p = nameOf('SELECT phone AS n FROM customers WHERE id = ?', v, null); return p ? maskPhone(p) : `khách #${v}`; },
+    };
     view(rq, {
-      title: 'Slot', active: '/admin/slots',
-      body: html`<h1>Slot đang chạy (${live.length})</h1>
-${table(['#', 'Khách', 'Công cụ', 'Tài khoản', 'Quán', 'Trạng thái', 'Bắt đầu', 'Hết hạn', 'Lấy mã', ''], live.map((s) => [...row(s), html`
-  ${postButton(`/admin/slots/${s.id}/revoke`, 'Thu hồi', csrf, { confirm: 'Thu hồi slot này?' })}`]), 'Không có slot nào đang chạy.')}
-<h2>Kết thúc gần đây</h2>
-${table(['#', 'Khách', 'Công cụ', 'Tài khoản', 'Quán', 'Trạng thái', 'Bắt đầu', 'Kết thúc', 'Lấy mã'], q("s.status IN ('expired', 'revoked', 'rejected')", 100).map(row))}`,
+      title: 'Slot', heading: filters.length ? `Slot — ${filters.map(([k, , v]) => NAME[k](v)).join(' · ')}` : 'Slot', active: '/admin/slots',
+      sub: `${live.length} đang chạy · ${ended.length} kết thúc gần đây`,
+      actions: filters.length ? html`<a class="btn-mini" href="/admin/slots">Bỏ lọc — xem mọi slot</a>` : '',
+      body: html`${secHead('Đang chạy', { n: live.length, link: ['/admin/gia-han', 'Gia hạn'] })}
+${table(['#', 'Khách', 'Công cụ', 'Tài khoản', 'Quán', 'Trạng thái', 'Bắt đầu', 'Hết hạn', 'Lấy mã', ''], live.map((s) => [...row(s), slotEndButton(ctx, s, csrf, here)]), 'Không có slot nào đang chạy.')}
+${secHead('Kết thúc gần đây', { n: ended.length })}
+${table(['#', 'Khách', 'Công cụ', 'Tài khoản', 'Quán', 'Trạng thái', 'Bắt đầu', 'Kết thúc', 'Lấy mã'], ended.map(row), 'Chưa có slot nào kết thúc.')}`,
     });
   }));
+  // Nút gửi back (trang Slot đang lọc / trang khách / Canva) → A() quay về đó; không có thì về trang Slot.
   router.post('/admin/slots/:id/revoke', A((rq) => {
-    const r = revokeSlot(rq.ctx, id(rq), 'admin_revoked', BY);
-    return go('/admin/slots', r.ok ? 'Đã thu hồi slot.' : 'Slot không còn chạy.');
+    const { ctx } = rq;
+    const back = '/admin/slots';
+    const s = get(ctx.db, "SELECT * FROM slots WHERE id = ? AND status IN ('active', 'pending_invite')", id(rq));
+    if (!s) return go(back, 'Slot không còn chạy.');
+    const cancel = s.status === 'pending_invite';
+    const last = get(ctx.db, 'SELECT COALESCE(MAX(id), 0) AS n FROM rotation_tasks').n;
+    if (!revokeSlot(ctx, s.id, cancel ? 'admin_cancelled' : 'admin_revoked', BY).ok) return go(back, 'Slot không còn chạy.');
+    const task = get(ctx.db, 'SELECT kind FROM rotation_tasks WHERE id > ? AND slot_id = ? ORDER BY id LIMIT 1', last, s.id);
+    const rotating = s.account_id && get(ctx.db, "SELECT 1 FROM rotation_tasks WHERE account_id = ? AND kind = 'rotate' AND status = 'todo'", s.account_id);
+    const then = cancel ? 'đã huỷ việc mời, trả ghế, không tính lượt của khách'
+      : task?.kind === 'remove_member' ? 'bot sẽ gỡ khách khỏi nhóm'
+      : rotating ? 'việc đổi mật khẩu ở Việc tay' : '';
+    return go(back, `Đã ${cancel ? 'huỷ' : 'thu hồi'} slot #${s.id}${then ? ` — ${then}` : ''}.`);
   }));
 
   // ----- Thư -----
   router.get('/admin/mails', P((rq) => {
     const { ctx } = rq;
-    const where = rq.query.kind ? 'WHERE m.kind = :kind' : '';
+    // "Cần xem": thư hệ thống không tự xử lý trọn (mồ côi, không đọc được mã, đã báo chủ, cách ly, về trễ).
+    const ATTN = "m.verdict IN ('orphan', 'orphan_wait', 'parse_failed', 'alerted', 'quarantined', 'late')";
+    const attn = rq.query.v === 'can-xem';
+    const where = attn ? `WHERE ${ATTN}` : rq.query.kind ? 'WHERE m.kind = :kind' : '';
     const mails = all(ctx.db, `SELECT m.*, a.login_email FROM mails m LEFT JOIN accounts a ON a.id = m.account_id ${where} ORDER BY m.id DESC LIMIT 150`,
-      rq.query.kind ? { kind: rq.query.kind } : {});
-    const kinds = { '': 'Mọi loại', login_code: 'Mã đăng nhập', security_alert: 'Cảnh báo bảo mật', password_reset: 'Đặt lại mật khẩu', magic_link: 'Link đăng nhập', new_signin: 'Đăng nhập mới', billing: 'Hoá đơn', other: 'Khác', unknown_recipient: 'Lạ người nhận' };
+      !attn && rq.query.kind ? { kind: rq.query.kind } : {});
+    const kindCount = new Map(all(ctx.db, 'SELECT kind, COUNT(*) AS n FROM mails GROUP BY kind').map((r) => [r.kind, r.n]));
+    const attnCount = get(ctx.db, `SELECT COUNT(*) AS n FROM mails m WHERE ${ATTN}`).n;
     view(rq, {
-      title: 'Thư', active: '/admin/mails',
-      body: html`<h1>Thư về hộp thư kho</h1>
-<p class="muted">Webhook: <code>POST ${ctx.config.baseUrl}/hooks/mail</code> (ký HMAC-SHA256 header X-Signature). Nội dung thư tự xoá sau ${ctx.settings().retentionMailBodyHours} giờ.</p>
-<form method="get" class="row">${select('kind', kinds, rq.query.kind || '')}<button class="btn-mini">Lọc</button></form>
+      title: 'Thư', heading: 'Thư về hộp thư kho', active: '/admin/mails',
+      sub: `Nội dung thư tự xoá sau ${ctx.settings().retentionMailBodyHours} giờ · đang xem 150 thư mới nhất`,
+      body: html`${chips([['/admin/mails', 'Mọi loại', null, !rq.query.kind && !attn], ...(attnCount ? [['/admin/mails?v=can-xem', 'Cần xem', attnCount, attn]] : []), ...Object.entries(MAIL_KIND).filter(([k]) => kindCount.get(k)).map(([k, label]) => [`/admin/mails?kind=${k}`, label, kindCount.get(k), !attn && rq.query.kind === k])])}
 ${table(['Lúc', 'Tới', 'Từ', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [
-  t(m.received_at, off(ctx)), m.login_email || m.to_addr || '', m.from_addr || '', html`<a href="/admin/mails/${m.id}">${m.subject || '(không tiêu đề)'}</a>`,
-  kinds[m.kind] || m.kind, m.verdict === 'orphan' ? badge('mồ côi', 'red') : m.verdict === 'parse_failed' ? badge('không đọc được mã', 'yellow') : (m.verdict || ''),
-]), 'Chưa có thư nào.')}`,
+  t(m.received_at, off(ctx)), m.account_id ? link.acc(m.account_id, m.login_email) : html`<code>${m.to_addr || ''}</code>`, m.from_addr || '', html`<a href="/admin/mails/${m.id}">${m.subject || '(không tiêu đề)'}</a>`,
+  MAIL_KIND[m.kind] || m.kind, mailVerdict(m),
+]), attn ? 'Không có thư nào cần xem.' : 'Chưa có thư nào.')}
+<details class="help"><summary>Thư vào đây bằng đường nào?</summary><p>Webhook: <code>POST ${ctx.config.baseUrl}/hooks/mail</code> (ký HMAC-SHA256 header X-Signature) — Cloudflare Worker tbq-mail chuyển thư vào.</p></details>`,
     });
   }));
 
@@ -1156,13 +1623,16 @@ ${table(['Lúc', 'Tới', 'Từ', 'Tiêu đề', 'Loại', 'Kết quả'], mails
     const { ctx } = rq;
     const m = get(ctx.db, 'SELECT m.*, a.login_email FROM mails m LEFT JOIN accounts a ON a.id = m.account_id WHERE m.id = ?', id(rq));
     if (!m) throw new HttpError(404, 'Không có thư này.');
-    const waiting = m.account_id ? get(ctx.db, "SELECT w.*, c.phone FROM code_windows w JOIN customers c ON c.id = w.customer_id WHERE w.account_id = ? AND w.status IN ('open', 'delivered') AND w.expires_at + 60000 >= ? ORDER BY w.id DESC LIMIT 1", m.account_id, ctx.now()) : null;
+    // Ô "Gửi mã cho khách" chỉ cho thư mã đăng nhập (hoặc thư chưa phân loại) — trước hiện cả với thư đặt lại mật khẩu / cảnh báo bảo mật.
+    const waiting = m.account_id && MANUAL_CODE_KINDS.includes(m.kind) ? get(ctx.db, "SELECT w.*, c.phone FROM code_windows w JOIN customers c ON c.id = w.customer_id WHERE w.account_id = ? AND w.status IN ('open', 'delivered') AND w.expires_at + 60000 >= ? ORDER BY w.id DESC LIMIT 1", m.account_id, ctx.now()) : null;
+    // Mã trong thư đã giao cho ai (lượt nhận mã gắn với thư).
+    const given = m.window_id ? get(ctx.db, 'SELECT w.id, w.customer_id, w.slot_id, c.phone FROM code_windows w JOIN customers c ON c.id = w.customer_id WHERE w.id = ?', m.window_id) : null;
     view(rq, {
-      title: m.subject || 'Thư', active: '/admin/mails',
-      body: html`<h1>${m.subject || '(không tiêu đề)'}</h1>
-<p>Tới <code>${m.login_email || m.to_addr}</code> · từ <code>${m.from_addr}</code> · ${t(m.received_at, off(ctx))} · loại <b>${m.kind}</b> · kết quả <b>${m.verdict || ''}</b></p>
+      title: m.subject || 'Thư', heading: m.subject || '(không tiêu đề)', active: '/admin/mails', crumbs: [['/admin/mails', 'Thư']],
+      sub: html`${t(m.received_at, off(ctx))} · ${MAIL_KIND[m.kind] || m.kind} ${mailVerdict(m)}`,
+      body: html`<p class="kv"><span>Tới ${m.account_id ? link.acc(m.account_id, m.login_email) : html`<code>${m.to_addr}</code>`}</span><span>Từ <code>${m.from_addr}</code></span>${given ? html`<span>Mã đã giao cho khách ${link.cust(given.customer_id, given.phone)}${given.slot_id ? html` · slot ${link.slot(given.slot_id)}` : ''}</span>` : ''}</p>
 ${waiting ? html`<form method="post" action="/admin/mails/${m.id}/deliver" class="acard row">${csrfField(rq.state.admin.csrf)}
-  <span>Khách ${maskPhone(waiting.phone)} đang chờ mã (lượt #${waiting.id}). Đọc mã trong thư rồi gửi:</span>
+  <span>Khách ${link.cust(waiting.customer_id, waiting.phone)} đang chờ mã (lượt #${waiting.id}). Đọc mã trong thư rồi gửi:</span>
   <input name="code" placeholder="Mã" autocomplete="off" required><button class="btn-mini ok">Gửi mã cho khách</button></form>` : ''}
 <pre class="mail-body">${m.body ?? '(nội dung đã được xoá theo thời hạn lưu trữ)'}</pre>
 <p class="muted">Không bao giờ chuyển link hay nguyên thư cho khách. Thư đặt lại mật khẩu/cảnh báo bảo mật: không đưa mã cho ai.</p>`,
@@ -1177,47 +1647,85 @@ ${waiting ? html`<form method="post" action="/admin/mails/${m.id}/deliver" class
     const params = {};
     if (rq.query.sev) { where.push('e.severity = :sev'); params.sev = rq.query.sev; }
     if (rq.query.type) { where.push('e.type = :type'); params.type = rq.query.type; }
+    const cafeF = Number(rq.query.cafe) > 0 ? get(ctx.db, 'SELECT id, name FROM cafes WHERE id = ?', Number(rq.query.cafe)) : null;
+    if (cafeF) { where.push('e.cafe_id = :cafe'); params.cafe = cafeF.id; }
     const rows = all(ctx.db,
       `SELECT e.*, c.phone, a.login_email, f.name AS cafe_name FROM events e LEFT JOIN customers c ON c.id = e.customer_id
        LEFT JOIN accounts a ON a.id = e.account_id LEFT JOIN cafes f ON f.id = e.cafe_id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY e.id DESC LIMIT 300`, params);
+    const sevUrl = (s) => `/admin/events?${new URLSearchParams({ ...(s ? { sev: s } : {}), ...(rq.query.type ? { type: rq.query.type } : {}), ...(cafeF ? { cafe: cafeF.id } : {}) })}`;
     view(rq, {
       title: 'Nhật ký', active: '/admin/events',
-      body: html`<h1>Nhật ký</h1>
-<form method="get" class="row">${select('sev', { '': 'Mọi mức', red: 'Đỏ', yellow: 'Vàng', info: 'Thông tin' }, rq.query.sev || '')}
+      sub: `${rows.length} sự kiện${rq.query.type ? ` · ${EVENT_LABEL[rq.query.type] || rq.query.type}` : ''}${cafeF ? ` · quán ${cafeF.name}` : ''} · mới nhất trước`,
+      actions: rq.query.type || rq.query.sev || cafeF ? html`<a class="btn-mini" href="/admin/events">Bỏ lọc</a>` : '',
+      body: html`${chips([[sevUrl(''), 'Mọi mức', null, !rq.query.sev], [sevUrl('red'), 'Đỏ', null, rq.query.sev === 'red'], [sevUrl('yellow'), 'Vàng', null, rq.query.sev === 'yellow'], [sevUrl('info'), 'Thông tin', null, rq.query.sev === 'info']])}
+<form method="get" class="row tight">${rq.query.sev ? html`<input type="hidden" name="sev" value="${rq.query.sev}">` : ''}${cafeF ? html`<input type="hidden" name="cafe" value="${cafeF.id}">` : ''}
   ${select('type', { '': 'Mọi sự kiện', ...EVENT_LABEL }, rq.query.type || '')}<button class="btn-mini">Lọc</button></form>
 ${table(['Lúc', 'Mức', 'Sự kiện', 'Khách', 'Tài khoản / quán', 'Chi tiết', 'IP'], rows.map((e) => [
-  t(e.created_at, off(ctx)), sev(e.severity), EVENT_LABEL[e.type] || e.type,
-  e.customer_id ? html`<a href="/admin/customers/${e.customer_id}">${maskPhone(e.phone)}</a>` : '', e.login_email || e.cafe_name || '', eventSummary(e.data), e.ip || '',
-]))}`,
+  t(e.created_at, off(ctx)), sev(e.severity), html`<a href="/admin/events?type=${e.type}">${EVENT_LABEL[e.type] || e.type}</a>`,
+  link.cust(e.customer_id, e.phone), eventWhere(e), eventSummary(e.data, e.type), e.ip || '',
+]), 'Không có sự kiện nào.')}`,
     });
   }));
 
   // ----- Cài đặt -----
-  router.get('/admin/settings', P((rq) => {
+  // typed: chữ chủ vừa gõ (lưu lỗi thì vẽ lại, không mất chữ). bad: các ô sai (viền đỏ).
+  const settingsPage = (rq, { flash = '', typed = null, bad = new Set() } = {}) => {
     const { ctx } = rq;
     const s = ctx.settings();
+    const groupAt = new Map(SETTING_GROUPS.map(([title, k]) => [k, title]));
+    const val = (k) => (typed && k in typed ? typed[k] : s[k] ?? '');
+    const input = (k) => (SETTING_CHOICES[k]
+      ? select(k, SETTING_CHOICES[k], String(val(k)))
+      : SETTING_RANGE[k]
+        ? html`<input name="${k}" type="number" inputmode="numeric" step="1" min="${SETTING_RANGE[k][0]}" max="${SETTING_RANGE[k][1]}" value="${val(k)}"${bad.has(k) ? html` aria-invalid="true"` : ''}>`
+        : html`<input name="${k}" value="${val(k)}"${bad.has(k) ? html` aria-invalid="true"` : ''}>`);
     view(rq, {
-      title: 'Cài đặt', active: '/admin/settings',
-      body: html`<h1>Cài đặt</h1>
-<form method="post" action="/admin/settings" class="acard grid">${csrfField(rq.state.admin.csrf)}
-  ${Object.entries(SETTING_DEFS).map(([k, [def, label]]) => field(label, html`<input name="${k}" value="${s[k] ?? ''}">`, `${k} · mặc định: ${def ?? '(trống)'}`))}
+      title: 'Cài đặt', active: '/admin/settings', sub: 'Cài đặt chung của chương trình — suất từng quán ở trang Quán, lượt từng món ở trang Công cụ',
+      ...(flash ? { flash, flashError: true } : {}),
+      body: html`<form method="post" action="/admin/settings" class="acard grid">${csrfField(rq.state.admin.csrf)}
+  ${Object.entries(SETTING_DEFS).map(([k, [def, label]]) => html`${groupAt.has(k) ? html`<h3>${groupAt.get(k)}</h3>` : ''}${field(label, input(k),
+    `${k} · mặc định: ${def ?? '(trống)'}${SETTING_RANGE[k] && !SETTING_CHOICES[k] ? ` · từ ${SETTING_RANGE[k][0]} đến ${SETTING_RANGE[k][1]}` : ''}`)}`)}
   <button class="btn">Lưu cài đặt</button></form>`,
     });
-  }));
+  };
+  router.get('/admin/settings', P((rq) => settingsPage(rq)));
 
+  // Kiểm hết rồi mới lưu (1 ô sai → không lưu ô nào, vẽ lại form giữ chữ đã gõ). Trước: lưu phần đúng, bỏ phần sai, chữ gõ mất.
   router.post('/admin/settings', A((rq, f) => {
     const { ctx } = rq;
+    const cur = ctx.settings();
+    const label = (k) => SETTING_DEFS[k][1].split(' — ')[0].split(' (')[0];
     const errors = [];
+    const bad = new Set();
+    const next = {};
+    const typed = {};
     for (const k of Object.keys(SETTING_DEFS)) {
       if (!(k in f)) continue;
-      const v = String(f[k]).trim();
-      const problem = PUBLIC_TEXT_SETTINGS.includes(k) ? freeTextProblem(v) : null;
-      if (problem) { errors.push(`${k}: ${POLICY_MESSAGE[problem]}`); continue; }
-      try { saveSetting(ctx.db, k, v); } catch (e) { errors.push(e.message); }
+      typed[k] = String(f[k]);
+      try {
+        const v = checkSetting(k, f[k]);
+        const problem = PUBLIC_TEXT_SETTINGS.includes(k) ? freeTextProblem(String(v)) : null;
+        if (problem) throw new Error(`${k}: ${POLICY_MESSAGE[problem]}`);
+        next[k] = v;
+      } catch (e) {
+        bad.add(k);
+        errors.push(`"${label(k)}" — ${e.message.replace(new RegExp(`^${k}:? `), '')}`);
+      }
     }
+    if (!errors.length) errors.push(...pairProblems({ ...cur, ...next }));
+    if (errors.length) {
+      settingsPage(rq, { flash: `Chưa lưu: ${errors.join('; ')}.`, typed, bad });
+      return { rendered: true };
+    }
+    const changed = Object.entries(next).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(cur[k]));
+    tx(ctx.db, () => {
+      for (const [k, v] of changed) run(ctx.db, 'INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', k, JSON.stringify(v));
+    });
     ctx.settings.invalidate();
-    logEvent(ctx, { type: 'settings_saved', data: { by: BY, errors: errors.length } });
-    return go('/admin/settings', errors.length ? `Đã lưu, trừ: ${errors.join('; ')}` : 'Đã lưu cài đặt.');
+    if (!changed.length) return go('/admin/settings', 'Không có gì thay đổi.');
+    // Nhật ký ghi rõ đổi gì (trước chỉ ghi "đã lưu").
+    logEvent(ctx, { type: 'settings_saved', data: { by: BY, reason: changed.map(([k, v]) => `${k}: ${cur[k] ?? '(trống)'} → ${v ?? '(trống)'}`).join(', ').slice(0, 400) } });
+    return go('/admin/settings', `Đã lưu cài đặt (${changed.length} mục: ${changed.map(([k]) => label(k)).join(', ')}).`);
   }));
 }

@@ -227,7 +227,7 @@ async function main() {
     check('Form quản trị thiếu mã CSRF → 403', noCsrf.status === 403);
 
     const badSlug = await admin('/admin/cafes', { name: 'Cà phê Thử 24h', qs_slug: 'Có dấu!', daily_quota: '20' });
-    check('Mã quán QS sai định dạng → nhắc sửa, chưa thêm quán', /chữ thường không dấu/.test(decodeURIComponent(badSlug.location || '')) && !q("SELECT 1 FROM cafes"));
+    check('Mã quán QS sai định dạng → nhắc sửa ngay trên form (giữ chữ đã gõ), chưa thêm quán', /chữ thường không dấu/.test(badSlug.text || '') && /value="Cà phê Thử 24h"/.test(badSlug.text || '') && !q("SELECT 1 FROM cafes"));
     await admin('/admin/cafes', { name: 'Cà phê Thử 24h', address: '12 Lê Lợi, Q1', qs_slug: 'ab12cd', daily_quota: '20' });
     const cafe = q("SELECT * FROM cafes WHERE name = 'Cà phê Thử 24h'");
     check('Thêm quán, gắn mã quán QS "ab12cd" — không tạo thẻ / màn hình gì ở quán', cafe?.qs_slug === 'ab12cd' && q("SELECT COUNT(*) AS n FROM cards WHERE kind = 'nfc'").n === 0);

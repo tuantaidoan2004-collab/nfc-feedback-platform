@@ -8,6 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createTestCtx, seed, makeCustomer, makeDevice, makeTap, startTestServer, byId, ticketFor } from './helpers.js';
 import { startClaim } from '../src/domain/claims.js';
 import { openDb, run, get, all } from '../src/db/index.js';
+import { saveSetting } from '../src/lib/settings.js';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
 const ZALO_INAPP = 'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 Zalo android/12100733 ZaloTheme/light ZaloLanguage/vi';
@@ -135,12 +136,22 @@ test('luật Google (docs/google-policy.md của QS): trang khách không có ch
   const { ctx, srv, c } = await setup();
   try {
     await c.get(`/qs/cafe-test?t=${ticketFor(ctx, 'cafe-test')}`, UA);
-    const pages = ['/', '/qs/cafe-test', '/qs/khong-co', '/me', '/privacy', '/ve-chung-toi?shop=cafe-test'];
+    const pages = ['/', '/qs/cafe-test', '/qs/khong-co', '/me', '/privacy'];
     for (const p of pages) {
       const r = await c.get(p, UA);
       assert.equal(r.status, 200, p);
       assert.doesNotMatch(r.text, /đánh giá|review|rating|5 sao|năm sao|google/i, p);
     }
+    // "Về chúng tôi" mở thẳng web tiembanquyen.com (Cài đặt → aboutUrl); link hỏng → trang giới thiệu cũ của TBQ.
+    const about = await c.get('/ve-chung-toi?shop=cafe-test', UA);
+    assert.equal(about.status, 302);
+    assert.equal(about.headers.get('location'), 'https://tiembanquyen.com');
+    assert.throws(() => saveSetting(ctx.db, 'aboutUrl', 'javascript:alert(1)'), /https/);
+    run(ctx.db, "INSERT INTO settings(key, value) VALUES('aboutUrl', '\"http://khong-an-toan.test\"') ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+    ctx.settings.invalidate();
+    const fallback = await c.get('/ve-chung-toi?shop=cafe-test', UA);
+    assert.equal(fallback.status, 200);
+    assert.doesNotMatch(fallback.text, /đánh giá|review|rating|5 sao|năm sao|google/i);
   } finally {
     await srv.close();
   }
@@ -154,9 +165,10 @@ test('quản trị: điền mã quán QS (không bắt buộc, kiểm định d�
     const base = { _csrf: csrf, name: 'Cà phê Test 24h', daily_quota: '20' };
     const other = run(ctx.db, "INSERT INTO cafes(name, display_token, code_secret, qs_slug, created_at) VALUES('Quán B', 'd2', 's2', 'quan-b', ?)", ctx.now()).lastInsertRowid;
     const bad = await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'Có dấu!' });
-    assert.match(decodeURIComponent(bad.headers.get('location')), /chỉ gồm chữ thường/);
+    assert.match(bad.text, /Chưa lưu: Mã quán QS chỉ gồm chữ thường/, 'lỗi hiện ngay trên form');
     const dup = await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'QUAN-B' });
-    assert.match(decodeURIComponent(dup.headers.get('location')), /đang gắn với quán Quán B/);
+    assert.match(dup.text, /đang gắn với quán Quán B/);
+    assert.match(dup.text, /name="qs_slug" value="QUAN-B"/, 'giữ chữ vừa gõ');
     await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'Cafe-Moi' });
     assert.equal(byId(ctx, 'cafes', cafe.id).qs_slug, 'cafe-moi');
     const empty = await c.postForm(`/admin/cafes/${other}`, { ...base, name: 'Quán B', qs_slug: '' });

@@ -2,8 +2,8 @@
 import { get, all } from '../db/index.js';
 import { startOfLocalDay, startOfLocalMonth, localParts, nextLocalHour, DAY, MIN } from '../lib/time.js';
 
-// Slot "có tính lượt": không bị từ chối, và không kết thúc vì lỗi phía Tiệm.
-export const COUNTED = "status != 'rejected' AND (end_reason IS NULL OR end_reason NOT IN ('account_quarantined', 'no_account', 'refund'))";
+// Slot "có tính lượt": không bị từ chối, và không kết thúc vì lỗi phía Tiệm (kể cả chủ huỷ slot Canva chưa mời được — vd. khách gõ sai email).
+export const COUNTED = "status != 'rejected' AND (end_reason IS NULL OR end_reason NOT IN ('account_quarantined', 'no_account', 'refund', 'admin_cancelled'))";
 const LIVE = "('active', 'pending_approval', 'pending_invite')";
 
 const no = (code, message) => ({ ok: false, code, message });

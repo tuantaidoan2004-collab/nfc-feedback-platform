@@ -184,7 +184,7 @@ export function cancelWindow(ctx, { windowId, customerId }) {
 
 /**
  * Có mã đăng nhập về hộp thư của tài khoản. Gọi trong transaction của ingestMail.
- * → {verdict:'matched'|'replaced'|'late'|'orphan'|'orphan_wait', windowId?}
+ * → {verdict:'matched'|'owner'|'replaced'|'late'|'orphan'|'orphan_wait', windowId?}
  *   orphan_wait: đang có người giữ tài khoản → chờ 90 giây xem họ có bấm "Lấy mã" không rồi mới báo động.
  */
 export function onLoginCode(ctx, { account, code, mailId, mailDate }) {
@@ -196,6 +196,13 @@ export function onLoginCode(ctx, { account, code, mailId, mailDate }) {
     run(ctx.db, "UPDATE code_windows SET status = 'delivered', code = ?, code_received_at = ?, mail_id = ?, shown_at = NULL WHERE id = ?", code, now, mailId, open.id);
     logEvent(ctx, { type: 'code_delivered', customerId: open.customer_id, slotId: open.slot_id, accountId: account.id, data: { windowId: open.id } });
     return { verdict: 'matched', windowId: open.id };
+  }
+  // Chủ đang làm việc tay (tạo Project / đổi mật khẩu) và đã bấm "Lấy mã đăng nhập": mã là của chủ — hiện trên thẻ việc,
+  // không báo mồ côi, không cộng điểm cho khách cũ. (Trước 08/10/2026 chủ đăng nhập làm việc tay = báo đỏ + phạt khách cũ.)
+  const task = get(ctx.db, "SELECT id FROM rotation_tasks WHERE account_id = ? AND status = 'todo' AND code_until >= ? ORDER BY id DESC LIMIT 1", account.id, now);
+  if (task) {
+    logEvent(ctx, { type: 'code_to_owner', accountId: account.id, data: { taskId: task.id, mailId } });
+    return { verdict: 'owner' };
   }
   const delivered = get(ctx.db, "SELECT * FROM code_windows WHERE account_id = ? AND status = 'delivered' AND expires_at + ? >= ? ORDER BY id DESC LIMIT 1", account.id, GRACE, now);
   // Mã mới thay mã vừa giao (khách bấm "gửi lại mã" bên hãng) CHỈ khi không còn ai khác dùng tài khoản. Tài khoản dùng chung
@@ -269,12 +276,16 @@ export function expireWindows(ctx) {
 }
 
 /** Chủ đọc thư không bóc được mã và tự nhập mã cho lượt đang mở của tài khoản. */
+/** Loại thư chủ được đọc mã rồi gửi tay cho khách. Thư đặt lại mật khẩu / cảnh báo / link đăng nhập: mã trong đó KHÔNG bao giờ đưa khách. */
+export const MANUAL_CODE_KINDS = ['login_code', 'other'];
+
 export function deliverManualCode(ctx, { mailId, code, by = 'admin' }) {
   const c = String(code || '').trim();
   if (!/^[A-Za-z0-9-]{4,12}$/.test(c)) return { ok: false, message: 'Mã không hợp lệ.' };
   return tx(ctx.db, () => {
     const mail = get(ctx.db, 'SELECT * FROM mails WHERE id = ?', mailId);
     if (!mail?.account_id) return { ok: false, message: 'Không tìm thấy thư.' };
+    if (!MANUAL_CODE_KINDS.includes(mail.kind)) return { ok: false, message: 'Thư này không phải thư mã đăng nhập — không gửi mã trong thư này cho khách.' };
     const w = get(ctx.db, "SELECT * FROM code_windows WHERE account_id = ? AND status IN ('open', 'delivered') AND expires_at + ? >= ? ORDER BY id DESC LIMIT 1",
       mail.account_id, GRACE, ctx.now());
     if (!w) return { ok: false, message: 'Không có khách nào đang chờ mã của tài khoản này.' };

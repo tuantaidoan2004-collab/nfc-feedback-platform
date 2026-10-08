@@ -55,7 +55,8 @@
     try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); await audio.resume(); } catch { /* bỏ qua */ }
     soundOn = true;
     try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch { /* bỏ qua */ }
-    e.currentTarget.textContent = '🔔 Đã bật âm báo';
+    e.currentTarget.textContent = 'Đã bật âm báo';
+    e.currentTarget.classList.add('on');
     beep();
   });
 
@@ -67,12 +68,60 @@
     return j || { ok: false, message: 'Lỗi mạng' };
   }
 
+  const badge = (text, kind = '') => el('span', { class: `badge ${kind}` }, text);
+  const link = (href, ...kids) => el('a', { href: BASE + href }, ...kids);
+
   function renderTasks(list) {
-    elT.replaceChildren(...(list.length ? list.map((k) => el('div', { class: 'acard' },
-      el('div', { class: 'acard-head' }, el('b', {}, k.kindText), ` · ${k.tool} · `, el('code', {}, k.email),
-        el('span', { class: 'muted' }, ` · ${k.reason} · ${k.createdText}${k.phoneMasked ? ' · khách ' + k.phoneMasked : ''}`)),
-      k.detail ? el('p', {}, 'Chi tiết: ', el('code', {}, k.detail)) : null,
-      taskForm(k))) : [el('p', { class: 'muted' }, 'Không có việc tay nào.')]));
+    elT.replaceChildren(...(list.length ? list.map((k) => el('div', { class: 'task', id: `task-${k.id}` },
+      el('div', { class: 'task-h' }, badge(k.title || k.kindText, k.kind === 'rotate' && !k.setup ? 'yellow' : 'info'), ' ',
+        el('b', {}, k.toolId ? link(`/admin/tools/${k.toolId}`, k.tool) : k.tool), ' ',
+        el('a', { class: 'acc', href: `${BASE}/admin/accounts/${k.accountId}` }, el('code', {}, k.email)),
+        k.bot ? ' ' : null, k.bot ? badge(k.bot[0], k.bot[1]) : null),
+      el('div', { class: 'task-m' }, `${k.reason} · ${k.createdText}`, k.phoneMasked ? ' · khách ' : '',
+        k.phoneMasked ? (k.customerId ? link(`/admin/customers/${k.customerId}`, k.phoneMasked) : k.phoneMasked) : ''),
+      k.detail ? el('p', {}, k.kind === 'invite_member' ? 'Mời email: ' : k.kind === 'remove_member' ? 'Gỡ email: ' : 'Ghi chú: ', el('code', {}, k.detail)) : null,
+      k.howTo ? el('p', { class: 'how' }, k.howTo) : null,
+      k.kept ? el('p', {}, badge('Giữ lại', 'ok'), ' ', k.kept) : null,
+      k.lastError ? el('p', { class: 'red-text' }, k.lastError) : null,
+      k.canCode ? codeRow(k) : null,
+      k.busy ? el('p', { class: 'warn' }, `Còn ${k.busy} khách đang dùng tài khoản này (tới ${k.busyUntilText}) — đổi mật khẩu / đăng xuất bây giờ sẽ đá họ ra. Nên đợi họ hết giờ rồi làm.`) : null,
+      k.drop ? dropButton(k) : null,
+      taskForm(k))) : [el('p', { class: 'empty' }, '✓ Không có việc tay nào.')]));
+  }
+
+  // Tài khoản đăng nhập bằng mã qua email: chủ bấm "Lấy mã đăng nhập" → mã về trong 10 phút hiện ngay ở đây (không báo mồ côi).
+  function codeRow(k) {
+    const msg = el('span', { class: 'muted' });
+    return el('p', { class: 'owner-code' },
+      k.code ? ['Mã đăng nhập: ', el('code', { class: 'big-code' }, k.code.value), ' ', el('small', { class: 'muted' }, `về lúc ${k.code.atText}`), ' ']
+        : k.codeOpen ? [el('span', { class: 'muted' }, 'Đang chờ mã về hộp thư kho…'), ' '] : null,
+      el('button', {
+        class: 'btn-mini',
+        onclick: async (ev) => {
+          const b = ev.currentTarget;
+          b.disabled = true;
+          const r = await post(`/admin/api/tasks/${k.id}/code`, {});
+          msg.textContent = r.message || '';
+          if (r.ok) refresh(); else b.disabled = false;
+        },
+      }, k.codeOpen ? 'Chờ thêm 10 phút' : 'Lấy mã đăng nhập'), ' ', msg);
+  }
+
+  // Việc đổi mật khẩu của tài khoản đã ngừng dùng / quá hạn: bỏ được (máy chủ kiểm lại điều kiện).
+  function dropButton(k) {
+    const msg = el('span', { class: 'red-text' });
+    return el('p', {}, el('button', {
+      class: 'btn-mini',
+      onclick: async (ev) => {
+        if (!confirm('Bỏ việc đổi mật khẩu này?')) return;
+        const b = ev.currentTarget;
+        b.disabled = true;
+        const r = await post(`/admin/api/tasks/${k.id}/cancel`, {});
+        if (r.ok) { refresh(); return; }
+        b.disabled = false;
+        msg.textContent = r.message || 'Chưa bỏ được.';
+      },
+    }, k.drop), ' ', msg);
   }
 
   // Đổi mật khẩu: dán mật khẩu mới (bắt buộc với tài khoản không có 2FA); ChatGPT (2FA) được tick "giữ mật khẩu cũ".
@@ -82,8 +131,8 @@
     const totpIn = pw && k.loginType === 'password_totp' ? el('input', { placeholder: 'Khoá 2FA mới (chỉ khi đổi 2FA)', autocomplete: 'off' }) : null;
     // Bị cách ly (mật khẩu / 2FA bị người ngoài đổi): không có lựa chọn giữ mật khẩu cũ.
     const keep = pw && k.loginType === 'password_totp' && k.reasonCode !== 'quarantine' ? el('input', { type: 'checkbox' }) : null;
-    const msg = el('span', { class: 'muted' });
-    return el('div', { class: 'row' }, input, totpIn, keep ? el('label', { class: 'muted' }, keep, ' Giữ mật khẩu cũ — chỉ đăng xuất mọi thiết bị') : null,
+    const msg = el('span', { class: 'red-text' });
+    return el('div', { class: 'row' }, input, totpIn, keep ? el('label', { class: 'check muted' }, keep, ' Giữ mật khẩu cũ — chỉ đăng xuất mọi thiết bị') : null,
       el('button', {
         class: 'btn-mini ok',
         onclick: async (ev) => {
@@ -97,23 +146,30 @@
       }, 'Đã xong'), msg);
   }
 
-  // Kho hôm nay: đỏ = không giao được nữa (hết kho hoặc hết lượt / ngày), vàng = còn ≤ 3.
+  // Kho hôm nay: đỏ = không giao được nữa (hết kho hoặc hết lượt / ngày), vàng = còn ≤ 3. Bấm → kho tài khoản của món đó.
+  // (Trang Tổng quan vẽ y hệt phía máy chủ: stockTiles trong routes/admin.js.)
   function renderStock(list) {
     if (!elS) return;
-    elS.replaceChildren(el('div', { class: 'stock-row' }, ...list.map((x) => el('a', {
-      class: `stock ${x.free <= 0 ? 'red' : x.free <= 3 ? 'yellow' : ''}`, href: `${BASE}/admin/tools/${x.id}`,
-    }, el('b', {}, x.name), el('span', {}, `Hôm nay ${x.today}${x.cap != null ? `/${x.cap}` : ''}`),
-      el('span', {}, x.free <= 0 ? (x.cap != null && x.today >= x.cap ? 'Hết lượt hôm nay' : 'Hết kho') : `Còn ${x.free}`),
-      x.reserved ? el('span', { class: 'muted' }, `+${x.reserved} dự phòng 6h`) : '',
-      x.expiring ? el('span', { class: 'warn-text' }, `${x.expiring} tài khoản hết hạn trong 24 giờ`) : ''))));
+    elS.replaceChildren(list.length ? el('div', { class: 'stock-row' }, ...list.map((x) => el('a', {
+      class: `stock ${x.free <= 0 ? 'red' : x.free <= 3 ? 'yellow' : ''}`, href: `${BASE}/admin/accounts?tool=${x.id}`,
+    }, el('b', {}, x.name),
+      el('span', { class: 'big' }, x.free <= 0 ? (x.cap != null && x.today >= x.cap ? 'Hết lượt' : 'Hết kho') : String(x.free)),
+      el('span', { class: 'muted' }, `${x.free > 0 ? 'còn giao · ' : ''}hôm nay ${x.today}${x.cap != null ? `/${x.cap}` : ''}${x.reserved ? ` · +${x.reserved} dự phòng` : ''}`),
+      x.expiring ? el('span', { class: 'warn-text' }, `${x.expiring} tài khoản hết hạn trong 24 giờ`) : '',
+      x.waiting ? el('span', { class: 'warn-text' }, x.waiting) : '')))
+      : el('p', { class: 'empty' }, 'Chưa bật món nào.'));
   }
 
   function renderAlerts(list) {
-    elE.replaceChildren(...(list.length ? list.map((e) => el('div', { class: `alert-item ${e.severity}` },
+    elE.replaceChildren(list.length ? el('div', { class: 'alerts' }, ...list.map((e) => el('div', { class: `alert-item ${e.severity}` },
       el('span', { class: 'at' }, e.atText),
-      el('span', {}, el('b', {}, e.label), e.phoneMasked ? ' · ' : '', e.phoneMasked && e.customerId ? el('a', { href: `${BASE}/admin/customers/${e.customerId}` }, e.phoneMasked) : '',
-        e.account ? ` · ${e.account}` : '', e.cafe ? ` · ${e.cafe}` : '', e.summary ? ` — ${e.summary}` : '',
-        e.hint ? el('div', { class: 'hint' }, `→ Nên làm: ${e.hint}`) : null))) : [el('p', { class: 'muted' }, 'Không có cảnh báo trong 2 giờ qua.')]));
+      el('div', {}, el('b', {}, e.label),
+        e.phoneMasked ? ' · ' : '', e.phoneMasked ? (e.customerId ? link(`/admin/customers/${e.customerId}`, e.phoneMasked) : e.phoneMasked) : '',
+        e.account ? ' · ' : '', e.account ? (e.accountId ? el('a', { class: 'acc', href: `${BASE}/admin/accounts/${e.accountId}` }, el('code', {}, e.account)) : e.account) : '',
+        e.cafe ? ' · ' : '', e.cafe ? (e.cafeId ? link(`/admin/cafes/${e.cafeId}`, e.cafe) : e.cafe) : '',
+        e.summary ? el('span', { class: 'muted' }, ` — ${e.summary}`) : '',
+        e.hint ? el('div', { class: 'hint' }, `→ Nên làm: ${e.hint}`) : null))))
+      : el('p', { class: 'empty' }, '✓ Không có cảnh báo trong 2 giờ qua.'));
   }
 
   async function refresh() {
@@ -122,11 +178,13 @@
       if (r.status === 401) { location.href = `${BASE}/admin/login?next=${encodeURIComponent(location.pathname.slice(BASE.length) + location.search)}`; return; }
       const j = await r.json();
       // Chỉ vẽ lại việc tay khi danh sách đổi: đang gõ mật khẩu mới thì ô nhập không bị xoá mỗi 10 giây.
-      const sig = j.tasks.map((k) => k.id).join(',');
+      const sig = j.tasks.map((k) => [k.id, k.bot?.[0], k.busy, k.drop, k.kept, k.lastError, k.codeOpen, k.code?.value].join(':')).join(',');
       if (sig !== taskSig) { taskSig = sig; renderTasks(j.tasks); }
       renderAlerts(j.alerts);
       renderStock(j.stock || []);
-      document.querySelector('[data-count=tasks]').textContent = j.tasks.length ? `(${j.tasks.length})` : '';
+      const cnt = document.querySelector('[data-count=tasks]');
+      cnt.textContent = String(j.tasks.length);
+      cnt.hidden = !j.tasks.length;
       document.title = j.tasks.length ? `(${j.tasks.length}) Theo dõi` : 'Theo dõi — Quản trị TBQ';
       const newRed = j.alerts.filter((e) => e.severity === 'red' && !seen.alerts.has(e.id));
       j.alerts.forEach((e) => seen.alerts.add(e.id));
@@ -142,4 +200,7 @@
   }
   refresh();
   setInterval(refresh, 10_000);
+  // Điện thoại tạm dừng tab nền (khoá màn hình, chuyển app) → quay lại là cập nhật ngay, không đợi 10 giây.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) refresh(); });
 })();

@@ -300,7 +300,7 @@ test('gia hạn: không quá hạn tài khoản (Claude 7 ngày) và không quá
     assert.equal(requestExtension(ctx, { customerId: third.customer.id, days: 3 }).ok, true, 'xin lại → sửa số ngày, không tạo trùng');
     assert.equal(all(ctx.db, "SELECT * FROM extend_requests WHERE status = 'pending'").length, 1);
     assert.equal(ctx.alerts('extend_requested').length, 1);
-    assert.match(String(mePage(ctx, { customer: byId(ctx, 'customers', third.customer.id), view: third.view() })), /<b>Gia hạn<\/b><small>nhắn Zalo<\/small>/, "gia hạn = nhắn Zalo");
+    assert.match(String(mePage(ctx, { customer: byId(ctx, 'customers', third.customer.id), view: third.view() })), /<b>Gia hạn<\/b><small>nhắn Zalo kèm email<\/small>/, "gia hạn = nhắn Zalo kèm email");
 
     const admin = srv.client();
     const login = await admin.postForm('/admin/login', { password: ctx.config.adminPassword });
@@ -349,8 +349,12 @@ test('quản trị: tạo lô mã phiếu → trang in + CSV; huỷ mã; nhập 
     const detail = await admin.get(`/admin/accounts/${a.id}`);
     assert.match(detail.text, /Workspace \(Project\) theo thứ tự/);
     assert.match(detail.text, /Đang chờ làm mới/);
-    // Không chạy bot quá 10 phút → báo chủ làm tay.
+    // Chưa có bot làm mới nào chạy → việc của chủ (Việc tay), không báo đỏ "bot chưa làm xong".
     ctx.clock.advance(11 * MIN);
+    await runJobs(ctx);
+    assert.equal(ctx.alerts('worker_task_stuck').length, 0);
+    // Có bot làm mới đang hỏi việc mà quá 10 phút chưa xong → báo chủ làm tay.
+    run(ctx.db, "INSERT INTO kv(key, value, updated_at) VALUES('worker-kind:rotate', 'bot-mac', ?)", ctx.now());
     await runJobs(ctx);
     assert.equal(ctx.alerts('worker_task_stuck').length, 1);
     assert.equal((await admin.get('/admin/live')).status, 200);

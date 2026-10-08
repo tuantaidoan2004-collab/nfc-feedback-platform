@@ -296,6 +296,16 @@ input.need { border-color: var(--red); }
 .pg-done .sub { margin-top: 0; font-size: 15px; }
 .pg-done .btn { margin-top: 8px; min-height: 48px; }
 .pg-done .link { font-size: 14px; color: var(--text-2); }
+/* màn Xong có "Tài khoản đã nhận": vòng ✓ nhỏ lại để email + mật khẩu vẫn vừa 1 màn điện thoại */
+.pg-done.has-acc { gap: 6px; }
+.pg-done.has-acc .done-ok { width: 44px; height: 44px; }
+.pg-done.has-acc h3 { font-size: 20px; margin-top: 0; }
+.pg-acc { width: 100%; text-align: left; display: grid; gap: 8px; }
+.pg-acc .cp + .cp { margin-top: 0; }
+.pg-acc-h { margin: 0; font-size: 12px; letter-spacing: .04em; color: var(--text-3); }
+.pg-acc-ws { margin: 0; font-size: 14px; color: var(--text-2); }
+.pg-acc .link { justify-self: start; font-size: 14px; color: var(--gold, var(--text-2)); }
+.pg-done.has-acc .btn { margin-top: 4px; }
 .done-ok { width: 64px; height: 64px; border-radius: 50%; overflow: visible; animation: ok-glow 1.6s .7s ease-out both; }
 .done-ok circle { fill: rgba(95, 211, 162, .14); stroke: var(--mint); stroke-width: 2.5; stroke-dasharray: 158; animation: ok-draw .6s var(--ease) both; }
 .done-ok path { fill: none; stroke: var(--mint); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 36; animation: ok-draw .4s .45s var(--ease) both; }

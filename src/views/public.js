@@ -406,12 +406,29 @@ function ticket(ctx, v, sub) {
 }
 
 /**
+ * Món có app điện thoại: trang web của hãng không có Universal Link (capcut.com không có apple-app-site-association) nên link
+ * web chỉ mở trình duyệt. Có ở đây thì trên điện thoại nút "Mở …" mở thẳng app (app.js "Mở app"), laptop vẫn mở login_url.
+ * scheme: link mở app, như web CapCut tự dùng · android: tên gói (mở bằng intent://, chưa cài thì Chrome tự qua Play Store) · ios: App Store.
+ */
+const APPS = {
+  capcut: { name: 'CapCut', scheme: 'capcut://main/tabbar?index=0', android: 'com.lemon.lvoverseas', ios: 'https://apps.apple.com/app/id1500855883' },
+};
+
+/** Nút "Mở <món>": link web; món có app thì kèm data-app để app.js mở app trên điện thoại. */
+function openBtn(t, cls, next = false) {
+  const app = APPS[t.slug];
+  return html`<a class="${cls}" href="${t.login_url}" target="_blank" rel="noopener noreferrer"${next ? html` data-next` : ''}${app ? html` data-app="${app.scheme}" data-app-android="${app.android}"` : ''}>Mở ${t.name} ↗</a>`;
+}
+
+/**
  * Các bước đăng nhập — MỖI BƯỚC MỘT MÀN (app.js "Từng màn"): thanh tiến độ, nút "‹ Quay lại" / "Tiếp ›", màn sau trượt vào,
  * chép / mở / bấm nút xong thì tự qua bước kế; hết bước → màn "Xong". Bước đang ở nhớ trên máy này.
  * Không JS: hiện hết các bước thành danh sách.
  * steps: [{ title, body, manual? (chữ nút xong cho bước không có thao tác) }] — phần tử null bị bỏ qua.
+ * account: "Tài khoản đã nhận" hiện luôn trên màn Xong (email / mật khẩu + nút Chép) — khách quay lại trang vé
+ * (bị đăng xuất, đổi máy trong ngày…) chép lại được ngay, không phải lật lại từng bước. (Chủ yêu cầu 08/10/2026.)
  */
-function checklist(v, all) {
+function checklist(v, all, account = null) {
   const steps = all.filter(Boolean);
   const t = v.tool;
   const n = steps.length;
@@ -426,11 +443,12 @@ function checklist(v, all) {
       <div class="st-h"><span class="n" aria-hidden="true">${i + 1}</span><span class="tt">${st.title}</span></div>
       <div class="st-b">${st.body}${st.manual ? html`<button type="button" class="chip-btn" data-next>${st.manual}</button>` : ''}</div>
     </li>`)}
-    <li class="st pg-done" data-flow-done hidden>
+    <li class="st pg-done${account ? ' has-acc' : ''}" data-flow-done hidden>
       <svg class="done-ok" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="25"/><path d="M17 29l7.5 7.5L40 21"/></svg>
       <h3>Xong! Vào việc thôi</h3>
-      <p class="sub">Đăng nhập ngon lành rồi đó. Cày deadline vèo vèo nha!</p>
-      ${t.login_url ? html`<a class="btn sm" href="${t.login_url}" target="_blank" rel="noopener noreferrer">Mở ${t.name} ↗</a>` : ''}
+      ${account ? html`<div class="pg-acc"><p class="pg-acc-h">Tài khoản đã nhận · cần thì chép lại</p>${account}</div>`
+    : html`<p class="sub">Đăng nhập ngon lành rồi đó. Cày deadline vèo vèo nha!</p>`}
+      ${t.login_url ? openBtn(t, 'btn sm') : ''}
       <button type="button" class="link" data-st-go="0">Xem lại các bước</button>
     </li>
   </ol>
@@ -467,10 +485,15 @@ function slotBody(ctx, v) {
   }
 
   // active
+  const app = t.login_url ? APPS[t.slug] : null;
   const open = t.login_url
-    ? html`<a class="btn ghost sm" href="${t.login_url}" target="_blank" rel="noopener noreferrer" data-next>Mở ${t.name} ↗</a>`
+    ? openBtn(t, 'btn ghost sm', true)
     : html`<p>Mở ứng dụng / trang ${t.name}.</p>`;
-  const openStep = { title: 'Mở trang đăng nhập', body: html`${open}<p class="hint">Laptop hay điện thoại này đều được.</p>`, manual: t.login_url ? '' : 'Đã mở ✓' };
+  const openHint = app
+    ? html`<p class="hint">Điện thoại mở thẳng app ${app.name}, laptop mở trang web.</p>
+    <p class="hint" data-app-miss hidden>Chưa cài app? <a href="${app.ios}" data-app-get data-ios="${app.ios}" data-android="https://play.google.com/store/apps/details?id=${app.android}" target="_blank" rel="noopener noreferrer">Tải ${app.name}</a> hoặc <a href="${t.login_url}" target="_blank" rel="noopener noreferrer" data-next>mở bản web</a>.</p>`
+    : html`<p class="hint">Laptop hay điện thoại này đều được.</p>`;
+  const openStep = { title: app ? `Mở ${app.name}` : 'Mở trang đăng nhập', body: html`${open}${openHint}`, manual: t.login_url ? '' : 'Đã mở ✓' };
   const seatStep = v.workspace ? {
     title: `Vào ${v.workspace.name}`,
     body: html`<p>Workspace của bạn: <b>${v.workspace.name}</b> · dùng chung ${v.seatTotal} người</p>
@@ -478,11 +501,13 @@ function slotBody(ctx, v) {
     manual: v.workspace.url ? '' : `Đã vào ${v.workspace.name} ✓`,
   } : null;
   const mailStep = (title, manual = '') => ({ title, body: html`<p class="hint">Bấm <b>Lấy mã</b> <b>trước</b>, rồi mới bấm gửi mã bên ${t.name}.</p>${codeBox(ctx, v, 'mail')}`, manual });
+  const wsLine = v.workspace ? html`<p class="pg-acc-ws">Workspace của bạn: <b>${v.workspace.name}</b></p>` : '';
   const rules = [html`Chỉ dùng 1 máy để nhường slot cho bạn sau nhé`];
   let how;
   if (t.login_type === 'email_code') {
     rules.push(html`Không đổi email, thông tin tài khoản`);
-    how = checklist(v, [openStep, { title: 'Dán email', body: copyRow('Email', v.accountEmail) }, mailStep('Lấy mã đăng nhập'), seatStep]);
+    how = checklist(v, [openStep, { title: 'Dán email', body: copyRow('Email', v.accountEmail) }, mailStep('Lấy mã đăng nhập'), seatStep],
+      html`${copyRow('Email', v.accountEmail)}${wsLine}<button type="button" class="link" data-st-go="2">Cần mã đăng nhập? Lấy mã ›</button>`);
   } else if (t.login_type === 'password' || t.login_type === 'password_totp') {
     const totp = t.login_type === 'password_totp';
     rules.push(html`Không đổi mật khẩu, email, ${totp ? '2FA' : 'không bật 2FA'}`);
@@ -494,7 +519,8 @@ function slotBody(ctx, v) {
         totp ? { title: 'Nhập mã 2 lớp', body: codeBox(ctx, v, 'totp') } : null,
         !totp && v.canMailCode ? mailStep('Nếu hỏi mã email', 'Không hỏi mã — bỏ qua') : null,
         seatStep,
-      ]);
+      ], html`${copyRow('Email', v.accountEmail)}${copyRow('Mật khẩu', v.password)}${wsLine}${totp || v.canMailCode
+        ? html`<button type="button" class="link" data-st-go="2">${totp ? 'Cần mã 2 lớp? Lấy mã ›' : 'Bị hỏi mã email? Lấy mã ›'}</button>` : ''}`);
   } else if (t.login_type === 'team_invite') {
     rules.push(html`Hết giờ: rời nhóm, thiết kế vẫn còn`);
     how = checklist(v, [
@@ -525,7 +551,7 @@ ${t.login_type === 'redeem' ? '' : html`<details class="fold">
   ${t.instructions ? lines(t.instructions) : ''}
 </details>`}
 <div class="zalo-row">
-  ${v.canExtend ? html`<a class="zbtn" href="${zalo}" rel="noopener"><b>Gia hạn</b><small>${v.extendedDays ? `đã thêm ${v.extendedDays} ngày · ` : ''}nhắn Zalo</small></a>` : ''}
+  ${v.canExtend ? html`<a class="zbtn" href="${zalo}" rel="noopener"><b>Gia hạn</b><small>${v.extendedDays ? `đã thêm ${v.extendedDays} ngày · ` : ''}nhắn Zalo kèm email</small></a>` : ''}
   <a class="zbtn" href="${zalo}" rel="noopener"><b>Báo lỗi</b><small>nhắn Zalo</small></a>
 </div>
 ${tiemCard(ctx)}`;

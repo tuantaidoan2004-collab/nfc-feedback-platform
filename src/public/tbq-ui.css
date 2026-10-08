@@ -1,0 +1,1007 @@
+/* Chép nguyên từ ~/Downloads/tbq-ui-kit/Design 2/dist/tbq-ui.css (08/10/2026) — bộ giao diện chuẩn Tiệm. Đừng sửa tay: phần riêng của trang Quản trị nằm ở admin.css. */
+/* TBQ UI — giao diện dùng chung tiembanquyen.com · CapCut Tooler · CRM Zalo
+   SINH TỰ ĐỘNG bởi design-kit/build.mjs — đừng sửa tay, sửa nguồn rồi build lại. */
+
+/* ═══ 1. web-store/css/tbq/tokens.css ═══ */
+/* ═══════════════════════════════════════════════════════════════
+   TBQ Space — Design Tokens v2 ("Classical, tightened")
+   Source of truth for tiembanquyen.com. Load BEFORE components.css.
+
+   Rules
+   • Components read only semantic tokens (--bg, --ink, --accent-text…),
+     never the palette (--palette-*) directly.
+   • Dark sections do not restyle components — they set
+     data-surface="dark" and the semantic tokens remap.
+   • Every text/background pair below meets WCAG AA (4.5:1) at body size.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Palette (raw — do not use in components) ─────────────── */
+  /* Theo "Bộ nhận diện thương hiệu": Mực đen #1C1B19 · Vàng đồng #B38B45 ·
+     Vàng nhạt #D9BE86 · Giấy ngà #F4F1EA · Xám đá #5E5A52. Các bậc 600/700/50
+     là bậc phụ tự suy ra để chữ vàng vẫn đạt AA trên nền sáng. */
+  --palette-paper:      #f4f1ea;   /* Giấy ngà */
+  --palette-paper-2:    #faf8f3;
+  --palette-paper-3:    #eae5da;
+  --palette-ink:        #1c1b19;   /* Mực đen */
+  --palette-colophon:   #1c1b19;
+  --palette-stone:      #5e5a52;   /* Xám đá */
+  --palette-gold:       #b38b45;   /* Vàng đồng */
+  --palette-gold-light: #d9be86;   /* Vàng nhạt */
+  --palette-gold-600:   #9a743a;
+  --palette-gold-700:   #76561f;
+  --palette-gold-50:    #f8eedb;
+  --palette-green:      #5e8c61;
+  --palette-green-700:  #467249;
+  --palette-green-50:   #eef3ee;
+  --palette-red:        #c04a3a;
+  --palette-red-700:    #a8402f;
+  --palette-red-50:     #f9ecea;
+
+  /* ── Surfaces ─────────────────────────────────────────────── */
+  --bg:        var(--palette-paper);
+  --surface:   var(--palette-paper-2);
+  --wash:      var(--palette-paper-3);
+
+  /* ── Text (contrast vs --bg) ──────────────────────────────── */
+  --ink:       var(--palette-ink);                                           /* 15.1:1 */
+  --ink-2:     color-mix(in srgb, var(--palette-ink) 72%, transparent);      /*  6.1:1 */
+  --ink-3:     color-mix(in srgb, var(--palette-ink) 66%, transparent);      /*  4.9:1 — was 50% (3.1:1, failed) */
+  --ink-disabled: color-mix(in srgb, var(--palette-ink) 38%, transparent);   /* non-text only */
+
+  /* ── Lines ────────────────────────────────────────────────── */
+  --border:        color-mix(in srgb, var(--palette-ink) 16%, transparent);  /* decorative dividers, cards */
+  --border-strong: color-mix(in srgb, var(--palette-ink) 50%, transparent);  /* inputs, controls — 3.1:1 */
+
+  /* ── Accent: gold is a LINE, not a fill ───────────────────── */
+  --accent-line:  var(--palette-gold);       /* decorative borders, rules, bars (2.8:1 — không dùng cho icon mang nghĩa) */
+  --accent-icon:  var(--palette-gold-600);   /* icon, viền điều khiển — 3.8:1 */
+  --accent-text:  var(--palette-gold-700);   /* gold TEXT on light — 6.0:1 */
+  --accent-hover: var(--palette-gold-600);
+  --accent-fill:  var(--palette-gold);       /* the one solid-gold element per page */
+  --on-accent:    var(--palette-colophon);   /* text on gold fill — 5.3:1 (white was 3.4:1) */
+  --accent-bg:    var(--palette-gold-50);
+
+  /* ── Status ───────────────────────────────────────────────── */
+  --success:     var(--palette-green);       /* icons, borders */
+  --success-text:var(--palette-green-700);   /* 5.0:1 */
+  --success-bg:  var(--palette-green-50);
+  --warning:     var(--palette-gold);
+  --warning-text:var(--palette-gold-700);
+  --warning-bg:  var(--palette-gold-50);
+  --danger:      var(--palette-red);
+  --danger-text: var(--palette-red-700);     /* 5.5:1 */
+  --danger-bg:   var(--palette-red-50);
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-icon);
+
+  /* ── Typography ───────────────────────────────────────────── */
+  --font-display: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+  --font-body:    'Lora', Georgia, 'Times New Roman', serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  /* 10-step scale (was ~45 distinct sizes, incl. 10.5/11.5/12.5/13.5/14.5/15.5/16.5/17.5) */
+  --text-2xs: 11px;   /* legal, micro-badges */
+  --text-xs:  12px;   /* kickers, labels (uppercase) */
+  --text-sm:  13px;   /* meta, captions */
+  --text-md:  14px;   /* controls, secondary body */
+  --text-base:16px;   /* body */
+  --text-lg:  18px;   /* lead, prices */
+  --text-xl:  23px;   /* card titles (display font) */
+  --text-2xl: 28px;   /* sub-section titles */
+  --text-3xl: clamp(28px, 3.2vw, 36px);  /* section titles */
+  --text-4xl: clamp(36px, 5.2vw, 64px);  /* hero */
+  --text-mark: clamp(180px, 30vw, 480px);/* decorative watermark (№1) */
+
+  --leading-tight: 1.1;   /* display */
+  --leading-snug:  1.3;   /* headings, controls */
+  --leading-body:  1.65;  /* running text */
+
+  --tracking-display: -0.01em;
+  --tracking-kicker:   0.12em;  /* uppercase labels — one value (was .08/.1/.12/.14) */
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semi:    600;  /* ceiling for body font; display font stays 400–500 */
+
+  /* ── Space (4px grid) ─────────────────────────────────────── */
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;  --space-4: 16px;
+  --space-5: 20px;  --space-6: 24px;  --space-8: 32px;  --space-10: 40px;
+  --space-12: 48px; --space-16: 64px; --space-24: 96px;
+
+  --container: 1120px;
+  --gutter: var(--space-6);
+  --section-y: clamp(var(--space-16), 9vw, 128px);
+  --header-h: 64px;
+
+  /* ── Shape ────────────────────────────────────────────────── */
+  --radius-sm:    2px;    /* bars, tiny tags */
+  --radius:       4px;    /* EVERYTHING else: buttons, cards, inputs, modals */
+  --radius-pill:  999px;  /* badges, chips */
+  --radius-round: 50%;    /* avatars, icon buttons */
+  --hairline: 1px;
+
+  /* ── Elevation (used sparingly — Classical prefers lines) ── */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --scrim:     color-mix(in srgb, var(--palette-ink) 45%, transparent);
+
+  /* ── Motion (was 8 durations, 23 transition combos) ───────── */
+  --dur-fast: 150ms;   /* color, border, background */
+  --dur-base: 250ms;   /* transform, accordions, drawers */
+  --dur-slow: 450ms;   /* page/section reveal */
+  --ease:     cubic-bezier(.2, .6, .2, 1);
+
+  /* ── Layers (was 11 ad-hoc values 850–1300) ───────────────── */
+  --z-sticky:   100;  /* header */
+  --z-dropdown: 200;  /* search results */
+  --z-fab:      300;  /* floating Zalo button */
+  --z-overlay:  900;  /* scrims */
+  --z-drawer:  1000;  /* cart */
+  --z-modal:   1100;
+  --z-toast:   1200;
+}
+
+/* ── Dark surface: hero, colophon/footer, "Được quan tâm" panel ── */
+[data-surface="dark"] {
+  --bg:       var(--palette-colophon);
+  --surface:  color-mix(in srgb, var(--palette-paper) 4%, var(--palette-colophon));
+  --wash:     color-mix(in srgb, var(--palette-paper) 8%, var(--palette-colophon));
+
+  --ink:      var(--palette-paper);
+  --ink-2:    color-mix(in srgb, var(--palette-paper) 72%, transparent);  /* 8.6:1 */
+  --ink-3:    color-mix(in srgb, var(--palette-paper) 60%, transparent);  /* 6.4:1 */
+  --ink-disabled: color-mix(in srgb, var(--palette-paper) 30%, transparent);
+
+  --border:        color-mix(in srgb, var(--palette-paper) 14%, transparent);
+  --border-strong: color-mix(in srgb, var(--palette-paper) 36%, transparent);
+
+  --accent-line:  var(--palette-gold);       /* 5.5:1 on colophon */
+  --accent-icon:  var(--palette-gold);
+  --accent-text:  var(--palette-gold-light); /* 9.6:1 on colophon */
+  --accent-hover: #e8d5ac;
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-icon);
+
+  background: var(--bg);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+}
+
+/* ═══ 2. Chế độ Tối toàn app ═══ */
+
+/* ── Chế độ Tối toàn app — sinh từ [data-surface="dark"] của web ──
+   Cùng quy ước với CRM Zalo: data-theme="dark" | "light" trên <html>,
+   không đặt thì theo máy (prefers-color-scheme). */
+:root[data-theme="dark"] {
+  --bg:       var(--palette-colophon);
+  --surface:  color-mix(in srgb, var(--palette-paper) 4%, var(--palette-colophon));
+  --wash:     color-mix(in srgb, var(--palette-paper) 8%, var(--palette-colophon));
+
+  --ink:      var(--palette-paper);
+  --ink-2:    color-mix(in srgb, var(--palette-paper) 72%, transparent);  /* 8.6:1 */
+  --ink-3:    color-mix(in srgb, var(--palette-paper) 60%, transparent);  /* 6.4:1 */
+  --ink-disabled: color-mix(in srgb, var(--palette-paper) 30%, transparent);
+
+  --border:        color-mix(in srgb, var(--palette-paper) 14%, transparent);
+  --border-strong: color-mix(in srgb, var(--palette-paper) 36%, transparent);
+
+  --accent-line:  var(--palette-gold);       /* 5.5:1 on colophon */
+  --accent-icon:  var(--palette-gold);
+  --accent-text:  var(--palette-gold-light); /* 9.6:1 on colophon */
+  --accent-hover: #e8d5ac;
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-icon);
+
+  background: var(--bg);
+  color: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:       var(--palette-colophon);
+    --surface:  color-mix(in srgb, var(--palette-paper) 4%, var(--palette-colophon));
+    --wash:     color-mix(in srgb, var(--palette-paper) 8%, var(--palette-colophon));
+  
+    --ink:      var(--palette-paper);
+    --ink-2:    color-mix(in srgb, var(--palette-paper) 72%, transparent);  /* 8.6:1 */
+    --ink-3:    color-mix(in srgb, var(--palette-paper) 60%, transparent);  /* 6.4:1 */
+    --ink-disabled: color-mix(in srgb, var(--palette-paper) 30%, transparent);
+  
+    --border:        color-mix(in srgb, var(--palette-paper) 14%, transparent);
+    --border-strong: color-mix(in srgb, var(--palette-paper) 36%, transparent);
+  
+    --accent-line:  var(--palette-gold);       /* 5.5:1 on colophon */
+    --accent-icon:  var(--palette-gold);
+    --accent-text:  var(--palette-gold-light); /* 9.6:1 on colophon */
+    --accent-hover: #e8d5ac;
+  
+    --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-icon);
+  
+    background: var(--bg);
+    color: var(--ink);
+  }
+}
+
+/* ═══ 3. design-kit/src/app-theme.css ═══ */
+/* ═══════════════════════════════════════════════════════════════
+   Phần token APP cần mà web không có. Giữ đúng tinh thần Classical:
+   giấy ngà + mực + vàng đồng là nét kẻ; màu trạng thái trầm, kiểu mực in.
+   Mọi cặp chữ/nền vẫn đạt WCAG AA (đã đo, ghi cạnh từng giá trị).
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Dashboard cần thêm 2 màu trạng thái: "đang xử lý / thông tin" và "nhóm phụ".
+     Lam mực & tím mận thay cho xanh #007aff / tím #af52de kiểu Apple. */
+  --palette-blue:      #5b7c99;
+  --palette-blue-700:  #3f5f7a;   /* 5.9:1 trên --bg */
+  --palette-blue-50:   #eaf0f5;
+  --palette-plum:      #8a6a9a;
+  --palette-plum-700:  #6b4f7a;   /* 6.2:1 trên --bg */
+  --palette-plum-50:   #f2edf4;
+
+  --info:        var(--palette-blue);
+  --info-text:   var(--palette-blue-700);
+  --info-bg:     var(--palette-blue-50);
+  --plum:        var(--palette-plum);
+  --plum-text:   var(--palette-plum-700);
+  --plum-bg:     var(--palette-plum-50);
+  --idle:        var(--ink-3);
+  --idle-bg:     var(--wash);
+
+  /* Đồng đậm: chỗ app cũ tô nền màu thương hiệu + chữ trắng (nút chính, mục
+     đang chọn…). Vàng thường + chữ trắng chỉ 3.4:1 nên app dùng bậc đậm này.
+     Vẫn đọc được khi dùng làm màu chữ (6.0:1). Trên web vẫn giữ luật
+     "vàng là nét" — đây là lối chuyển tiếp cho app, xem README §4. */
+  --accent-strong:    var(--palette-gold-700);
+  --on-accent-strong: #fff;                     /* 6.7:1 */
+
+  /* Nền hàng được chọn / rê chuột trong bảng, danh sách */
+  --hover:    color-mix(in srgb, var(--ink) 4%, transparent);
+  --selected: color-mix(in srgb, var(--accent-line) 12%, transparent);
+
+  /* Khung app */
+  --sidebar-w: 232px;
+  --appbar-h:  var(--header-h);
+  --row-h:     44px;    /* hàng bảng — bằng vùng bấm tối thiểu */
+  --row-h-sm:  36px;    /* bảng dày (chỉ dùng trên máy tính) */
+}
+
+/* Chữ trạng thái trên nền tối: bậc 700 ở trên quá tối (≤ 3:1) → đổi sang bậc sáng.
+   Áp cho cả chế độ Tối toàn app lẫn dải tối [data-surface="dark"]. */
+:root[data-theme="dark"],
+[data-surface="dark"] {
+  --success-text: #8fbf92;   /* 8.2:1 trên #1c1b19 */
+  --danger-text:  #e08a7c;   /* 6.6:1 */
+  --warning-text: var(--palette-gold-light);
+  --info-text:    #93b4cf;   /* 7.9:1 */
+  --plum-text:    #c4a6d6;   /* 8.0:1 */
+  --accent-strong:    var(--palette-gold-light);
+  --on-accent-strong: var(--palette-colophon);  /* 9.6:1 */
+  --success-bg: color-mix(in srgb, var(--palette-green) 18%, transparent);
+  --danger-bg:  color-mix(in srgb, var(--palette-red) 18%, transparent);
+  --warning-bg: color-mix(in srgb, var(--palette-gold) 18%, transparent);
+  --info-bg:    color-mix(in srgb, var(--palette-blue) 22%, transparent);
+  --plum-bg:    color-mix(in srgb, var(--palette-plum) 22%, transparent);
+  --accent-bg:  color-mix(in srgb, var(--palette-gold) 16%, transparent);
+  --hover:      color-mix(in srgb, var(--palette-paper) 5%, transparent);
+  --selected:   color-mix(in srgb, var(--palette-gold) 18%, transparent);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
+  --shadow-md: 0 6px 18px rgb(0 0 0 / .45);
+  --scrim:     rgb(0 0 0 / .6);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --success-text: #8fbf92;
+    --danger-text:  #e08a7c;
+    --warning-text: var(--palette-gold-light);
+    --info-text:    #93b4cf;
+    --plum-text:    #c4a6d6;
+    --accent-strong:    var(--palette-gold-light);
+    --on-accent-strong: var(--palette-colophon);
+    --success-bg: color-mix(in srgb, var(--palette-green) 18%, transparent);
+    --danger-bg:  color-mix(in srgb, var(--palette-red) 18%, transparent);
+    --warning-bg: color-mix(in srgb, var(--palette-gold) 18%, transparent);
+    --info-bg:    color-mix(in srgb, var(--palette-blue) 22%, transparent);
+    --plum-bg:    color-mix(in srgb, var(--palette-plum) 22%, transparent);
+    --accent-bg:  color-mix(in srgb, var(--palette-gold) 16%, transparent);
+    --hover:      color-mix(in srgb, var(--palette-paper) 5%, transparent);
+    --selected:   color-mix(in srgb, var(--palette-gold) 18%, transparent);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
+    --shadow-md: 0 6px 18px rgb(0 0 0 / .45);
+    --scrim:     rgb(0 0 0 / .6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+/* ── Nền tảng (app không có style.css của web) ───────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font: var(--text-base)/var(--leading-body) var(--font-body);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);   /* chữ display không bao giờ đậm hơn 500 */
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-snug);
+  color: var(--ink);
+}
+a { color: var(--accent-text); text-underline-offset: 3px; }
+a:hover { color: var(--accent-hover); }
+button, input, select, textarea { font: inherit; color: inherit; }
+code, kbd, samp, .tbq-mono { font-family: var(--font-mono); font-size: .92em; }
+::selection { background: var(--accent-bg); color: var(--ink); }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+input[type="checkbox"], input[type="radio"], progress { accent-color: var(--accent-fill); }
+
+/* ═══ 4. web-store/css/tbq/components.css ═══ */
+/* ═══════════════════════════════════════════════════════════════
+   TBQ Space — Components v2
+   Prefix `tbq-` so the new system can ship alongside style.css and
+   replace old selectors one page at a time. Tokens only; no raw values
+   except 0 / 1px / 100%.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Type ───────────────────────────────────────────────────── */
+
+.tbq-kicker {
+  display: block;
+  font: var(--weight-regular) var(--text-xs)/var(--leading-snug) var(--font-body);
+  letter-spacing: var(--tracking-kicker);
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.tbq-display,
+.tbq-title,
+.tbq-subtitle {
+  font-family: var(--font-display);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.tbq-display  { font-size: var(--text-4xl); }
+.tbq-title    { font-size: var(--text-3xl); line-height: var(--leading-snug); }
+.tbq-subtitle { font-size: var(--text-xl);  font-weight: var(--weight-medium); line-height: var(--leading-snug); }
+
+/* The gold word in a headline — color only, never gradient */
+.tbq-em { color: var(--accent-text); font-style: normal; }
+
+.tbq-lead {
+  font: var(--weight-regular) var(--text-lg)/var(--leading-body) var(--font-body);
+  color: var(--ink-2);
+  max-width: 60ch;
+}
+
+.tbq-body  { font: var(--text-base)/var(--leading-body) var(--font-body); color: var(--ink); }
+.tbq-meta  { font: var(--text-sm)/var(--leading-snug) var(--font-body); color: var(--ink-3); }
+
+/* Short gold rule under a hero headline */
+.tbq-rule {
+  width: var(--space-24);
+  height: 0;
+  border: 0;
+  border-top: var(--hairline) solid var(--accent-line);
+  margin: var(--space-8) 0;
+}
+
+/* ── Button ─────────────────────────────────────────────────────
+   Variants:  primary (gold line) · solid (gold fill, max 1/page)
+              secondary (ink hairline) · ghost (text only)
+   Sizes:     sm · md (default) · lg
+   Replaces 17 classes: hero-cta-*, cta-bottom-*, nav-zalo-btn,
+   buy-now-btn, checkout-btn, place-order-btn, see-more-btn, …       */
+
+.tbq-btn {
+  --btn-pad-y: 10px;
+  --btn-pad-x: var(--space-5);
+  --btn-size:  var(--text-md);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;                               /* touch target */
+  padding: var(--btn-pad-y) var(--btn-pad-x);
+  font: var(--weight-regular) var(--btn-size)/var(--leading-snug) var(--font-body);
+  text-decoration: none;
+  white-space: nowrap;
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.tbq-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tbq-btn:disabled,
+.tbq-btn[aria-disabled="true"] {
+  color: var(--ink-disabled);
+  border-color: var(--border);
+  background: transparent;
+  cursor: not-allowed;
+}
+.tbq-btn[aria-busy="true"] { cursor: progress; }
+.tbq-btn[aria-busy="true"]::before {
+  content: "";
+  width: 1em; height: 1em;
+  border: var(--hairline) solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-round);
+  animation: tbq-spin 700ms linear infinite;
+}
+
+.tbq-btn--sm { --btn-pad-y: 6px;  --btn-pad-x: var(--space-3); --btn-size: var(--text-sm); min-height: 36px; }
+@media (pointer: coarse) { .tbq-btn--sm { min-height: 40px; } } /* ngón tay cần vùng bấm lớn hơn chuột */
+.tbq-btn--lg { --btn-pad-y: 12px; --btn-pad-x: var(--space-6); --btn-size: var(--text-base); min-height: 52px; }
+.tbq-btn--block { display: flex; width: 100%; }
+
+.tbq-btn--primary { color: var(--accent-text); border-color: var(--accent-line); }
+.tbq-btn--primary:hover:not(:disabled) { color: var(--accent-hover); background: color-mix(in srgb, var(--accent-line) 8%, transparent); }
+
+.tbq-btn--solid { color: var(--on-accent); background: var(--accent-fill); border-color: var(--accent-fill); }
+.tbq-btn--solid:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.tbq-btn--secondary { color: var(--ink-2); border-color: var(--border-strong); }
+.tbq-btn--secondary:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
+
+.tbq-btn--ghost { color: var(--accent-text); padding-inline: var(--space-2); }
+.tbq-btn--ghost:hover:not(:disabled) { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 4px; }
+
+/* ── Card ──────────────────────────────────────────────────── */
+
+.tbq-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+}
+.tbq-card--interactive { cursor: pointer; transition: border-color var(--dur-fast) var(--ease), transform var(--dur-base) var(--ease); }
+.tbq-card--interactive:hover { border-color: var(--accent-line); transform: translateY(-2px); }
+.tbq-card--interactive:focus-within { box-shadow: var(--focus-ring); }
+.tbq-card--flush { padding: 0; overflow: hidden; }
+.tbq-card__footer { margin-top: auto; padding-top: var(--space-3); border-top: var(--hairline) solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+
+/* ── Price ─────────────────────────────────────────────────── */
+
+.tbq-price { font: var(--weight-regular) var(--text-lg)/var(--leading-snug) var(--font-body); color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.tbq-price__was { font-size: var(--text-sm); color: var(--ink-3); text-decoration: line-through; margin-left: var(--space-2); }
+
+/* ── Badge ─────────────────────────────────────────────────── */
+
+.tbq-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  font: var(--weight-medium) var(--text-xs)/var(--leading-snug) var(--font-body);
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--wash);
+  color: var(--ink-2);
+}
+.tbq-badge--accent  { color: var(--accent-text);  background: var(--accent-bg);  border-color: var(--accent-line); }
+.tbq-badge--success { color: var(--success-text); background: var(--success-bg); border-color: var(--success); }
+.tbq-badge--danger  { color: var(--danger-text);  background: var(--danger-bg);  border-color: var(--danger); }
+
+/* ── Field ─────────────────────────────────────────────────── */
+
+.tbq-field { display: grid; gap: var(--space-2); }
+.tbq-label { font: var(--weight-medium) var(--text-sm)/var(--leading-snug) var(--font-body); color: var(--ink-2); }
+.tbq-hint  { font: var(--text-sm)/var(--leading-snug) var(--font-body); color: var(--ink-3); }
+
+.tbq-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px var(--space-3);
+  font: var(--text-md)/var(--leading-snug) var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.tbq-input::placeholder { color: var(--ink-3); }
+.tbq-input:hover { border-color: var(--ink-2); }
+.tbq-input:focus-visible { outline: none; border-color: var(--accent-line); box-shadow: var(--focus-ring); }
+.tbq-input[aria-invalid="true"] { border-color: var(--danger); }
+.tbq-field:has([aria-invalid="true"]) .tbq-hint { color: var(--danger-text); }
+
+/* Search = input + leading icon */
+.tbq-search { position: relative; }
+.tbq-search > svg { position: absolute; left: var(--space-3); top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: var(--ink-3); pointer-events: none; }
+.tbq-search > .tbq-input { padding-left: calc(var(--space-3) * 2 + 16px); }
+
+/* ── Notice (inline message) ───────────────────────────────── */
+
+.tbq-notice {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font: var(--text-sm)/var(--leading-body) var(--font-body);
+  color: var(--ink-2);
+  background: var(--wash);
+  border-left: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.tbq-notice--success { color: var(--success-text); background: var(--success-bg); border-left-color: var(--success); }
+.tbq-notice--warning { color: var(--warning-text); background: var(--warning-bg); border-left-color: var(--warning); }
+.tbq-notice--danger  { color: var(--danger-text);  background: var(--danger-bg);  border-left-color: var(--danger); }
+
+/* ── Metric (stats band: 30+ / 5–10' / 500+ / 99,9%) ──────── */
+
+.tbq-metric { display: grid; gap: var(--space-2); }
+.tbq-metric__value {
+  font: var(--weight-regular) var(--text-4xl)/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--accent-text);
+  font-variant-numeric: oldstyle-nums;
+}
+.tbq-metric__label {
+  font: var(--text-xs)/var(--leading-snug) var(--font-body);
+  letter-spacing: var(--tracking-kicker);
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ── Bar (share list in "Được quan tâm") ──────────────────── */
+
+.tbq-bar { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2) var(--space-4); align-items: baseline; }
+.tbq-bar__label { font: var(--text-base)/var(--leading-snug) var(--font-body); color: var(--ink); }
+.tbq-bar__value { font: var(--text-sm)/var(--leading-snug) var(--font-body); color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.tbq-bar__track { grid-column: 1 / -1; height: 2px; background: var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.tbq-bar__fill  { display: block; height: 100%; width: calc(var(--value, 0) * 1%); background: var(--accent-line); }
+
+/* ── Layout helpers ────────────────────────────────────────── */
+
+.tbq-container { width: min(100% - 2 * var(--gutter), var(--container)); margin-inline: auto; }
+.tbq-section   { padding-block: var(--section-y); }
+.tbq-stack     { display: flex; flex-direction: column; gap: var(--stack-gap, var(--space-4)); }
+.tbq-cluster   { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cluster-gap, var(--space-3)); }
+
+/* Decorative watermark (№1) — never conveys information */
+.tbq-watermark {
+  position: absolute;
+  font: var(--weight-regular) var(--text-mark)/1 var(--font-display);
+  color: color-mix(in srgb, var(--accent-line) 14%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes tbq-spin { to { rotate: 1turn; } }
+
+/* ═══ 5. design-kit/src/app-components.css ═══ */
+/* ═══════════════════════════════════════════════════════════════
+   Component cho app quản trị (bảng điều khiển, CRM, tool) — cùng
+   ngôn ngữ với web: nét kẻ mảnh thay cho bóng đổ, vàng là nét không
+   phải nền, chữ display Cormorant cho tiêu đề, Lora cho mọi thứ khác.
+   Chỉ dùng token. Prefix `tbq-` như components.css của web.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Khung app: thanh trên + thanh bên + nội dung ─────────────── */
+
+.tbq-app {
+  display: grid;
+  grid-template: "bar bar" var(--appbar-h) "side main" 1fr / var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100dvh;
+}
+.tbq-app > .tbq-appbar  { grid-area: bar; }
+.tbq-app > .tbq-sidebar { grid-area: side; }
+.tbq-app > .tbq-main    { grid-area: main; min-width: 0; padding: var(--space-8) clamp(var(--space-4), 3vw, var(--space-10)); }
+@media (max-width: 860px) {
+  .tbq-app { grid-template: "bar" var(--appbar-h) "side" auto "main" 1fr / minmax(0, 1fr); }
+}
+
+.tbq-appbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--appbar-h);
+  padding-inline: var(--space-6);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: saturate(1.2) blur(8px);
+  border-bottom: var(--hairline) solid var(--border);
+}
+.tbq-appbar__spacer { flex: 1; }
+
+/* Tên thương hiệu như header web: "TBQ Space" serif + dòng nhỏ viết hoa vàng */
+.tbq-brand { display: grid; line-height: 1; text-decoration: none; color: var(--ink); }
+.tbq-brand__name { font: var(--weight-medium) 22px/1 var(--font-display); letter-spacing: var(--tracking-display); }
+.tbq-brand__sub  { margin-top: 3px; font: 10px/1 var(--font-body); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--accent-text); }
+
+/* ── Thanh bên ─────────────────────────────────────────────────── */
+
+.tbq-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-3);
+  border-right: var(--hairline) solid var(--border);
+}
+.tbq-sidebar__group { margin: var(--space-5) var(--space-3) var(--space-2); }
+.tbq-sidebar__group:first-child { margin-top: 0; }
+@media (max-width: 860px) {
+  .tbq-sidebar { flex-direction: row; overflow-x: auto; padding: var(--space-2) var(--space-3); border-right: 0; border-bottom: var(--hairline) solid var(--border); }
+  .tbq-sidebar__group { display: none; }
+}
+
+.tbq-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  font: var(--text-md)/var(--leading-snug) var(--font-body);
+  color: var(--ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.tbq-nav-item > svg { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
+.tbq-nav-item:hover { color: var(--ink); background: var(--hover); }
+/* Mục đang mở: nét vàng bên trái, không tô nền màu */
+.tbq-nav-item[aria-current="page"],
+.tbq-nav-item[aria-selected="true"] { color: var(--ink); background: var(--hover); }
+.tbq-nav-item[aria-current="page"]::before,
+.tbq-nav-item[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset: var(--space-2) auto var(--space-2) 0;
+  width: 2px;
+  background: var(--accent-line);
+  border-radius: var(--radius-sm);
+}
+.tbq-nav-item[aria-current="page"] > svg { color: var(--accent-icon); }
+.tbq-nav-item__count { margin-left: auto; font-size: var(--text-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ── Đầu trang nội dung ────────────────────────────────────────── */
+
+.tbq-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-8);
+  margin-bottom: var(--space-8);
+}
+.tbq-page-head .tbq-title { margin-top: var(--space-2); }
+
+/* ── Tab (gạch chân vàng — giống bảng giá trang chủ) ───────────── */
+
+.tbq-tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: var(--hairline) solid var(--border);
+}
+.tbq-tabs::-webkit-scrollbar { display: none; }
+.tbq-tab {
+  position: relative;
+  flex: none;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font: var(--text-md)/1 var(--font-body);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
+}
+.tbq-tab::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--space-4) -1px;
+  height: 2px;
+  background: var(--accent-line);
+  transform: scaleX(0);
+  transition: transform var(--dur-base) var(--ease);
+}
+.tbq-tab:hover,
+.tbq-tab[aria-selected="true"] { color: var(--ink); }
+.tbq-tab[aria-selected="true"]::after { transform: scaleX(1); }
+.tbq-tab:focus-visible { box-shadow: inset 0 0 0 2px var(--accent-line); border-radius: var(--radius); }
+.tbq-tab__count { margin-left: 6px; font-size: var(--text-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ── Nút chọn nhóm (Sáng / Tối / Tự động, lọc nhanh) ───────────── */
+
+.tbq-segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius);
+}
+.tbq-segmented > button {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font: var(--text-sm)/1 var(--font-body);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+@media (pointer: coarse) { .tbq-segmented > button { min-height: 40px; } }
+.tbq-segmented > button:hover { color: var(--ink); }
+.tbq-segmented > button[aria-pressed="true"] { color: var(--ink); background: var(--selected); }
+
+/* ── Chip lọc ─────────────────────────────────────────────────── */
+
+.tbq-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font: var(--text-sm)/1 var(--font-body);
+  color: var(--ink-2);
+  background: none;
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+@media (pointer: coarse) { .tbq-chip { min-height: 40px; } }
+.tbq-chip:hover { color: var(--ink); border-color: var(--ink-2); }
+.tbq-chip[aria-pressed="true"] { color: var(--accent-text); border-color: var(--accent-line); background: var(--accent-bg); }
+
+/* ── Bảng ─────────────────────────────────────────────────────── */
+
+.tbq-table-wrap { overflow-x: auto; border: var(--hairline) solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.tbq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-md)/var(--leading-snug) var(--font-body);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.tbq-table th {
+  position: sticky;
+  top: 0;
+  height: 40px;
+  padding: 0 var(--space-4);
+  font: var(--weight-regular) var(--text-xs)/1 var(--font-body);
+  letter-spacing: var(--tracking-kicker);
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink-3);
+  background: var(--surface);
+  border-bottom: var(--hairline) solid var(--border-strong);
+  white-space: nowrap;
+}
+.tbq-table td {
+  height: var(--row-h);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--hairline) solid var(--border);
+  vertical-align: middle;
+}
+.tbq-table tbody tr:last-child td { border-bottom: 0; }
+.tbq-table tbody tr { transition: background-color var(--dur-fast) var(--ease); }
+.tbq-table tbody tr:hover { background: var(--hover); }
+.tbq-table tbody tr[aria-selected="true"] { background: var(--selected); }
+.tbq-table .is-num  { text-align: right; }
+.tbq-table .is-mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+.tbq-table--dense td { height: var(--row-h-sm); padding-block: var(--space-1); }
+.tbq-table__sub { display: block; font-size: var(--text-sm); color: var(--ink-3); }
+
+/* ── Dòng "tên ……… giá trị" (chấm dẫn, chữ ký của bảng giá web) ── */
+
+.tbq-list { list-style: none; margin: 0; padding: 0; }
+.tbq-row {
+  display: grid;
+  grid-template-columns: auto minmax(var(--space-6), 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: 44px;
+  border-bottom: var(--hairline) solid var(--border);
+  color: var(--ink);
+  text-decoration: none;
+}
+.tbq-list > li:last-child > .tbq-row,
+.tbq-row:last-child { border-bottom: 0; }
+.tbq-row__leader { height: 0; border-bottom: 1px dotted var(--border-strong); transition: border-color var(--dur-fast) var(--ease); }
+.tbq-row__value { color: var(--accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+a.tbq-row:hover .tbq-row__leader { border-bottom-color: var(--accent-line); }
+
+/* ── Dải số liệu (giống dải "Dịch vụ · Danh mục · Gói rẻ nhất" trên web) ── */
+
+.tbq-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0;
+  border-block: var(--hairline) solid var(--border);
+}
+.tbq-metrics > .tbq-metric { padding: var(--space-6) var(--space-6) var(--space-6) 0; }
+.tbq-metrics > .tbq-metric + .tbq-metric { padding-left: var(--space-6); border-left: var(--hairline) solid var(--border); }
+.tbq-metrics .tbq-metric__value { font-size: var(--text-3xl); font-variant-numeric: lining-nums tabular-nums; } /* số kiểu cũ "ı8" khó đọc trên dashboard */
+.tbq-metrics dt, .tbq-metrics dd { margin: 0; }
+
+/* ── Chấm trạng thái + badge bổ sung ───────────────────────────── */
+
+.tbq-status { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--ink-2); white-space: nowrap; }
+.tbq-status::before { content: ""; width: 7px; height: 7px; border-radius: var(--radius-round); background: var(--idle); flex: none; }
+.tbq-status--success::before { background: var(--success); }
+.tbq-status--warning::before { background: var(--warning); }
+.tbq-status--danger::before  { background: var(--danger); }
+.tbq-status--info::before    { background: var(--info); }
+.tbq-status--plum::before    { background: var(--plum); }
+.tbq-status--live::before    { animation: tbq-pulse 1.6s var(--ease) infinite; }
+
+.tbq-badge--warning { color: var(--warning-text); background: var(--warning-bg); border-color: var(--warning); }
+.tbq-badge--info    { color: var(--info-text);    background: var(--info-bg);    border-color: var(--info); }
+.tbq-badge--plum    { color: var(--plum-text);    background: var(--plum-bg);    border-color: var(--plum); }
+.tbq-notice--info   { color: var(--info-text);    background: var(--info-bg);    border-left-color: var(--info); }
+
+/* ── Ô chọn, ô nhiều dòng, công tắc ────────────────────────────── */
+
+select.tbq-input {
+  appearance: none;
+  padding-right: var(--space-10);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(-45deg, transparent 50%, var(--ink-3) 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+textarea.tbq-input { min-height: 96px; resize: vertical; line-height: var(--leading-body); }
+
+.tbq-switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  background: var(--wash);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.tbq-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: var(--ink-3);
+  border-radius: var(--radius-round);
+  transition: translate var(--dur-base) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.tbq-switch:checked { background: var(--accent-bg); border-color: var(--accent-line); }
+.tbq-switch:checked::after { translate: 18px 0; background: var(--accent-icon); }
+.tbq-switch:disabled { opacity: .5; cursor: not-allowed; }
+.tbq-check { display: inline-flex; align-items: center; gap: var(--space-3); min-height: 40px; font-size: var(--text-md); color: var(--ink); cursor: pointer; }
+
+/* ── Hộp thoại (dùng <dialog> gốc) ─────────────────────────────── */
+
+.tbq-dialog {
+  width: min(100% - 2 * var(--space-4), 520px);
+  max-height: min(100dvh - 2 * var(--space-8), 760px);
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--hairline) solid var(--border);
+  border-top: 2px solid var(--accent-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+.tbq-dialog::backdrop { background: var(--scrim); }
+.tbq-dialog[open] { animation: tbq-rise var(--dur-base) var(--ease); }
+.tbq-dialog__head { padding: var(--space-6) var(--space-6) 0; }
+.tbq-dialog__body { padding: var(--space-4) var(--space-6); }
+.tbq-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6) var(--space-6);
+}
+
+/* ── Thông báo nổi ─────────────────────────────────────────────── */
+
+.tbq-toasts {
+  position: fixed;
+  inset: auto var(--space-6) var(--space-6) auto;
+  z-index: var(--z-toast);
+  display: grid;
+  gap: var(--space-2);
+  justify-items: end;
+}
+.tbq-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 380px;
+  padding: var(--space-3) var(--space-4);
+  font: var(--text-md)/var(--leading-snug) var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--hairline) solid var(--border);
+  border-left: 2px solid var(--accent-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  animation: tbq-rise var(--dur-base) var(--ease);
+}
+.tbq-toast--success { border-left-color: var(--success); }
+.tbq-toast--danger  { border-left-color: var(--danger); }
+
+/* ── Linh tinh ─────────────────────────────────────────────────── */
+
+.tbq-kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 6px;
+  font: var(--text-2xs)/1.5 var(--font-mono);
+  text-align: center;
+  color: var(--ink-2);
+  border: var(--hairline) solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius);
+}
+
+.tbq-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-16) var(--space-6);
+  text-align: center;
+  color: var(--ink-3);
+}
+.tbq-empty > .tbq-subtitle { color: var(--ink-2); }
+
+.tbq-divider { height: 0; margin: var(--space-6) 0; border: 0; border-top: var(--hairline) solid var(--border); }
+
+.tbq-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  font: var(--weight-medium) var(--text-md)/1 var(--font-display);
+  color: var(--accent-text);
+  background: var(--accent-bg);
+  border: var(--hairline) solid var(--accent-line);
+  border-radius: var(--radius-round);
+}
+
+.tbq-skeleton {
+  display: block;
+  height: 1em;
+  background: linear-gradient(90deg, var(--wash) 0%, var(--hover) 50%, var(--wash) 100%) 0 0 / 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: tbq-shimmer 1.4s linear infinite;
+}
+
+@keyframes tbq-rise    { from { opacity: 0; translate: 0 6px; } }
+@keyframes tbq-pulse   { 50% { opacity: .35; } }
+@keyframes tbq-shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tbq-status--live::before, .tbq-skeleton { animation: none; }
+}

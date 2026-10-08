@@ -1,4 +1,13 @@
-# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.6 ngày 08/10/2026
+# Gửi Tài — Cọ Láp (TBQ "Công cụ làm việc miễn phí"), bản 2.0.7 ngày 08/10/2026
+
+## Mới ở 2.0.7 — API giữ nguyên (src/routes/hooks.js không đổi), Tài không phải sửa gì
+
+- Nút 2 khối QS `/ve-chung-toi` giờ chuyển (302) tới link "Về chúng tôi" Long đặt ở Quản trị › Cài đặt (`aboutUrl`, mặc định https://tiembanquyen.com).
+  Link hỏng thì vẫn hiện trang giới thiệu cũ. Phía QS giữ nguyên đường dẫn.
+- Trang Xong của khách (`/me`) có thêm "Tài khoản đã nhận" để chép lại; nút "Mở CapCut" mở app trên điện thoại.
+- Phần còn lại là trang Quản trị của Long (rà từng trang, sửa lỗi cụt): quán QS tự thêm có nhãn "QS tự thêm"; giờ mở = giờ đóng không còn làm quán đóng cả ngày;
+  Cài đặt kiểm khoảng từng ô; Nhật ký đọc được sự kiện QS (`qs_api_cafe_opened` không còn ghi nhầm "điền mã vào trang quán").
+- Database tự thêm cột `rotation_tasks.code_until` lúc khởi động (không cần chạy gì).
 
 ## Mới ở 2.0.4–2.0.6 — chỉ đổi phía khách, API giữ nguyên
 

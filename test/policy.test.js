@@ -51,21 +51,27 @@ test('quản trị: chữ vi phạm không lưu được (tên sự kiện, tên
     const msg = (r) => decodeURIComponent(r.headers.get('location') || '');
 
     const bad = await c.postForm('/admin/settings', { _csrf: csrf, eventTitle: 'Đánh giá 5 sao nhận A.I miễn phí' });
-    assert.match(msg(bad), /eventTitle: nối đánh giá/);
+    // Lỗi → vẽ lại form (giữ chữ đã gõ) kèm lý do.
+    assert.equal(bad.status, 200);
+    assert.match(bad.text, /Chưa lưu: &quot;Tên chương trình trên các trang của Tiệm&quot; — nối đánh giá|Chưa lưu: "Tên chương trình trên các trang của Tiệm" — nối đánh giá/);
     assert.equal(ctx.settings().eventTitle, QS_EVENT.program, 'giữ tên cũ');
     await c.postForm('/admin/settings', { _csrf: csrf, eventTitle: 'Thử A.I Pro 1 ngày' });
     assert.equal(ctx.settings().eventTitle, 'Thử A.I Pro 1 ngày');
 
     const tool = { _csrf: csrf, slug: 'chatgpt', name: 'ChatGPT Plus', login_type: 'email_code', enabled: '1' };
     const r = await c.postForm(`/admin/tools/${tools.chatgpt.id}`, { ...tool, instructions: 'Dùng thoải mái.\nNhớ đánh giá quán 5 sao để giữ tài khoản nhé' });
-    assert.match(msg(r), /Không lưu: "Nhớ đánh giá quán 5 sao/);
+    // Lỗi → vẽ lại form (giữ chữ đã gõ) kèm lý do, không chuyển trang.
+    assert.equal(r.status, 200);
+    assert.match(r.text, /Chưa lưu: &quot;Nhớ đánh giá quán 5 sao|Chưa lưu: "Nhớ đánh giá quán 5 sao/);
+    assert.match(r.text, /Dùng thoải mái\.\nNhớ đánh giá quán 5 sao/, 'hướng dẫn vừa gõ còn nguyên trong ô');
     assert.equal(get(ctx.db, 'SELECT instructions FROM tools WHERE id = ?', tools.chatgpt.id).instructions, null);
-    await c.postForm(`/admin/tools/${tools.chatgpt.id}`, { ...tool, instructions: 'Chọn "Tiếp tục với email", không chọn Google.' });
+    const ok = await c.postForm(`/admin/tools/${tools.chatgpt.id}`, { ...tool, instructions: 'Chọn "Tiếp tục với email", không chọn Google.' });
+    assert.equal(ok.status, 303, ok.text.match(/Chưa lưu[^<]*/)?.[0]);
     assert.match(get(ctx.db, 'SELECT instructions FROM tools WHERE id = ?', tools.chatgpt.id).instructions, /Tiếp tục với email/);
 
     const base = { _csrf: csrf, name: cafe.name, presence_mode: 'code_or_wifi', daily_quota: '20' };
-    assert.match(msg(await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'quan_b' })), /chỉ gồm chữ thường/);
-    assert.match(msg(await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'a'.repeat(64) })), /chỉ gồm chữ thường/);
+    assert.match((await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'quan_b' })).text, /chỉ gồm chữ thường/);
+    assert.match((await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'a'.repeat(64) })).text, /chỉ gồm chữ thường/);
     await c.postForm(`/admin/cafes/${cafe.id}`, { ...base, qs_slug: 'K3X9Q' });
     assert.equal(get(ctx.db, 'SELECT qs_slug FROM cafes WHERE id = ?', cafe.id).qs_slug, 'k3x9q');
   } finally {

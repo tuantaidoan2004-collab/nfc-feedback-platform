@@ -32,7 +32,9 @@ export const displayPhone = (p) => (p && !p.includes('@') && p.startsWith('84') 
 
 /** 84912345678 → 0912***678; abcdef@gmail.com → ab***@gmail.com */
 export function maskPhone(p) {
-  if (p && p.includes('@') && !p.startsWith('del:')) {
+  // Khách đã "Xoá dữ liệu cá nhân": phone = del:<băm> → không hiện "del:***b63".
+  if (p && p.startsWith('del:')) return '(đã xoá dữ liệu)';
+  if (p && p.includes('@')) {
     const [u, d] = p.split('@');
     return `${u.slice(0, Math.min(2, Math.max(1, u.length - 1)))}***@${d}`;
   }

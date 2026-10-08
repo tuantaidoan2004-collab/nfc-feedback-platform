@@ -273,7 +273,8 @@ export function endSlot(ctx, slotId, { status, reason, by = 'system' }) {
           run(ctx.db, "UPDATE accounts SET status = 'retired', status_reason = ? WHERE id = ? AND status = 'ready'",
             uses >= account.max_holders ? 'Đã dùng hết lượt' : 'Người dùng cuối đã hết hạn (Pro dùng thử tính từ lúc tạo tài khoản)', slot.account_id);
         }
-      } else if (tool.rotation_required) {
+      } else if (tool.rotation_required && get(ctx.db, 'SELECT status FROM accounts WHERE id = ?', slot.account_id)?.status !== 'retired') {
+        // Tài khoản đã "Ngừng dùng" thì không giao nữa → không sinh việc đổi mật khẩu (trước đây sinh việc không bỏ được).
         run(ctx.db, "UPDATE accounts SET status = 'needs_rotation', status_reason = ? WHERE id = ? AND status = 'ready'", `Slot #${slotId} kết thúc`, slot.account_id);
         const exists = get(ctx.db, "SELECT 1 FROM rotation_tasks WHERE account_id = ? AND kind = 'rotate' AND status = 'todo'", slot.account_id);
         // Tài khoản dùng chung: hết hạn thì chờ người cuối cùng hết mới tạo việc đổi mật khẩu (đăng xuất mọi thiết bị

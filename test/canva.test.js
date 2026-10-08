@@ -114,3 +114,64 @@ test('Canva: bot báo lỗi 3 lần → thôi giao bot, báo chủ làm tay', as
     assert.equal(ctx.alerts('worker_task_stuck').length, 1);
   } finally { await srv.close(); }
 });
+
+// Rà 08/10/2026: slot kết thúc (thu hồi) lúc bot đang mời → việc mời bị huỷ nhưng bot vẫn mời xong → trước đây không ai gỡ khách.
+// Trang Canva: bot đang làm việc không hiện "Tắt", bot cũ hơn 1 ngày xám, lỗi cũ của việc đã xong không hiện, nhóm ngừng dùng ẩn.
+test('Canva: thu hồi lúc bot đang mời → bot báo xong → tạo việc gỡ; trang Canva hiện đúng trạng thái bot', async () => {
+  const { ctx, srv, canvaId } = await setup();
+  try {
+    const c = await customer(ctx, srv, '0911000009');
+    const claim = await c.post('/api/claim', { toolId: canvaId, inviteEmail: 'khach.tre@gmail.com' });
+    assert.equal(claim.json.status, 'pending_invite', claim.text);
+    const slotId = get(ctx.db, "SELECT id FROM slots WHERE status = 'pending_invite'").id;
+    const bot = srv.client();
+    const next = await bot.post('/worker/tasks/next', { worker: 'mac' }, BOT);
+    assert.equal(next.json.task.kind, 'invite_member');
+
+    const admin = srv.client();
+    await admin.postForm('/admin/login', { password: ctx.config.adminPassword });
+    // Bot đang giữ việc 3 phút không báo về → vẫn "Đang làm việc", không "Tắt".
+    ctx.clock.advance(3 * MIN);
+    let page = await admin.get('/admin/canva');
+    assert.match(page.text, /Đang làm việc/);
+    assert.doesNotMatch(page.text, /Tắt \/ mất kết nối/);
+    assert.match(page.text, /chờ từ/);
+    const csrf = page.text.match(/name="_csrf" value="([^"]+)"/)[1];
+
+    // Chủ thu hồi slot đúng lúc bot đang mời → việc mời bị huỷ.
+    await admin.postForm(`/admin/slots/${slotId}/revoke`, { _csrf: csrf });
+    assert.equal(get(ctx.db, 'SELECT status FROM rotation_tasks WHERE id = ?', next.json.task.id).status, 'cancelled');
+    // Bot mời xong rồi báo về → tạo việc gỡ khách.
+    const done = await bot.post(`/worker/tasks/${next.json.task.id}/done`, { worker: 'mac' }, BOT);
+    assert.equal(done.json.ok, true, done.text);
+    const remove = get(ctx.db, "SELECT * FROM rotation_tasks WHERE slot_id = ? AND kind = 'remove_member' AND status = 'todo'", slotId);
+    assert.ok(remove, 'phải có việc gỡ khách');
+    assert.equal(remove.detail, 'khach.tre@gmail.com');
+    // Báo lại lần nữa không tạo trùng.
+    await bot.post(`/worker/tasks/${next.json.task.id}/done`, { worker: 'mac' }, BOT);
+    assert.equal(get(ctx.db, "SELECT COUNT(*) AS n FROM rotation_tasks WHERE slot_id = ? AND kind = 'remove_member'", slotId).n, 1);
+    // Bot nhận việc gỡ, lần 1 lỗi, lần 2 xong → trang không hiện lỗi cũ.
+    const rm = await bot.post('/worker/tasks/next', { worker: 'mac' }, BOT);
+    assert.equal(rm.json.task.kind, 'remove_member');
+    await bot.post(`/worker/tasks/${rm.json.task.id}/fail`, { worker: 'mac', error: 'Không thấy mục xoá' }, BOT);
+    await bot.post('/worker/tasks/next', { worker: 'mac' }, BOT);
+    await bot.post(`/worker/tasks/${rm.json.task.id}/done`, { worker: 'mac' }, BOT);
+    page = await admin.get('/admin/canva');
+    assert.match(page.text, /Đã gỡ khỏi nhóm/);
+    assert.doesNotMatch(page.text, /Không thấy mục xoá/);
+
+    // Bot tên cũ không liên lạc hơn 1 ngày → "Không chạy nữa" (xám), không đỏ mãi. Nhóm ngừng dùng không hiện.
+    run(ctx.db, "INSERT INTO kv(key, value, updated_at) VALUES('worker:bot-cu', 'next', ?)", ctx.now() - 2 * 24 * HOUR);
+    // Bot đổi tên 3 giờ trước (bot mới vẫn chạy) → tên cũ xám luôn, không đợi 1 ngày.
+    run(ctx.db, "INSERT INTO kv(key, value, updated_at) VALUES('worker:bot-doi-ten', 'next', ?)", ctx.now() - 3 * HOUR);
+    run(ctx.db, "INSERT INTO accounts(tool_id, login_email, max_holders, status, created_at) VALUES(?, 'nhom-cu@truong.test', 2, 'retired', ?)", canvaId, ctx.now());
+    run(ctx.db, "UPDATE accounts SET status = 'quarantined' WHERE login_email = 'chu-nhom@truong.test'");
+    page = await admin.get('/admin/canva');
+    assert.match(page.text, /bot-cu<\/td><td><span class="badge[^"]*">Không chạy nữa/);
+    assert.match(page.text, /bot-doi-ten<\/td><td><span class="badge[^"]*">Không chạy nữa/);
+    assert.doesNotMatch(page.text, /nhom-cu@truong\.test/);
+    assert.match(page.text, /không giao/);
+  } finally {
+    await srv.close();
+  }
+});

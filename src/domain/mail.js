@@ -280,7 +280,9 @@ export function ingestMail(ctx, payload) {
     } else if (c.kind === 'new_signin') {
       const recentCode = get(ctx.db, "SELECT 1 FROM code_windows WHERE account_id = ? AND status = 'delivered' AND code_received_at > ?", account.id, now - 15 * MIN);
       const passwordHolder = tool.login_type === 'password' && get(ctx.db, "SELECT 1 FROM slots WHERE account_id = ? AND status = 'active'", account.id);
-      if (recentCode || passwordHolder) verdict = 'ignored';
+      // Chủ vừa bấm "Lấy mã đăng nhập" ở việc tay → thư "đăng nhập mới" là của chủ.
+      const ownerTask = get(ctx.db, "SELECT 1 FROM rotation_tasks WHERE account_id = ? AND status = 'todo' AND code_until >= ?", account.id, now - 15 * MIN);
+      if (recentCode || passwordHolder || ownerTask) verdict = 'ignored';
       else {
         verdict = 'alerted';
         logEvent(ctx, { ...base, type: 'mail_new_signin', severity: 'yellow' });

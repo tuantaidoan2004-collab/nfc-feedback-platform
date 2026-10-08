@@ -4,8 +4,9 @@ import { logEvent } from './lib/events.js';
 import { MIN, HOUR, DAY } from './lib/time.js';
 import { expireDueSlots, blockingHolders } from './domain/claims.js';
 import { expireWindows, escalatePendingOrphans } from './domain/codes.js';
-import { escalateTask } from './routes/worker.js';
+import { escalateTask, rotateBotSeen } from './routes/worker.js';
 import { checkMailRoute, MAIL_ROUTE_EVERY } from './domain/mail-route.js';
+import { scrubErased } from './domain/auth.js';
 
 const kvGet = (ctx, key) => get(ctx.db, 'SELECT value FROM kv WHERE key = ?', key)?.value ?? null;
 const kvSet = (ctx, key, value) => run(ctx.db,
@@ -20,7 +21,10 @@ export function watchWorkerTasks(ctx) {
      WHERE r.status = 'todo' AND r.alerted_at IS NULL AND r.created_at < ?
        AND ((t.auto_worker = 1 AND r.kind IN ('invite_member', 'remove_member')) OR (t.workspace_bot = 1 AND r.kind = 'rotate'))`, cut);
   let n = 0;
+  const rotateBot = rotateBotSeen(ctx);
   for (const r of due) {
+    // Không có bot làm mới nào chạy → việc làm mới là của chủ (số đỏ ở Việc tay), không báo "bot chưa làm xong".
+    if (r.kind === 'rotate' && !rotateBot) continue;
     // Làm mới ChatGPT: chỉ tính trễ khi đã tới lượt làm (không còn khách thường đang dùng) VÀ không bot nào đang giữ việc.
     if (r.kind === 'rotate') {
       if (blockingHolders(ctx, r.account_id) > 0) continue;
@@ -65,6 +69,7 @@ export function retention(ctx) {
   r.adminSessions = run(ctx.db, 'DELETE FROM admin_sessions WHERE expires_at < ?', now).changes;
   r.rateLimits = run(ctx.db, 'DELETE FROM rate_limits WHERE reset_at < ?', now).changes;
   r.codeWindows = run(ctx.db, "DELETE FROM code_windows WHERE status != 'open' AND opened_at < ?", evCut).changes;
+  r.erased = scrubErased(ctx);
   return r;
 }
 

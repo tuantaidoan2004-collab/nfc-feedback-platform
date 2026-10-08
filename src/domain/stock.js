@@ -55,6 +55,10 @@ export function parseAccountLine(tool, line) {
   const totp = tool.login_type === 'password_totp';
   const r = validateAccount(tool, { email: f[0], password: pw ? f[1] : null, totp: totp ? f[2] : null, holders: totp ? f[3] : pw ? f[2] : f[1] });
   if (r.code && !r.email) r.email = line.slice(0, 60);
+  // Dán cả cột mật khẩu từ Google Sheet cho món chỉ cần email (đăng nhập bằng mã) → nói rõ thay vì "số khách phải từ 1 đến 50".
+  if (r.code === 'bad_holders' && !pw && tool.login_type !== 'team_invite' && !/^\d+$/.test(f[1] ?? '')) {
+    return { email: r.email, code: 'extra_column', message: 'món này chỉ cần email (đăng nhập bằng mã) — bỏ cột mật khẩu' };
+  }
   return r;
 }
 
@@ -153,6 +157,12 @@ export function stockSummary(ctx) {
   });
 }
 
+/** Bỏ việc đổi mật khẩu / làm mới đang chờ của tài khoản đã ngừng dùng. → số việc đã bỏ */
+export function dropRotateTasks(ctx, accountId, by) {
+  return run(ctx.db, "UPDATE rotation_tasks SET status = 'cancelled', done_at = ?, done_by = ?, lease_until = NULL WHERE account_id = ? AND kind = 'rotate' AND status = 'todo'",
+    ctx.now(), by, accountId).changes;
+}
+
 /**
  * Sửa 1 tài khoản (API kho). patch: {label, holders, password, totp, keepPassword, status: 'ready' | 'retired' | 'quarantined'}.
  *  - Tài khoản đang có việc "đổi mật khẩu / làm mới" (sau lượt dùng, cách ly, 6h sáng): gửi mật khẩu mới hoặc status 'ready'
@@ -207,6 +217,8 @@ export function updateAccount(ctx, accountId, patch, by) {
       if (totp) run(ctx.db, 'UPDATE accounts SET totp_enc = ? WHERE id = ?', encrypt(totp, ctx.config.dataKey), a.id);
       if (patch.status === 'retired' && a.status !== 'retired') {
         run(ctx.db, "UPDATE accounts SET status = 'retired', status_reason = ? WHERE id = ?", `Ngừng qua API bởi ${by}`, a.id);
+        // Không giao nữa → việc đổi mật khẩu / làm mới đang chờ thành thừa (mời / gỡ nhóm Canva vẫn giữ: khách còn phải được gỡ).
+        dropRotateTasks(ctx, a.id, by);
         const busy = blockingHolders(ctx, a.id);
         message = busy ? `Đã ngừng giao. ${busy} khách đang dùng vẫn dùng tới hết giờ.` : 'Đã ngừng giao.';
       } else if (patch.status === 'ready' && a.status !== 'ready') {

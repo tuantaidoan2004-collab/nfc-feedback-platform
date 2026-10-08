@@ -13,7 +13,7 @@ import { safeEqual } from '../lib/crypto.js';
 import { hit } from '../lib/ratelimit.js';
 import { logEvent } from '../lib/events.js';
 import { MIN } from '../lib/time.js';
-import { completeTask, blockingHolders, keptSeats, workspaceName } from '../domain/claims.js';
+import { completeTask, createTask, blockingHolders, keptSeats, workspaceName } from '../domain/claims.js';
 
 export const WORKER_KINDS = ['invite_member', 'remove_member', 'rotate'];
 const CANVA_KINDS = ['invite_member', 'remove_member'];
@@ -27,6 +27,16 @@ function auth(rq) {
   if (h.startsWith('Bearer ') && safeEqual(h.slice(7), token)) return;
   if (hit(rq.ctx, `workerfail:${rq.ip}`, 5, 10 * MIN).ok) logEvent(rq.ctx, { type: 'worker_unauthorized', severity: 'yellow', ip: rq.ip });
   throw new HttpError(401, 'Sai mã bot');
+}
+
+// Bot "làm mới" (rotate: xoá Project, đăng xuất, tạo lại Project) chỉ tính là có khi đã hỏi việc rotate gần đây.
+// Chưa có bot nào làm việc này (08/10/2026) → việc làm mới là việc của chủ: không ghi "Bot sẽ tự làm", không báo đỏ "bot chưa làm xong".
+const ROTATE_BOT_KEY = 'worker-kind:rotate';
+const ROTATE_BOT_FRESH = 30 * MIN;
+/** Lúc bot làm mới hỏi việc lần cuối nếu trong 30 phút qua, không thì null. */
+export function rotateBotSeen(ctx) {
+  const t = get(ctx.db, 'SELECT updated_at FROM kv WHERE key = ?', ROTATE_BOT_KEY)?.updated_at;
+  return t && t > ctx.now() - ROTATE_BOT_FRESH ? t : null;
 }
 
 const workerName = (body) => String(body?.worker || 'bot').replace(/[^\w.-]/g, '').slice(0, 40) || 'bot';
@@ -70,6 +80,10 @@ export function registerWorkerRoutes(router) {
     });
     run(ctx.db, 'INSERT INTO kv(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
       `worker:${worker}`, 'next', now);
+    if (kinds.includes('rotate')) {
+      run(ctx.db, 'INSERT INTO kv(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ROTATE_BOT_KEY, worker, now);
+    }
     if (!task) return json(rq, { ok: true, task: null });
     logEvent(ctx, { type: 'worker_task_taken', accountId: task.account_id, slotId: task.slot_id, data: { taskId: task.id, worker, attempt: task.attempts + 1 } });
     const out = {
@@ -94,6 +108,16 @@ export function registerWorkerRoutes(router) {
     const body = await rq.json();
     const taskId = Number(rq.params.id) || 0;
     const task = get(rq.ctx.db, "SELECT kind FROM rotation_tasks WHERE id = ? AND status = 'todo'", taskId);
+    // Slot kết thúc (khách huỷ / bị thu hồi) lúc bot đang mời → việc mời đã bị huỷ, nhưng bot vẫn mời xong: khách đã ở trong nhóm
+    // mà không ai gỡ. Tạo việc gỡ ngay (trước 08/10/2026: trả "đã xử lý rồi", khách ở lại nhóm Canva Pro mãi).
+    const late = task ? null : get(rq.ctx.db,
+      `SELECT r.*, s.status AS slot_status FROM rotation_tasks r JOIN slots s ON s.id = r.slot_id
+       WHERE r.id = ? AND r.kind = 'invite_member' AND r.status = 'cancelled' AND s.status NOT IN ('active', 'pending_invite')`, taskId);
+    if (late && !get(rq.ctx.db, "SELECT 1 FROM rotation_tasks WHERE slot_id = ? AND kind = 'remove_member'", late.slot_id)) {
+      createTask(rq.ctx, { accountId: late.account_id, slotId: late.slot_id, kind: 'remove_member', reason: 'slot_revoked', detail: late.detail });
+      logEvent(rq.ctx, { type: 'worker_late_invite', severity: 'yellow', accountId: late.account_id, slotId: late.slot_id, data: { taskId, worker: workerName(body) } });
+      return json(rq, { ok: true, message: 'Slot đã kết thúc trong lúc mời — đã tạo việc gỡ khách ra khỏi nhóm.' });
+    }
     // Làm mới ChatGPT: giữ mật khẩu (khách cũ không có mã 2FA nên không vào lại được), lưu link Project bot vừa tạo.
     const r = completeTask(rq.ctx, taskId, task?.kind === 'rotate'
       ? { by: `bot:${workerName(body)}`, keepPassword: true, workspaces: Array.isArray(body.workspaces) ? body.workspaces : null }

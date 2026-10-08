@@ -52,7 +52,39 @@ export const SETTING_DEFS = {
   consentVersion: ['2026-10', 'Phiên bản điều khoản đồng ý'],
   eventTitle: [QS_EVENT.program, 'Tên chương trình trên các trang của Tiệm (khối trên trang quán của QS tên "Công cụ làm việc", nút "Nhận công cụ làm việc miễn phí")'],
   zaloUrl: ['https://zalo.me/0988428496', 'Link Zalo mua gói trả phí'],
+  aboutUrl: ['https://tiembanquyen.com', 'Nút "Về chúng tôi" (khối Công cụ làm việc trên trang quán QS) mở link này — dán link tab "Về chúng tôi" trên tiembanquyen.com khi làm xong. Phải bắt đầu bằng https://'],
   timezoneOffsetMin: [420, 'Múi giờ (phút so với UTC)'],
+};
+
+/**
+ * Khoảng cho phép của tham số số (số nguyên). Trước đây nhận mọi số → gõ nhầm 1 ô là hỏng cả hệ thống
+ * (vd. OTP hết hạn sau 0 giây = không ai đăng nhập được; xoá nhật ký sau 0 ngày = mất hết nhật ký).
+ */
+export const SETTING_RANGE = {
+  activeSlotsPerCustomer: [1, 10], toolsPerDayPerCustomer: [1, 10], monthlyCapPerCustomer: [1, 100], maxPhonesPerDevice: [1, 10],
+  cardDailyClaims: [1, 500], reportsPerHour: [1, 60],
+  otpTtlSec: [60, 1800], otpMaxAttempts: [1, 20], otpPerPhonePerHour: [1, 30], otpPerDevicePerHour: [1, 60], otpPerIpPerHour: [1, 1000], sessionDays: [1, 90],
+  ticketTtlMin: [5, 240], entryTtlMin: [5, 240],
+  tapCounterMaxJump: [1, 100000], cardTapsPerHourAlert: [1, 10000], cardTapsPerHourLock: [1, 10000],
+  codeWindowSec: [60, 900], workerAlertMin: [1, 240], endHourCloseMin: [0, 240], voucherNeedsCafe: [0, 1],
+  autoVoucherPerDay: [0, 20], autoVoucherTtlMin: [5, 1440], qsVoucherPerCafeDay: [0, 1000], voucherFailsPer10Min: [1, 50],
+  maxExtendDays: [1, 30], codeMaxRequests: [1, 20],
+  riskYellow: [1, 1000], riskRed: [1, 1000], riskDecayPerDay: [0, 100], peakStartHour: [0, 23], peakEndHour: [0, 23],
+  retentionMailBodyHours: [1, 720], retentionIpDays: [1, 365], retentionEventsDays: [7, 3650],
+  timezoneOffsetMin: [-720, 840],
+};
+
+/** Nhóm trên trang Cài đặt: [tiêu đề, tham số đầu nhóm] (theo thứ tự SETTING_DEFS). */
+export const SETTING_GROUPS = [
+  ['Hạn mức khách', 'activeSlotsPerCustomer'], ['OTP & phiên đăng nhập', 'otpTtlSec'], ['Khách đang ở quán', 'ticketTtlMin'],
+  ['Thẻ NFC riêng của Tiệm', 'tapCounterMaxJump'], ['Lấy mã, phiếu, gia hạn', 'codeWindowSec'], ['Điểm rủi ro', 'riskYellow'],
+  ['Lưu trữ dữ liệu (Luật BVDLCN)', 'retentionMailBodyHours'], ['Khác', 'consentVersion'],
+];
+
+/** Ô 2 lựa chọn → hiện thành ô chọn thay vì ô gõ. */
+export const SETTING_CHOICES = {
+  voucherNeedsCafe: { 0: '0 — có mã phiếu là lấy được mã', 1: '1 — cần mã phiếu và phải đang ở quán' },
+  yellowAction: { reject: 'reject — từ chối', approve: 'approve — cho qua' },
 };
 
 export const DEFAULT_SETTINGS = Object.fromEntries(Object.entries(SETTING_DEFS).map(([k, [v]]) => [k, v]));
@@ -66,20 +98,41 @@ export function loadSettings(db) {
   return s;
 }
 
-/** Ép kiểu theo giá trị mặc định rồi lưu. Ném lỗi nếu key lạ hoặc sai kiểu. */
-export function saveSetting(db, key, value) {
+/** Ép kiểu theo giá trị mặc định + kiểm khoảng. → giá trị đã ép. Ném lỗi (câu cho chủ đọc) nếu sai. */
+export function checkSetting(key, value) {
   if (!(key in SETTING_DEFS)) throw new Error(`Không có tham số ${key}`);
   const def = SETTING_DEFS[key][0];
   let v = value;
+  if (typeof v === 'string') v = v.trim();
   if (v === '' || v === undefined) v = null;
   if (v !== null && (typeof def === 'number' || (def === null && /Hour$/.test(key)))) {
     v = Number(v);
     if (!Number.isFinite(v)) throw new Error(`${key} phải là số`);
   }
   if (v === null && def !== null) throw new Error(`${key} không được để trống`);
+  const range = SETTING_RANGE[key];
+  if (range && v !== null && (!Number.isInteger(v) || v < range[0] || v > range[1])) throw new Error(`${key} phải là số nguyên từ ${range[0]} đến ${range[1]}`);
   if (key === 'voucherNeedsCafe' && ![0, 1].includes(v)) throw new Error('voucherNeedsCafe chỉ nhận 0 hoặc 1');
   if (key === 'workspacePrefix' && !/^[\p{L}\p{N} _-]{1,20}$/u.test(String(v))) throw new Error('workspacePrefix: 1–20 chữ / số / khoảng trắng');
+  if (key === 'aboutUrl' && !/^https:\/\/[^\s"'<>]+$/.test(String(v))) throw new Error('aboutUrl phải là link bắt đầu bằng https://');
+  // Link Zalo nằm trên mọi trang khách → chỉ nhận https:// (trước nhận cả "javascript:…").
+  if (key === 'zaloUrl' && !/^https:\/\/[^\s"'<>]+$/.test(String(v))) throw new Error('zaloUrl phải là link bắt đầu bằng https://');
   if (key === 'yellowAction' && !['reject', 'approve'].includes(v)) throw new Error('yellowAction chỉ nhận reject hoặc approve');
+  if ((key === 'consentVersion' || key === 'eventTitle') && String(v).length > (key === 'eventTitle' ? 80 : 20)) throw new Error(`${key} dài quá`);
+  return v;
+}
+
+/** Kiểm các tham số đi cặp (sau khi gộp giá trị mới vào giá trị đang dùng). → [câu lỗi] */
+export function pairProblems(s) {
+  const out = [];
+  if (s.riskYellow >= s.riskRed) out.push(`Điểm vàng (${s.riskYellow}) phải nhỏ hơn điểm từ chối (${s.riskRed})`);
+  if (s.cardTapsPerHourLock < s.cardTapsPerHourAlert) out.push(`Số máy / giờ để tự khoá thẻ (${s.cardTapsPerHourLock}) không được nhỏ hơn số máy để báo động (${s.cardTapsPerHourAlert})`);
+  if (s.timezoneOffsetMin % 15) out.push('Múi giờ phải là bội của 15 phút (Việt Nam: 420)');
+  return out;
+}
+
+export function saveSetting(db, key, value) {
+  const v = checkSetting(key, value);
   run(db, 'INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(v));
 }
 

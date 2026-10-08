@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS mails (
   kind TEXT NOT NULL,                        -- login_code | magic_link | password_reset | security_alert | billing | other | unknown_recipient
   code TEXT,
   window_id INTEGER,
-  verdict TEXT,                              -- matched | orphan | quarantined | alerted | ignored | parse_failed
+  verdict TEXT,                              -- matched | orphan | owner (chủ đang làm việc tay) | quarantined | alerted | ignored | parse_failed
   received_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS mails_account_time ON mails(account_id, received_at);
@@ -251,6 +251,7 @@ CREATE TABLE IF NOT EXISTS rotation_tasks (
   attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
   alerted_at INTEGER,                        -- đã báo chủ (bot chưa làm xong / làm hỏng)
+  code_until INTEGER,                        -- chủ bấm "Lấy mã đăng nhập": mã về hộp thư kho trước lúc này là của chủ (không báo mồ côi)
   status TEXT NOT NULL DEFAULT 'todo',       -- todo | done | cancelled
   created_at INTEGER NOT NULL,
   done_at INTEGER,

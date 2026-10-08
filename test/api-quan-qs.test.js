@@ -85,7 +85,8 @@ test('quản trị: dán link trang quán QS, để trống tên → tự lấy 
     await c.postForm('/admin/login', { password: ctx.config.adminPassword });
     const csrf = /data-csrf="([^"]+)"/.exec((await c.get('/admin')).text)[1];
     const bad = await c.postForm('/admin/cafes', { _csrf: csrf, qs_slug: 'https://quitesensational-review-bio.com/khongco1', daily_quota: '20' });
-    assert.match(decodeURIComponent(bad.headers.get('location')), /Không mở được trang quán QS/);
+    assert.match(bad.text, /Chưa thêm: không mở được trang quán QS/);
+    assert.match(bad.text, /value="https:\/\/quitesensational-review-bio.com\/khongco1"/, 'giữ link vừa dán');
     assert.equal(get(ctx.db, 'SELECT COUNT(*) AS n FROM cafes').n, 0);
     const ok = await c.postForm('/admin/cafes', { _csrf: csrf, qs_slug: 'https://quitesensational-review-bio.com/sakz8', daily_quota: '20' });
     assert.equal(ok.status, 303);

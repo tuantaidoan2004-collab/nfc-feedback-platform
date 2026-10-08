@@ -1,12 +1,12 @@
 // Nhận diện máy (cookie "did"), OTP qua email / SMS, phiên đăng nhập (cookie "sid"), xoá dữ liệu cá nhân.
-import { get, run, tx } from '../db/index.js';
+import { get, all, run, tx } from '../db/index.js';
 import { randomToken, randomDigits, sha256, hmac, safeEqual } from '../lib/crypto.js';
 import { normalizeLogin, phoneTombstone } from '../lib/phone.js';
 import { hit, peek } from '../lib/ratelimit.js';
 import { logEvent } from '../lib/events.js';
 import { MIN, HOUR, DAY } from '../lib/time.js';
 import { isCustomerLocked } from './risk.js';
-import { MSG } from './claims.js';
+import { MSG, endSlot } from './claims.js';
 
 export { deviceOtherPhones } from './presence.js';
 
@@ -187,11 +187,28 @@ export function eraseCustomer(ctx, customerId, by = 'admin') {
     const c = get(ctx.db, 'SELECT * FROM customers WHERE id = ?', customerId);
     if (!c) return { ok: false, message: 'Không tìm thấy khách.' };
     if (c.phone.startsWith('del:')) return { ok: false, message: 'Dữ liệu của khách này đã được xoá trước đó.' };
+    // Khách đã xoá dữ liệu thì không đăng nhập lại được nữa → kết thúc slot còn chạy (Canva: giao bot gỡ khỏi nhóm, việc gỡ giữ email tới khi xong).
+    const live = all(ctx.db, "SELECT id FROM slots WHERE customer_id = ? AND status IN ('active', 'pending_approval', 'pending_invite')", customerId);
+    for (const s of live) endSlot(ctx, s.id, { status: 'revoked', reason: 'customer_erased', by });
     run(ctx.db, 'UPDATE customers SET phone = ?, note = NULL WHERE id = ?', phoneTombstone(ctx.config.appSecret, c.phone), customerId);
     run(ctx.db, 'DELETE FROM sessions WHERE customer_id = ?', customerId);
     run(ctx.db, 'DELETE FROM otps WHERE phone = ?', c.phone);
     run(ctx.db, 'UPDATE events SET ip = NULL, data = NULL WHERE customer_id = ?', customerId);
-    logEvent(ctx, { type: 'customer_erased', customerId, data: { by } });
-    return { ok: true, message: 'Đã xoá dữ liệu cá nhân. Hạn mức cũ vẫn được giữ.' };
+    scrubErased(ctx);
+    logEvent(ctx, { type: 'customer_erased', customerId, data: { by, endedSlots: live.length } });
+    return { ok: true, message: `Đã xoá dữ liệu cá nhân${live.length ? ` và kết thúc ${live.length} slot đang chạy` : ''}. Hạn mức cũ vẫn được giữ.` };
   });
+}
+
+/**
+ * Xoá nốt email Canva khách tự nhập (slots.invite_email, rotation_tasks.detail) của khách đã xoá dữ liệu. Việc gỡ khỏi nhóm còn chờ
+ * thì giữ email tới khi bot / chủ làm xong (jobs gọi lại mỗi giờ). Trước 08/10/2026: "Xoá dữ liệu cá nhân" bỏ sót email này.
+ */
+export function scrubErased(ctx) {
+  const erased = "SELECT id FROM customers WHERE phone LIKE 'del:%'";
+  const slots = run(ctx.db, `UPDATE slots SET invite_email = NULL WHERE invite_email IS NOT NULL AND customer_id IN (${erased})
+    AND status NOT IN ('active', 'pending_approval', 'pending_invite')`).changes;
+  const tasks = run(ctx.db, `UPDATE rotation_tasks SET detail = NULL WHERE detail IS NOT NULL AND status != 'todo'
+    AND kind IN ('invite_member', 'remove_member') AND slot_id IN (SELECT id FROM slots WHERE customer_id IN (${erased}))`).changes;
+  return slots + tasks;
 }

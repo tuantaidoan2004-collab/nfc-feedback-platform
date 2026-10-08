@@ -81,6 +81,25 @@
     if (b) { e.preventDefault(); copy(b.dataset.copy, b); }
   });
 
+  // ---------- Mở app: nút có data-app (CapCut) → điện thoại mở thẳng app thay vì trang web ----------
+  // iPhone: scheme của app. Android: intent:// kèm tên gói — chưa cài thì Chrome tự mở Play Store.
+  // Máy tính và trình duyệt trong app (Zalo, Facebook… thường chặn scheme lạ, Android còn ra trang lỗi) giữ link web như cũ.
+  const ua = navigator.userAgent;
+  const android = /Android/i.test(ua);
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const inApp = /; wv\)|FBAN|FBAV|Instagram|Zalo|Line\//i.test(ua) || (ios && !/Safari\//.test(ua));
+  if ((android || ios) && !inApp) {
+    $$('[data-app-miss]').forEach((p) => { p.hidden = false; });
+    $$('[data-app-get]').forEach((a) => { a.href = android ? a.dataset.android : a.dataset.ios; });
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[data-app]');
+      if (!a) return;
+      e.preventDefault();
+      const [scheme, rest] = a.dataset.app.split('://');
+      location.href = android ? `intent://${rest}#Intent;scheme=${scheme};package=${a.dataset.appAndroid};end` : a.dataset.app;
+    });
+  }
+
   // ---------- Đăng xuất ----------
   $$('[data-act=logout]').forEach((b) => b.addEventListener('click', async () => {
     await api('/api/logout', {});

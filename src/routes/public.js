@@ -64,9 +64,14 @@ export function registerPublicRoutes(router) {
 
   router.get('/privacy', (rq) => rq.sendHtml(200, privacyPage(rq.ctx)));
 
-  // "Về chúng tôi": nút thứ 2 trong khối "Công cụ làm việc" trên trang quán (QS gắn ?shop=<mã quán>). Chỉ là trang giới
-  // thiệu: không ghi lượt vào, không cần đang ở quán. Nút "Nhận công cụ" trên trang này quay về đúng quán.
-  router.get('/ve-chung-toi', (rq) => rq.sendHtml(200, aboutPage(rq.ctx, { shop: shopParam(rq.query.shop) })));
+  // "Về chúng tôi": nút thứ 2 trong khối "Công cụ làm việc" trên trang quán (QS gắn ?shop=<mã quán>). Chủ chọn 08/10/2026:
+  // mở thẳng web tiembanquyen.com (link ở Cài đặt → aboutUrl, đổi sang tab "Về chúng tôi" khi web làm xong) — QS không phải sửa gì.
+  // Link trong Cài đặt hỏng (không phải https) → vẫn hiện trang giới thiệu cũ của TBQ thay vì lỗi.
+  router.get('/ve-chung-toi', (rq) => {
+    const url = String(rq.ctx.settings().aboutUrl || '');
+    if (/^https:\/\/[^\s"'<>]+$/.test(url)) return rq.send(302, '', { Location: url });
+    rq.sendHtml(200, aboutPage(rq.ctx, { shop: shopParam(rq.query.shop) }));
+  });
 
   // Lối vào 1 (quán có QS): nút "Nhận công cụ làm việc miễn phí" trong khối "Công cụ làm việc" trên trang quán của QS.
   // QS gắn mã quán vào link (/qs/<mã quán QS>) và, khi khách mở trang quán bằng thẻ / mã QR trên bàn, một vé ?t=…

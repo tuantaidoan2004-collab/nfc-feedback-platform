@@ -205,6 +205,18 @@ export function voidVoucher(ctx, id, by = 'admin') {
   return r.changes > 0;
 }
 
+/** Lô phiếu hệ thống tự cấp (chạm thẻ / trang quán QS) — không in, không huỷ cả lô. */
+export const isAutoBatch = (batch) => String(batch).startsWith(`${AUTO_BATCH}-`) || String(batch).startsWith(`${QS_API_BATCH}-`);
+export const autoBatchSql = (col = 'batch') => `(${col} LIKE '${AUTO_BATCH}-%' OR ${col} LIKE '${QS_API_BATCH}-%')`;
+
+/** Huỷ mọi mã còn dùng được của 1 lô in (mất xấp phiếu). → số mã vừa huỷ. */
+export function voidBatch(ctx, batch, by = 'admin') {
+  if (!batch || isAutoBatch(batch)) return 0;
+  const n = run(ctx.db, "UPDATE vouchers SET status = 'void' WHERE batch = ? AND status = 'active'", String(batch)).changes;
+  if (n) logEvent(ctx, { type: 'voucher_void', data: { batch, count: n, by } });
+  return n;
+}
+
 /** Gỡ SĐT khỏi mã vĩnh viễn (khách đổi số / nhân viên mới). */
 export function unbindVoucher(ctx, id, by = 'admin') {
   const r = run(ctx.db, "UPDATE vouchers SET customer_id = NULL WHERE id = ? AND kind = 'forever' AND customer_id IS NOT NULL", id);
