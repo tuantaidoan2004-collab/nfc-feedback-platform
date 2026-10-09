@@ -81,6 +81,16 @@ for (const a of avail) {
 }
 if (avail.length && empty.length === avail.length) bad('Kho trống hết — nhập kho ở Quản trị › Kho tài khoản trước khi mở');
 
+// ---------- Thư báo động cho chủ ----------
+{
+  const raw = String(process.env.ALERT_EMAILS || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const dropped = raw.filter((x) => !config.alertEmails.includes(x.toLowerCase()));
+  if (dropped.length) warn(`ALERT_EMAILS có địa chỉ sai, đang bỏ qua: ${dropped.join(', ')}`);
+  if (!config.alertEmails.length) warn('Chưa có ALERT_EMAILS — sự cố (hết kho, trang khách lỗi, sao lưu trễ…) chỉ hiện trong trang quản trị, không gửi thư cho chủ');
+  else if (!(config.otp.email.accountId && config.otp.email.token && config.otp.email.from)) warn('ALERT_EMAILS cần CF_ACCOUNT_ID, CF_EMAIL_TOKEN và MAIL_FROM để gửi thư');
+  else ok(`Thư báo động gửi tới ${config.alertEmails.join(', ')} (tối đa 1 thư / 15 phút, 12 thư / ngày)`);
+}
+
 // ---------- API kho cho QS (Tài) ----------
 if (config.qsKhoKey) ok('API kho cho QS đang bật (QS_KHO_KEY) — Tài thêm / sửa kho qua /hooks/qs/kho');
 else ok('API kho cho QS đang tắt (QS_KHO_KEY trống) — kho chỉ nhập ở trang quản trị');

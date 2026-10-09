@@ -42,3 +42,30 @@ export function totpNow(secret, nowMs, { step = 30, digits = 6 } = {}) {
     remainSec: step - (Math.floor(nowMs / 1000) % step),
   };
 }
+
+/** Khoá 2FA mới (160 bit, base32) — cho đăng nhập quản trị (ADMIN_TOTP). */
+export function newTotpSecret() {
+  const bytes = crypto.randomBytes(20);
+  let bits = 0, value = 0, out = '';
+  for (const b of bytes) {
+    value = (value << 8) | b;
+    bits += 8;
+    while (bits >= 5) { out += B32[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) out += B32[(value << (5 - bits)) & 31];
+  return out;
+}
+
+/**
+ * Kiểm mã 6 số người dùng gõ: nhận khung 30 giây hiện tại ± window (đồng hồ điện thoại lệch). → số thứ tự khung khớp | null.
+ * Người gọi tự chặn dùng lại (khung ≤ khung đã dùng lần trước).
+ */
+export function verifyTotp(secret, input, nowMs, { window = 1, step = 30 } = {}) {
+  const code = String(input ?? '').replace(/\D/g, '');
+  if (code.length !== 6) return null;
+  const base = Math.floor(nowMs / 1000 / step);
+  for (let d = -window; d <= window; d++) {
+    if (totpNow(secret, (base + d) * step * 1000).code === code) return base + d;
+  }
+  return null;
+}

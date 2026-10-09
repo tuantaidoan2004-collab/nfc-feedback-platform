@@ -7,7 +7,9 @@ import { expireWindows, escalatePendingOrphans } from './domain/codes.js';
 import { escalateTask, rotateBotSeen } from './routes/worker.js';
 import { checkMailRoute, MAIL_ROUTE_EVERY } from './domain/mail-route.js';
 import { scrubErased } from './domain/auth.js';
-import { probePublic, PROBE_EVERY } from './domain/may-chu.js';
+import { probePublic, PROBE_EVERY, fetchMailQuota, QUOTA_EVERY } from './domain/may-chu.js';
+import { sendAlerts } from './domain/bao-dong.js';
+import { canSendEmail } from './services/otp.js';
 
 const kvGet = (ctx, key) => get(ctx.db, 'SELECT value FROM kv WHERE key = ?', key)?.value ?? null;
 const kvSet = (ctx, key, value) => run(ctx.db,
@@ -70,6 +72,13 @@ export function retention(ctx) {
   r.adminSessions = run(ctx.db, 'DELETE FROM admin_sessions WHERE expires_at < ?', now).changes;
   r.rateLimits = run(ctx.db, 'DELETE FROM rate_limits WHERE reset_at < ?', now).changes;
   r.codeWindows = run(ctx.db, "DELETE FROM code_windows WHERE status != 'open' AND opened_at < ?", evCut).changes;
+  // Máy chỉ ghé xem (trình quét, người mở link không đăng nhập) — không gắn khách, không slot / phiếu, không bị khoá / chấm điểm:
+  // quá thời hạn lưu nhật ký thì xoá (trước 09/10/2026 bảng này chỉ tăng: 77/91 máy trên bản thật không gắn ai).
+  r.devices = run(ctx.db, `DELETE FROM devices WHERE created_at < :cut AND last_seen_at < :cut AND status = 'active' AND COALESCE(risk, 0) = 0
+    AND NOT EXISTS (SELECT 1 FROM device_customers d WHERE d.device_id = devices.id)
+    AND NOT EXISTS (SELECT 1 FROM slots s WHERE s.device_id = devices.id)
+    AND NOT EXISTS (SELECT 1 FROM vouchers v WHERE v.device_id = devices.id)
+    AND NOT EXISTS (SELECT 1 FROM sessions x WHERE x.device_id = devices.id)`, { cut: evCut }).changes;
   r.erased = scrubErased(ctx);
   return r;
 }
@@ -101,9 +110,22 @@ export async function runJobs(ctx) {
     if (ctx.config.isProd && now - Number(kvGet(ctx, 'job_selfcheck_at') || 0) >= PROBE_EVERY) {
       kvSet(ctx, 'job_selfcheck_at', now);
       out.selfCheck = await probePublic(ctx);
-      if (!out.selfCheck.ok) ctx.log('error', 'trang công khai không trả lời', out.selfCheck);
+      // warn (không phải error): tín hiệu chính là mục đỏ trên trang Máy chủ; lỗi mạng ra ngoài không phải lỗi của app.
+      if (!out.selfCheck.ok) ctx.log('warn', 'trang công khai không trả lời', out.selfCheck);
     }
   } catch (err) { ctx.log('error', 'job selfCheck failed', { err: String(err?.stack || err) }); }
+  // Hạn mức gửi thư trong ngày (Cloudflare) cho trang Máy chủ — chỉ khi đăng nhập bằng email. 30 phút / lần.
+  try {
+    if (ctx.config.isProd && ctx.config.otp.provider === 'email' && ctx.config.otp.email.token
+      && now - Number(kvGet(ctx, 'job_mailquota_at') || 0) >= QUOTA_EVERY) {
+      kvSet(ctx, 'job_mailquota_at', now);
+      out.mailQuota = await fetchMailQuota(ctx);
+    }
+  } catch (err) { ctx.log('error', 'job mailQuota failed', { err: String(err?.stack || err) }); }
+  // Thư báo động cho chủ (ALERT_EMAILS) — chạy sau cùng để thấy kết quả tự kiểm / hạn mức vừa cập nhật.
+  try {
+    if (ctx.config.alertEmails?.length && canSendEmail(ctx.config)) out.alerts = await sendAlerts(ctx);
+  } catch (err) { ctx.log('error', 'job alerts failed', { err: String(err?.stack || err) }); }
   return out;
 }
 

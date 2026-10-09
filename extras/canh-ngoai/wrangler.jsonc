@@ -1,0 +1,17 @@
+// Bộ canh bên ngoài: Worker chạy mỗi phút gọi trang /healthz của máy chủ TBQ. Xem index.js.
+// Bí mật (không ghi ở đây — repo công khai): ALERT_TO (email nhận thư, cách nhau dấu phẩy), EMAIL_TOKEN, BACKUP_TOKEN.
+{
+  "name": "tbq-canh-ngoai",
+  // Tài khoản Cloudflare của Tiệm (cùng tài khoản gửi thư + đường hầm) — ghi rõ để không đưa nhầm tài khoản khác.
+  "account_id": "6892cb649ff721a1cbd0c5fe3f19c23c",
+  "workers_dev": true,
+  "main": "index.js",
+  "compatibility_date": "2026-10-01",
+  "triggers": { "crons": ["* * * * *"] },
+  "kv_namespaces": [{ "binding": "STATE", "id": "4bcb29ebd56c42acbf9eddeb8813a9e4" }],
+  "vars": {
+    "TARGET_URL": "https://thu.tiembanquyen.site/colap/healthz",
+    "MAIL_FROM": "xacnhan@tiembanquyen.site",
+    "ACCOUNT_ID": "6892cb649ff721a1cbd0c5fe3f19c23c"
+  }
+}

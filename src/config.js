@@ -20,9 +20,20 @@ export function loadConfig(env = process.env) {
     // 32 byte base64 để mã hoá mật khẩu tài khoản trong kho. Tạo: openssl rand -base64 32
     dataKey: env.DATA_KEY || (isProd ? '' : 'ZGV2LWRhdGEta2V5LTMyLWJ5dGVzLWxvbmctLS0tLS0='),
     adminPassword: env.ADMIN_PASSWORD || (isProd ? '' : 'admin'),
+    // Khoá 2FA đăng nhập quản trị (base32, app Authenticator). Có thì đăng nhập cần mật khẩu + mã 6 số. Bật: npm run bat-2fa-quan-tri.
+    adminTotpRaw: String(env.ADMIN_TOTP || '').trim(),
     // Email / SĐT chủ tiệm dùng để thử (cách nhau dấu phẩy, chủ chọn 08/10/2026): luôn nhận được tài khoản mới — bỏ qua mọi hạn mức,
     // khoá, chấm rủi ro, "máy đang giữ slot người khác". Vẫn cần chạm thẻ ở quán (quán đang mở) và kho còn hàng. Trống = tắt.
     ownerIds: list(env.OWNER_IDS).map((s) => s.toLowerCase()),
+    // Email nhận thư báo động (sự kiện đỏ, trang khách lỗi, sao lưu trễ, bot im…), cách nhau dấu phẩy. Gửi bằng kênh thư
+    // Cloudflare của mã đăng nhập (CF_ACCOUNT_ID / CF_EMAIL_TOKEN / MAIL_FROM). Trống = không gửi, chỉ xem ở trang quản trị.
+    // Địa chỉ sai thì bỏ qua (npm run kiem-tra nhắc) — sai 1 email báo động không được làm máy chủ không chạy.
+    alertEmails: list(env.ALERT_EMAILS).map((s) => s.toLowerCase()).filter((s) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)),
+    // Sao lưu ngoài máy chủ (src/domain/sao-luu-ngoai.js): URL /sao-luu của bộ canh Worker + khoá (= BACKUP_TOKEN của Worker). Trống = tắt.
+    offsite: {
+      url: String(env.OFFSITE_URL || '').trim(),
+      token: String(env.OFFSITE_TOKEN || '').trim(),
+    },
     mail: {
       webhookSecret: env.MAIL_WEBHOOK_SECRET || (isProd ? '' : 'dev-mail-secret'),
     },
@@ -88,6 +99,8 @@ export function validateConfig(c) {
     if (!c.appSecret || c.appSecret.length < 24) errors.push('APP_SECRET phải dài ít nhất 24 ký tự');
     if (!c.dataKey || Buffer.from(c.dataKey, 'base64').length !== 32) errors.push('DATA_KEY phải là 32 byte base64 (openssl rand -base64 32)');
     if (!c.adminPassword || c.adminPassword.length < 12) errors.push('ADMIN_PASSWORD phải dài ít nhất 12 ký tự');
+    // Khoá 2FA sai mà vẫn chạy = tắt 2FA trong im lặng → không cho chạy (bật bằng script nên không gõ tay).
+    if (c.adminTotpRaw && !/^[A-Z2-7]{26,64}$/.test(c.adminTotpRaw)) errors.push('ADMIN_TOTP phải là khoá base32 (chữ A-Z, số 2-7) do npm run bat-2fa-quan-tri tạo, hoặc để trống');
     if (!c.mail.webhookSecret || c.mail.webhookSecret.length < 24) errors.push('MAIL_WEBHOOK_SECRET phải dài ít nhất 24 ký tự');
     // none = chưa có kênh gửi mã (chưa đăng ký eSMS): máy chủ chạy để chủ nhập kho / cài đặt, khách chưa nhận được mã.
     if (!['email', 'esms', 'none'].includes(c.otp.provider)) errors.push('OTP_PROVIDER phải là email hoặc esms ở production (none = chưa mở nhận khách; dev chỉ để chạy thử)');

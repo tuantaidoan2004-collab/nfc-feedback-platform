@@ -9,3 +9,6 @@ User=tbq
 WorkingDirectory=/opt/tbq-trial
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/backup.js
 ExecStartPost=/usr/bin/find /opt/tbq-trial/data/backup -name 'tbq-*.sqlite' -mtime +30 -delete
+# Đẩy bản vừa sao lưu ra ngoài máy chủ (đã mã hoá; cần OFFSITE_URL + OFFSITE_TOKEN trong .env, thiếu thì bỏ qua).
+# Dấu "-": đẩy lỗi không làm hỏng sao lưu trong máy — trang Quản trị › Máy chủ báo đỏ mục "Sao lưu ngoài máy chủ".
+ExecStartPost=-/usr/bin/node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/day-sao-luu.js

@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import os from 'node:os';
 import { get, run } from '../db/index.js';
 import { MIN, HOUR } from '../lib/time.js';
+import { lastOffsite } from './sao-luu-ngoai.js';
 
 const PROBE_KEY = 'job_selfcheck';
 export const PROBE_EVERY = 5 * MIN;
@@ -82,6 +83,39 @@ export async function probePublic(ctx, { fetchImpl = fetch, timeoutMs = 8000 } =
   return res;
 }
 
+const QUOTA_KEY = 'mail_quota';
+export const QUOTA_EVERY = 30 * MIN;
+
+/**
+ * Hạn mức gửi thư trong ngày của Cloudflare Email Sending (mã đăng nhập + thư báo động dùng chung) → lưu kv.
+ * Hết hạn mức = khách không nhận được mã đăng nhập. fetchImpl để test thay được. → {ok, limit, sent, resetsAt, at} | {ok:false, error, at}
+ */
+export async function fetchMailQuota(ctx, { fetchImpl = fetch } = {}) {
+  const e = ctx.config.otp.email;
+  let res;
+  try {
+    const r = await fetchImpl(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(e.accountId)}/email/sending/limits`,
+      { headers: { Authorization: `Bearer ${e.token}` }, signal: AbortSignal.timeout(10000) });
+    const j = await r.json().catch(() => null);
+    const limit = Number(j?.result?.quota?.value), sent = Number(j?.result?.usage?.sent);
+    res = j?.success && limit > 0 && Number.isFinite(sent)
+      ? { ok: true, limit, sent, resetsAt: Date.parse(j.result.usage.resets_at) || null }
+      : { ok: false, error: `Cloudflare ${j?.errors?.[0]?.code ?? r.status}` };
+  } catch (err) {
+    res = { ok: false, error: String(err?.cause?.code || err?.message || err).slice(0, 120) };
+  }
+  res.at = ctx.now();
+  run(ctx.db, 'INSERT INTO kv(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+    QUOTA_KEY, JSON.stringify(res), res.at);
+  return res;
+}
+
+export function lastMailQuota(ctx) {
+  const row = get(ctx.db, 'SELECT value FROM kv WHERE key = ?', QUOTA_KEY);
+  if (!row) return null;
+  try { return JSON.parse(row.value); } catch { return null; }
+}
+
 /**
  * Các mục sức khoẻ. Đồng bộ, rẻ (đọc vài tệp + vài câu SQL) → dùng được cho số đỏ trên thanh bên mỗi trang.
  * deep: thêm kiểm tra toàn vẹn database (PRAGMA quick_check) — chỉ trên trang Máy chủ.
@@ -108,6 +142,15 @@ export function hostChecks(ctx, { deep = false } = {}) {
     if (!b) add('backup', 'Sao lưu', 'bad', 'chưa có bản nào', 'Bật sao lưu tự động: systemctl enable --now tbq-backup.timer.');
     else if (now - b.at > BACKUP_MAX_AGE) add('backup', 'Sao lưu', 'bad', `bản mới nhất ${ago(b.at, now)}`, 'Sao lưu 05:30 không chạy — xem: journalctl -u tbq-backup.');
     else add('backup', 'Sao lưu', 'ok', `${ago(b.at, now)} · ${mb(b.size)}`);
+  }
+
+  // 2b. Bản sao lưu ngoài máy chủ (bộ canh Worker) — chỉ khi đã cấu hình OFFSITE_URL. Máy chủ mất hẳn thì đây là bản còn lại.
+  if (ctx.config.offsite?.url) {
+    const o = lastOffsite(ctx.db);
+    if (!o) add('offsite', 'Sao lưu ngoài máy chủ', 'warn', 'chưa đẩy lần nào', 'Chạy thử: npm run day-sao-luu (trên máy chủ).');
+    else if (!o.ok) add('offsite', 'Sao lưu ngoài máy chủ', 'bad', `lỗi ${ago(o.at, now)}: ${o.error}`, 'Kiểm OFFSITE_TOKEN (= BACKUP_TOKEN của Worker tbq-canh-ngoai) và Worker còn chạy không.');
+    else if (now - o.at > BACKUP_MAX_AGE) add('offsite', 'Sao lưu ngoài máy chủ', 'bad', `bản mới nhất ${ago(o.at, now)}`, 'Việc đẩy sau sao lưu 05:30 không chạy — xem: journalctl -u tbq-backup.');
+    else add('offsite', 'Sao lưu ngoài máy chủ', 'ok', `${o.name} · ${ago(o.at, now)} · ${mb(o.size)} (đã mã hoá)`);
   }
 
   // 3. Ổ đĩa (nơi chứa database + sao lưu). Đầy ổ = database không ghi được = khách không nhận được gì.
@@ -146,6 +189,18 @@ export function hostChecks(ctx, { deep = false } = {}) {
   add('otp', 'Gửi mã đăng nhập', otpFail.n ? 'bad' : 'ok', otpFail.n ? `${otpFail.n} lần lỗi trong 1 giờ (gần nhất ${ago(otpFail.t, now)})` : 'không lỗi trong 1 giờ qua',
     otpFail.n ? 'Khách không nhận được mã → xem sự kiện "Gửi OTP lỗi" ở Nhật ký.' : '');
 
+  // 6b. Hạn mức gửi thư trong ngày (Cloudflare Email Sending) — chỉ khi đăng nhập bằng email. Hỏi Cloudflare mỗi 30 phút.
+  if (ctx.config.otp.provider === 'email') {
+    const q = lastMailQuota(ctx);
+    if (q?.ok && now - q.at < 2 * HOUR) {
+      const used = pct(q.sent, q.limit);
+      const level = used >= 90 ? 'bad' : used >= 70 ? 'warn' : 'ok';
+      const reset = q.resetsAt && q.resetsAt > now ? ` · làm mới sau ${dur(Math.round((q.resetsAt - now) / 1000))}` : '';
+      add('mailquota', 'Hạn mức gửi thư hôm nay', level, `đã gửi ${q.sent} / ${q.limit} thư (${used}%)${reset}`,
+        level === 'ok' ? '' : 'Hết hạn mức thì khách không nhận được mã đăng nhập. Xin nâng hạn mức Email Sending trên Cloudflare, hoặc tạm giảm suất / ngày của quán.');
+    } else if (q && !q.ok) add('mailquota', 'Hạn mức gửi thư hôm nay', 'warn', `không hỏi được Cloudflare (${q.error})`, 'Token gửi thư có thể thiếu quyền xem hạn mức — gửi mã vẫn chạy, xem ở mục "Gửi mã đăng nhập".');
+  }
+
   // 7. Database.
   if (db) {
     let size = 0, wal = 0;
@@ -173,6 +228,8 @@ export function hostFacts(ctx, version = '') {
     ['App chạy liền', dur(process.uptime())],
     ['Máy bật liền', dur(os.uptime())],
     ['Địa chỉ', ctx.config.baseUrl],
+    ['Đăng nhập quản trị', ctx.config.adminTotpRaw ? 'mật khẩu + mã 2FA' : 'chỉ mật khẩu — nên bật 2FA: npm run bat-2fa-quan-tri'],
+    ['Thư báo động', ctx.config.alertEmails?.length ? `gửi tới ${ctx.config.alertEmails.join(', ')}` : 'chưa bật (đặt ALERT_EMAILS trong .env)'],
   ];
 }
 

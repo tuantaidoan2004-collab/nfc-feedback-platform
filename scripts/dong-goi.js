@@ -18,8 +18,8 @@ const NODE_FLAGS = '--disable-warning=ExperimentalWarning';
 
 const FILES = [
   'README.md', '.env.example', 'src', 'extras', 'deploy',
-  'docs/HUONG-DAN-MO-BAN.md', 'docs/phoi-hop-voi-QS.md', 'docs/qs-patch',
-  ...['seed', 'pilot', 'backup', 'otp-test', 'canva-bot', 'kiem-tra', 'tao-env', 've', 'fake-mail', 'quan-qs'].map((s) => `scripts/${s}.js`),
+  'docs/HUONG-DAN-MO-BAN.md', 'docs/SO-TAY-SU-CO.md', 'docs/phoi-hop-voi-QS.md', 'docs/qs-patch',
+  ...['seed', 'pilot', 'backup', 'otp-test', 'canva-bot', 'kiem-tra', 'tao-env', 've', 'fake-mail', 'quan-qs', 'day-sao-luu', 'lay-sao-luu-ngoai', 'bat-2fa-quan-tri'].map((s) => `scripts/${s}.js`),
 ];
 const SCRIPTS = {
   start: `node ${NODE_FLAGS} --env-file-if-exists=.env src/server.js`,
@@ -33,6 +33,9 @@ const SCRIPTS = {
   'fake-mail': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/fake-mail.js`,
   'canva-bot': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/canva-bot.js`,
   quan: `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/quan-qs.js`,
+  'day-sao-luu': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/day-sao-luu.js`,
+  'lay-sao-luu-ngoai': `node ${NODE_FLAGS} --env-file-if-exists=.env scripts/lay-sao-luu-ngoai.js`,
+  'bat-2fa-quan-tri': `node ${NODE_FLAGS} scripts/bat-2fa-quan-tri.js`,
 };
 
 // ---------- Gom tệp ----------
@@ -48,7 +51,7 @@ writeFileSync(join(dir, 'PHIEN-BAN.txt'), `${NAME} — đóng gói ${new Date().
 
 mkdirSync(OUT, { recursive: true });
 const tarball = join(OUT, `${NAME}.tar.gz`);
-const tar = spawnSync('tar', ['-czf', tarball, '-C', stage, NAME], { env: { ...process.env, COPYFILE_DISABLE: '1' }, encoding: 'utf8' });
+const tar = spawnSync('tar', ['--no-xattrs', '--no-mac-metadata', '-czf', tarball, '-C', stage, NAME], { env: { ...process.env, COPYFILE_DISABLE: '1' }, encoding: 'utf8' });
 if (tar.status !== 0) { console.error(tar.stderr); process.exit(1); }
 const sha = createHash('sha256').update(readFileSync(tarball)).digest('hex');
 writeFileSync(`${tarball}.sha256`, `${sha}  ${NAME}.tar.gz\n`);

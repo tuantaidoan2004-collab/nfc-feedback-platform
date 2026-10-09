@@ -82,29 +82,38 @@ export function otpEmail(code, min, logoUrl) {
   return { text, html };
 }
 
+/** Gửi được thư qua Cloudflare Email Sending không (đủ tài khoản, token, địa chỉ gửi) — dùng cho mã đăng nhập và thư báo động. */
+export const canSendEmail = (config) => !!(config.otp.email.accountId && config.otp.email.token && config.otp.email.from);
+
 /**
  * Thư qua Cloudflare Email Sending (REST /accounts/:id/email/sending/send). Token cần quyền gửi thư;
  * MAIL_FROM phải thuộc tên miền đã bật Email Sending. Thành công = success:true và địa chỉ không nằm trong permanent_bounces.
+ * → {ok:true} | {ok:false, error}
  */
-function emailSender(ctx) {
+export async function sendCfEmail(ctx, { to, subject, text, html }) {
   const e = ctx.config.otp.email;
   const url = e.url || `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(e.accountId)}/email/sending/send`;
+  const body = { to, from: { address: e.from, name: e.fromName }, subject, text };
+  if (html) body.html = html;
+  try {
+    const r = await postJson(url, body, 10000, { Authorization: `Bearer ${e.token}` });
+    const res = r.json?.result;
+    if (r.json?.success && !(res?.permanent_bounces || []).includes(to)) return { ok: true };
+    if (r.json?.success) return { ok: false, error: 'Địa chỉ email không nhận thư (bounce)' };
+    const err = r.json?.errors?.[0];
+    return { ok: false, error: `Cloudflare ${err?.code ?? r.status}: ${err?.message || r.text.slice(0, 120)}` };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+}
+
+function emailSender(ctx) {
   return {
     name: 'email',
     async send(to, code) {
       const min = Math.max(1, Math.round(ctx.settings().otpTtlSec / 60));
       const { text, html } = otpEmail(code, min, ctx.config.baseUrl + asset('logo-email.png'));
-      const body = { to, from: { address: e.from, name: e.fromName }, subject: `${code} là mã xác nhận Tiệm Bản Quyền`, text, html };
-      try {
-        const r = await postJson(url, body, 10000, { Authorization: `Bearer ${e.token}` });
-        const res = r.json?.result;
-        if (r.json?.success && !(res?.permanent_bounces || []).includes(to)) return { ok: true };
-        if (r.json?.success) return { ok: false, error: 'Địa chỉ email không nhận thư (bounce)' };
-        const err = r.json?.errors?.[0];
-        return { ok: false, error: `Cloudflare ${err?.code ?? r.status}: ${err?.message || r.text.slice(0, 120)}` };
-      } catch (err) {
-        return { ok: false, error: String(err?.message || err) };
-      }
+      return sendCfEmail(ctx, { to, subject: `${code} là mã xác nhận Tiệm Bản Quyền`, text, html });
     },
   };
 }

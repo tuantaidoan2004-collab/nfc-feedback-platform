@@ -8,6 +8,7 @@ import { TBQ_TAG } from './logos.js';
 
 export const EVENT_LABEL = {
   login: 'Đăng nhập', otp_sent: 'Gửi OTP', otp_wrong: 'Nhập sai OTP', otp_send_failed: 'Gửi OTP lỗi',
+  alert_mail_sent: 'Đã gửi thư báo động',
   ticket_rejected: 'Link từ trang quán bị từ chối', ticket_forged: 'Nhiều link giả vào quán',
   claim_green: 'Nhận slot (xanh)', claim_yellow_passed: 'Ca vàng được cho qua (theo cài đặt)', claim_yellow_rejected: 'Ca vàng bị từ chối tự động', claim_red: 'Từ chối nhận slot',
   slot_started: 'Bắt đầu slot', slot_pending_invite: 'Chờ bot mời vào nhóm', worker_task_taken: 'Bot nhận việc', worker_task_failed: 'Bot làm lỗi',

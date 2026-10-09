@@ -150,12 +150,19 @@ const slotOf = (email, phone) => get(db,
 const isHolder = (email, phone) => slotOf(email, phone)?.status === 'active';
 
 class PwVendor {
-  constructor(name, { totp = false, emailCode = false } = {}) { this.name = name; this.totp = totp; this.emailCode = emailCode; this.acc = new Map(); }
-  add(email, o = {}) { const a = { password: pw(), secret: this.totp ? rand32(32) : null, sessions: new Map(), pending: new Map(), proUntil: o.proUntil ?? Infinity }; this.acc.set(email, a); pwOwner.set(a.password, email); if (a.secret) secrets.add(a.secret); return a; }
+  /** codeOnly: không mật khẩu, mỗi máy mới đăng nhập bằng mã hãng gửi về email kho (ChatGPT / Claude thật từ 07/10). */
+  constructor(name, { totp = false, emailCode = false, codeOnly = false } = {}) { this.name = name; this.totp = totp; this.emailCode = emailCode || codeOnly; this.codeOnly = codeOnly; this.acc = new Map(); }
+  add(email, o = {}) {
+    const a = { password: this.codeOnly ? null : pw(), secret: this.totp ? rand32(32) : null, sessions: new Map(), pending: new Map(), proUntil: o.proUntil ?? Infinity };
+    this.acc.set(email, a);
+    if (a.password) pwOwner.set(a.password, email);
+    if (a.secret) secrets.add(a.secret);
+    return a;
+  }
   /** → 'ok' | 'bad_password' | 'need_2fa' | 'bad_2fa' | 'need_email_code' */
   async login({ email, password, code, device, who, friendOf }) {
     const a = this.acc.get(email);
-    if (!a || a.password !== password) return 'bad_password';
+    if (!a || (!this.codeOnly && a.password !== password)) return 'bad_password';
     if (this.totp) {
       if (!code) return 'need_2fa';
       if (code !== totpNow(a.secret, clock.t).code && code !== totpNow(a.secret, clock.t - 30 * SEC).code) return 'bad_2fa';
@@ -180,7 +187,7 @@ class PwVendor {
     }
     a.sessions.clear();
     a.pending.clear();
-    if (keep) return a.password;
+    if (keep || this.codeOnly) return a.password;
     pwOwner.delete(a.password);
     a.password = pw();
     pwOwner.set(a.password, email);
@@ -188,8 +195,9 @@ class PwVendor {
   }
 }
 const V = {
-  chatgpt: new PwVendor('ChatGPT', { totp: true }),
-  adobe: new PwVendor('Adobe', { emailCode: true }),
+  // Khớp scripts/pilot.js: ChatGPT đăng nhập bằng mã gửi về email kho; Adobe như CapCut (email + mật khẩu, Pro tự hết sau 7 ngày).
+  chatgpt: new PwVendor('ChatGPT', { codeOnly: true }),
+  adobe: new PwVendor('Adobe'),
   capcut: new PwVendor('CapCut'),
   gemini: { links: new Map(), redeem(v, gmail) { const l = this.links.get(v); if (!l) return 'invalid'; if (l.usedBy) return 'used'; l.usedBy = gmail; return 'ok'; } },
 };
@@ -205,8 +213,8 @@ function buy(kind, n) {
   for (let i = 1; i <= n; i++) {
     if (kind === 'gemini') { const l = `https://one.google.com/join/${rand32(10)}`; V.gemini.links.set(l, {}); lines.push(l); continue; }
     const email = `${kind === 'chatgpt' ? 'gpt' : kind === 'adobe' ? 'ad' : 'cc'}-m${buySeq}-${i}@kho.test`;
-    const a = V[kind].add(email, kind === 'capcut' ? { proUntil: clock.t + 7 * DAY } : {});
-    lines.push(kind === 'chatgpt' ? `${email}|${a.password}|${a.secret}` : `${email}|${a.password}`);
+    const a = V[kind].add(email, kind === 'capcut' || kind === 'adobe' ? { proUntil: clock.t + 7 * DAY } : {});
+    lines.push(kind === 'chatgpt' ? email : `${email}|${a.password}`);
   }
   purchases.unshift({ t: clock.t, kind, lines });
   logOwner(`mua ${n} ${VNAME[kind]}`);
@@ -330,9 +338,9 @@ async function ownerTasks() {
     if (k.kind === 'rotate') {
       const vendor = V[row.slug];
       const newPw = vendor.rotate(k.email);
-      await admin(`/admin/tasks/${k.id}/done`, { newPassword: newPw });
+      await admin(`/admin/tasks/${k.id}/done`, newPw ? { newPassword: newPw } : {});
       inc(`chu:doi_mat_khau:${row.slug}`);
-      feed('chu', `Chủ đổi mật khẩu + đăng xuất mọi thiết bị: ${k.email}`);
+      feed('chu', `Chủ ${newPw ? 'đổi mật khẩu + ' : ''}đăng xuất mọi thiết bị: ${k.email}`);
     }
   }
 }
@@ -459,26 +467,13 @@ async function useTool(c, slug, cafe) {
   let v = await view();
   if (!v) { inc(`vao_hang:${slug}:khong_thay_slot`); return; }
   if (slug === 'chatgpt') {
-    let r = await V.chatgpt.login({ email: v.accountEmail, password: v.password, device: loginDev, who: c.phone });
-    if (r === 'need_2fa') {
-      const t = await dev.post('/api/code/request', { kind: 'totp' });
-      r = t.data?.status === 'totp' ? await V.chatgpt.login({ email: v.accountEmail, password: v.password, code: t.data.code, device: loginDev, who: c.phone }) : `tbq_${t.data?.status}`;
-    }
-    inc(`vao_hang:chatgpt:${r}`);
+    // Như bản thật: bấm "Lấy mã" trên trang Tiệm (dùng phiếu tự có khi chạm thẻ) → nhập email bên ChatGPT → hãng gửi mã về
+    // hộp thư kho → TBQ hiện mã cho đúng khách. Khách vội: bấm gửi mã bên ChatGPT trước rồi mới bấm "Lấy mã".
+    const r = await codeLogin(dev, 'chatgpt', v, loginDev, c.phone, { early: c.persona === 'vonvoi' });
+    inc(`vao_hang:chatgpt:${r}${c.persona === 'vonvoi' ? ':vonvoi' : ''}`);
     if (r === 'ok' && c.persona === 'chiase') atTime(clock.t + between(10, 150) * MIN, () => friendLogin(c, cafe, v), 'bạn của khách');
   } else if (slug === 'adobe') {
-    let r;
-    if (c.persona === 'vonvoi') {
-      r = await V.adobe.login({ email: v.accountEmail, password: v.password, device: loginDev, who: c.phone }); // bấm gửi mã bên Adobe trước
-      await wait(between(20, 70) * SEC);
-    }
-    const w = await dev.post('/api/code/request', {});
-    if (w.data?.status !== 'open') { inc(`vao_hang:adobe:tbq_${w.data?.status}`); return; }
-    if (c.persona !== 'vonvoi') r = await V.adobe.login({ email: v.accountEmail, password: v.password, device: loginDev, who: c.phone });
-    let code = null;
-    for (let i = 0; i < 9 && !code; i++) { const s = (await dev.get(`/api/code/status/${w.data.windowId}`)).data; if (s?.status === 'ready') code = s.code; else await wait(20 * SEC); }
-    r = code ? await V.adobe.login({ email: v.accountEmail, password: v.password, code, device: loginDev, who: c.phone }) : 'khong_nhan_duoc_ma';
-    inc(`vao_hang:adobe:${r}${c.persona === 'vonvoi' ? ':vonvoi' : ''}`);
+    inc(`vao_hang:adobe:${await V.adobe.login({ email: v.accountEmail, password: v.password, device: loginDev, who: c.phone })}`);
   } else if (slug === 'capcut') {
     inc(`vao_hang:capcut:${await V.capcut.login({ email: v.accountEmail, password: v.password, device: loginDev, who: c.phone })}`);
   } else if (slug === 'gemini') {
@@ -494,16 +489,29 @@ async function useTool(c, slug, cafe) {
   }
 }
 
-/** Khách chia sẻ cho bạn: bạn đăng nhập máy khác, cần mã 2FA → khách lấy mã lần nữa (ở quán hay đã về nhà). */
+/**
+ * Đăng nhập món "mã gửi về email kho": mở lượt lấy mã trên TBQ (máy của khách) + đăng nhập bên hãng trên máy loginDev, chờ mã hiện.
+ * early: bấm gửi mã bên hãng trước khi bấm "Lấy mã" (thư tới trước → TBQ giữ thư chờ, giao khi khách mở lượt). → kết quả đăng nhập
+ */
+async function codeLogin(dev, slug, v, loginDev, who, { early = false, friendOf } = {}) {
+  const vendor = V[slug];
+  if (early) { await vendor.login({ email: v.accountEmail, device: loginDev, who, friendOf }); await wait(between(20, 70) * SEC); }
+  const w = await dev.post('/api/code/request', {});
+  if (w.data?.status !== 'open') return `tbq_${w.data?.code || w.data?.status}`;
+  if (!early) await vendor.login({ email: v.accountEmail, device: loginDev, who, friendOf });
+  let code = null;
+  for (let i = 0; i < 9 && !code; i++) { const s = (await dev.get(`/api/code/status/${w.data.windowId}`)).data; if (s?.status === 'ready') code = s.code; else await wait(20 * SEC); }
+  return code ? vendor.login({ email: v.accountEmail, code, device: loginDev, who, friendOf }) : 'khong_nhan_duoc_ma';
+}
+
+/** Khách chia sẻ cho bạn: bạn đăng nhập máy khác, cần mã email → khách lấy mã lần nữa (ở quán hay đã về nhà). */
 async function friendLogin(c, cafe, v) {
   inc('gian_lan:chia_se');
   const dev = c.device;
   const home = clock.t - (get(db, "SELECT started_at FROM slots WHERE customer_id = (SELECT id FROM customers WHERE phone = ?) ORDER BY id DESC", `84${c.phone.slice(1)}`)?.started_at || 0) > 60 * MIN;
   if (home) dev.ip = homeIp();
-  const t = await dev.post('/api/code/request', { kind: 'totp' });
-  if (t.data?.status !== 'totp') { inc(`chia_se:bi_chan:${t.data?.code || t.data?.status}`); return; }
-  const r = await V.chatgpt.login({ email: v.accountEmail, password: v.password, code: t.data.code, device: `${c.id}-ban`, who: c.phone, friendOf: c.phone });
-  inc(`chia_se:${r === 'ok' ? 'lot' : r}`);
+  const r = await codeLogin(dev, 'chatgpt', v, `${c.id}-ban`, c.phone, { friendOf: c.phone });
+  inc(`chia_se:${r === 'ok' ? 'lot' : r.startsWith('tbq_') ? `bi_chan:${r.slice(4)}` : r}`);
 }
 
 /** Hết hạn rồi, ở nhà, tự đăng nhập lại bằng mật khẩu còn nhớ. */
@@ -526,9 +534,9 @@ async function exCustomer(c, slug, v) {
     const t = await c.device.post('/api/code/request', { kind: 'totp' });
     r = t.data?.status === 'totp' ? 'LOT_2FA' : `can_2fa_tbq_tu_choi`;
   } else if (r === 'need_email_code') r = 'can_ma_email_khong_nhan_duoc';
-  else if (r === 'ok' && slug === 'capcut') r = V.capcut.acc.get(v.accountEmail).proUntil < clock.t ? 'vao_duoc_nhung_het_pro' : 'vao_duoc_con_pro';
+  else if (r === 'ok' && (slug === 'capcut' || slug === 'adobe')) r = V[slug].acc.get(v.accountEmail).proUntil < clock.t ? 'vao_duoc_nhung_het_pro' : 'vao_duoc_con_pro';
   inc(`khach_cu:${slug}:${r}`);
-  if (r === 'LOT_2FA' || (r === 'ok' && slug !== 'capcut') || r === 'vao_duoc_con_pro') violation('vendor', `Khách cũ ${c.phone} vào lại ${slug} sau khi hết hạn (${r})`);
+  if (r === 'LOT_2FA' || r === 'ok' || r === 'vao_duoc_con_pro') violation('vendor', `Khách cũ ${c.phone} vào lại ${slug} sau khi hết hạn (${r})`);
 }
 
 async function multiSim(c, cafe) {
@@ -637,9 +645,9 @@ for (const cafe of CAFES) {
   const tester = new Device('chủ chạm thử chip', cafe.ip);
   for (const chip of cafe.chips) await tester.get(tapUrl(chip));
 }
-// Kho cố định: ChatGPT (5 khách / tài khoản), Adobe (2 khách).
-if (!HUMAN) await importLines('chatgpt', Array.from({ length: GPT_ACCOUNTS }, (_, k) => k + 1).map((i) => { const e = `gpt-0${i}@kho.test`; const a = V.chatgpt.add(e); return `${e}|${a.password}|${a.secret}`; }));
-if (!HUMAN) await importLines('adobe', Array.from({ length: ADOBE_ACCOUNTS }, (_, k) => k + 1).map((i) => { const e = `adobe-0${i}@kho.test`; const a = V.adobe.add(e); return `${e}|${a.password}`; }));
+// Kho cố định: ChatGPT (8 khách / tài khoản, đăng nhập bằng mã email), Adobe (2 khách).
+if (!HUMAN) await importLines('chatgpt', Array.from({ length: GPT_ACCOUNTS }, (_, k) => k + 1).map((i) => { const e = `gpt-0${i}@kho.test`; V.chatgpt.add(e); return e; }));
+if (!HUMAN) await importLines('adobe', Array.from({ length: ADOBE_ACCOUNTS }, (_, k) => k + 1).map((i) => { const e = `adobe-0${i}@kho.test`; const a = V.adobe.add(e, { proUntil: clock.t + 7 * DAY }); return `${e}|${a.password}`; }));
 
 for (let d = 0; d <= DAYS; d++) {
   if (!HUMAN) {
@@ -765,7 +773,7 @@ ${byPrefix('ketqua:').map(([k, v]) => `| ${LABEL[k] || k} | ${v} |`).join('\n')}
 |---|---|${days.map(() => '---').join('|')}|
 ${toolRows.join('\n')}
 
-Kho: CapCut +10 tài khoản/ngày (2 khách), Gemini +5 link/ngày, ChatGPT **${GPT_ACCOUNTS} tài khoản** (5 khách, đổi mật khẩu rồi giao lại), Adobe **${ADOBE_ACCOUNTS} tài khoản** (2 khách). Canva: khách nhắn Zalo. Mỗi quán **${CAFE_QUOTA} suất/ngày**.
+Kho: CapCut +10 tài khoản/ngày (2 khách), Gemini +5 link/ngày, ChatGPT **${GPT_ACCOUNTS} tài khoản** (8 khách, đăng nhập bằng mã email, 6h đăng xuất mọi thiết bị rồi giao lại), Adobe **${ADOBE_ACCOUNTS} tài khoản** (2 khách). Canva: khách nhắn Zalo. Mỗi quán **${CAFE_QUOTA} suất/ngày**.
 Trung bình mỗi ngày: ${['capcut', 'chatgpt', 'gemini', 'adobe'].map((s) => `${s} ${(days.reduce((x, d) => x + c(`giao:${s}:${d}`), 0) / DAYS).toFixed(1)}`).join(' · ')}.
 Bấm công cụ đang hiện "còn chỗ" rồi mới bị báo hết (người khác vừa nhận mất): ${sumPrefix('bam_roi_moi_bao_het:')} lần.
 

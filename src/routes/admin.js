@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { HttpError, html } from '../lib/http.js';
 import { get, all, run, tx } from '../db/index.js';
 import { randomToken, sha256, safeEqual, encrypt } from '../lib/crypto.js';
-import { parseTotpSecret } from '../lib/totp.js';
+import { parseTotpSecret, verifyTotp } from '../lib/totp.js';
 import { hit, reset } from '../lib/ratelimit.js';
 import { logEvent } from '../lib/events.js';
 import { normalizePhone, normalizeEmail, maskPhone, displayPhone } from '../lib/phone.js';
@@ -429,6 +429,7 @@ export function registerAdminRoutes(router) {
       body: html`<form method="post" action="/admin/login" class="acard">
         <h2>Đăng nhập quản trị</h2><input type="hidden" name="next" value="${safeNext(rq.query.next)}">
         ${field('Mật khẩu quản trị', html`<input type="password" name="password" autocomplete="current-password" required autofocus>`)}
+        ${rq.ctx.config.adminTotpRaw ? field('Mã 2FA (6 số trong app Authenticator)', html`<input name="totp" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required>`) : ''}
         <button class="btn">Đăng nhập</button></form>`,
     }));
   });
@@ -442,6 +443,16 @@ export function registerAdminRoutes(router) {
     if (!ctx.config.adminPassword || !safeEqual(sha256(f.password || ''), sha256(ctx.config.adminPassword))) {
       logEvent(ctx, { type: 'admin_login_failed', severity: 'yellow', ip: rq.ip });
       return rq.redirect(`/admin/login?msg=${encodeURIComponent('Sai mật khẩu.')}`);
+    }
+    // 2FA (ADMIN_TOTP): kiểm SAU mật khẩu; mỗi mã chỉ dùng 1 lần (khung 30 giây đã dùng thì không nhận lại — chống nhìn trộm / chép lại).
+    if (ctx.config.adminTotpRaw) {
+      const step = verifyTotp(ctx.config.adminTotpRaw, f.totp, ctx.now());
+      const last = Number(get(ctx.db, "SELECT value FROM kv WHERE key = 'admin_totp_step'")?.value || 0);
+      if (step == null || step <= last) {
+        logEvent(ctx, { type: 'admin_login_failed', severity: 'yellow', ip: rq.ip, data: { reason: step == null ? 'sai mã 2FA' : 'mã 2FA đã dùng' } });
+        return rq.redirect(`/admin/login?msg=${encodeURIComponent(step == null ? 'Sai mã 2FA (xem lại giờ trên điện thoại).' : 'Mã 2FA này vừa dùng rồi — đợi mã mới.')}`);
+      }
+      run(ctx.db, "INSERT INTO kv(key, value, updated_at) VALUES('admin_totp_step', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", String(step), ctx.now());
     }
     reset(ctx, `adminlogin:${rq.ip}`);
     const tok = randomToken(24);
@@ -1832,7 +1843,8 @@ ${table(['Mục', 'Tình trạng', '', 'Nên làm'], checks.map((c) => [
 ${secHead('Đang chạy')}
 ${table(['', ''], hostFacts(ctx, PKG_VERSION).map(([k, v]) => [html`<b>${k}</b>`, v]))}
 <p class="muted">Sao lưu tự động 05:30 trên máy chủ; máy Mac tự kéo 1 bản về lúc 05:45. Trang khách sập hẳn (máy chủ tắt) thì trang này cũng không mở được —
-dùng thêm dịch vụ báo động bên ngoài gọi <code>${ctx.config.baseUrl}/healthz</code>.</p>`,
+phần đó do bộ canh bên ngoài (Cloudflare Worker <code>tbq-canh-ngoai</code>, gọi <code>${ctx.config.baseUrl}/healthz</code> mỗi phút) gửi thư.
+Mục chuyển đỏ và sự kiện đỏ được gửi thư cho chủ (dòng "Thư báo động" ở trên).</p>`,
     });
   }));
   router.post('/admin/may-chu/kiem', A(async (rq) => {

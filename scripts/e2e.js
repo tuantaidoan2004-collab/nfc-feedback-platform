@@ -680,7 +680,8 @@ async function pilot() {
       JSON.stringify(views.map((v) => [v.accountEmail, v.seat])) === JSON.stringify([['gpt1@kho.test', 1], ['gpt1@kho.test', 2], ['gpt1@kho.test', 3], ['gpt1@kho.test', 4], ['gpt1@kho.test', 5], ['gpt2@kho.test', 1]]),
       views.map((v) => [v.accountEmail, v.seat]));
     const me3 = (await gs[2].get('/me')).text;
-    check('Trang khách 3: mật khẩu, "Workspace của bạn: Slot 3", vừa chạm thẻ nên "đã có phiếu", nút "Lấy mã 2FA"', me3.includes('P@ss,w0rd;1') && /Workspace của bạn: <b>Slot 3<\/b>/.test(me3) && /đã có phiếu/.test(me3) && /Lấy mã 2FA/.test(me3));
+    // Từ 2.1.5 (chủ chọn 08/10): bỏ dòng "Workspace của bạn: Slot N" — chỉ hiện link khi bot đã tạo Project.
+    check('Trang khách 3: mật khẩu, không còn dòng "Workspace của bạn: Slot N", vừa chạm thẻ nên "đã có phiếu", nút "Lấy mã 2FA"', me3.includes('P@ss,w0rd;1') && !/Workspace của bạn:/.test(me3) && /đã có phiếu/.test(me3) && /Lấy mã 2FA/.test(me3));
     check('Khoá 2FA KHÔNG có trong trang khách', !me3.includes(GPT_SECRET) && !JSON.stringify(views).includes(GPT_SECRET));
     const t = (await gs[2].post('/api/code/request', { kind: 'totp' })).data;
     const expect = totpNow(GPT_SECRET, Date.now()).code;
