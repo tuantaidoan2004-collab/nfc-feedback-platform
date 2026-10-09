@@ -30,8 +30,11 @@ export const codesLeft = (s, slot, tool) => Math.max(0, codeLimit(s, slot, tool)
 const OPEN_SPARE = 3;
 const markUsed = (ctx, slotId) => run(ctx.db, 'UPDATE slots SET code_used = code_used + 1 WHERE id = ?', slotId);
 
-/** Slot này lấy mã có cần mã phiếu không (công cụ bật mã phiếu, slot chưa gia hạn). */
-export const slotNeedsVoucher = (tool, slot) => toolNeedsVoucher(tool) && !slot.code_free;
+/** Lấy mã có phải chạm thẻ / phiếu không. Mặc định không (codeNeedsTap = 0): mã tự đưa cho khách, chống spam chỉ bằng
+ *  đúng máy đã nhận slot + số mã / slot (codeLimit, ChatGPT 2). Slot đã gia hạn (code_free) không bao giờ cần. */
+export const slotNeedsTap = (s, slot) => Number(s.codeNeedsTap) === 1 && !slot.code_free;
+/** Slot này lấy mã có cần mã phiếu không (bật chạm thẻ / phiếu, công cụ bật mã phiếu, slot chưa gia hạn). */
+export const slotNeedsVoucher = (s, tool, slot) => slotNeedsTap(s, slot) && toolNeedsVoucher(tool);
 
 export function requestCode(ctx, { customer, deviceId, ip, kind, voucher: voucherRaw }) {
   const now = ctx.now();
@@ -68,8 +71,8 @@ export function requestCode(ctx, { customer, deviceId, ip, kind, voucher: vouche
     // hay đưa mã cho bạn. Tiệm không có gì ở quán để kiểm → khách chạm thẻ / quét QR trên bàn lại 1 lần là được.
     // Công cụ cần mã phiếu: phiếu chỉ phát ở quán nên thay cho việc kiểm "đang ở quán" (trừ khi chủ bật voucherNeedsCafe).
     // Slot đã gia hạn (khách trả tiền, có thể ở nhà): không cần ở quán, không cần phiếu — vẫn phải đúng máy.
-    const needVoucher = slotNeedsVoucher(tool, slot);
-    const cafeCheck = !slot.code_free && (!needVoucher || Number(s.voucherNeedsCafe) === 1);
+    const needVoucher = slotNeedsVoucher(s, tool, slot);
+    const cafeCheck = slotNeedsTap(s, slot) && (!needVoucher || Number(s.voucherNeedsCafe) === 1);
     if (cafeCheck && !latestEntry(ctx, deviceId)) return { status: 'need_entry', message: MSG.need_code_entry };
 
     // Mỗi slot chỉ 1 máy: lấy mã từ máy khác máy đã nhận slot → từ chối (không có ai duyệt tay).

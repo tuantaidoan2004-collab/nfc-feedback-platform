@@ -191,16 +191,19 @@ export function registerPublicRoutes(router) {
     json(rq, 200, { ok: true, view: currentSlotView(rq.ctx, customer.id, rq.state.deviceId) });
   });
 
+  // Số lần lấy mã còn lại của slot đang chạy → trang khách cập nhật dòng "Còn x lần lấy mã" không cần tải lại.
+  const leftFor = (ctx, customerId) => {
+    const slot = get(ctx.db, "SELECT s.code_used, s.extended_days, t.code_max FROM slots s JOIN tools t ON t.id = s.tool_id WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.id DESC LIMIT 1", customerId);
+    return slot ? codesLeft(ctx.settings(), slot, slot) : undefined;
+  };
+
   router.post('/api/code/request', async (rq) => {
     const { ctx } = rq;
     const customer = requireCustomer(rq);
     limit(rq, `code:d:${rq.state.deviceId}`, 30, 10 * MIN);
     const body = await rq.json();
     const r = requestCode(ctx, { customer, deviceId: rq.state.deviceId, ip: rq.ip, kind: body.kind, voucher: body.voucher });
-    // Số lần lấy mã còn lại sau lần này → trang khách cập nhật dòng "Còn x lần lấy mã" không cần tải lại.
-    const slot = get(ctx.db, "SELECT s.code_used, s.extended_days, t.code_max FROM slots s JOIN tools t ON t.id = s.tool_id WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.id DESC LIMIT 1", customer.id);
-    const left = slot ? codesLeft(ctx.settings(), slot, slot) : undefined;
-    json(rq, 200, { ok: r.status === 'open' || r.status === 'totp', ...r, codeRequestsLeft: left });
+    json(rq, 200, { ok: r.status === 'open' || r.status === 'totp', ...r, codeRequestsLeft: leftFor(ctx, customer.id) });
   });
 
   // Mã 2FA đang chạy (đổi mỗi 30 giây) trong lượt xem đã mở bằng /api/code/request.
@@ -212,7 +215,9 @@ export function registerPublicRoutes(router) {
 
   router.get('/api/code/status/:id', (rq) => {
     const customer = requireCustomer(rq);
-    json(rq, 200, { ok: true, ...codeStatus(rq.ctx, { windowId: rq.params.id, customerId: customer.id, deviceId: rq.state.deviceId }) });
+    const r = codeStatus(rq.ctx, { windowId: rq.params.id, customerId: customer.id, deviceId: rq.state.deviceId });
+    // Mã vừa về = đã tính 1 lượt → trang trừ ngay dòng "Còn x lần lấy mã".
+    json(rq, 200, { ok: true, ...r, ...(r.status === 'ready' ? { codeRequestsLeft: leftFor(rq.ctx, customer.id) } : {}) });
   });
 
   router.post('/api/code/cancel/:id', (rq) => {

@@ -314,7 +314,7 @@ ${contactTiem(ctx)}`;
 
 function codeHint(ctx, v) {
   if (v.codeRequestsLeft <= 0) return 'Đã hết lượt lấy mã cho slot này.';
-  if (v.extendedDays > 0) return `Còn ${v.codeRequestsLeft} lần lấy mã · trên máy này`;
+  if (v.extendedDays > 0 || !v.needTap) return `Còn ${v.codeRequestsLeft} lần lấy mã · trên máy này`;
   if (v.needVoucher && !v.hasBoundVoucher) return `Còn ${v.codeRequestsLeft} lần lấy mã · mỗi lần cần 1 phiếu (chạm thẻ hoặc phiếu giấy), trên máy này`;
   if (v.needVoucher) return `Còn ${v.codeRequestsLeft} lần lấy mã · trên máy này`;
   const at = v.atCafeUntil ? `đang ở quán tới ${fmtLocal(v.atCafeUntil, ctx.settings().timezoneOffsetMin).slice(0, 5)}` : 'cần chạm lại thẻ của quán (ở quầy hoặc trên bàn)';
@@ -484,7 +484,7 @@ function checklist(v, all, account = null) {
  * Trang vé: vào là thấy tài khoản luôn (chủ yêu cầu 08/10/2026: "quá nhiều chữ, bỏ bước 1, vào trang nhận tài khoản luôn").
  * Email / mật khẩu + nút Chép, nút mở món ngay dưới; mã (2FA / email) nằm ngay trong thẻ, không còn chuỗi bước.
  */
-function accountCard(ctx, v, { rows, code = '', codeFold = '' }) {
+function accountCard(ctx, v, { rows, code = '', codeFold = '', guide = '' }) {
   const t = v.tool;
   const app = appOf(t);
   // Bớt chữ (chủ yêu cầu 08/10/2026): dòng "đã chép email" chỉ hiện sau khi bấm; tên Slot đã có trên vé nên chỉ hiện link Project nếu có.
@@ -492,6 +492,7 @@ function accountCard(ctx, v, { rows, code = '', codeFold = '' }) {
   // sáng lên kèm lời nhắc; dòng đã chép có ✓. Bỏ dòng "Chưa có app? Tải … · dùng bản web" (chủ yêu cầu 08/10/2026 — iPhone hỏi "Mở trong app?" làm dòng này hiện nhầm).
   return html`<section class="steps acc-card" data-acc>
   <h2>Tài khoản của bạn</h2>
+  ${guide}
   ${t.login_url ? html`${openBtn(t, 'btn acc-open', false, v.accountEmail || '')}
   <p class="acc-auto" data-acc-auto hidden></p>` : ''}
   ${app ? html`<p class="hint acc-miss" data-in-app hidden>Bấm ⋯ → <b>Mở bằng trình duyệt</b> để vào app ${app.name}</p>` : ''}
@@ -504,6 +505,14 @@ function accountCard(ctx, v, { rows, code = '', codeFold = '' }) {
 
 /** Lời nhắc hiện khi khách mở app xong quay lại trang (app.js): đặt ngay trên dòng cần làm tiếp. */
 const nextHint = (text) => html`<p class="acc-next" data-acc-next hidden>${text}</p>`;
+
+/** 3 bước luôn hiện cho món đăng nhập bằng mã qua email (ChatGPT, Claude) — chủ yêu cầu 10/10/2026: khách mới vào không biết làm gì trước.
+ *  Bước nào xong thì có ✓ (app.js: bấm mở app / chép email → 1, quay lại trang → 2, mã về → 3). Món email + mật khẩu không có khung này. */
+const mailGuide = (t) => html`<ol class="acc-guide" data-guide>
+  <li data-g="1"><span>Bấm <b>Mở app ${appOf(t)?.name || t.name}</b> (tự chép email)</span></li>
+  <li data-g="2"><span>Dán email → bấm <b>Tiếp tục</b></span></li>
+  <li data-g="3"><span>Quay lại bấm <b>Lấy mã</b> → chép, dán vào</span></li>
+</ol>`;
 
 /** Ghi chú riêng của món (Cài đặt → Công cụ): bỏ câu nói lại điều "Mẹo dùng mượt" đã có (1 máy / email + mật khẩu), khỏi lặp ý. */
 const extraNotes = (text) => String(text || '').split(/\r?\n/)
@@ -542,8 +551,8 @@ function slotBody(ctx, v) {
   let how;
   if (t.login_type === 'email_code') {
     rules.push(html`Giữ nguyên email, thông tin tài khoản giúp Tiệm nha`);
-    how = accountCard(ctx, v, { rows: html`${copyRow('Email', v.accountEmail, 'email')}${nextHint(`Quay lại rồi nè — bấm Lấy mã trước, rồi bấm gửi mã bên ${t.name} nha 👇`)}`,
-      code: { title: '', body: codeBox(ctx, v, 'mail') } });
+    how = accountCard(ctx, v, { rows: html`${copyRow('Email', v.accountEmail, 'email')}${nextHint('Quay lại rồi nè — bấm Lấy mã, mã hiện ngay dưới đây 👇')}`,
+      code: { title: '', body: codeBox(ctx, v, 'mail') }, guide: t.login_url ? mailGuide(t) : '' });
   } else if (t.login_type === 'password' || t.login_type === 'password_totp') {
     const totp = t.login_type === 'password_totp';
     rules.push(totp ? html`Giữ nguyên mật khẩu, email, 2FA — để ai cũng vào được` : html`Giữ nguyên mật khẩu, email, đừng bật 2FA nha — để ai cũng vào được`);

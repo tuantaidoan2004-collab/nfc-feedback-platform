@@ -111,9 +111,12 @@
   // (iPhone hỏi "Mở trong CapCut?" mà trang vẫn còn trước mặt). Chủ yêu cầu 08/10/2026.
   let opened = false;
   let away = false;
+  // Khung 3 bước (món đăng nhập bằng mã email): bước xong → ✓.
+  const guideDone = (n) => { for (let i = 1; i <= n; i++) $(`[data-guide] [data-g="${i}"]`)?.classList.add('done'); };
   const afterOpen = () => {
     if (!opened || !away) return;
     opened = false; away = false;
+    guideDone(2);
     const hint = $('[data-acc-next]');
     const target = $('[data-acc-target]');
     if (hint) hint.hidden = false;
@@ -175,6 +178,7 @@
     if (a.dataset.copyFirst) {
       copy(a.dataset.copyFirst, $('[data-cp=email] [data-copy]'));
       $('[data-cp=email]')?.classList.add('done');
+      guideDone(1);
       const note = $('[data-acc-auto]');
       if (note) { note.textContent = '✓ Đã chép email'; note.classList.add('ok'); note.hidden = false; }
       opened = true; away = false;
@@ -524,6 +528,12 @@
       digits.dataset.alts = JSON.stringify(r.alts || []);
       showCode(r);
     }
+    // Dòng "Còn x lần lấy mã": cập nhật khi bấm Lấy mã và khi mã về (mã về mới tính lượt).
+    function setLeft(n) {
+      const hint = $('[data-code-hint]', box);
+      if (!hint || typeof n !== 'number') return;
+      hint.textContent = n > 0 ? hint.textContent.replace(/Còn \d+ lần/, `Còn ${n} lần`) : 'Đã hết lượt lấy mã cho slot này.';
+    }
     async function poll() {
       if (!windowId) return;
       const r = await api(`/api/code/status/${windowId}`);
@@ -535,6 +545,8 @@
         btn.disabled = false;
         picked = null;
         gotCode(r);
+        setLeft(r.codeRequestsLeft);
+        guideDone(3);
         say(box, 'Nhập mã này vào trang đăng nhập. Mã chỉ dùng được trong vài phút.', 'ok');
         // Khách bấm "gửi lại mã" bên hãng → mã mới thay mã cũ; mã dự phòng có thể về sau: tiếp tục nghe thêm 1 lúc.
         clearInterval(pollTimer);
@@ -617,10 +629,7 @@
       if (vInput && (r.status === 'totp' || r.status === 'open')) vInput.value = '';
       if (vInput && r.status === 'need_voucher') vInput.focus();
       if (r.unauthorized) { location.reload(); return; }
-      const hint = $('[data-code-hint]', box);
-      if (hint && typeof r.codeRequestsLeft === 'number') {
-        hint.textContent = r.codeRequestsLeft > 0 ? hint.textContent.replace(/Còn \d+ lần/, `Còn ${r.codeRequestsLeft} lần`) : 'Đã hết lượt lấy mã cho slot này.';
-      }
+      setLeft(r.codeRequestsLeft);
       if (r.status === 'totp') { showTotp(r); return; }
       if (r.status === 'open') {
         windowId = r.windowId;

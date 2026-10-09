@@ -29,6 +29,7 @@ export const SETTING_DEFS = {
   codeWindowSec: [180, 'Mỗi lượt "Lấy mã" mở trong (giây)'],
   workerAlertMin: [10, 'Bot Canva quá (phút) chưa mời / gỡ xong → báo chủ làm tay (máy chạy bot có thể đang tắt)'],
   endHourCloseMin: [60, 'Công cụ hết lượt cùng giờ (ChatGPT, Claude — 6h sáng): ngừng nhận trước giờ hết (phút), để khách không nhận rồi chỉ dùng được vài phút. 0 = không ngừng'],
+  codeNeedsTap: [0, 'Lấy mã đăng nhập (ChatGPT, Claude…): 0 = tự động — chỉ cần đúng máy đã nhận + còn lượt (số mã / slot) · 1 = cần chạm thẻ của quán hoặc mã phiếu như cũ'],
   voucherNeedsCafe: [0, 'Công cụ cần mã phiếu (ChatGPT, Claude): 0 = có mã phiếu là lấy được mã (phiếu chỉ phát ở quán) · 1 = vừa cần mã phiếu vừa phải đang ở quán'],
   autoVoucherPerDay: [2, 'Chạm thẻ NFC / mã QR trên bàn (vé từ trang quán QS hoặc thẻ của Tiệm) → tự có phiếu lấy mã: tối đa số phiếu này / máy / ngày và / SĐT / ngày. 0 = tắt (chỉ dùng phiếu giấy)'],
   autoVoucherTtlMin: [60, 'Phiếu tự động (chạm thẻ) và phiếu QS lấy qua API còn dùng được trong (phút)'],
@@ -66,7 +67,7 @@ export const SETTING_RANGE = {
   otpTtlSec: [60, 1800], otpMaxAttempts: [1, 20], otpPerPhonePerHour: [1, 30], otpPerDevicePerHour: [1, 60], otpPerIpPerHour: [1, 1000], sessionDays: [1, 90],
   ticketTtlMin: [5, 240], entryTtlMin: [5, 240],
   tapCounterMaxJump: [1, 100000], cardTapsPerHourAlert: [1, 10000], cardTapsPerHourLock: [1, 10000],
-  codeWindowSec: [60, 900], workerAlertMin: [1, 240], endHourCloseMin: [0, 240], voucherNeedsCafe: [0, 1],
+  codeWindowSec: [60, 900], workerAlertMin: [1, 240], endHourCloseMin: [0, 240], codeNeedsTap: [0, 1], voucherNeedsCafe: [0, 1],
   autoVoucherPerDay: [0, 20], autoVoucherTtlMin: [5, 1440], qsVoucherPerCafeDay: [0, 1000], voucherFailsPer10Min: [1, 50],
   maxExtendDays: [1, 30], codeMaxRequests: [1, 20],
   riskYellow: [1, 1000], riskRed: [1, 1000], riskDecayPerDay: [0, 100], peakStartHour: [0, 23], peakEndHour: [0, 23],
@@ -83,6 +84,7 @@ export const SETTING_GROUPS = [
 
 /** Ô 2 lựa chọn → hiện thành ô chọn thay vì ô gõ. */
 export const SETTING_CHOICES = {
+  codeNeedsTap: { 0: '0 — tự động, không cần chạm thẻ / phiếu', 1: '1 — cần chạm thẻ của quán hoặc mã phiếu' },
   voucherNeedsCafe: { 0: '0 — có mã phiếu là lấy được mã', 1: '1 — cần mã phiếu và phải đang ở quán' },
   yellowAction: { reject: 'reject — từ chối', approve: 'approve — cho qua' },
 };
@@ -112,7 +114,7 @@ export function checkSetting(key, value) {
   if (v === null && def !== null) throw new Error(`${key} không được để trống`);
   const range = SETTING_RANGE[key];
   if (range && v !== null && (!Number.isInteger(v) || v < range[0] || v > range[1])) throw new Error(`${key} phải là số nguyên từ ${range[0]} đến ${range[1]}`);
-  if (key === 'voucherNeedsCafe' && ![0, 1].includes(v)) throw new Error('voucherNeedsCafe chỉ nhận 0 hoặc 1');
+  if ((key === 'voucherNeedsCafe' || key === 'codeNeedsTap') && ![0, 1].includes(v)) throw new Error(`${key} chỉ nhận 0 hoặc 1`);
   if (key === 'workspacePrefix' && !/^[\p{L}\p{N} _-]{1,20}$/u.test(String(v))) throw new Error('workspacePrefix: 1–20 chữ / số / khoảng trắng');
   if (key === 'aboutUrl' && !/^https:\/\/[^\s"'<>]+$/.test(String(v))) throw new Error('aboutUrl phải là link bắt đầu bằng https://');
   // Link Zalo nằm trên mọi trang khách → chỉ nhận https:// (trước nhận cả "javascript:…").

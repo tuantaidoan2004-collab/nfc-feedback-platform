@@ -10,7 +10,7 @@ import { checkClaimQuota, isOwner, pickAccount, pickRedeem, hasStock, toolAvaila
 import { hit } from '../lib/ratelimit.js';
 import { startOfLocalDay } from '../lib/time.js';
 import { scoreClaim, isCustomerLocked } from './risk.js';
-import { codesLeft, slotNeedsVoucher } from './codes.js';
+import { codesLeft, slotNeedsTap, slotNeedsVoucher } from './codes.js';
 import { boundVoucher, deviceVoucher } from './vouchers.js';
 
 export const PRESENCE_MESSAGES = {
@@ -427,7 +427,7 @@ export function currentSlotView(ctx, customerId, deviceId) {
   }
   const ws = active && slot.seat && account ? get(ctx.db, 'SELECT name, url FROM workspaces WHERE account_id = ? AND seat = ?', account.id, slot.seat) : null;
   const fullTool = get(ctx.db, 'SELECT * FROM tools WHERE id = ?', slot.tool_id);
-  const needVoucher = slotNeedsVoucher(fullTool, slot);
+  const needVoucher = slotNeedsVoucher(s, fullTool, slot);
   const extendReq = active ? get(ctx.db, "SELECT days, created_at FROM extend_requests WHERE slot_id = ? AND status = 'pending'", slot.id) : null;
   const win = active ? get(ctx.db,
     "SELECT id, status, expires_at FROM code_windows WHERE slot_id = ? AND status = 'open' AND expires_at > ? ORDER BY id DESC LIMIT 1", slot.id, now) : null;
@@ -460,6 +460,7 @@ export function currentSlotView(ctx, customerId, deviceId) {
     cafeId: slot.cafe_id, // cảnh riêng của quán trên trang vé
     codeRequests: slot.code_used,
     codeRequestsLeft: codesLeft(s, slot, fullTool),
+    needTap: slotNeedsTap(s, slot),
     // Lấy mã cần đang ở quán: lượt chạm / vé còn hạn tới lúc này (null = phải chạm lại thẻ của quán).
     atCafeUntil: (() => { const e = active && deviceMatches ? latestEntry(ctx, deviceId) : null; return e ? e.at + s.entryTtlMin * 60_000 : null; })(),
     openWindow: win ? { id: win.id, expiresAt: win.expires_at } : null,
