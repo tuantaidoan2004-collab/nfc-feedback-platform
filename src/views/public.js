@@ -355,6 +355,7 @@ function codeBox(ctx, v, mode) {
       <div class="code-digits" data-code></div>
       ${totp ? html`<p class="hint">Đổi sau <b data-remain>30</b> giây</p>` : ''}
       <button type="button" class="chip-btn" data-act="copy-code">Chép mã</button>
+      ${totp ? '' : html`<p class="hint" data-code-alts hidden>Mã trên không vào được? Thử mã này: <span data-alt-list></span></p>`}
     </div>
     <p class="msg" role="status" aria-live="polite"></p>
   </div>`;

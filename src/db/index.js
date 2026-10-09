@@ -50,6 +50,11 @@ function migrate(db) {
   add('vouchers', 'device_id', 'TEXT');
   add('rotation_tasks', 'code_until', 'INTEGER');
   add('accounts', 'cafe_id', 'INTEGER REFERENCES cafes(id)');
+  // 09/10/2026: lượt lấy mã tính theo mã đã GIAO (không phải lần bấm), giới hạn riêng từng món — chủ chốt ChatGPT 2 mã / máy.
+  if (add('tools', 'code_max', 'INTEGER')) db.exec("UPDATE tools SET code_max = 2 WHERE slug = 'chatgpt'");
+  if (add('slots', 'code_used', 'INTEGER NOT NULL DEFAULT 0')) {
+    db.exec('UPDATE slots SET code_used = (SELECT COUNT(*) FROM code_windows w WHERE w.slot_id = slots.id AND w.code_received_at IS NOT NULL)');
+  }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS cafes_qs_slug ON cafes(qs_slug COLLATE NOCASE) WHERE qs_slug IS NOT NULL;
            CREATE UNIQUE INDEX IF NOT EXISTS one_qs_entry_per_cafe ON cards(cafe_id) WHERE kind = 'qs';
            CREATE INDEX IF NOT EXISTS vouchers_device ON vouchers(device_id) WHERE device_id IS NOT NULL;`);

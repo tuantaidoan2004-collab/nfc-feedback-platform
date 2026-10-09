@@ -278,7 +278,8 @@ test('gia hạn: mã gia hạn +1 ngày; 6h sáng khách thường hết, bot v�
     ctx.clock.advance(3 * HOUR);
     const again = gs[1].code();
     assert.equal(again.status, 'totp', JSON.stringify(again));
-    assert.equal(gs[1].view().codeRequestsLeft, 2 * ctx.settings().codeMaxRequests - 1, 'mỗi ngày gia hạn thêm lượt lấy mã');
+    const perDay = get(ctx.db, "SELECT code_max FROM tools WHERE slug = 'chatgpt'").code_max ?? ctx.settings().codeMaxRequests;
+    assert.equal(gs[1].view().codeRequestsLeft, 2 * perDay - 1, 'mỗi ngày gia hạn thêm lượt lấy mã (ChatGPT 2 mã / ngày)');
   } finally { await srv.close(); }
 });
 
@@ -414,6 +415,7 @@ async function guestHttp(ctx, srv, phone) {
 test('chạm thẻ (vé QS) → tự có phiếu, bấm lấy mã không phải gõ; tối đa 2 phiếu / máy / ngày; phiếu giấy vẫn dùng song song', async () => {
   const { ctx, acct, tool } = setup();
   acct('chatgpt', 'gpt-a@kho.test', { password: 'Pw#1', totp: SECRET });
+  ctx.db.exec("UPDATE tools SET code_max = NULL WHERE slug = 'chatgpt'");  // bài này thử giới hạn PHIẾU, không thử giới hạn số mã
   const srv = await startTestServer(ctx);
   try {
     const c = await guestHttp(ctx, srv, '0912000001');

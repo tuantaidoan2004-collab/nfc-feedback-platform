@@ -488,6 +488,42 @@
       left.textContent = fmt(ms);
       if (ms < -60_000) idle('Hết thời gian chờ mã. Bấm Lấy mã để thử lại.', 'err');
     }
+    // Mã dự phòng (tài khoản dùng chung: 2 người đăng nhập gần cùng lúc có thể bị đổi mã cho nhau) — chạm để đưa lên ô lớn + chép.
+    const altBox = $('[data-code-alts]', ready);
+    const altList = altBox && $('[data-alt-list]', altBox);
+    let picked = null;
+    function showCode(r) {
+      const all = [r.code, ...(r.alts || [])];
+      if (!all.includes(picked)) picked = null;
+      const show = picked || r.code;
+      if (digits.textContent !== show) { digits.textContent = show; buzz(); }
+      if (!altBox) return;
+      const others = all.filter((c) => c !== show);
+      altBox.hidden = !others.length;
+      if (altList.dataset.now === others.join(',')) return; // hỏi lại 4 giây/lần: không dựng lại nút khi không đổi (khỏi mất cú chạm)
+      altList.dataset.now = others.join(',');
+      altList.replaceChildren(...others.map((c) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip-btn';
+        b.dataset.altCode = c;
+        b.textContent = c;
+        return b;
+      }));
+    }
+    altList?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-alt-code]');
+      if (!b) return;
+      picked = b.dataset.altCode;
+      const r = { code: digits.dataset.primary, alts: JSON.parse(digits.dataset.alts || '[]') };
+      showCode(r);
+      copy(picked, $('[data-act=copy-code]', box));
+    });
+    function gotCode(r) {
+      digits.dataset.primary = r.code;
+      digits.dataset.alts = JSON.stringify(r.alts || []);
+      showCode(r);
+    }
     async function poll() {
       if (!windowId) return;
       const r = await api(`/api/code/status/${windowId}`);
@@ -497,17 +533,17 @@
         wait.hidden = true;
         ready.hidden = false;
         btn.disabled = false;
-        if (digits.textContent !== r.code) buzz();
-        digits.textContent = r.code;
+        picked = null;
+        gotCode(r);
         say(box, 'Nhập mã này vào trang đăng nhập. Mã chỉ dùng được trong vài phút.', 'ok');
-        // Khách bấm "gửi lại mã" bên hãng → mã mới thay mã cũ: tiếp tục nghe thêm 1 lúc.
+        // Khách bấm "gửi lại mã" bên hãng → mã mới thay mã cũ; mã dự phòng có thể về sau: tiếp tục nghe thêm 1 lúc.
         clearInterval(pollTimer);
         let extra = 0;
         pollTimer = setInterval(async () => {
           extra += 1;
           if (extra > 40) { clearInterval(pollTimer); return; }
           const again = await api(`/api/code/status/${windowId}`);
-          if (again.status === 'ready' && again.code !== digits.textContent) { digits.textContent = again.code; buzz(); }
+          if (again.status === 'ready') gotCode(again);
           if (again.status === 'expired') clearInterval(pollTimer);
         }, 4000);
       } else if (r.status === 'expired' || r.status === 'not_found') {

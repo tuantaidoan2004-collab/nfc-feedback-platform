@@ -36,7 +36,7 @@ export const SETTING_DEFS = {
   voucherFailsPer10Min: [5, 'Nhập sai mã phiếu quá số lần này / máy / 10 phút → tạm khoá ô nhập mã phiếu'],
   workspacePrefix: ['Slot', 'Tên Project (workspace) trên tài khoản dùng chung = chữ này + số chỗ, vd. "Slot 3". Đổi thì bot tạo lại theo tên mới'],
   maxExtendDays: [7, 'Gia hạn tối đa (ngày) tính từ hôm nay'],
-  codeMaxRequests: [4, 'Số lần lấy mã tối đa / slot (lần nào cũng phải đang ở quán và đúng máy đã nhận slot)'],
+  codeMaxRequests: [4, 'Số mã tối đa / slot (1 máy) cho món không đặt riêng — chỉ tính mã đã về tới khách; lần nào cũng phải đang ở quán và đúng máy'],
   // Điểm rủi ro
   riskYellow: [30, 'Điểm từ mức này → mức vàng (xử lý theo "Ca vàng" bên dưới)'],
   riskRed: [60, 'Điểm từ mức này → từ chối'],

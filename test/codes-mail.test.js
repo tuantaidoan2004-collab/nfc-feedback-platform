@@ -113,6 +113,60 @@ test('tài khoản dùng chung: người 2 đăng nhập ngay sau khi người 1
   assert.equal(ctx.alerts('code_orphan').length, 1);
 });
 
+test('tài khoản dùng chung bị đổi mã cho nhau (người vội gửi mã trước) → mỗi người thấy mã của người kia làm "mã dự phòng"', () => {
+  const { ctx, req, slot, email, customer, deviceId, card, tools } = setup();
+  ctx.db.prepare('UPDATE accounts SET max_holders = 2 WHERE id = ?').run(slot.account_id);
+  const b = makeCustomer(ctx, '84911111111');
+  const bDev = 'device-bbbbbbbbbbbbbbbb';
+  makeDevice(ctx, bDev, b.id);
+  const { session: bs } = makeSession(ctx, { customerId: b.id, deviceId: bDev });
+  makeTap(ctx, { card, deviceId: bDev });
+  startClaim(ctx, { session: bs, customer: b, deviceId: bDev, ip: '1.2.3.5', toolId: tools.chatgpt.id });
+  const bStatus = (id) => codeStatus(ctx, { windowId: id, customerId: b.id, deviceId: bDev });
+  // B bấm Lấy mã. A (vội) bấm gửi mã bên hãng trước → mã của A về lúc lượt của B đang mở → giao nhầm cho B.
+  const w2 = requestCode(ctx, { session: byId(ctx, 'sessions', bs.id), customer: byId(ctx, 'customers', b.id), deviceId: bDev, ip: '1.2.3.5' });
+  ctx.clock.advance(5 * SEC);
+  assert.equal(ingestMail(ctx, codeMail(email, '111111')).verdict, 'matched');
+  ctx.clock.advance(10 * SEC);
+  assert.equal(ingestMail(ctx, codeMail(email, '222222')).verdict, 'orphan_wait', 'mã thật của B: không thay mã đã giao (tài khoản dùng chung)');
+  assert.deepEqual(bStatus(w2.windowId), { status: 'ready', code: '111111', receivedAt: bStatus(w2.windowId).receivedAt, alts: ['222222'] });
+  // A bấm Lấy mã → nhận mã chờ gần nhất (của B); mã của A (đã giao cho B) hiện làm mã dự phòng.
+  ctx.clock.advance(30 * SEC);
+  const w1 = req();
+  const a = codeStatus(ctx, { windowId: w1.windowId, customerId: customer.id, deviceId });
+  assert.equal(a.code, '222222');
+  assert.deepEqual(a.alts, ['111111']);
+  assert.deepEqual(bStatus(w2.windowId).alts, ['222222'], 'mã đã sang lượt của A vẫn là dự phòng của B');
+  // Mã đã báo mồ côi (người ngoài tự đăng nhập) không bao giờ hiện làm mã dự phòng.
+  ctx.clock.advance(10 * SEC);
+  assert.equal(ingestMail(ctx, codeMail(email, '999999')).verdict, 'orphan_wait');
+  ctx.clock.advance(91 * SEC);
+  escalatePendingOrphans(ctx);
+  assert.equal(ctx.alerts('code_orphan').length, 1, 'vẫn báo đỏ như cũ');
+  assert.ok(!codeStatus(ctx, { windowId: w1.windowId, customerId: customer.id, deviceId }).alts.includes('999999'));
+  assert.ok(!bStatus(w2.windowId).alts.includes('999999'));
+});
+
+test('tài khoản 1 người: không có mã dự phòng (kể cả mã cũ vừa bị thay)', () => {
+  const { ctx, req, email, customer, deviceId } = setup();
+  const w = req();
+  ingestMail(ctx, codeMail(email, '123123'));
+  ctx.clock.advance(20 * SEC);
+  assert.equal(ingestMail(ctx, codeMail(email, '456456')).verdict, 'matched', 'gửi lại mã → thay mã');
+  const s = codeStatus(ctx, { windowId: w.windowId, customerId: customer.id, deviceId });
+  assert.equal(s.code, '456456');
+  assert.deepEqual(s.alts, []);
+  // Lấy mã lần 2 ngay sau đó: mã của lượt trước (cùng slot, hãng đã huỷ) không hiện làm dự phòng.
+  ctx.clock.advance(20 * SEC);
+  const w2 = req();
+  assert.notEqual(w2.windowId, w.windowId);
+  ctx.clock.advance(10 * SEC);
+  assert.equal(ingestMail(ctx, codeMail(email, '789789')).verdict, 'matched');
+  const s2 = codeStatus(ctx, { windowId: w2.windowId, customerId: customer.id, deviceId });
+  assert.equal(s2.code, '789789');
+  assert.deepEqual(s2.alts, []);
+});
+
 test('mã chờ quá 90 giây không ai nhận → nâng thành mồ côi', () => {
   const { ctx, email } = setup();
   ingestMail(ctx, codeMail(email, '555666'));

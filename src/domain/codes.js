@@ -21,8 +21,14 @@ const rejected = (code, message) => ({ status: 'rejected', code, message });
  * Khách bấm "Lấy mã" (mã gửi qua email) hoặc "Lấy mã 2FA" (công cụ mật khẩu + 2FA). Xem CONTRACT.md mục 3.7.
  * kind: 'mail' | 'totp' — bỏ trống thì theo công cụ (password_totp → totp).
  */
-/** Số lần lấy mã tối đa của slot: mỗi ngày gia hạn thêm 1 phần (khách gia hạn bị đăng xuất lúc 6h, phải đăng nhập lại). */
-export const codeLimit = (s, slot) => s.codeMaxRequests * (1 + (slot.extended_days || 0));
+/** Số mã tối đa của slot (1 slot = 1 máy): riêng món (tools.code_max) hoặc Cài đặt; mỗi ngày gia hạn thêm 1 phần (khách gia hạn
+ *  bị đăng xuất lúc 6h, phải đăng nhập lại). Tính theo mã ĐÃ GIAO (slots.code_used), không theo lần bấm. */
+export const codeLimit = (s, slot, tool) => (tool?.code_max ?? s.codeMaxRequests) * (1 + (slot.extended_days || 0));
+export const codesLeft = (s, slot, tool) => Math.max(0, codeLimit(s, slot, tool) - (slot.code_used || 0));
+/** Bấm "Lấy mã" mà mã không về (chưa bấm gửi bên hãng, thư lạc) thì không mất lượt — nhưng mỗi lượt mở khoá cả tài khoản 3 phút
+ *  với người dùng chung, nên số lần MỞ cũng có trần: số mã + OPEN_SPARE. */
+const OPEN_SPARE = 3;
+const markUsed = (ctx, slotId) => run(ctx.db, 'UPDATE slots SET code_used = code_used + 1 WHERE id = ?', slotId);
 
 /** Slot này lấy mã có cần mã phiếu không (công cụ bật mã phiếu, slot chưa gia hạn). */
 export const slotNeedsVoucher = (tool, slot) => toolNeedsVoucher(tool) && !slot.code_free;
@@ -71,9 +77,12 @@ export function requestCode(ctx, { customer, deviceId, ip, kind, voucher: vouche
       logEvent(ctx, { type: 'code_second_device', severity: 'yellow', customerId: customer.id, deviceId, slotId: slot.id, accountId: account.id, ip });
       return rejected('second_device', 'Mỗi slot chỉ dùng trên 1 máy để nhường slot cho bạn sau nhé.');
     }
-    // Lấy thêm mã (tối đa codeMaxRequests lần / slot) không cần duyệt: lần nào cũng phải đang ở quán (kiểm ở trên) và đúng máy.
-    if (slot.code_requests >= codeLimit(s, slot)) {
-      return rejected('too_many_codes', 'Bạn đã lấy mã đủ số lần cho slot này. Cần hỗ trợ thì nhắn Zalo Tiệm nhé.');
+    // Lấy thêm mã (tối đa codeLimit mã / slot) không cần duyệt: lần nào cũng phải đang ở quán (kiểm ở trên) và đúng máy.
+    if (!codesLeft(s, slot, tool)) {
+      return rejected('too_many_codes', `Máy này đã lấy đủ ${codeLimit(s, slot, tool)} mã cho slot này. Cần hỗ trợ thì nhắn Zalo Tiệm nhé.`);
+    }
+    if (slot.code_requests >= codeLimit(s, slot, tool) + OPEN_SPARE) {
+      return rejected('too_many_opens', 'Bạn đã bấm "Lấy mã" nhiều lần mà chưa nhận được mã. Nhắn Zalo Tiệm để được hỗ trợ nhé.');
     }
     // Mã phiếu: khách gõ, hoặc mã vĩnh viễn đã gắn SĐT này. Chỉ trừ lượt khi mở được mã (bận / lỗi thì không trừ).
     let voucher = null;
@@ -114,7 +123,7 @@ function totpView(ctx, account, until) {
 /** Mở lượt xem mã 2FA (dài bằng 1 lượt lấy mã). Không khoá tài khoản như mã email: nhiều người xem cùng lúc vẫn đúng. */
 function openTotp(ctx, { slot, account, customer, deviceId, ip }) {
   const until = ctx.now() + ctx.settings().codeWindowSec * SEC;
-  run(ctx.db, 'UPDATE slots SET code_requests = code_requests + 1, totp_until = ?, totp_device = ? WHERE id = ?',
+  run(ctx.db, 'UPDATE slots SET code_requests = code_requests + 1, code_used = code_used + 1, totp_until = ?, totp_device = ? WHERE id = ?',
     until, deviceId, slot.id);
   logEvent(ctx, { type: 'totp_shown', customerId: customer.id, deviceId, slotId: slot.id, accountId: account.id, ip });
   return totpView(ctx, account, until);
@@ -159,6 +168,7 @@ function openWindow(ctx, { slot, account, customer, deviceId, ip, opened }) {
   if (early) {
     run(ctx.db, "UPDATE code_windows SET status = 'delivered', code = ?, code_received_at = ?, mail_id = ? WHERE id = ?", early.code, now, early.id, windowId);
     run(ctx.db, "UPDATE mails SET verdict = 'matched', window_id = ? WHERE id = ?", windowId, early.id);
+    markUsed(ctx, slot.id);
     logEvent(ctx, { type: 'code_delivered', customerId: customer.id, slotId: slot.id, accountId: account.id, data: { windowId, early: true } });
   }
   return { status: 'open', windowId, expiresAt, ...opened };
@@ -172,9 +182,25 @@ export function codeStatus(ctx, { windowId, customerId, deviceId }) {
   if (w.status === 'open') return now > w.expires_at + GRACE ? { status: 'expired' } : { status: 'waiting', expiresAt: w.expires_at };
   if (w.status === 'delivered' && w.code) {
     if (!w.shown_at) run(ctx.db, 'UPDATE code_windows SET shown_at = ? WHERE id = ?', now, w.id);
-    return { status: 'ready', code: w.code, receivedAt: w.code_received_at };
+    return { status: 'ready', code: w.code, receivedAt: w.code_received_at, alts: altCodes(ctx, w) };
   }
   return { status: 'expired' };
+}
+
+/**
+ * Mã khác về cùng tài khoản quanh lượt này. Tài khoản dùng chung (ChatGPT / Claude): hãng không ghi mã của máy nào → 2 người
+ * đăng nhập gần cùng lúc có thể bị đổi mã cho nhau (~1% lượt trong mô phỏng 09/10/2026). Khách thử mã dự phòng thay vì tốn
+ * thêm 1 lượt lấy mã. An toàn: mã hãng gắn với đúng phiên đăng nhập đã xin mã, nhập ở máy khác không dùng được; chỉ người đang
+ * giữ chính tài khoản này, đang có lượt, mới thấy. Không bao giờ có: mã của chủ (việc tay), mã đã báo mồ côi, mã các lượt của
+ * chính slot này (lượt này / lượt trước — mã cũ hãng đã huỷ).
+ */
+function altCodes(ctx, w) {
+  return all(ctx.db,
+    `SELECT code, MAX(id) AS last FROM mails WHERE account_id = ? AND kind = 'login_code' AND code IS NOT NULL AND code != ?
+     AND verdict IN ('matched', 'orphan_wait') AND received_at BETWEEN ? AND ?
+     AND (window_id IS NULL OR window_id NOT IN (SELECT id FROM code_windows WHERE slot_id = ?))
+     GROUP BY code ORDER BY last DESC LIMIT 2`,
+    w.account_id, w.code, w.opened_at - PRESEND_WINDOW, w.expires_at + GRACE, w.slot_id).map((r) => r.code);
 }
 
 export function cancelWindow(ctx, { windowId, customerId }) {
@@ -194,6 +220,7 @@ export function onLoginCode(ctx, { account, code, mailId, mailDate }) {
   const open = get(ctx.db, "SELECT * FROM code_windows WHERE account_id = ? AND status = 'open' AND expires_at + ? >= ? ORDER BY id DESC LIMIT 1", account.id, GRACE, now);
   if (open && dateOk(open)) {
     run(ctx.db, "UPDATE code_windows SET status = 'delivered', code = ?, code_received_at = ?, mail_id = ?, shown_at = NULL WHERE id = ?", code, now, mailId, open.id);
+    markUsed(ctx, open.slot_id);  // mã về tới khách mới tính lượt (mã thay thế "gửi lại mã" của cùng lượt thì không tính thêm)
     logEvent(ctx, { type: 'code_delivered', customerId: open.customer_id, slotId: open.slot_id, accountId: account.id, data: { windowId: open.id } });
     return { verdict: 'matched', windowId: open.id };
   }
@@ -291,6 +318,7 @@ export function deliverManualCode(ctx, { mailId, code, by = 'admin' }) {
     if (!w) return { ok: false, message: 'Không có khách nào đang chờ mã của tài khoản này.' };
     run(ctx.db, "UPDATE code_windows SET status = 'delivered', code = ?, code_received_at = ?, mail_id = ?, shown_at = NULL WHERE id = ?", c, ctx.now(), mail.id, w.id);
     run(ctx.db, "UPDATE mails SET verdict = 'matched', window_id = ? WHERE id = ?", w.id, mail.id);
+    if (w.status === 'open') markUsed(ctx, w.slot_id);
     logEvent(ctx, { type: 'code_delivered', customerId: w.customer_id, slotId: w.slot_id, accountId: mail.account_id, data: { windowId: w.id, manual: true, by } });
     return { ok: true, message: 'Đã gửi mã cho khách.' };
   });

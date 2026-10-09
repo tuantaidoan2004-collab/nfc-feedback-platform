@@ -8,7 +8,7 @@ import { cafeByShop, recordEntry, latestEntry, isCafeOpen, processTap } from '..
 import { useTicket, TICKET_MESSAGES } from '../domain/ticket.js';
 import { issueOtp, verifyOtp, createSession, logout } from '../domain/auth.js';
 import { startClaim, currentSlotView } from '../domain/claims.js';
-import { requestCode, codeStatus, cancelWindow, totpStatus, codeLimit } from '../domain/codes.js';
+import { requestCode, codeStatus, cancelWindow, totpStatus, codesLeft } from '../domain/codes.js';
 import { redeemExtension, requestExtension, issueEntryVoucher } from '../domain/vouchers.js';
 import { toolAvailability, isOwner } from '../domain/quota.js';
 import { homePage, cardPage, mePage, privacyPage, aboutPage, shopParam } from '../views/public.js';
@@ -198,8 +198,8 @@ export function registerPublicRoutes(router) {
     const body = await rq.json();
     const r = requestCode(ctx, { customer, deviceId: rq.state.deviceId, ip: rq.ip, kind: body.kind, voucher: body.voucher });
     // Số lần lấy mã còn lại sau lần này → trang khách cập nhật dòng "Còn x lần lấy mã" không cần tải lại.
-    const slot = get(ctx.db, "SELECT code_requests, extended_days FROM slots WHERE customer_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1", customer.id);
-    const left = slot ? Math.max(0, codeLimit(ctx.settings(), slot) - slot.code_requests) : undefined;
+    const slot = get(ctx.db, "SELECT s.code_used, s.extended_days, t.code_max FROM slots s JOIN tools t ON t.id = s.tool_id WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.id DESC LIMIT 1", customer.id);
+    const left = slot ? codesLeft(ctx.settings(), slot, slot) : undefined;
     json(rq, 200, { ok: r.status === 'open' || r.status === 'totp', ...r, codeRequestsLeft: left });
   });
 

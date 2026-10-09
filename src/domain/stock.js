@@ -94,7 +94,7 @@ export function addAccounts(ctx, { tool, items, label = null, setup = false, by,
       if (tool.workspace_bot) max = Math.min(MAX_WORKSPACES, max);
       const accountId = run(ctx.db, 'INSERT INTO accounts(tool_id, label, login_email, password_enc, totp_enc, max_holders, status, status_reason, created_at, cafe_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         tool.id, label || null, key, a.password ? encrypt(a.password, ctx.config.dataKey) : null,
-        a.totp ? encrypt(a.totp, ctx.config.dataKey) : null, max, wait ? 'needs_rotation' : 'ready', wait ? 'Chờ bot tạo Project' : null, ctx.now(), cafeId ?? null).lastInsertRowid;
+        a.totp ? encrypt(a.totp, ctx.config.dataKey) : null, max, wait ? 'needs_rotation' : 'ready', wait ? 'Chờ tạo Project' : null, ctx.now(), cafeId ?? null).lastInsertRowid;
       if (wait) createTask(ctx, { accountId, slotId: null, kind: 'rotate', reason: 'setup', detail: null });
       ids.push(Number(accountId));
     }

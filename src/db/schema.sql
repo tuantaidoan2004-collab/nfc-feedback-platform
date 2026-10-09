@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS tools (
   mail_code INTEGER NOT NULL DEFAULT 0,      -- loại mật khẩu mà hãng hay gửi mã qua email (vd. Adobe) → có nút "Lấy mã"
   daily_cap INTEGER,                         -- số lượt tối đa / ngày cho cả hệ thống (NULL = không giới hạn)
   holders_default INTEGER NOT NULL DEFAULT 1,-- số khách / tài khoản khi nhập kho mà dòng không ghi
+  code_max INTEGER,                          -- số mã tối đa / slot (= 1 máy) riêng món này; NULL = theo Cài đặt codeMaxRequests
   auto_worker INTEGER NOT NULL DEFAULT 0,
   end_hour INTEGER,                          -- lượt hết lúc giờ này (giờ VN) lần tới, vd. 6 = 6h sáng hôm sau; NULL = đủ slot_hours
   account_days INTEGER,                      -- tài khoản tự hết Pro sau số ngày này kể từ lúc nhập kho (CapCut / Adobe / Claude); NULL = không hết    -- team_invite: bot trên máy chủ tiệm tự mời / gỡ (API /worker)
@@ -187,7 +188,8 @@ CREATE TABLE IF NOT EXISTS slots (
   invite_email TEXT,                         -- team_invite: email tài khoản của chính khách
   risk_score INTEGER NOT NULL DEFAULT 0,
   risk_reasons TEXT,                         -- JSON
-  code_requests INTEGER NOT NULL DEFAULT 0,
+  code_requests INTEGER NOT NULL DEFAULT 0,  -- số lần bấm "Lấy mã" (mở lượt) — chặn bấm giữ chỗ
+  code_used INTEGER NOT NULL DEFAULT 0,      -- số mã đã thật sự giao cho khách (mã email tới / xem mã 2FA) — tính lượt theo cột này
   password_shown_at INTEGER,
   seat INTEGER,                              -- tài khoản dùng chung: khách là "Slot <seat>" (dùng đúng Project/hồ sơ của mình)
   redeem_id INTEGER,                         -- login_type=redeem: mã/link đã giao

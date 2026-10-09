@@ -23,7 +23,7 @@ export const PILOT_TOOLS = [
     slot_hours: 24, end_hour: 6, reuse: 'rotate', rotation_required: 1, holders_default: 8, daily_cap: null, lifetime_cap: 2, cooldown_days: 30, sort: 20,
     // Phiên 24: lấy mã đăng nhập cần mã phiếu (phát ở quán); 6h chủ làm mới (xoá Project + chat, đăng xuất mọi thiết bị,
     // tạo lại Project "Slot 1…8") — giữ Project của khách đã gia hạn.
-    voucher_code: 1, workspace_bot: 1,
+    voucher_code: 1, workspace_bot: 1, code_max: 2, // chủ chốt 09/10/2026: mỗi máy 2 mã (2 lần đăng nhập)
     instructions: 'Chọn "Tiếp tục với email", nhập email ở trên, rồi dùng mã 6 số hiện trên trang này (không chọn Google / Apple / Microsoft).\nChỉ dùng Project mang tên Slot của bạn. Không mở, đổi tên hay xoá Project và đoạn chat của người khác.\nKhông lưu thông tin riêng tư: người dùng chung có thể thấy.\nKhông đổi email, không bật 2FA, không bấm "Đăng xuất khỏi mọi thiết bị".',
   },
   {

@@ -10,7 +10,7 @@ import { checkClaimQuota, isOwner, pickAccount, pickRedeem, hasStock, toolAvaila
 import { hit } from '../lib/ratelimit.js';
 import { startOfLocalDay } from '../lib/time.js';
 import { scoreClaim, isCustomerLocked } from './risk.js';
-import { codeLimit, slotNeedsVoucher } from './codes.js';
+import { codesLeft, slotNeedsVoucher } from './codes.js';
 import { boundVoucher, deviceVoucher } from './vouchers.js';
 
 export const PRESENCE_MESSAGES = {
@@ -458,8 +458,8 @@ export function currentSlotView(ctx, customerId, deviceId) {
     expiresAt: slot.expires_at,
     deviceMatches,
     cafeId: slot.cafe_id, // cảnh riêng của quán trên trang vé
-    codeRequests: slot.code_requests,
-    codeRequestsLeft: Math.max(0, codeLimit(s, slot) - slot.code_requests),
+    codeRequests: slot.code_used,
+    codeRequestsLeft: codesLeft(s, slot, fullTool),
     // Lấy mã cần đang ở quán: lượt chạm / vé còn hạn tới lúc này (null = phải chạm lại thẻ của quán).
     atCafeUntil: (() => { const e = active && deviceMatches ? latestEntry(ctx, deviceId) : null; return e ? e.at + s.entryTtlMin * 60_000 : null; })(),
     openWindow: win ? { id: win.id, expiresAt: win.expires_at } : null,

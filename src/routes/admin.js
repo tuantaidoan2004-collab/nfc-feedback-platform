@@ -404,6 +404,7 @@ function toolForm(rq, x, { isNew, flash, saved = x } = {}) {
   <h3>Thời gian &amp; lượt</h3>
   ${field('Số giờ dùng', html`<input name="slot_hours" type="number" min="1" value="${x.slot_hours}">`, '24 = 1 ngày, 168 = 7 ngày.')}
   ${field('Số khách / tài khoản (mặc định khi nhập kho)', html`<input name="holders_default" type="number" min="1" value="${x.holders_default ?? 1}">`, 'Vd. ChatGPT 5, CapCut 2, Adobe 2. Dòng nhập kho ghi số khác thì theo dòng đó. Nhiều khách → mỗi khách nhận "Slot 1, 2…".')}
+  ${field('Số mã tối đa / máy (mỗi slot)', html`<input name="code_max" type="number" min="1" max="20" value="${x.code_max ?? ''}" placeholder="trống = theo Cài đặt">`, 'Vd. ChatGPT 2 = mỗi khách đăng nhập tối đa 2 lần (2 thiết bị). Chỉ tính mã đã về tới khách: bấm "Lấy mã" mà mã không về thì không mất lượt.')}
   ${field('Hết lượt thì', select('reuse', REUSE, x.reuse || 'rotate'))}
   ${field('Hết lượt lúc (giờ VN)', html`<input name="end_hour" type="number" min="0" max="23" value="${x.end_hour ?? ''}" placeholder="trống = đủ thời gian ở trên">`, 'Vd. 6 = ai nhận lúc nào trong ngày cũng dùng tới 6h sáng hôm sau, 6h bạn đăng xuất mọi thiết bị (ChatGPT, Claude).')}
   ${field('Tài khoản tự hết sau (ngày, kể từ lúc nhập kho)', html`<input name="account_days" type="number" min="1" value="${x.account_days ?? ''}" placeholder="trống = không tự hết">`, 'Vd. 7 cho Claude / CapCut / Adobe dùng thử: quá hạn không giao, khách không được hứa quá ngày tài khoản hết.')}
@@ -612,7 +613,8 @@ ${secHead('Cảnh báo 2 giờ qua', { link: ['/admin/events?sev=red', 'Mở Nh�
 
   router.post('/admin/tasks/:id/done', A((rq, f) => {
     const r = completeTask(rq.ctx, id(rq), { by: BY, newPassword: f.newPassword?.trim() || undefined, keepPassword: f.keepPassword === '1', newTotp: f.newTotp?.trim() || undefined });
-    return go('/admin/tasks', r.message);
+    // Bấm từ dòng Kho tài khoản → về lại đúng danh sách đó.
+    return go(/^\/admin\/accounts(\?[^#]*)?$/.test(String(f.back || '')) ? f.back : '/admin/tasks', r.message);
   }));
 
   // ----- Việc tay -----
@@ -1033,6 +1035,7 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
       account_days: int(f.account_days) > 0 ? int(f.account_days) : null,
       daily_cap: int(f.daily_cap) == null || Number.isNaN(int(f.daily_cap)) ? null : Math.max(0, int(f.daily_cap)),
       holders_default: Math.min(50, Math.max(1, int(f.holders_default, 1))), reserve_account: f.reserve_account === '1',
+      code_max: int(f.code_max) > 0 ? Math.min(20, int(f.code_max)) : null,
       voucher_code: f.voucher_code === '1', workspace_bot: f.workspace_bot === '1',
     };
     if (p.workspace_bot) p.holders_default = Math.min(MAX_WORKSPACES, p.holders_default);
@@ -1065,14 +1068,14 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
     if (p.mail_code && !['password', 'password_totp'].includes(p.login_type)) p.mail_code = false;
     try {
       if (isNew) {
-        run(ctx.db, `INSERT INTO tools(slug, name, login_type, login_url, instructions, sender_pattern, code_regex, slot_hours, cooldown_days, lifetime_cap, rotation_required, high_value, enabled, sort, reuse, mail_code, daily_cap, holders_default, auto_worker, end_hour, account_days, reserve_account, voucher_code, workspace_bot)
-          VALUES(:slug, :name, :login_type, :login_url, :instructions, :sender_pattern, :code_regex, :slot_hours, :cooldown_days, :lifetime_cap, :rotation_required, :high_value, :enabled, :sort, :reuse, :mail_code, :daily_cap, :holders_default, :auto_worker, :end_hour, :account_days, :reserve_account, :voucher_code, :workspace_bot)`, p);
+        run(ctx.db, `INSERT INTO tools(slug, name, login_type, login_url, instructions, sender_pattern, code_regex, slot_hours, cooldown_days, lifetime_cap, rotation_required, high_value, enabled, sort, reuse, mail_code, daily_cap, holders_default, auto_worker, end_hour, account_days, reserve_account, voucher_code, workspace_bot, code_max)
+          VALUES(:slug, :name, :login_type, :login_url, :instructions, :sender_pattern, :code_regex, :slot_hours, :cooldown_days, :lifetime_cap, :rotation_required, :high_value, :enabled, :sort, :reuse, :mail_code, :daily_cap, :holders_default, :auto_worker, :end_hour, :account_days, :reserve_account, :voucher_code, :workspace_bot, :code_max)`, p);
       } else {
         run(ctx.db, `UPDATE tools SET name = :name, login_type = :login_type, login_url = :login_url, instructions = :instructions,
           sender_pattern = :sender_pattern, code_regex = :code_regex, slot_hours = :slot_hours, cooldown_days = :cooldown_days, lifetime_cap = :lifetime_cap,
           rotation_required = :rotation_required, high_value = :high_value, enabled = :enabled, sort = :sort, reuse = :reuse, mail_code = :mail_code,
           daily_cap = :daily_cap, holders_default = :holders_default, auto_worker = :auto_worker, end_hour = :end_hour, account_days = :account_days,
-          reserve_account = :reserve_account, voucher_code = :voucher_code, workspace_bot = :workspace_bot WHERE id = :id`, (({ slug: _, ...rest }) => ({ ...rest, id: old.id }))(p));
+          reserve_account = :reserve_account, voucher_code = :voucher_code, workspace_bot = :workspace_bot, code_max = :code_max WHERE id = :id`, (({ slug: _, ...rest }) => ({ ...rest, id: old.id }))(p));
       }
     } catch (e) {
       return fail(/UNIQUE/.test(String(e)) ? `slug "${slug}" đã có món khác dùng.` : e.message);
@@ -1084,6 +1087,7 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
   router.get('/admin/accounts', P((rq) => {
     const { ctx } = rq;
     const csrf = rq.state.admin.csrf;
+    const here = rq.path + (rq.url.search || '');
     const o = off(ctx);
     const tools = all(ctx.db, 'SELECT * FROM tools ORDER BY sort, id');
     const toolId = Number(rq.query.tool) || 0;
@@ -1109,6 +1113,8 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
     const byStatus = new Map(all(ctx.db, `SELECT status, COUNT(*) AS n FROM accounts ${toolId ? 'WHERE tool_id = ?' : ''} GROUP BY status`, ...(toolId ? [toolId] : [])).map((r) => [r.status, r.n]));
     const avail = new Map(toolAvailability(ctx).map((x) => [x.tool.id, x]));
     const taskOf = new Map(all(ctx.db, "SELECT account_id, MIN(id) AS id FROM rotation_tasks WHERE status = 'todo' GROUP BY account_id").map((r) => [r.account_id, r.id]));
+    const rotateOf = new Map(all(ctx.db, "SELECT account_id, MIN(id) AS id FROM rotation_tasks WHERE status = 'todo' AND kind = 'rotate' GROUP BY account_id").map((r) => [r.account_id, r.id]));
+    const toolById = new Map(tools.map((x) => [x.id, x]));
     const toolCount = (x) => (x.login_type === 'redeem' ? codesOf.get(x.id)?.n || 0 : stockOf.get(x.id) || 0);
     const url = ({ tool = toolId, st = status, k = kho } = {}) => {
       const p = new URLSearchParams();
@@ -1137,6 +1143,15 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
         html`${badge(ACCOUNT_STATUS[a.status] || a.status, ACCOUNT_TONE[a.status] ?? 'yellow')}${a.totp_enc ? html` ${badge('2FA', 'info')}` : ''}${a.usable || a.status === 'retired' ? '' : html` ${badge('Thiếu mật khẩu / 2FA — không giao', 'red')}`}${a.status !== 'retired' && accountExpiry(a, ctx.now()).expired ? html` ${badge('Quá hạn — không giao', 'red')}` : ''}${a.status_reason ? html`<span class="sub">${a.status_reason}</span>` : ''}${task ? html`<a class="go" href="/admin/tasks#task-${task}">Làm việc tay ›</a>` : ''}`,
         load ? html`<a href="/admin/slots?account=${a.id}" title="Xem khách đang dùng">${load}/${a.max_holders}</a>` : `0/${a.max_holders}`,
         t(a.last_assigned_at, o), t(a.last_rotated_at, o),
+        // Nút ngay trên dòng (chủ 09/10/2026: "không có chỗ bấm") — Sửa mở trang tài khoản; Ngừng dùng / Dùng lại làm luôn, về lại đúng danh sách.
+        html`<span class="row-acts">${rotateOf.has(a.id) && a.status === 'needs_rotation' && toolById.get(a.tool_id)?.login_type === 'email_code'
+          // Việc tay của tài khoản đăng nhập bằng mã email (ChatGPT / Claude) không cần dán gì → xong ngay trên dòng.
+          ? postButton(`/admin/tasks/${rotateOf.get(a.id)}/done`, 'Xong · giao khách', csrf, { cls: 'btn-mini ok', fields: { back: here },
+            confirm: `${a.login_email}: đã tạo đủ Project ${ctx.settings().workspacePrefix} 1–${a.max_holders} và đăng xuất mọi thiết bị? Bấm OK là giao cho khách.` })
+          : ''}<a class="btn-mini" href="/admin/accounts/${a.id}">Sửa</a>${a.status === 'retired'
+          ? postButton(`/admin/accounts/${a.id}/trang-thai`, 'Dùng lại', csrf, { fields: { status: 'ready', back: here }, confirm: `Giao lại ${a.login_email} cho khách?` })
+          : postButton(`/admin/accounts/${a.id}/trang-thai`, 'Ngừng dùng', csrf, { cls: 'btn-mini danger', fields: { status: 'retired', back: here },
+            confirm: `Ngừng giao ${a.login_email}?${load ? ` ${load} khách đang dùng vẫn dùng tới hết giờ.` : ''}` })}</span>`,
       ];
     };
     // Xem "mọi kho": mỗi món chia bảng theo kho (Kho chung trước, rồi từng quán) — khỏi gắn nhãn kho trên từng dòng.
@@ -1160,7 +1175,7 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
         link: [`/admin/tools/${x.id}`, 'Cài đặt món'],
       })}
 ${(multiKho && !kho && list.length ? khoGroups(list) : [[null, list]]).map(([g, part]) => html`${g ? html`<h3 class="kho-h">${g} <span class="sec-n">${part.length}</span></h3>` : ''}
-${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối'], part.map(accRow),
+${table(['#', 'Email / tên đăng nhập', 'Trạng thái', 'Đang dùng', 'Giao lần cuối', 'Đổi MK lần cuối', ''], part.map(accRow),
   status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống — dán tài khoản ở ô "Thêm vào kho" bên dưới.', { cls: 't-acc' })}`)}`;
     });
     // Món đang bật mà chưa có hàng: gom 1 dòng (không vẽ bảng rỗng), bấm tên → mở ô thêm, chọn sẵn món đó.
@@ -1201,7 +1216,7 @@ ${secHead('Thêm vào kho', { id: 'them', note: pick.login_type === 'team_invite
   ${field('Số ghế cho khách', html`<input name="seats" type="number" min="1" max="50" value="${pick.login_type === 'team_invite' ? pick.holders_default ?? 5 : 5}"${team ? '' : html` disabled`}>`,
     'Bao nhiêu khách được mời vào nhóm cùng lúc.', { show: 'team', hidden: !team })}
   ${field('Nhãn chung (tuỳ chọn)', html`<input name="label"${team ? html` disabled` : ''}>`, '', { show: 'list', hidden: team })}
-  ${wsTools.length ? html`<label class="check" data-show="ws"${pick.workspace_bot ? '' : html` hidden`}>${checkbox('setup', true)} Chờ bạn tạo sẵn Project "${ctx.settings().workspacePrefix} 1…N" rồi mới giao (bỏ tick nếu bạn đã tự tạo)</label>` : ''}
+  ${wsTools.length ? html`<label class="check" data-show="ws"${pick.workspace_bot ? '' : html` hidden`}>${checkbox('setup', false)} Tôi <b>chưa</b> tạo Project "${ctx.settings().workspacePrefix} 1…N" — chờ tôi tạo rồi mới giao (đã tạo sẵn thì để trống, nhập xong giao luôn)</label>` : ''}
   <div class="wide" data-show="list"${team ? html` hidden` : ''}>${field('Danh sách', html`<textarea name="lines" rows="6" placeholder="${pickFormat(pick)}"${team ? html` disabled` : ''}></textarea>`,
     html`Mỗi dòng 1 tài khoản, các ô cách nhau bằng <code>|</code>. Số cuối dòng = số khách dùng chung (bỏ trống = theo cài đặt của công cụ). Khoá 2FA: chuỗi chữ hoặc link <code>otpauth://</code> — chỉ lưu trên máy chủ, khách chỉ thấy mã 6 số.`)}</div>
   <button class="btn">Thêm vào kho</button></form>
@@ -1327,6 +1342,17 @@ ${table(['Lúc', 'Tiêu đề', 'Loại', 'Kết quả'], mails.map((m) => [t(m.
     if (f.status && f.status !== a.status && ['ready', 'retired', 'quarantined'].includes(f.status)) patch.status = f.status;
     const r = updateAccount(ctx, a.id, patch, BY);
     return go(`/admin/accounts/${a.id}`, r.ok ? r.message : `Chưa lưu: ${r.message}`);
+  }));
+
+  // Nút trên dòng Kho tài khoản: Ngừng dùng / Dùng lại (cùng đường với ô Trạng thái ở trang tài khoản), về lại đúng danh sách đang xem.
+  router.post('/admin/accounts/:id/trang-thai', A((rq, f) => {
+    const back = /^\/admin\/accounts(\?[^#]*)?$/.test(String(f.back || '')) ? f.back : '/admin/accounts';
+    if (!['ready', 'retired'].includes(f.status)) return go(back, 'Trạng thái không hợp lệ.');
+    const a = get(rq.ctx.db, 'SELECT id, login_email, status FROM accounts WHERE id = ?', id(rq));
+    if (!a) return go(back, 'Không có tài khoản này.');
+    if (a.status === f.status) return go(back, `${a.login_email} đã ở trạng thái này.`);
+    const r = updateAccount(rq.ctx, a.id, { status: f.status }, BY);
+    return go(back, r.ok ? `${a.login_email}: ${f.status === 'retired' ? 'đã ngừng dùng' : 'giao lại cho khách'}.` : `Chưa lưu: ${r.message}`);
   }));
 
   // Tạo việc làm mới tài khoản ngay (vd. nghi khách cũ còn vào được). Còn khách thường đang dùng thì bot chờ họ hết giờ.
@@ -1718,7 +1744,7 @@ ${table(['#', 'Khách', 'Công cụ', 'Tài khoản / chỗ', 'Hết lúc', 'Đ�
       link.cafe(s.cafe_id, s.cafe_name, s.card_label),
       html`${badge(SLOT_STATUS[s.status] || s.status, SLOT_TONE[s.status] ?? '')}${s.end_reason ? html`<span class="sub">${END_REASON[s.end_reason] || s.end_reason}</span>` : ''}${s.extended_days ? html`<span class="sub">gia hạn ${s.extended_days} ngày</span>` : ''}`,
       s.status === 'pending_invite' ? html`<span class="muted">chờ mời từ ${t(s.created_at, off(ctx))}</span>` : t(s.started_at || s.created_at, off(ctx)),
-      s.status === 'pending_invite' ? html`<span class="muted">tính từ lúc mời</span>` : t(s.ended_at || s.expires_at, off(ctx)), s.code_requests || '—',
+      s.status === 'pending_invite' ? html`<span class="muted">tính từ lúc mời</span>` : t(s.ended_at || s.expires_at, off(ctx)), s.code_requests ? `${s.code_used ?? 0} mã · ${s.code_requests} lần bấm` : '—',
     ];
     const here = rq.path + (rq.url.search || '');
     const live = q("s.status IN ('active', 'pending_invite')", 300);

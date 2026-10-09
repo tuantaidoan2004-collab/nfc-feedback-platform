@@ -147,9 +147,9 @@ details.help[open] { padding-bottom: 10px; }
 .adm td .sub { display: block; font-size: var(--text-xs); color: var(--ink-3); }
 .adm td form.inline { white-space: nowrap; margin: 0; }
 /* Kho tài khoản: mọi bảng món cùng độ rộng cột → các cột thẳng hàng từ món này sang món khác */
-.adm table.t-acc { table-layout: fixed; min-width: 760px; }
-.t-acc th:nth-child(1) { width: 56px; } .t-acc th:nth-child(2) { width: 34%; } .t-acc th:nth-child(3) { width: 27%; }
-.t-acc th:nth-child(4) { width: 96px; }
+.adm table.t-acc { table-layout: fixed; min-width: 980px; }
+.t-acc th:nth-child(1) { width: 56px; } .t-acc th:nth-child(2) { width: 30%; } .t-acc th:nth-child(3) { width: 22%; }
+.t-acc th:nth-child(4) { width: 96px; } .t-acc th:nth-child(5), .t-acc th:nth-child(6) { width: 112px; } .t-acc th:nth-child(7) { width: 196px; }
 .t-acc td { overflow-wrap: anywhere; }
 .adm td code { white-space: nowrap; } .t-acc td code { white-space: normal; }
 .empty { margin: 0 0 12px !important; padding: 18px; text-align: center; color: var(--ink-3); background: var(--surface); border: var(--hairline) dashed var(--border-strong); border-radius: var(--radius); font-size: var(--text-sm); }
@@ -179,6 +179,9 @@ details.help[open] { padding-bottom: 10px; }
 .adm .btn-mini.ok:hover { background: color-mix(in srgb, var(--accent-strong) 86%, var(--palette-ink)); color: var(--on-accent-strong); }
 .btn-mini.danger { color: var(--danger-text); border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
 .adm .btn-mini.danger:hover { background: var(--danger-bg); border-color: var(--danger); color: var(--danger-text); }
+/* Kho tài khoản: nút Sửa / Ngừng dùng ngay trên dòng */
+.row-acts { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; } .row-acts .btn-mini { white-space: nowrap; }
+.row-acts form.inline { margin: 0; }
 .btn:disabled, .btn-mini:disabled { opacity: .5; cursor: default; }
 .link { background: none; border: 0; padding: 4px 0; font: inherit; color: var(--accent-text); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 3px; cursor: pointer; }
 .btn.on-page, .btn-mini.on { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-text); }
