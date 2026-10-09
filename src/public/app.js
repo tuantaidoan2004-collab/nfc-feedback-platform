@@ -261,6 +261,16 @@
         say(claimForm, 'Bạn nhập email tài khoản để Tiệm gửi lời mời nhé.', 'err');
         return;
       }
+      // Email mời khác email đã nhận mã → hỏi lại 1 lần (09/10: gõ thiếu 1 số, bot mời đúng email gõ nhầm, khách chờ thư không tới).
+      const me = (claimForm.inviteEmail.dataset.me || '').toLowerCase();
+      const typed = inviteEmail().toLowerCase();
+      if (isInvite() && me && typed !== me && claimForm.dataset.okDiff !== typed) {
+        claimForm.dataset.okDiff = typed;
+        claimForm.inviteEmail.classList.add('need');
+        claimForm.inviteEmail.focus();
+        say(claimForm, `Email này khác email bạn vừa nhận mã (${me}). Gõ đúng chưa? Đúng rồi thì bấm nhận lần nữa nha.`, 'err');
+        return;
+      }
       claimForm.inviteEmail.classList.remove('need');
       store('tbq-pick', { toolId: picked.value, inviteEmail: inviteEmail() });
       if (!claimForm.dataset.logged) { openSheet(picked); return; }
@@ -278,6 +288,7 @@
   const sheet = $('[data-sheet]');
   const otpForm = $('#otp-form');
   let lastFocus = null;
+  let linkedPrev = ''; // email trong bảng lúc trước — ô mời Canva còn trùng nó thì sửa theo
   function openSheet(picked) {
     if (!sheet) return;
     const sum = $('[data-pick-sum]', sheet);
@@ -289,6 +300,9 @@
     b.textContent = picked.dataset.name;
     t.append('Đang giữ chỗ ', b, ' cho bạn nè');
     sum.append(t);
+    // Canva + đăng nhập bằng email: điền sẵn email vừa gõ ở ô mời → khỏi gõ 2 lần (gõ 2 lần là dễ lệch 1 ký tự).
+    if (picked.dataset.login === 'team_invite' && otpForm.dataset.kind === 'email' && !otpForm.phone.value.trim()) otpForm.phone.value = inviteEmail();
+    linkedPrev = otpForm.phone.value.trim();
     lastFocus = document.activeElement;
     sheet.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add('open')));
@@ -405,6 +419,16 @@
     $('[data-act=back-otp]', otpForm).addEventListener('click', () => { showPane(1); say(otpForm, ''); otpForm.phone.focus(); });
     resendBtn.addEventListener('click', send);
     otpForm.code.addEventListener('input', () => { if (paintCells().length === 6) verify(); });
+    // Đổi email trong bảng (vd. gõ nhầm, không nhận được mã) → ô mời Canva đang trùng email cũ thì đổi theo: lời mời luôn tới đúng email đã nhận mã.
+    otpForm.phone.addEventListener('input', () => {
+      const v = otpForm.phone.value.trim();
+      const picked = sel();
+      if (picked && isInvite() && otpForm.dataset.kind === 'email' && inviteEmail().toLowerCase() === linkedPrev.toLowerCase()) {
+        claimForm.inviteEmail.value = v;
+        store('tbq-pick', { toolId: picked.value, inviteEmail: v });
+      }
+      linkedPrev = v;
+    });
     otpForm.code.addEventListener('focus', () => boxes.classList.add('focus'));
     otpForm.code.addEventListener('blur', () => boxes.classList.remove('focus'));
   }

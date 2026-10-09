@@ -176,6 +176,8 @@ function pickForm(ctx, { tools, customer }) {
   const on = tools.filter(ok);
   const sold = tools.filter((x) => !ok(x) && !x.blocked); // hết suất — ai cũng thấy hết
   const held = tools.filter((x) => x.blocked); // còn hàng nhưng khách này chưa nhận được (đã thử, đang nghỉ nhận…)
+  // Ô email mời Canva: khách đăng nhập bằng email → điền sẵn email đã nhận mã (09/10: gõ tay thiếu 1 số → lời mời đi lạc).
+  const me = customer && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.phone || '') ? customer.phone : '';
   const tile = ({ tool, free, blocked }) => {
     const meta = tileMeta(tool, free, blocked);
     return html`<label class="tile">
@@ -191,8 +193,8 @@ function pickForm(ctx, { tools, customer }) {
   ${offGroup('Chưa nhận được lúc này', '', held)}
   <div class="invite" data-invite>
     <label for="invite-email">Email <span data-tool-name>tài khoản</span> của bạn</label>
-    <input id="invite-email" name="inviteEmail" type="email" autocomplete="email" inputmode="email" placeholder="ban@gmail.com">
-    <p class="hint">Tiệm mời email này vào nhóm Pro. Chưa có tài khoản thì tạo free bằng email này trước nha.</p>
+    <input id="invite-email" name="inviteEmail" type="email" autocomplete="email" inputmode="email" placeholder="ban@gmail.com"${me ? html` value="${me}" data-me="${me}"` : ''}>
+    <p class="hint">${me ? 'Điền sẵn email bạn vừa nhận mã. Tài khoản dùng email khác thì sửa lại nha.' : 'Tiệm mời email này vào nhóm Pro. Chưa có tài khoản thì tạo free bằng email này trước nha.'}</p>
   </div>
   <p class="msg" role="status" aria-live="polite"></p>
   ${on.length ? html`<div class="dock">

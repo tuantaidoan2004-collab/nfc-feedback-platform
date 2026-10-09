@@ -158,6 +158,11 @@ const LINE_FORMAT = {
   email_code: 'email', password: 'email|mật khẩu', password_totp: 'email|mật khẩu|khoá 2FA',
   team_invite: 'email chủ nhóm|số ghế', redeem: 'mỗi dòng 1 mã hoặc 1 link https',
 };
+/** Khung mẫu ô "Danh sách" cho đúng 1 món (2 dòng ví dụ). */
+const pickFormat = (x) => {
+  const f = LINE_FORMAT[x.login_type] || 'email';
+  return x.login_type === 'redeem' ? f : `${f}\n${f}${x.login_type === 'team_invite' ? '' : '|số khách (tuỳ chọn)'}`;
+};
 
 /** Kho mã / link nhận quà của 1 công cụ loại redeem (vd. Gemini): mỗi khách 1 mã. */
 function redeemSection(ctx, csrf, tool) {
@@ -364,8 +369,8 @@ const mailVerdict = (m) => (m.verdict ? badge(...(MAIL_VERDICT[m.verdict] || [m.
 /** Ô "nơi xảy ra" của 1 sự kiện: tài khoản / quán, bấm được. */
 const eventWhere = (e) => html`${e.account_id && e.login_email ? link.acc(e.account_id, e.login_email) : e.cafe_id && e.cafe_name ? link.cafe(e.cafe_id, e.cafe_name) : ''}${e.slot_id ? html`<span class="sub">slot ${link.slot(e.slot_id)}</span>` : ''}`;
 
-function field(label, input, hint = '') {
-  return html`<label class="field"><span>${label}</span>${input}${hint ? html`<small>${hint}</small>` : ''}</label>`;
+function field(label, input, hint = '', { show = null, hidden = false } = {}) {
+  return html`<label class="field"${show ? html` data-show="${show}"` : ''}${hidden ? html` hidden` : ''}><span>${label}</span>${input}${hint ? html`<small>${hint}</small>` : ''}</label>`;
 }
 const select = (name, options, current) => html`<select name="${name}">${Object.entries(options).map(([v, l]) => html`<option value="${v}"${String(current) === v ? html` selected` : ''}>${l}</option>`)}</select>`;
 const checkbox = (name, on) => html`<input type="checkbox" name="${name}" value="1"${on ? html` checked` : ''}>`;
@@ -1116,6 +1121,12 @@ ${table(['#', 'Khách', 'Email Canva của khách', 'Quán', 'Nhóm', 'Trạng t
     // Form nhập: chỉ công cụ đang bật, chọn sẵn công cụ đang lọc (dán xong CapCut rồi dán Adobe không bị rơi nhầm vào công cụ đầu danh sách).
     const importOpts = Object.fromEntries(tools.filter((x) => x.enabled).map((x) => [String(x.id), toolOpts[String(x.id)]]));
     const wsTools = tools.filter((x) => x.enabled && x.workspace_bot);
+    // Form chỉ hiện ô của món đang chọn (chủ thấy rối 09/10): Canva = email chủ nhóm + số ghế; món khác = ô danh sách với mẫu dòng của đúng món đó.
+    // admin.js đổi ô theo món khi chọn lại; không có JS thì form vẽ đúng theo món chọn sẵn.
+    const pick = tools.find((x) => x.enabled && String(x.id) === String(rq.query.tool)) || tools.find((x) => x.enabled) || {};
+    const team = pick.login_type === 'team_invite';
+    const importKinds = Object.fromEntries(tools.filter((x) => x.enabled).map((x) => [x.id, {
+      mode: x.login_type === 'team_invite' ? 'team' : 'list', ws: x.workspace_bot ? 1 : 0, fmt: pickFormat(x), seats: x.holders_default ?? 5 }]));
     const labels = all(ctx.db, "SELECT label, COUNT(*) AS n FROM accounts WHERE status != 'retired' AND label IS NOT NULL GROUP BY label ORDER BY label LIMIT 50");
     const accRow = (a) => {
       const load = accountLoad(ctx, a.id);
@@ -1181,13 +1192,17 @@ ${khoCards}
 ${sections}
 ${!rows.length && !toolId && !sections.some(Boolean) ? html`<p class="empty">${status ? 'Không có tài khoản ở trạng thái này.' : 'Kho trống.'}</p>` : ''}
 ${empty.length ? html`<p class="warn">Chưa có hàng: ${empty.map((x, i) => html`${i ? ', ' : ''}<a href="/admin/accounts?tool=${x.id}#them">${x.name}</a>`)} — khách không nhận được các món này. Bấm tên món để dán thêm.</p>` : ''}
-${secHead('Thêm vào kho', { id: 'them', note: 'mỗi dòng 1 tài khoản' })}
-<form method="post" action="/admin/accounts" class="acard grid">${csrfField(csrf)}
-  ${field('Công cụ', select('tool_id', importOpts, importOpts[rq.query.tool] ? rq.query.tool : ''))}
+${secHead('Thêm vào kho', { id: 'them', note: pick.login_type === 'team_invite' ? 'nhóm Canva: email chủ nhóm + số ghế' : 'mỗi dòng 1 tài khoản' })}
+<form method="post" action="/admin/accounts" class="acard grid" data-import data-tools="${JSON.stringify(importKinds)}">${csrfField(csrf)}
+  ${field('Công cụ', select('tool_id', importOpts, String(pick.id ?? '')))}
   ${cafes.length ? field('Kho', select('kho', khoOpts, kho || 'chung'), 'Kho riêng: chỉ khách ở quán đó nhận. Quán dùng kho riêng trước, hết thì lấy kho chung.') : ''}
-  ${field('Nhãn chung (tuỳ chọn)', html`<input name="label">`)}
-  ${wsTools.length ? html`<label class="check">${checkbox('setup', true)} Món "làm mới mỗi ngày" (${wsTools.map((x) => x.name).join(', ')}): chờ bạn tạo sẵn Project "${ctx.settings().workspacePrefix} 1…N" rồi mới giao (bỏ tick nếu bạn đã tự tạo; món khác không ảnh hưởng)</label>` : ''}
-  <div class="wide">${field('Danh sách', html`<textarea name="lines" rows="8" placeholder="${[...tools.filter((x) => x.enabled).map((x) => `${x.name}: ${LINE_FORMAT[x.login_type] || 'email'}`), '(Thêm |số ở cuối dòng nếu muốn khác số khách mặc định của công cụ)'].join('\n')}"></textarea>`,
+  ${field('Email chủ nhóm Canva', html`<input name="team_email" type="email" autocomplete="off" placeholder="email bot đang đăng nhập Canva"${team ? '' : html` disabled`}>`,
+    'Email tài khoản chủ nhóm (đang đăng nhập trên bot Canva). Nhóm đã có trong kho thì chỉ cập nhật số ghế / kho — đã ngừng thì mở lại.', { show: 'team', hidden: !team })}
+  ${field('Số ghế cho khách', html`<input name="seats" type="number" min="1" max="50" value="${pick.login_type === 'team_invite' ? pick.holders_default ?? 5 : 5}"${team ? '' : html` disabled`}>`,
+    'Bao nhiêu khách được mời vào nhóm cùng lúc.', { show: 'team', hidden: !team })}
+  ${field('Nhãn chung (tuỳ chọn)', html`<input name="label"${team ? html` disabled` : ''}>`, '', { show: 'list', hidden: team })}
+  ${wsTools.length ? html`<label class="check" data-show="ws"${pick.workspace_bot ? '' : html` hidden`}>${checkbox('setup', true)} Chờ bạn tạo sẵn Project "${ctx.settings().workspacePrefix} 1…N" rồi mới giao (bỏ tick nếu bạn đã tự tạo)</label>` : ''}
+  <div class="wide" data-show="list"${team ? html` hidden` : ''}>${field('Danh sách', html`<textarea name="lines" rows="6" placeholder="${pickFormat(pick)}"${team ? html` disabled` : ''}></textarea>`,
     html`Mỗi dòng 1 tài khoản, các ô cách nhau bằng <code>|</code>. Số cuối dòng = số khách dùng chung (bỏ trống = theo cài đặt của công cụ). Khoá 2FA: chuỗi chữ hoặc link <code>otpauth://</code> — chỉ lưu trên máy chủ, khách chỉ thấy mã 6 số.`)}</div>
   <button class="btn">Thêm vào kho</button></form>
 ${cafes.length && labels.length ? html`${secHead('Chuyển kho theo nhãn', { id: 'chuyen-kho', note: 'cả nhóm tài khoản cùng nhãn (trừ "Ngừng dùng")' })}
@@ -1207,6 +1222,21 @@ ${cafes.length && labels.length ? html`${secHead('Chuyển kho theo nhãn', { id
     const kho = resolveKho(ctx, f.kho);
     if (!kho.ok) return go(`/admin/accounts?tool=${tool.id}#them`, kho.message);
     if (kho.cafe && tool.login_type === 'redeem') return go(`/admin/accounts?tool=${tool.id}#them`, 'Mã / link nhận quà chỉ có kho chung — chọn "Kho chung".');
+    // Form gọn Canva: 1 nhóm = email chủ nhóm + số ghế. Nhóm đã có (kể cả đã ngừng) → cập nhật số ghế / kho và mở lại, không báo "đã có trong kho".
+    if (tool.login_type === 'team_invite' && f.team_email !== undefined) {
+      const email = String(f.team_email || '').trim().toLowerCase();
+      const seats = String(f.seats ?? '').trim();
+      const back = `/admin/accounts?tool=${tool.id}`;
+      if (!email) return go(`${back}#them`, 'Nhập email chủ nhóm Canva.');
+      const had = get(ctx.db, 'SELECT * FROM accounts WHERE login_email = ?', email);
+      if (had && had.tool_id !== tool.id) return go(`${back}#them`, `${email} đang là tài khoản của món khác trong kho.`);
+      if (had) {
+        const r = updateAccount(ctx, had.id, { holders: seats || undefined, cafeId: kho.cafe?.id ?? null, ...(had.status === 'ready' ? {} : { status: 'ready' }) }, BY);
+        return go(back, r.ok ? `Nhóm ${email}: ${had.status === 'ready' ? 'đã cập nhật' : 'đã mở lại'} — ${r.account.maxHolders} ghế${kho.cafe ? `, kho riêng ${kho.cafe.name}` : ', kho chung'}.` : `Chưa lưu: ${r.message}`);
+      }
+      const r = addAccounts(ctx, { tool, items: [parseAccountLine(tool, seats ? `${email}|${seats}` : email)], by: BY, cafeId: kho.cafe?.id ?? null });
+      return go(r.added ? back : `${back}#them`, r.added ? `Đã thêm nhóm Canva ${email}${kho.cafe ? ` vào kho riêng ${kho.cafe.name}` : ''}.` : `Chưa thêm: ${r.skipped[0]?.message || 'lỗi'}.`);
+    }
     const r = tool.login_type === 'redeem'
       ? addRedeemCodes(ctx, { tool, values: lines, label, by: BY })
       : addAccounts(ctx, { tool, items: lines.map((l) => parseAccountLine(tool, l)), label, setup: f.setup === '1', by: BY, cafeId: kho.cafe?.id ?? null });

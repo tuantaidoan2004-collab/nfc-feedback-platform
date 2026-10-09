@@ -11,6 +11,25 @@
     if (msg && !window.confirm(msg)) e.preventDefault();
   });
 
+  // Form "Thêm vào kho": chỉ hiện ô của món đang chọn (Canva: email chủ nhóm + số ghế; món khác: ô danh sách với mẫu dòng của món đó).
+  // Ô ẩn thì tắt luôn (disabled) để không bị gửi kèm / không chặn nút gửi.
+  const imp = $('form[data-import]');
+  if (imp) {
+    const kinds = JSON.parse(imp.dataset.tools || '{}');
+    const sel = imp.elements.tool_id;
+    const sync = () => {
+      const k = kinds[sel.value] || { mode: 'list' };
+      imp.querySelectorAll('[data-show]').forEach((el) => {
+        const on = el.dataset.show === 'ws' ? !!k.ws : el.dataset.show === k.mode;
+        el.hidden = !on;
+        el.querySelectorAll('input, textarea').forEach((i) => { i.disabled = !on; });
+      });
+      if (imp.elements.lines && k.fmt) imp.elements.lines.placeholder = k.fmt;
+      if (k.mode === 'team' && imp.elements.seats) imp.elements.seats.value = k.seats;
+    };
+    sel.addEventListener('change', sync);
+  }
+
   if (!document.body.dataset.live) return;
 
   const elT = $('#live-tasks');

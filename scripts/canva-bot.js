@@ -298,10 +298,16 @@ async function findMember(p, email) {
     return { status: /đã mời|invited|pending|chờ/.test(text) ? 'invited' : 'member', text: text.slice(0, 160), buttons };
   }, email.toLowerCase());
   // 1) Danh sách đầy đủ (không lọc): lời mời đang chờ chỉ có ở đây — ô tìm kiếm của Canva không tìm ra người "Đã mời".
-  // Chờ danh sách tải xong (có ít nhất 1 email trong bảng), rồi mới tìm.
-  for (let t = 0; t < 15_000; t += 500) {
-    if (await p.eval(() => /@[\w-]+\./.test(document.querySelector('main, [role=main]')?.innerText || ''))) break;
-    await sleep(500);
+  // Chờ danh sách tải xong (có ít nhất 1 email trong bảng — nhóm luôn có chủ nhóm), rồi mới tìm. Canva có lúc báo
+  // "Rất tiếc, đã xảy ra sự cố khi tải danh sách thành viên" (VPS 09/10) → tải lại trang, tối đa 3 lần. Vẫn không được thì
+  // báo lỗi để TBQ thử lại sau — KHÔNG được coi là "không có trong nhóm" (gỡ khách sẽ báo xong mà khách vẫn còn).
+  for (let lan = 0; ; lan++) {
+    const st = await waitList(p);
+    if (st === 'ok') break;
+    if (lan >= 2) throw new CanvaError(`Canva không tải được danh sách thành viên (${st === 'loi' ? 'Canva báo sự cố' : 'quá 20 giây'}) — sẽ thử lại sau. Ảnh: ${await p.shot('danh-sach-loi')}`);
+    log(`  danh sách thành viên ${st === 'loi' ? 'bị Canva báo sự cố' : 'chưa tải xong'} → tải lại trang (lần ${lan + 2})`);
+    await sleep(5000 * (lan + 1));
+    await openPeople(p);
   }
   await sleep(800);
   const direct = await scan();
@@ -314,6 +320,21 @@ async function findMember(p, email) {
   await p.type(email);
   await sleep(2500);
   return scan();
+}
+
+// Danh sách thành viên: 'ok' = đã có email trong bảng · 'loi' = Canva báo sự cố khi tải · 'cham' = 20 giây vẫn trống.
+const LIST_ERR = 'xảy ra sự cố khi tải|rất tiếc, đã xảy ra sự cố|something went wrong|couldn.t load|could not load';
+async function waitList(p) {
+  for (let t = 0; t < 20_000; t += 500) {
+    const st = await p.eval((err) => {
+      const txt = document.querySelector('main, [role=main]')?.innerText || '';
+      if (/@[\w-]+\./.test(txt)) return 'ok';
+      return new RegExp(err, 'i').test(txt) ? 'loi' : null;
+    }, LIST_ERR);
+    if (st) return st;
+    await sleep(500);
+  }
+  return 'cham';
 }
 
 async function waitFind(p, labels, opts = {}, ms = 10_000) {
