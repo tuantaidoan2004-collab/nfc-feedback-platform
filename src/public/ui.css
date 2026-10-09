@@ -737,22 +737,13 @@ body.q::before { opacity: .5;
 /* Soi đèn (app.js spotlight): quay lại từ app → ô kế tiếp viền vàng chạy quanh, phần khác mờ; vuốt / chạm ngoài là hết */
 .spot-dim { filter: blur(3px) brightness(.5); transition: filter .35s var(--ease); }
 [data-acc-target] { position: relative; border-radius: 16px; transition: box-shadow .35s var(--ease); }
-[data-acc-target].spot, .contact-tiem.spot { box-shadow: 0 0 34px color-mix(in srgb, var(--gold) 30%, transparent); }
-[data-acc-target].spot::before, .contact-tiem.spot::before { content: ''; position: absolute; inset: -2px; border-radius: 17px; padding: 2px; pointer-events: none; z-index: 1;
+[data-acc-target].spot { box-shadow: 0 0 34px color-mix(in srgb, var(--gold) 30%, transparent); }
+[data-acc-target].spot::before { content: ''; position: absolute; inset: -2px; border-radius: 17px; padding: 2px; pointer-events: none; z-index: 1;
   background: conic-gradient(from var(--a, 0deg), color-mix(in srgb, var(--gold) 18%, transparent) 0 52%, var(--gold) 72%, #fff1c2 78%, var(--gold) 84%, color-mix(in srgb, var(--gold) 18%, transparent) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin-a 2.2s linear infinite; }
 [data-acc-target].spot .chip-btn { animation: tap-pop .5s .3s cubic-bezier(.3, 1.6, .5, 1) 2; }
 .spot-on .acc-next { text-shadow: 0 0 18px color-mix(in srgb, var(--gold) 45%, transparent); }
-/* Bị chặn vì đã nhận đủ lượt (app.js askMore): thẻ Liên hệ thành "Nhắn Tiệm để nhận thêm" — lý do ở trên, nút vàng ở dưới, viền chạy quanh. */
-.contact-tiem { position: relative; transition: box-shadow .35s var(--ease); }
-.contact-tiem.more { flex-direction: column; align-items: stretch; gap: 12px; text-align: left; border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
-.contact-tiem.more .more-h { font-size: 18px; line-height: 1.35; font-weight: 700; color: var(--text); }
-.contact-tiem.more span { color: var(--text-2); line-height: 1.45; font-size: 14px; }
-.contact-tiem.more b::after { content: none; }
-.contact-tiem.more b { display: block; padding: 13px 16px; border-radius: 14px; background: var(--gold); color: #1b1a15; text-align: center; font-size: 16px; }
-.contact-tiem.spot::before { border-radius: 20px; z-index: 2; }
-.contact-tiem.spot b { animation: tap-pop .5s .3s cubic-bezier(.3, 1.6, .5, 1) 2; }
-@media (prefers-reduced-motion: reduce) { [data-acc-target].spot::before, .contact-tiem.spot::before { animation: none; background: var(--gold); } .spot-dim { transition: none; } }
+@media (prefers-reduced-motion: reduce) { [data-acc-target].spot::before { animation: none; background: var(--gold); } .spot-dim { transition: none; } }
 
 /* ---------- Cuộn xuống → nền tối dần (chủ yêu cầu 08/10: "lướt xuống là Background tối để nổi bật chữ lên") ----------
  * app.js đặt --qd (0 ở đầu trang → 1 khi cuộn ~150px). Lớp phủ nằm trên ảnh + lá/hoa, dưới nội dung; ảnh quán chỉ còn le lói.

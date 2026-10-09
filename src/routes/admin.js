@@ -1,5 +1,6 @@
 // Trang quản trị /admin/*. Đăng nhập bằng ADMIN_PASSWORD; cookie "adm" (SameSite=Strict, path /admin);
 // mọi POST kiểm tra Origin + CSRF token.
+import { readFileSync } from 'node:fs';
 import { HttpError, html } from '../lib/http.js';
 import { get, all, run, tx } from '../db/index.js';
 import { randomToken, sha256, safeEqual, encrypt } from '../lib/crypto.js';
@@ -19,6 +20,7 @@ import { quarantineAccount, DEFAULT_TOOL_PATTERNS } from '../domain/mail.js';
 import { statsSince, cafeReport } from '../domain/stats.js';
 import { freeTextProblem, POLICY_MESSAGE } from '../lib/policy.js';
 import { rotateBotSeen } from './worker.js';
+import { hostChecks, hostFacts, probePublic } from '../domain/may-chu.js';
 import { QS_EVENT } from '../qs-event.js';
 import { createCafe, shopFromInput, qsPageInfo } from '../domain/presence.js';
 import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes, updateAccount, dropRotateTasks, resolveKho } from '../domain/stock.js';
@@ -28,6 +30,7 @@ import {
 } from '../views/admin.js';
 
 const SESSION_HOURS = 12;
+const PKG_VERSION = (() => { try { return JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version; } catch { return ''; } })();
 const BY = 'web';
 
 // ---------- Đăng nhập & bao bọc handler ----------
@@ -56,6 +59,7 @@ function navCounts(ctx) {
     ready: n("SELECT COUNT(*) AS n FROM accounts WHERE status = 'ready'"),
     cafes: n("SELECT COUNT(*) AS n FROM cafes WHERE status = 'active'"),
     slots: n("SELECT COUNT(*) AS n FROM slots WHERE status = 'active'"),
+    host: hostChecks(ctx).filter((c) => c.level === 'bad').length,
   };
 }
 
@@ -473,6 +477,7 @@ export function registerAdminRoutes(router) {
       [out.length, `món không giao được: ${out.map((x) => x.tool.name).join(', ')}`, '#kho', false],
       [short.length, `món hết ở quán (kho riêng + kho chung): ${short.join('; ')}`, '#kho', false],
       [nav.orphans, 'mã mồ côi trong 24 giờ', '/admin/mails', true],
+      [nav.host, 'mục máy chủ đang đỏ (trang, sao lưu, ổ đĩa, bot…)', '/admin/may-chu', true],
     ].filter(([n]) => n > 0);
     view(rq, {
       title: 'Tổng quan', heading: 'Hôm nay', active: '/admin',
@@ -1807,6 +1812,33 @@ ${table(['Lúc', 'Mức', 'Sự kiện', 'Khách', 'Tài khoản / quán', 'Chi 
     });
   };
   router.get('/admin/settings', P((rq) => settingsPage(rq)));
+
+  // ----- Máy chủ: trang khách còn vào được không, sao lưu, ổ đĩa, RAM, bot, gửi mã, database -----
+  const LEVEL = { ok: ['Ổn', 'ok'], warn: ['Để ý', 'yellow'], bad: ['Cần xử lý', 'red'] };
+  router.get('/admin/may-chu', P((rq) => {
+    const { ctx } = rq;
+    const checks = hostChecks(ctx, { deep: true });
+    const bad = checks.filter((c) => c.level === 'bad').length;
+    const warn = checks.filter((c) => c.level === 'warn').length;
+    view(rq, {
+      title: 'Máy chủ', active: '/admin/may-chu',
+      sub: bad ? `${bad} mục cần xử lý ngay` : warn ? `${warn} mục nên để ý` : 'Mọi thứ đang ổn · tự kiểm trang khách mỗi 5 phút',
+      actions: postButton('/admin/may-chu/kiem', html`${icon('pulse')}Kiểm lại ngay`, rq.state.admin.csrf, { cls: 'btn-line' }),
+      body: html`
+${secHead('Sức khoẻ', { note: 'đỏ = khách có thể không nhận được công cụ' })}
+${table(['Mục', 'Tình trạng', '', 'Nên làm'], checks.map((c) => [
+  html`<b>${c.label}</b>`, badge(LEVEL[c.level][0], LEVEL[c.level][1]), c.value, c.hint || '—',
+]), 'Không có mục nào.', { cls: 'host' })}
+${secHead('Đang chạy')}
+${table(['', ''], hostFacts(ctx, PKG_VERSION).map(([k, v]) => [html`<b>${k}</b>`, v]))}
+<p class="muted">Sao lưu tự động 05:30 trên máy chủ; máy Mac tự kéo 1 bản về lúc 05:45. Trang khách sập hẳn (máy chủ tắt) thì trang này cũng không mở được —
+dùng thêm dịch vụ báo động bên ngoài gọi <code>${ctx.config.baseUrl}/healthz</code>.</p>`,
+    });
+  }));
+  router.post('/admin/may-chu/kiem', A(async (rq) => {
+    const r = await probePublic(rq.ctx);
+    return go('/admin/may-chu', r.ok ? `Trang khách trả lời trong ${r.ms} ms.` : `Trang khách lỗi: ${r.error}`);
+  }));
 
   // Kiểm hết rồi mới lưu (1 ô sai → không lưu ô nào, vẽ lại form giữ chữ đã gõ). Trước: lưu phần đúng, bỏ phần sai, chữ gõ mất.
   router.post('/admin/settings', A((rq, f) => {

@@ -7,6 +7,7 @@ import { expireWindows, escalatePendingOrphans } from './domain/codes.js';
 import { escalateTask, rotateBotSeen } from './routes/worker.js';
 import { checkMailRoute, MAIL_ROUTE_EVERY } from './domain/mail-route.js';
 import { scrubErased } from './domain/auth.js';
+import { probePublic, PROBE_EVERY } from './domain/may-chu.js';
 
 const kvGet = (ctx, key) => get(ctx.db, 'SELECT value FROM kv WHERE key = ?', key)?.value ?? null;
 const kvSet = (ctx, key, value) => run(ctx.db,
@@ -95,6 +96,14 @@ export async function runJobs(ctx) {
       out.mailRoute = await checkMailRoute(ctx);
     }
   } catch (err) { ctx.log('error', 'job mailRoute failed', { err: String(err?.stack || err) }); }
+  // Tự gọi trang công khai như khách (qua Cloudflare) → trang Máy chủ biết đường hầm / DNS còn chạy. Chỉ production.
+  try {
+    if (ctx.config.isProd && now - Number(kvGet(ctx, 'job_selfcheck_at') || 0) >= PROBE_EVERY) {
+      kvSet(ctx, 'job_selfcheck_at', now);
+      out.selfCheck = await probePublic(ctx);
+      if (!out.selfCheck.ok) ctx.log('error', 'trang công khai không trả lời', out.selfCheck);
+    }
+  } catch (err) { ctx.log('error', 'job selfCheck failed', { err: String(err?.stack || err) }); }
   return out;
 }
 

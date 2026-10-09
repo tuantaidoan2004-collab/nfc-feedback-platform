@@ -109,8 +109,7 @@ const holdingCard = (view) => html`<a class="mini-ticket" href="/me">${icon(view
 
 /** Hết slot / cần công cụ khác → liên hệ Tiệm qua Zalo. */
 function contactTiem(ctx) {
-  // data-contact: khách bị chặn vì đã nhận đủ lượt → app.js đổi thành "Nhắn Tiệm để nhận thêm" + soi đèn (askMore).
-  return html`<a class="contact-tiem" data-contact href="${ctx.settings().zaloUrl}" rel="noopener"><span>${CONTACT_Q}</span><b>Liên hệ Tiệm</b></a>`;
+  return html`<a class="contact-tiem" href="${ctx.settings().zaloUrl}" rel="noopener"><span>${CONTACT_Q}</span><b>Liên hệ Tiệm</b></a>`;
 }
 
 /** Bảng trượt từ đáy: email → mã 6 số. Mở khi khách đã chọn món mà chưa đăng nhập (app.js "Giữ chỗ"). */

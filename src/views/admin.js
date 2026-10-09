@@ -89,6 +89,7 @@ const ICON = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   chart: '<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/>',
   bubble: '<path d="M4 5.5h16v10H9l-5 4z"/>',
+  server: '<rect x="3.5" y="4" width="17" height="7" rx="1.5"/><rect x="3.5" y="13" width="17" height="7" rx="1.5"/><path d="M7 7.5h.5M7 16.5h.5M11 7.5h6M11 16.5h6"/>',
 };
 export const icon = (name) => raw(`<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[name] || ''}</svg>`);
 
@@ -114,10 +115,11 @@ const NAV = [
   ['Hệ thống', [
     ['/admin/mails', 'Thư', 'mail', 'orphans'],
     ['/admin/events', 'Nhật ký', 'list'],
+    ['/admin/may-chu', 'Máy chủ', 'server', 'host'],
     ['/admin/settings', 'Cài đặt', 'gear'],
   ]],
 ];
-const RED_COUNT = new Set(['alerts', 'tasks', 'extend', 'canva', 'orphans']);
+const RED_COUNT = new Set(['alerts', 'tasks', 'extend', 'canva', 'orphans', 'host']);
 const WEEKDAY = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 const VERSION = (() => { try { return JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version; } catch { return ''; } })();
 

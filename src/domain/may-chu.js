@@ -1,0 +1,180 @@
+// Sức khoẻ máy chủ cho trang Quản trị › Máy chủ: chỉ những gì có thể làm khách không nhận được công cụ.
+// Mỗi mục: {key, label, level: 'ok'|'warn'|'bad', value, hint}. hint = 1 câu "nên làm gì" khi không ổn.
+// Không cần quyền root, không gọi lệnh hệ thống: chạy được cả trong systemd đã khoá quyền (ProtectSystem=strict).
+import { readdirSync, readFileSync, statSync, statfsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import os from 'node:os';
+import { get, run } from '../db/index.js';
+import { MIN, HOUR } from '../lib/time.js';
+
+const PROBE_KEY = 'job_selfcheck';
+export const PROBE_EVERY = 5 * MIN;
+const BACKUP_MAX_AGE = 26 * HOUR;
+
+const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
+const mb = (n) => (n < 1048576 ? `${Math.round(n / 1024)} KB` : `${Math.round(n / 1048576)} MB`);
+const gb = (n) => `${(n / 1073741824).toFixed(1)} GB`;
+/** "3 phút trước" / "2 giờ trước" / "1 ngày trước". */
+export function ago(ms, now) {
+  const d = Math.max(0, now - ms);
+  if (d < MIN) return 'vừa xong';
+  if (d < HOUR) return `${Math.floor(d / MIN)} phút trước`;
+  if (d < 48 * HOUR) return `${Math.floor(d / HOUR)} giờ trước`;
+  return `${Math.floor(d / (24 * HOUR))} ngày trước`;
+}
+const dur = (sec) => {
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  return d ? `${d} ngày ${h} giờ` : h ? `${h} giờ ${m} phút` : `${m} phút`;
+};
+
+/** RAM còn dùng được (byte) trên Linux, null nơi khác. meminfo để test thay được. */
+export function memAvailable(meminfo = () => readFileSync('/proc/meminfo', 'utf8')) {
+  try {
+    const m = /^MemAvailable:\s+(\d+)\s*kB/m.exec(meminfo());
+    return m ? Number(m[1]) * 1024 : null;
+  } catch { return null; }
+}
+
+/** Thư mục chứa database (tuyệt đối) và thư mục sao lưu (BACKUP_DIR hoặc <data>/backup). */
+function paths(ctx) {
+  const db = ctx.config.dbPath === ':memory:' ? null : resolve(ctx.config.dbPath);
+  const dataDir = db ? dirname(db) : null;
+  const backupDir = process.env.BACKUP_DIR ? resolve(process.env.BACKUP_DIR) : dataDir ? join(dataDir, 'backup') : null;
+  return { db, dataDir, backupDir };
+}
+
+/** Bản sao lưu mới nhất: {at, size, name} hoặc null. */
+export function newestBackup(dir) {
+  if (!dir) return null;
+  let best = null;
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.sqlite')) continue;
+      const st = statSync(join(dir, name));
+      if (!best || st.mtimeMs > best.at) best = { at: st.mtimeMs, size: st.size, name };
+    }
+  } catch { /* chưa có thư mục */ }
+  return best;
+}
+
+/** Kết quả tự gọi trang công khai lần gần nhất (job chạy mỗi 5 phút): {ok, at, ms, error} hoặc null. */
+export function lastProbe(ctx) {
+  const row = get(ctx.db, 'SELECT value FROM kv WHERE key = ?', PROBE_KEY);
+  if (!row) return null;
+  try { return JSON.parse(row.value); } catch { return null; }
+}
+
+/** Gọi <BASE_URL>/healthz như khách (qua Cloudflare) → lưu kết quả. fetchImpl để test thay được. */
+export async function probePublic(ctx, { fetchImpl = fetch, timeoutMs = 8000 } = {}) {
+  const started = Date.now();
+  let res;
+  try {
+    const r = await fetchImpl(`${ctx.config.baseUrl}/healthz`, { signal: AbortSignal.timeout(timeoutMs), headers: { 'user-agent': 'tbq-tu-kiem' } });
+    const body = (await r.text()).trim();
+    res = r.ok && body === 'ok' ? { ok: true } : { ok: false, error: `HTTP ${r.status}${body && body.length < 60 ? ` "${body}"` : ''}` };
+  } catch (err) {
+    res = { ok: false, error: err?.name === 'TimeoutError' ? `quá ${timeoutMs / 1000} giây không trả lời` : String(err?.cause?.code || err?.message || err).slice(0, 120) };
+  }
+  res.at = ctx.now();
+  res.ms = Date.now() - started;
+  run(ctx.db, 'INSERT INTO kv(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+    PROBE_KEY, JSON.stringify(res), res.at);
+  return res;
+}
+
+/**
+ * Các mục sức khoẻ. Đồng bộ, rẻ (đọc vài tệp + vài câu SQL) → dùng được cho số đỏ trên thanh bên mỗi trang.
+ * deep: thêm kiểm tra toàn vẹn database (PRAGMA quick_check) — chỉ trên trang Máy chủ.
+ */
+export function hostChecks(ctx, { deep = false } = {}) {
+  const now = ctx.now();
+  const { db, dataDir, backupDir } = paths(ctx);
+  const checks = [];
+  const add = (key, label, level, value, hint = '') => checks.push({ key, label, level, value, hint });
+
+  // 1. Khách có vào được trang không (qua Cloudflare, như khách thật).
+  if (ctx.config.isProd) {
+    const p = lastProbe(ctx);
+    if (!p) add('public', 'Trang khách (qua internet)', 'warn', 'chưa kiểm lần nào', 'Đợi 5 phút hoặc bấm "Kiểm lại ngay".');
+    else if (!p.ok) add('public', 'Trang khách (qua internet)', 'bad', `lỗi ${ago(p.at, now)}: ${p.error}`,
+      'Khách có thể không vào được. Kiểm đường hầm Cloudflare: ssh vào máy chủ → systemctl status tbq-tunnel.');
+    else if (now - p.at > 3 * PROBE_EVERY) add('public', 'Trang khách (qua internet)', 'warn', `lần kiểm cuối ${ago(p.at, now)}`, 'Việc tự kiểm đang không chạy — khởi động lại app.');
+    else add('public', 'Trang khách (qua internet)', 'ok', `trả lời ${p.ms} ms · ${ago(p.at, now)}`);
+  }
+
+  // 2. Sao lưu.
+  if (backupDir) {
+    const b = newestBackup(backupDir);
+    if (!b) add('backup', 'Sao lưu', 'bad', 'chưa có bản nào', 'Bật sao lưu tự động: systemctl enable --now tbq-backup.timer.');
+    else if (now - b.at > BACKUP_MAX_AGE) add('backup', 'Sao lưu', 'bad', `bản mới nhất ${ago(b.at, now)}`, 'Sao lưu 05:30 không chạy — xem: journalctl -u tbq-backup.');
+    else add('backup', 'Sao lưu', 'ok', `${ago(b.at, now)} · ${mb(b.size)}`);
+  }
+
+  // 3. Ổ đĩa (nơi chứa database + sao lưu). Đầy ổ = database không ghi được = khách không nhận được gì.
+  if (dataDir) {
+    try {
+      const s = statfsSync(dataDir);
+      const total = s.blocks * s.bsize, free = s.bavail * s.bsize, used = pct(total - free, total);
+      const level = used >= 90 ? 'bad' : used >= 80 ? 'warn' : 'ok';
+      add('disk', 'Ổ đĩa', level, `đã dùng ${used}% · còn ${gb(free)} / ${gb(total)}`, level === 'ok' ? '' : 'Xoá bớt bản sao lưu cũ hoặc nâng gói máy chủ.');
+    } catch { /* hệ điều hành không hỗ trợ */ }
+  }
+
+  // 4. RAM cả máy. Chỉ đánh giá trên Linux (MemAvailable = còn dùng được, đã tính bộ đệm giải phóng được);
+  //    macOS / Windows không có số tương đương (os.freemem bỏ qua bộ đệm → báo sai "sắp hết") → chỉ hiện.
+  const total = os.totalmem(), avail = memAvailable(), rss = process.memoryUsage().rss;
+  if (avail == null) add('ram', 'RAM', 'ok', `app dùng ${mb(rss)} · máy ${mb(total)}`);
+  else {
+    const freePct = pct(avail, total);
+    const ramLevel = freePct < 5 ? 'bad' : freePct < 15 ? 'warn' : 'ok';
+    add('ram', 'RAM', ramLevel, `còn dùng được ${freePct}% (${mb(avail)} / ${mb(total)}) · app dùng ${mb(rss)}`,
+      ramLevel === 'ok' ? '' : 'Máy sắp hết RAM — khởi động lại app; nếu lặp lại thì nâng gói.');
+  }
+
+  // 5. Bot Canva (chỉ khi có công cụ dùng bot mời vào nhóm). Bot báo "còn sống" mỗi phút.
+  const needBot = get(ctx.db, 'SELECT 1 AS x FROM tools WHERE auto_worker = 1 AND enabled = 1 LIMIT 1');
+  if (needBot) {
+    const seen = get(ctx.db, "SELECT MAX(updated_at) AS t FROM kv WHERE key LIKE 'worker:%'")?.t || 0;
+    const quiet = seen ? now - seen : Infinity;
+    const level = quiet > 30 * MIN ? 'bad' : quiet > 5 * MIN ? 'warn' : 'ok';
+    add('bot', 'Bot Canva (máy Mac)', level, seen ? `liên lạc ${ago(seen, now)}` : 'chưa liên lạc lần nào',
+      level === 'ok' ? '' : 'Máy Mac đang tắt / ngủ hoặc bot đã dừng → khách Canva phải chờ mời tay. Mở Mac, kiểm cửa sổ Chrome của bot.');
+  }
+
+  // 6. Gửi mã đăng nhập (email / SMS) trong 1 giờ qua.
+  const otpFail = get(ctx.db, "SELECT COUNT(*) AS n, MAX(created_at) AS t FROM events WHERE type = 'otp_send_failed' AND created_at > ?", now - HOUR);
+  add('otp', 'Gửi mã đăng nhập', otpFail.n ? 'bad' : 'ok', otpFail.n ? `${otpFail.n} lần lỗi trong 1 giờ (gần nhất ${ago(otpFail.t, now)})` : 'không lỗi trong 1 giờ qua',
+    otpFail.n ? 'Khách không nhận được mã → xem sự kiện "Gửi OTP lỗi" ở Nhật ký.' : '');
+
+  // 7. Database.
+  if (db) {
+    let size = 0, wal = 0;
+    try { size = statSync(db).size; } catch { /* */ }
+    try { wal = statSync(`${db}-wal`).size; } catch { /* */ }
+    let level = 'ok', value = `${mb(size)}${wal ? ` + nhật ký ghi ${mb(wal)}` : ''}`, hint = '';
+    if (deep) {
+      const r = get(ctx.db, 'PRAGMA quick_check')?.quick_check;
+      if (r !== 'ok') { level = 'bad'; value += ` · LỖI: ${String(r).slice(0, 80)}`; hint = 'Database hỏng — dừng app và khôi phục bản sao lưu gần nhất.'; } else value += ' · nguyên vẹn';
+    }
+    add('db', 'Database', level, value, hint);
+  }
+  return checks;
+}
+
+/** Thông tin để biết đang chạy gì, ở đâu (không đánh giá). */
+export function hostFacts(ctx, version = '') {
+  const cpus = os.cpus().length || 1;
+  const [l1] = os.loadavg();
+  return [
+    ['Phiên bản', version || '—'],
+    ['Máy', `${os.hostname()} · ${os.platform()} ${os.release()}`],
+    ['CPU', `${cpus} nhân · tải ${l1.toFixed(2)} (${pct(l1, cpus)}%)`],
+    ['Node', process.version],
+    ['App chạy liền', dur(process.uptime())],
+    ['Máy bật liền', dur(os.uptime())],
+    ['Địa chỉ', ctx.config.baseUrl],
+  ];
+}
+
+/** Số mục đỏ (cho thanh bên + Việc hôm nay). */
+export const hostBadCount = (ctx) => hostChecks(ctx).filter((c) => c.level === 'bad').length;
