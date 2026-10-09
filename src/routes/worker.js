@@ -153,7 +153,7 @@ export function registerWorkerRoutes(router) {
     if (!t) return json(rq, { ok: false, message: 'Việc này đã xử lý rồi.' });
     const msg = String(body.message || 'Bot cần chủ giúp').replace(/\s+/g, ' ').slice(0, 200);
     run(ctx.db, 'UPDATE rotation_tasks SET lease_until = ?, last_error = ? WHERE id = ?', ctx.now() + 15 * MIN, msg, taskId);
-    escalateTask(ctx, taskId, `${msg} — mở cửa sổ Chrome của bot trên máy Mac và làm tay bước đó, bot sẽ tự làm tiếp.`);
+    escalateTask(ctx, taskId, `${msg} — mở cửa sổ Chrome của bot (VPS: zsh chuyen-vps/bot-canva-len-vps.sh dang-nhap) và làm tay bước đó, bot sẽ tự làm tiếp.`);
     json(rq, { ok: true, leaseUntil: ctx.now() + 15 * MIN });
   });
 

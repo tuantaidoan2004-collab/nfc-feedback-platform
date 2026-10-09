@@ -37,7 +37,7 @@ export const ALERT_HINT = {
   code_orphan: 'Có người ngoài đang tự đăng nhập tài khoản này — đổi mật khẩu ngay (làm việc tay của tài khoản nếu đang chờ).',
   account_quarantined: 'Hãng báo mật khẩu / 2FA bị đổi — lấy lại tài khoản rồi làm việc tay bên trên (dán mật khẩu mới).',
   tool_sold_out: 'Mua thêm rồi nhập vào Kho tài khoản.',
-  worker_task_stuck: 'Bot chưa làm xong (máy Mac tắt, hãng đổi giao diện, đòi xác minh người thật, hoặc hết ghế). Làm tay trên trang của hãng rồi bấm "Đã xong" ở việc tay bên trên.',
+  worker_task_stuck: 'Bot chưa làm xong (bot dừng / máy chạy bot tắt, hãng đổi giao diện, đòi xác minh người thật, hoặc hết ghế). Làm tay trên trang của hãng rồi bấm "Đã xong" ở việc tay bên trên.',
   voucher_guessing: 'Có máy đang dò mã phiếu — xem khách đó ở trang Khách, khoá máy nếu lặp lại.',
   qs_api_unauthorized: 'Có máy gọi API phiếu của QS sai chữ ký — kiểm QS_TICKET_KEY bên TBQ có trùng NFC_EVENT_TBQ_KEY bên QS không.',
   qs_api_cafe_opened: 'Tài vừa mở chương trình ở một quán mới (qua QS) → quán đã tự thêm. Xem lại số suất / ngày và kho cho quán này.',

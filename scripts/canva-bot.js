@@ -1,4 +1,4 @@
-// Bot Canva chạy trên máy Mac của Tiệm: tự mời khách vào nhóm Canva Pro, hết giờ tự gỡ ra. Làm trên Canva THẬT, bằng Chrome thật.
+// Bot Canva (chạy trên VPS dưới màn hình ảo Xvfb, hoặc trên máy Mac): tự mời khách vào nhóm Canva Pro, hết giờ tự gỡ ra. Làm trên Canva THẬT, bằng Chrome thật.
 //
 //   npm run canva-bot -- --login                               → mở cửa sổ Chrome riêng của bot ở trang đăng nhập Canva.
 //                                                             Chủ tự đăng nhập tài khoản chủ nhóm (1 lần, bot nhớ). Đóng bằng Ctrl+C.
@@ -43,8 +43,9 @@ const SHOTS = join(HOME, 'anh-loi');
 mkdirSync(PROFILE, { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 const PORT = Number(opt('--cong') || 9333);
-const CHROME = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser']
-  .find((p) => existsSync(p));
+// Mac: Chrome / Brave trong /Applications. VPS (Linux): google-chrome, chạy có cửa sổ trên màn hình ảo (DISPLAY=:99) — Canva dễ chặn chế độ headless.
+const CHROME = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+  '/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => p && existsSync(p));
 const PEOPLE_URL = 'https://www.canva.com/settings/people';
 const TBQ_URL = String(process.env.TBQ_URL || '').replace(/\/+$/, '');
 const TOKEN = process.env.WORKER_TOKEN || '';
@@ -72,13 +73,15 @@ const log = (...a) => console.log(new Date().toLocaleTimeString('vi-VN', { hour1
 
 let chrome = null;
 async function startChrome() {
-  if (!CHROME) throw new Error('Không thấy Google Chrome trong /Applications.');
+  if (!CHROME) throw new Error('Không thấy Google Chrome (Mac: /Applications, Linux: /usr/bin/google-chrome). Đặt CHROME_PATH nếu để chỗ khác.');
   try { await fetch(`http://127.0.0.1:${PORT}/json/version`); return; } catch { /* chưa chạy → mở */ }
   chrome = spawn(CHROME, [
     `--user-data-dir=${PROFILE}`, `--remote-debugging-port=${PORT}`, '--remote-allow-origins=http://127.0.0.1',
-    '--lang=vi', '--no-first-run', '--no-default-browser-check', '--window-size=1280,900', 'about:blank',
+    '--lang=vi', '--no-first-run', '--no-default-browser-check', '--window-size=1280,900',
+    // Linux không có Keychain → lưu đăng nhập trong hồ sơ, không hiện hộp hỏi mật khẩu keyring.
+    ...(process.platform === 'linux' ? ['--password-store=basic', '--window-position=0,0'] : []), 'about:blank',
   ], { stdio: 'ignore' });
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 80; i++) {
     await sleep(250);
     try { await fetch(`http://127.0.0.1:${PORT}/json/version`); return; } catch { /* chờ */ }
   }

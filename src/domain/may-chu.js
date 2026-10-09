@@ -180,8 +180,8 @@ export function hostChecks(ctx, { deep = false } = {}) {
     const seen = get(ctx.db, "SELECT MAX(updated_at) AS t FROM kv WHERE key LIKE 'worker:%'")?.t || 0;
     const quiet = seen ? now - seen : Infinity;
     const level = quiet > 30 * MIN ? 'bad' : quiet > 5 * MIN ? 'warn' : 'ok';
-    add('bot', 'Bot Canva (máy Mac)', level, seen ? `liên lạc ${ago(seen, now)}` : 'chưa liên lạc lần nào',
-      level === 'ok' ? '' : 'Máy Mac đang tắt / ngủ hoặc bot đã dừng → khách Canva phải chờ mời tay. Mở Mac, kiểm cửa sổ Chrome của bot.');
+    add('bot', 'Bot Canva', level, seen ? `liên lạc ${ago(seen, now)}` : 'chưa liên lạc lần nào',
+      level === 'ok' ? '' : 'Bot đã dừng hoặc máy chạy bot đang tắt → khách Canva phải chờ mời tay. Trên VPS: systemctl status tbq-canva-bot (Canva đòi đăng nhập lại → zsh chuyen-vps/bot-canva-len-vps.sh dang-nhap).');
   }
 
   // 6. Gửi mã đăng nhập (email / SMS) trong 1 giờ qua.

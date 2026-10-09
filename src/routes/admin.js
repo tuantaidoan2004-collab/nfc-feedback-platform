@@ -622,7 +622,7 @@ ${secHead('Cảnh báo 2 giờ qua', { link: ['/admin/events?sev=red', 'Mở Nh�
       sub: todo.length ? `${todo.length} việc đang chờ bạn` : 'Không có việc nào đang chờ',
       body: html`<details class="help"><summary>Làm việc tay thế nào?</summary>
 <p>Đổi mật khẩu: đổi mật khẩu tài khoản trên trang của hãng, bấm "Đăng xuất khỏi mọi thiết bị" trong cài đặt của hãng, dán mật khẩu mới vào ô rồi bấm <b>Đã xong</b>.
-Mời / gỡ nhóm Canva: làm trên Canva rồi bấm Đã xong (bot trên máy Mac thường tự làm — xem <a href="/admin/canva">Canva</a>).</p></details>
+Mời / gỡ nhóm Canva: làm trên Canva rồi bấm Đã xong (bot Canva thường tự làm — xem <a href="/admin/canva">Canva</a>).</p></details>
 ${tasksBlock(ctx, todo, rq.state.admin.csrf, '/admin/tasks')}
 ${secHead('Đã xử lý gần đây', { n: done.length })}
 ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', 'Bởi'], done.map((k) => [
@@ -934,11 +934,11 @@ ${table(['Ngày', 'Lượt vào', 'Máy', 'Dùng thử', 'Khách', 'Bấm Zalo',
     const canvaTool = tools[0];
     view(rq, {
       title: 'Canva', heading: 'Canva — mời vào nhóm', active: '/admin/canva',
-      sub: bots.some(live) ? 'Bot trên máy Mac đang chạy' : 'Bot trên máy Mac đang tắt',
+      sub: bots.some(live) ? 'Bot Canva đang chạy' : 'Bot Canva đang tắt',
       actions: canvaTool ? html`<a class="btn-mini" href="/admin/accounts?tool=${canvaTool.id}">Nhóm trong kho ›</a><a class="btn-mini" href="/admin/tools/${canvaTool.id}">Cài đặt món ›</a>` : '',
-      body: html`${secHead('Bot trên máy Mac')}
+      body: html`${secHead('Bot Canva')}
 ${bots.length ? table(['Bot', 'Trạng thái', 'Lần cuối liên lạc'], bots.map((b) => [b.name, botState(b), t(b.updated_at, o)]))
-    : html`<p class="warn">Chưa có bot nào kết nối. Trên máy Mac: <code>npm run canva-bot</code> (xem README mục Canva).</p>`}
+    : html`<p class="warn">Chưa có bot nào kết nối. Trên VPS: <code>systemctl status tbq-canva-bot</code> (máy Mac: <code>npm run canva-bot</code>, xem README mục Canva).</p>`}
 ${secHead('Nhóm Canva', { n: teams.length, note: 'trong Kho tài khoản', link: canvaTool ? [`/admin/accounts?tool=${canvaTool.id}`, 'Mở kho Canva'] : null })}
 ${tools.length ? '' : html`<p class="warn">Chưa có công cụ kiểu "Mời vào nhóm". Chạy <code>npm run pilot</code> hoặc thêm ở trang <a href="/admin/tools">Công cụ</a>.</p>`}
 ${table(['Email chủ nhóm', 'Ghế', 'Đang dùng', 'Chờ mời', 'Còn trống', 'Trạng thái'], teams.map((a) => [

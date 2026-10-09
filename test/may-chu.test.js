@@ -122,7 +122,7 @@ test('Máy chủ: trang quản trị — bảng sức khoẻ, số đỏ ở tha
     assert.match(home, /href="\/admin\/may-chu"[^>]*>.*Máy chủ<\/span><span class="nb">1<\/span>/s);
     assert.match(home, /<b>1<\/b>mục máy chủ đang đỏ/);
     const page = (await admin.get('/admin/may-chu')).text;
-    for (const s of ['Bot Canva (máy Mac)', 'Gửi mã đăng nhập', 'RAM', 'Cần xử lý', 'Phiên bản', 'App chạy liền', '/healthz']) assert.ok(page.includes(s), s);
+    for (const s of ['Bot Canva', 'Gửi mã đăng nhập', 'RAM', 'Cần xử lý', 'Phiên bản', 'App chạy liền', '/healthz']) assert.ok(page.includes(s), s);
     assert.doesNotMatch(page, /Trang khách \(qua internet\)/, 'không production → không có mục tự kiểm');
 
     ctx.config.isProd = true;
