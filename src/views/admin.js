@@ -29,7 +29,7 @@ export const EVENT_LABEL = {
   tool_sold_out: 'Hết kho', tool_daily_cap: 'Hết lượt hôm nay', cafe_full: 'Quán hết suất hôm nay',
   voucher_batch: 'Tạo lô mã phiếu', voucher_used: 'Dùng mã phiếu', voucher_void: 'Huỷ mã phiếu', voucher_unbind: 'Gỡ khách khỏi mã vĩnh viễn',
   voucher_guessing: 'Nhập sai mã phiếu nhiều lần', slot_extended: 'Gia hạn slot', extend_requested: 'Khách xin gia hạn',
-  qs_api_voucher: 'QS lấy phiếu cho trang quán', qs_api_cafe_opened: 'QS mở chương trình ở quán', qs_api_cafe_closed: 'QS đóng chương trình ở quán', qs_api_unauthorized: 'API QS: sai chữ ký', qs_api_limit: 'API QS: quán hết phiếu hôm nay', extend_declined: 'Bỏ qua yêu cầu gia hạn',
+  qs_api_voucher: 'QS lấy phiếu cho trang quán', qs_api_cafe_opened: 'QS mở chương trình ở quán', qs_api_cafe_closed: 'QS đóng chương trình ở quán', qs_shop_linked: 'QS đổi mã quán → đã gắn vào quán cũ', cafe_merged: 'Gộp quán trùng', qs_api_unauthorized: 'API QS: sai chữ ký', qs_api_limit: 'API QS: quán hết phiếu hôm nay', extend_declined: 'Bỏ qua yêu cầu gia hạn',
 };
 
 // Vận hành độc lập: báo động trên trang Theo dõi kèm 1 câu "nên làm gì" để chủ không phải đoán.
@@ -40,7 +40,8 @@ export const ALERT_HINT = {
   worker_task_stuck: 'Bot chưa làm xong (bot dừng / máy chạy bot tắt, hãng đổi giao diện, đòi xác minh người thật, hoặc hết ghế). Làm tay trên trang của hãng rồi bấm "Đã xong" ở việc tay bên trên.',
   voucher_guessing: 'Có máy đang dò mã phiếu — xem khách đó ở trang Khách, khoá máy nếu lặp lại.',
   qs_api_unauthorized: 'Có máy gọi API phiếu của QS sai chữ ký — kiểm QS_TICKET_KEY bên TBQ có trùng NFC_EVENT_TBQ_KEY bên QS không.',
-  qs_api_cafe_opened: 'Tài vừa mở chương trình ở một quán mới (qua QS) → quán đã tự thêm. Xem lại số suất / ngày và kho cho quán này.',
+  qs_api_cafe_opened: 'Tài vừa mở chương trình ở một quán mới (qua QS) → quán đã tự thêm. Xem lại số suất / ngày và kho cho quán này. Thật ra là quán cũ đổi mã thì vào quán này bấm Gộp.',
+  qs_shop_linked: 'QS đổi mã quán, tên trùng quán cũ → TBQ tự gắn mã mới vào quán cũ (cùng kho, cùng suất). Không phải cùng quán thì sửa mã QS ở trang Quán.',
   qs_api_limit: 'Quán dùng hết phiếu QS hôm nay — nâng "qsVoucherPerCafeDay" ở Cài đặt nếu quán đông thật.',
   extend_requested: 'Khách muốn dùng thêm — nhận tiền qua Zalo rồi bấm Gia hạn ở trang Gia hạn.',
   tool_daily_cap: 'Muốn giao thêm hôm nay: nâng "Lượt / ngày" ở trang Công cụ.',

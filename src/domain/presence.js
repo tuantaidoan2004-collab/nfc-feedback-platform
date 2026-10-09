@@ -11,9 +11,10 @@
 //
 // Lượt vào còn hạn (entryTtlMin, verdict ok / jump) = khách đang ở quán; nhận công cụ và mở lượt lấy mã phải trong thời gian đó.
 
-import { get, run } from '../db/index.js';
+import { get, all, run, tx } from '../db/index.js';
 import { randomToken } from '../lib/crypto.js';
 import { logEvent } from '../lib/events.js';
+import { hit } from '../lib/ratelimit.js';
 import { localHour, inHourRange, MIN, HOUR } from '../lib/time.js';
 import { COUNTED } from './quota.js';
 
@@ -22,9 +23,80 @@ export function isCafeOpen(cafe, nowMs, offsetMin = 420) {
   return inHourRange(localHour(nowMs, offsetMin), cafe.open_hour, cafe.close_hour);
 }
 
-/** Quán có mã quán QS này (không phân biệt hoa thường) | null. */
+/** Quán có mã quán QS này — mã đang dùng hoặc mã cũ / phụ (cafe_shops), không phân biệt hoa thường | null. */
 export function cafeByShop(ctx, shop) {
-  return (shop && get(ctx.db, 'SELECT * FROM cafes WHERE qs_slug = ? COLLATE NOCASE', shop)) || null;
+  if (!shop) return null;
+  return get(ctx.db, 'SELECT * FROM cafes WHERE qs_slug = ? COLLATE NOCASE', shop)
+    || get(ctx.db, 'SELECT f.* FROM cafe_shops s JOIN cafes f ON f.id = s.cafe_id WHERE s.shop = ? COLLATE NOCASE', shop) || null;
+}
+
+/** Mã quán QS cũ / phụ của quán (không gồm mã đang dùng). */
+export function cafeShopAliases(ctx, cafeId) {
+  return all(ctx.db, 'SELECT shop FROM cafe_shops WHERE cafe_id = ? ORDER BY created_at, shop', cafeId).map((r) => r.shop);
+}
+
+/**
+ * Gắn mã quán QS vào quán có sẵn: mã này thành mã đang dùng, mã cũ của quán giữ lại làm mã phụ (link / vé cũ vẫn về đúng quán).
+ * Mã đang thuộc quán khác thì không gắn. → true | false
+ */
+export function linkShop(ctx, cafe, shop) {
+  const v = String(shop || '').trim().toLowerCase();
+  if (!v) return false;
+  const owner = cafeByShop(ctx, v);
+  if (owner && owner.id !== cafe.id) return false;
+  tx(ctx.db, () => {
+    const cur = get(ctx.db, 'SELECT qs_slug FROM cafes WHERE id = ?', cafe.id)?.qs_slug;
+    run(ctx.db, 'DELETE FROM cafe_shops WHERE shop = ? COLLATE NOCASE', v);
+    if (cur && cur.toLowerCase() !== v) run(ctx.db, 'INSERT OR IGNORE INTO cafe_shops(shop, cafe_id, created_at) VALUES(?, ?, ?)', cur.toLowerCase(), cafe.id, ctx.now());
+    run(ctx.db, 'UPDATE cafes SET qs_slug = ? WHERE id = ?', v, cafe.id);
+  });
+  return true;
+}
+
+/**
+ * Tên quán để so trùng: bỏ dấu, ký tự lạ và chữ chung chung (coffee, cafe, cà phê, tea, quán…).
+ * "O’renchi Cafe" = "O’renchi" = "orenchicafe" = "orenchi"; "Bamos Coffee" = "Bamos" = "bamos". Còn dưới 3 ký tự → '' (không so).
+ */
+export function cafeKey(name) {
+  const k = String(name || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'd').toLowerCase()
+    .replace(/['’‘`´]/g, '')
+    .replace(/\b(ca\s*phe|coffee|cafe|caffe|caf|tea|tra\s*sua|quan|the|and)\b/g, ' ')
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/^(?:caphe|coffee|cafe)(?=[a-z0-9]{3})|(?<=[a-z0-9]{3})(?:caphe|coffee|cafe)$/g, ''); // viết liền: orenchicafe
+  return k.length >= 3 ? k : '';
+}
+
+/**
+ * Quán có sẵn trùng tên (theo cafeKey) để gắn mã QS mới vào, thay vì tạo quán mới. Ưu tiên quán đang chạy; không có thì quán
+ * QS tạm dừng. Quán chủ tự dừng (vd. quán trùng đã gộp) không tính. Nhiều quán khớp → null (không đoán).
+ */
+export function sameNameCafe(ctx, name) {
+  const key = cafeKey(name);
+  if (!key) return null;
+  const hits = all(ctx.db, 'SELECT * FROM cafes').filter((c) => cafeKey(c.name) === key);
+  const active = hits.filter((c) => c.status === 'active');
+  if (active.length) return active.length === 1 ? active[0] : null;
+  const byQs = hits.filter((c) => c.paused_by === 'qs');
+  return byQs.length === 1 ? byQs[0] : null;
+}
+
+/**
+ * Mã quán QS → quán. Mã lạ mà tên quán (QS gửi kèm, hoặc đọc từ trang quán QS) trùng 1 quán có sẵn → QS vừa đổi mã quán:
+ * gắn mã mới vào quán đó (báo vàng cho chủ) thay vì coi là quán mới / quán chưa có chương trình. → quán | null
+ */
+export async function resolveShop(ctx, shop, { name = '' } = {}, fetchImpl = fetch) {
+  const v = String(shop || '').trim().toLowerCase();
+  const found = cafeByShop(ctx, v);
+  if (found || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(v)) return found;
+  let n = name;
+  // Đọc trang QS tối đa 1 lần / 10 phút / mã, để link rác không bắt máy chủ đi hỏi QS liên tục.
+  if (!cafeKey(n) && hit(ctx, `qsresolve:${v}`, 1, 10 * MIN).ok) n = (await qsPageInfo(ctx, v, fetchImpl))?.name || '';
+  const same = sameNameCafe(ctx, n);
+  if (!same) return null;
+  const old = same.qs_slug;
+  if (!linkShop(ctx, same, v)) return null;
+  logEvent(ctx, { type: 'qs_shop_linked', severity: 'yellow', cafeId: same.id, data: { shop: v, old: old || null, name: n } });
+  return get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', same.id);
 }
 
 /** Mã quán QS từ chữ chủ dán vào: mã trần (sakz8) hoặc nguyên link trang quán (https://quitesensational-review-bio.com/sakz8?x=1). */
@@ -64,6 +136,40 @@ export function qsEntryCard(ctx, cafe) {
   run(ctx.db, "INSERT OR IGNORE INTO cards(cafe_id, token, kind, label, created_at) VALUES(?, ?, 'qs', 'Từ trang quán (Quite Sensational)', ?)",
     cafe.id, randomToken(12), ctx.now());
   return get(ctx.db, "SELECT * FROM cards WHERE cafe_id = ? AND kind = 'qs'", cafe.id);
+}
+
+/**
+ * Gộp quán trùng `fromId` vào quán `intoId`: lượt vào, vé, slot, kho riêng, phiếu, thẻ NFC, nhật ký chuyển sang quán gốc; mã QS
+ * của quán trùng thành mã của quán gốc (quán trùng tạo sau → mã của nó là mã QS mới → thành mã đang dùng). Quán trùng: tạm dừng,
+ * không còn mã QS, tên ghi "(trùng — đã gộp vào #…)". → {ok} | {ok:false, message}
+ */
+export function mergeCafe(ctx, fromId, intoId, by = 'admin') {
+  const from = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', fromId);
+  const into = get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', intoId);
+  if (!from || !into) return { ok: false, message: 'Không có quán này.' };
+  if (from.id === into.id) return { ok: false, message: 'Chọn một quán khác để gộp vào.' };
+  const moved = {};
+  tx(ctx.db, () => {
+    const keep = qsEntryCard(ctx, into);
+    const dup = get(ctx.db, "SELECT id FROM cards WHERE cafe_id = ? AND kind = 'qs'", from.id);
+    if (dup) {
+      for (const t of ['taps', 'slots', 'events']) run(ctx.db, `UPDATE ${t} SET card_id = ? WHERE card_id = ?`, keep.id, dup.id);
+      run(ctx.db, 'DELETE FROM cards WHERE id = ?', dup.id);
+    }
+    for (const t of ['cards', 'taps', 'qs_tickets', 'slots', 'accounts', 'vouchers', 'events', 'cafe_shops']) {
+      moved[t] = Number(run(ctx.db, `UPDATE ${t} SET cafe_id = ? WHERE cafe_id = ?`, into.id, from.id).changes);
+    }
+    run(ctx.db, 'UPDATE sessions SET presence_cafe_id = ? WHERE presence_cafe_id = ?', into.id, from.id);
+    const shop = from.qs_slug;
+    run(ctx.db, "UPDATE cafes SET qs_slug = NULL, status = 'paused', paused_by = 'admin', name = ? WHERE id = ?",
+      `${from.name} (trùng — đã gộp vào #${into.id} ${into.name})`.slice(0, 200), from.id);
+    if (shop) {
+      if (!into.qs_slug || from.created_at > into.created_at) linkShop(ctx, into, shop);
+      else run(ctx.db, 'INSERT OR IGNORE INTO cafe_shops(shop, cafe_id, created_at) VALUES(?, ?, ?)', shop.toLowerCase(), into.id, ctx.now());
+    }
+  });
+  logEvent(ctx, { type: 'cafe_merged', cafeId: into.id, data: { from: from.id, fromName: from.name, shop: from.qs_slug || null, moved, by } });
+  return { ok: true, moved };
 }
 
 /** Điểm rủi ro theo lượt vào (dùng khi chấm điểm lúc nhận slot). replay / forged / closed / locked không thành lượt vào. */

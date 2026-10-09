@@ -20,7 +20,8 @@ const SECRET = 'JBSWY3DPEHPK3PXP';
 const BOT = { authorization: 'Bearer dev-worker-token-change-me-0123' };
 
 function setup(settings = {}) {
-  const ctx = createTestCtx({ settings });
+  // Mã phiếu chỉ dùng khi bật codeNeedsTap = 1 (mặc định tự động, xem test/ma-tu-dong.test.js).
+  const ctx = createTestCtx({ settings: { codeNeedsTap: 1, ...settings } });
   const cafeId = run(ctx.db,
     `INSERT INTO cafes(name, qs_slug, display_token, code_secret, presence_mode, daily_quota, created_at)
      VALUES('Quán Thử', 'quan-thu', 'disp', 'sec', 'none', 100, ?)`, ctx.now()).lastInsertRowid;

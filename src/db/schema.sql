@@ -32,6 +32,14 @@ CREATE TABLE IF NOT EXISTS cafes (
   created_at INTEGER NOT NULL
 );
 
+-- Mã quán QS cũ / phụ của 1 quán (09/10/2026: QS đổi 8ugdc → bamos, f69kk → orenchi; TBQ tưởng quán mới nên tạo trùng, khách
+-- vào quán trùng thấy kho trống). cafes.qs_slug = mã đang dùng; mã ở đây vẫn dẫn về đúng quán (link / vé cũ còn chạy).
+CREATE TABLE IF NOT EXISTS cafe_shops (
+  shop TEXT PRIMARY KEY COLLATE NOCASE,
+  cafe_id INTEGER NOT NULL REFERENCES cafes(id),
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS cards (
   id INTEGER PRIMARY KEY,
   cafe_id INTEGER NOT NULL REFERENCES cafes(id),

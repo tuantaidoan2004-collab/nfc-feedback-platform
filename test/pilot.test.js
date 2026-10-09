@@ -22,7 +22,7 @@ const SECRET = 'JBSWY3DPEHPK3PXP';
 
 /** Quán + công cụ chạy thử (đúng cấu hình npm run pilot). */
 function setup() {
-  const ctx = createTestCtx();
+  const ctx = createTestCtx({ settings: { codeNeedsTap: 1 } });
   const now = ctx.now();
   const cafeId = run(ctx.db,
     `INSERT INTO cafes(name, qs_slug, display_token, code_secret, presence_mode, daily_quota, created_at)

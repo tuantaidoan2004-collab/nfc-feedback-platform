@@ -22,7 +22,7 @@ import { freeTextProblem, POLICY_MESSAGE } from '../lib/policy.js';
 import { rotateBotSeen } from './worker.js';
 import { hostChecks, hostFacts, probePublic } from '../domain/may-chu.js';
 import { QS_EVENT } from '../qs-event.js';
-import { createCafe, shopFromInput, qsPageInfo } from '../domain/presence.js';
+import { createCafe, shopFromInput, qsPageInfo, cafeByShop, cafeShopAliases, linkShop, mergeCafe, cafeKey } from '../domain/presence.js';
 import { MAX_WORKSPACES, parseAccountLine, addAccounts, addRedeemCodes, updateAccount, dropRotateTasks, resolveKho } from '../domain/stock.js';
 import {
   adminPage, csrfField, postButton, table, t, sev, badge, csvFile, eventSummary, secHead, stat, chips, link, icon, dayLabel,
@@ -120,8 +120,8 @@ function qsSlug(ctx, raw, cafeId = 0) {
   if (!v) return { value: null };
   // Giống ràng buộc slug của QS (db/schema.sql shops_slug_check): chữ không dấu, số, '-', tối đa 63 ký tự.
   if (!QS_SLUG_RE.test(v)) return { error: 'Mã quán QS chỉ gồm chữ thường không dấu, số và dấu "-" (đúng như trong link trang quán trên QS).' };
-  const other = get(ctx.db, 'SELECT name FROM cafes WHERE qs_slug = ? COLLATE NOCASE AND id != ?', v, cafeId);
-  if (other) return { error: `Mã quán QS "${v}" đang gắn với quán ${other.name}.` };
+  const other = cafeByShop(ctx, v);
+  if (other && other.id !== cafeId) return { error: `Mã quán QS "${v}" đang gắn với quán ${other.name}.` };
   return { value: v };
 }
 
@@ -676,6 +676,9 @@ ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', '
     const dayStart = startOfLocalDay(ctx.now(), ctx.settings().timezoneOffsetMin);
     const cafes = all(ctx.db, `SELECT f.*, (SELECT COUNT(*) FROM cards k WHERE k.cafe_id = f.id AND k.kind = 'nfc') AS cards,
       (SELECT COUNT(*) FROM slots s WHERE s.cafe_id = f.id AND s.created_at >= ? AND ${COUNTED}) AS used_today FROM cafes f ORDER BY f.id`, dayStart);
+    const aliasOf = new Map(all(ctx.db, 'SELECT cafe_id, GROUP_CONCAT(shop, \', \') AS s FROM cafe_shops GROUP BY cafe_id').map((r) => [r.cafe_id, r.s]));
+    // Quán đang chạy trùng tên 1 quán đang chạy tạo trước nó (QS đổi mã quán) → nhắc gộp.
+    const twinOf = (c) => c.status === 'active' && cafeKey(c.name) ? cafes.find((o) => o.id !== c.id && o.status === 'active' && o.created_at < c.created_at && cafeKey(o.name) === cafeKey(c.name)) : null;
     view(rq, {
       ...(flash ? { flash, flashError: true } : {}),
       title: 'Quán & thẻ', heading: 'Quán', active: '/admin/cafes',
@@ -686,8 +689,8 @@ ${table(['#', 'Việc', 'Tài khoản', 'Chi tiết', 'Trạng thái', 'Lúc', '
   <b>trang quán QS</b> — khách chạm thẻ / quét QR của QS → bấm "${QS_EVENT.items[0].label}" → <code>${ctx.config.baseUrl}/qs/&lt;mã quán QS&gt;</code> kèm vé;
   <b>thẻ NFC riêng của Tiệm</b> trên bàn → <code>${ctx.config.baseUrl}/c/&lt;mã thẻ&gt;</code>.</p></details>
 ${table(['Quán', 'Lối vào', 'Hôm nay / suất mỗi ngày', 'Giờ', 'Trạng thái', ''], cafes.map((c) => [
-  html`${link.cafe(c.id, c.name)}${c.address ? html`<span class="sub">${c.address}</span>` : ''}${qsBadge(ctx, fromQs.get(c.id))}`,
-  html`${c.qs_slug ? html`Trang quán QS <code>${c.qs_slug}</code>` : ''}${c.cards ? html`${c.qs_slug ? html`<br>` : ''}${c.cards} thẻ NFC riêng` : ''}${!c.qs_slug && !c.cards ? html`<span class="muted">chưa có lối vào</span>` : ''}`,
+  html`${link.cafe(c.id, c.name)}${c.address ? html`<span class="sub">${c.address}</span>` : ''}${qsBadge(ctx, fromQs.get(c.id))}${twinOf(c) ? html` <a href="/admin/cafes/${c.id}#gop">${badge(`Trùng #${twinOf(c).id} — gộp ›`, 'red')}</a>` : ''}`,
+  html`${c.qs_slug ? html`Trang quán QS <code>${c.qs_slug}</code>${aliasOf.get(c.id) ? html`<span class="sub">mã cũ: ${aliasOf.get(c.id)}</span>` : ''}` : ''}${c.cards ? html`${c.qs_slug ? html`<br>` : ''}${c.cards} thẻ NFC riêng` : ''}${!c.qs_slug && !c.cards ? html`<span class="muted">chưa có lối vào</span>` : ''}`,
   html`<form method="post" action="/admin/cafes/${c.id}/quota" class="inline">${csrfField(rq.state.admin.csrf)}${c.used_today} /
     <input name="daily_quota" type="number" min="0" value="${c.daily_quota}" class="num-mini" aria-label="Suất mỗi ngày"><button class="btn-mini">Lưu</button></form>`,
   c.open_hour == null || c.close_hour == null ? '24h' : `${c.open_hour}h–${c.close_hour}h`,
@@ -729,6 +732,10 @@ ${secHead('Thêm quán', { id: 'them' })}
     const bad = all(ctx.db,
       "SELECT json_extract(data, '$.error') AS error, COUNT(*) AS n FROM events WHERE type = 'ticket_rejected' AND cafe_id = ? AND created_at > ? GROUP BY 1", c.id, day);
     const back = `/admin/cafes/${c.id}`;
+    const aliases = cafeShopAliases(ctx, c.id);
+    // Quán trùng tên (QS đổi mã quán → TBQ bản cũ tạo quán mới): gợi ý gộp vào quán gốc.
+    const others = all(ctx.db, 'SELECT id, name, status, qs_slug, created_at FROM cafes WHERE id != ? ORDER BY id', c.id);
+    const twin = cafeKey(c.name) ? others.find((o) => o.created_at < c.created_at && o.status === 'active' && cafeKey(o.name) === cafeKey(c.name)) : null;
     const cards = all(ctx.db,
       `SELECT k.*, (SELECT MAX(created_at) FROM taps WHERE card_id = k.id) AS last_tap,
               (SELECT COUNT(*) FROM taps WHERE card_id = k.id AND created_at > ?) AS taps_24h,
@@ -738,9 +745,9 @@ ${secHead('Thêm quán', { id: 'them' })}
     view(rq, {
       ...(flash ? { flash, flashError: true } : {}),
       title: c.name, active: '/admin/cafes', crumbs: [['/admin/cafes', 'Quán']],
-      sub: html`${c.status === 'active' ? badge('Đang chạy', 'ok') : badge(c.paused_by === 'qs' ? 'Tạm dừng (QS)' : 'Tạm dừng', 'yellow')}${qsBadge(ctx, qsAt)} ${c.address || ''}${c.qs_slug ? html` · trang quán QS <code>${c.qs_slug}</code>` : ' · thẻ NFC riêng của Tiệm'}`,
+      sub: html`${c.status === 'active' ? badge('Đang chạy', 'ok') : badge(c.paused_by === 'qs' ? 'Tạm dừng (QS)' : 'Tạm dừng', 'yellow')}${qsBadge(ctx, qsAt)} ${c.address || ''}${c.qs_slug ? html` · trang quán QS <code>${c.qs_slug}</code>` : ' · thẻ NFC riêng của Tiệm'}${aliases.length ? html` <span class="muted">(mã cũ: ${aliases.join(', ')})</span>` : ''}`,
       actions: html`<a class="btn-mini" href="/admin/slots?cafe=${c.id}">Slot của quán ›</a><a class="btn-line" href="/admin/cafes/${c.id}/report">${icon('chart')}Thống kê quán</a>`,
-      body: html`${qsAt && !get(ctx.db, 'SELECT 1 FROM slots WHERE cafe_id = ? LIMIT 1', c.id) ? html`<p class="warn">${badge('QS tự thêm', 'info')} Quán này do Tài mở chương trình trên QS lúc ${t(qsAt, off(ctx))} (Tiệm chưa có quán này nên tự thêm, ${c.daily_quota} suất / ngày). Kiểm tra đúng quán thật chưa — không phải thì chọn Tạm dừng.</p>` : ''}
+      body: html`${twin ? html`<p class="warn">${badge('Có thể trùng', 'red')} Quán này trùng tên với <a href="/admin/cafes/${twin.id}">#${twin.id} ${twin.name}</a>${twin.qs_slug ? html` (mã QS <code>${twin.qs_slug}</code>)` : ''}. Khách vào quán này chỉ thấy kho chung, không thấy kho của quán #${twin.id}. Đúng là 1 quán thì bấm <a href="#gop">Gộp</a> ở cuối trang.</p>` : ''}${qsAt && !get(ctx.db, 'SELECT 1 FROM slots WHERE cafe_id = ? LIMIT 1', c.id) ? html`<p class="warn">${badge('QS tự thêm', 'info')} Quán này do Tài mở chương trình trên QS lúc ${t(qsAt, off(ctx))} (Tiệm chưa có quán này nên tự thêm, ${c.daily_quota} suất / ngày). Kiểm tra đúng quán thật chưa — không phải thì chọn Tạm dừng.</p>` : ''}
 <div class="stats">
   ${stat('Hôm nay / suất', `${today}/${c.daily_quota}`, { icon: 'key', tone: 'success', href: `/admin/slots?cafe=${c.id}`, hot: today >= c.daily_quota && c.daily_quota > 0 })}
   ${stat('Lượt vào 24 giờ', qs.taps, { icon: 'enter', tone: 'info', sub: `${qs.devices} máy · lần cuối ${t(qs.last, off(ctx))}` })}
@@ -780,7 +787,12 @@ ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ /
   ${field('Số thẻ', html`<input name="count" type="number" min="1" max="100" value="10">`)}
   ${field('Tiền tố nhãn', html`<input name="prefix" value="Bàn">`)}
   ${field('Bắt đầu từ số', html`<input name="start" type="number" min="1" value="${cards.length + 1}">`)}
-  <button class="btn">Tạo thẻ</button></form>`,
+  <button class="btn">Tạo thẻ</button></form>
+${others.length ? html`${secHead('Gộp quán trùng', { id: 'gop' })}
+<form method="post" action="/admin/cafes/${c.id}/gop" class="acard grid" data-confirm="Gộp ${c.name} vào quán đã chọn? Lượt vào, slot, kho riêng, thẻ và mã QS của quán này chuyển hết sang quán đó; quán này tạm dừng.">${csrfField(csrf)}
+  ${field('Gộp quán này vào', select('into', Object.fromEntries(others.map((o) => [o.id, `#${o.id} ${o.name}${o.qs_slug ? ` · QS ${o.qs_slug}` : ''}${o.status === 'active' ? '' : ' · tạm dừng'}`])), twin?.id ?? ''),
+    'Dùng khi 1 quán thật bị tách làm 2 (vd. QS đổi mã quán). Mã QS của quán này vẫn dẫn về quán đã chọn, khách thấy đúng kho của quán đó.')}
+  <button class="btn">Gộp</button></form>` : ''}`,
     });
   };
   router.get('/admin/cafes/:id', P((rq) => {
@@ -808,11 +820,23 @@ ${table(['Nhãn', 'Link ghi vào chip', 'Bộ đếm', 'Chạm 24h', 'Link cũ /
     if (v.error) return fail(v.error);
     // Đổi trạng thái thì ghi chủ là người đổi (QS không mở lại quán chủ đã dừng); không đổi thì giữ nguyên.
     const status = f.status === 'paused' ? 'paused' : 'active';
-    run(ctx.db,
-      `UPDATE cafes SET name = ?, address = ?, qs_slug = ?, daily_quota = ?, open_hour = ?, close_hour = ?, status = ?,
-        paused_by = CASE WHEN status = ? THEN paused_by ELSE ? END WHERE id = ?`,
-      f.name.trim(), f.address?.trim() || null, slug.value, v.quota, v.open, v.close, status, status, status === 'paused' ? 'admin' : null, id(rq));
+    tx(ctx.db, () => {
+      // Đổi mã QS: mã cũ giữ làm mã phụ (link / vé cũ vẫn về quán này). Xoá trống = ngắt hẳn khỏi QS (bỏ cả mã phụ).
+      if (slug.value) linkShop(ctx, c, slug.value);
+      else run(ctx.db, 'DELETE FROM cafe_shops WHERE cafe_id = ?', c.id);
+      run(ctx.db,
+        `UPDATE cafes SET name = ?, address = ?, qs_slug = ?, daily_quota = ?, open_hour = ?, close_hour = ?, status = ?,
+          paused_by = CASE WHEN status = ? THEN paused_by ELSE ? END WHERE id = ?`,
+        f.name.trim(), f.address?.trim() || null, slug.value, v.quota, v.open, v.close, status, status, status === 'paused' ? 'admin' : null, id(rq));
+    });
     return go(`/admin/cafes/${id(rq)}`, 'Đã lưu.');
+  }));
+
+  router.post('/admin/cafes/:id/gop', A((rq, f) => {
+    const r = mergeCafe(rq.ctx, id(rq), Number.parseInt(f.into, 10) || 0, BY);
+    if (!r.ok) throw new HttpError(400, r.message);
+    const into = Number.parseInt(f.into, 10);
+    return go(`/admin/cafes/${into}`, `Đã gộp: ${r.moved.slots} slot, ${r.moved.taps} lượt vào, ${r.moved.accounts} tài khoản kho riêng chuyển sang quán này.`);
   }));
 
   router.post('/admin/cafes/:id/cards', A((rq, f) => {

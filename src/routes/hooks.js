@@ -6,7 +6,7 @@ import { hit } from '../lib/ratelimit.js';
 import { MIN } from '../lib/time.js';
 import { ingestMail } from '../domain/mail.js';
 import { looksLikeMessage } from '../lib/mime.js';
-import { cafeByShop, createCafe, qsPageInfo } from '../domain/presence.js';
+import { resolveShop, createCafe, qsPageInfo } from '../domain/presence.js';
 import { issueQsVoucher, formatCode } from '../domain/vouchers.js';
 import { get, run } from '../db/index.js';
 import { startOfLocalDay } from '../lib/time.js';
@@ -121,7 +121,9 @@ export function registerQsApi(router) {
     const shop = String(body.shop || '').trim().toLowerCase();
     if (!['open', 'close', 'status'].includes(action)) return rq.sendJson(400, { ok: false, code: 'bad_action', message: 'action phải là open, close hoặc status.' });
     if (!QS_SHOP_RE.test(shop)) return rq.sendJson(400, { ok: false, code: 'bad_shop', message: 'Mã quán QS không hợp lệ.' });
-    let cafe = cafeByShop(ctx, shop);
+    const clean = (v, n) => String(v ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+    // Mã lạ nhưng tên trùng quán có sẵn = QS đổi mã quán → gắn vào quán cũ (cùng kho, cùng suất), không tạo quán trùng.
+    let cafe = await resolveShop(ctx, shop, { name: clean(body.name, 120) });
     if (action === 'status') {
       return cafe ? rq.sendJson(200, { ok: true, ...cafeStatus(ctx, cafe) }) : rq.sendJson(404, { ok: false, code: 'shop_unknown', message: 'Quán này chưa có trong TBQ.' });
     }
@@ -136,7 +138,6 @@ export function registerQsApi(router) {
     // open
     let created = false;
     if (!cafe) {
-      const clean = (v, n) => String(v ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
       const name = clean(body.name, 120) || (await qsPageInfo(ctx, shop))?.name || shop;
       const q = Number.parseInt(body.dailyQuota, 10);
       const id = createCafe(ctx, { name, address: clean(body.address, 200) || null, qsSlug: shop, dailyQuota: Number.isFinite(q) ? Math.min(200, Math.max(0, q)) : 20 });
@@ -157,7 +158,7 @@ export function registerQsApi(router) {
     const { ctx } = rq;
     const body = await qsSignedBody(rq);
     const shop = String(body.shop || '').trim().toLowerCase();
-    const cafe = cafeByShop(ctx, shop);
+    const cafe = await resolveShop(ctx, shop);
     if (!cafe) return rq.sendJson(404, { ok: false, code: 'shop_unknown', message: 'Quán này chưa có trong TBQ.' });
     if (cafe.status !== 'active') return rq.sendJson(409, { ok: false, code: 'cafe_paused', message: 'Quán đang tạm dừng chương trình.' });
     const r = issueQsVoucher(ctx, { cafe });

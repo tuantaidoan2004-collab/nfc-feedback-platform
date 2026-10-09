@@ -9,6 +9,7 @@ import { DAY } from '../lib/time.js';
 import { createTask, completeTask, blockingHolders } from './claims.js';
 import { accountLoad, toolAvailability, toolUsedToday, poolSeats, USABLE_SQL } from './quota.js';
 import { quarantineAccount } from './mail.js';
+import { cafeByShop } from './presence.js';
 
 export const MAX_WORKSPACES = 8; // ChatGPT: tối đa 8 Project (workspace) / tài khoản — chủ chọn 06/10
 const EMAIL_RE = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[a-z]{2,}$/i;
@@ -68,7 +69,7 @@ export function parseAccountLine(tool, line) {
 export function resolveKho(ctx, value, { byShop = false } = {}) {
   const v = String(value ?? '').trim().toLowerCase();
   if (!v || v === 'chung' || v === '0') return { ok: true, cafe: null };
-  const cafe = byShop ? get(ctx.db, 'SELECT * FROM cafes WHERE qs_slug = ? COLLATE NOCASE', v) : get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', Number.parseInt(v, 10) || 0);
+  const cafe = byShop ? cafeByShop(ctx, v) : get(ctx.db, 'SELECT * FROM cafes WHERE id = ?', Number.parseInt(v, 10) || 0);
   return cafe ? { ok: true, cafe } : { ok: false, message: byShop ? `Không có quán QS "${v}" trong TBQ.` : 'Không có quán này.' };
 }
 

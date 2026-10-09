@@ -13,7 +13,8 @@ const codeMail = (to, code, extra = {}) => ({ message_id: `m${++seq}`, to, from:
 
 /** Khách A có slot ChatGPT đang chạy (tài khoản gpt1). */
 function setup() {
-  const ctx = createTestCtx();
+  // Các test dưới kiểm chế độ cũ (cần chạm thẻ / phiếu); mặc định giờ là tự động — xem test/ma-tu-dong.test.js.
+  const ctx = createTestCtx({ settings: { codeNeedsTap: 1 } });
   const data = seed(ctx);
   const customer = makeCustomer(ctx);
   const deviceId = 'device-aaaaaaaaaaaaaaaa';

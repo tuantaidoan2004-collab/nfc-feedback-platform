@@ -9,7 +9,7 @@ import { TBQ_TAG } from './logos.js';
 
 const THEMES = [
   { id: 'orenchi', slugs: ['orenchi'], name: /o\W?\s*renchi/i, title: 'O’renchi', photo: 'nen-orenchi.jpg', sub: 'cà phê · sân vườn · đèn vàng', hand: ['Slow sips,', 'warm lights'] },
-  { id: 'bamos', slugs: ['8ugdc', 'sakz8'], name: /bamos/i, title: 'Bamos', logo: 'quan-8ugdc.png', photo: 'nen-bamos.jpg', sub: 'coffee & tea · mở 24h', hand: ['Stay late,', 'sip slow'] },
+  { id: 'bamos', slugs: ['bamos', '8ugdc', 'sakz8'], name: /bamos/i, title: 'Bamos', logo: 'quan-8ugdc.png', photo: 'nen-bamos.jpg', sub: 'coffee & tea · mở 24h', hand: ['Stay late,', 'sip slow'] },
 ];
 
 /** Quán có cảnh riêng → theme | null. Nhận theo mã quán QS, rồi theo tên quán (quán chưa gắn mã QS vẫn nhận ra). */

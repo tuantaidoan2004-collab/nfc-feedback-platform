@@ -4,7 +4,7 @@ import { get } from '../db/index.js';
 import { hit } from '../lib/ratelimit.js';
 import { logEvent } from '../lib/events.js';
 import { HOUR, MIN, DAY } from '../lib/time.js';
-import { cafeByShop, recordEntry, latestEntry, isCafeOpen, processTap } from '../domain/presence.js';
+import { resolveShop, recordEntry, latestEntry, isCafeOpen, processTap } from '../domain/presence.js';
 import { useTicket, TICKET_MESSAGES } from '../domain/ticket.js';
 import { issueOtp, verifyOtp, createSession, logout } from '../domain/auth.js';
 import { startClaim, currentSlotView } from '../domain/claims.js';
@@ -84,14 +84,14 @@ export function registerPublicRoutes(router) {
   // Lối vào 1 (quán có QS): nút "Nhận công cụ làm việc miễn phí" trong khối "Công cụ làm việc" trên trang quán của QS.
   // QS gắn mã quán vào link (/qs/<mã quán QS>) và, khi khách mở trang quán bằng thẻ / mã QR trên bàn, một vé ?t=…
   // (src/domain/ticket.js). Vé đúng → ghi lượt vào rồi chuyển về link sạch (không còn vé trên thanh địa chỉ để chép gửi người khác).
-  router.get('/qs/:shop', (rq) => {
+  router.get('/qs/:shop', async (rq) => {
     const { ctx } = rq;
     if (previewRequest(rq)) {
       rq.sendHtml(200, notice(ctx, { title: ctx.settings().eventTitle, icon: '☕', text: 'Mở trang này trên điện thoại khi đang ngồi ở quán để nhận nhé.' }));
       return;
     }
     const shop = String(rq.params.shop || '').trim().toLowerCase().slice(0, 80);
-    const cafe = cafeByShop(ctx, shop);
+    const cafe = await resolveShop(ctx, shop);
     if (!cafe) {
       // Mã quán QS chưa có trong TBQ → báo chủ tiệm (1 lần/giờ/mã) để thêm quán ở trang quản trị.
       if (/^[a-z0-9][a-z0-9-]{0,62}$/.test(shop) && hit(ctx, `qsunmapped:${shop}`, 1, HOUR).ok) {
