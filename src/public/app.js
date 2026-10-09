@@ -742,17 +742,31 @@
     }
   }
 
-  // Cảnh quán: cuộn xuống → ảnh quán phía sau tối dần (chủ yêu cầu 08/10: "lướt xuống là nền tối để nổi bật chữ"). --qd 0…1 trên body, ui.css phủ lớp tối theo nó.
+  // Cảnh quán: cuộn xuống → ảnh quán phía sau tối dần (chủ yêu cầu 08/10: "lướt xuống là nền tối để nổi bật chữ"). --qd 0…1 trên .qbg, ui.css phủ lớp tối theo nó.
+  // Đặt trên .qbg chứ không trên body: biến đặt ở body bắt tính lại style cả trang mỗi khung cuộn. Chỉ ghi khi giá trị đổi.
   const qScroll = document.body.classList.contains('q') && $('[data-scroll]');
+  const qBg = $('.qbg') || document.body;
   if (qScroll) {
-    let raf = 0;
+    let raf = 0, last = '';
     const dim = () => {
       raf = 0;
       const t = Math.min(1, Math.max(0, (qScroll.scrollTop - 8) / 140));
-      document.body.style.setProperty('--qd', (t * t * (3 - 2 * t)).toFixed(3));
+      const v = (t * t * (3 - 2 * t)).toFixed(2);
+      if (v !== last) qBg.style.setProperty('--qd', last = v);
     };
     qScroll.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(dim); }, { passive: true });
     dim();
+  }
+
+  // Đang cuộn → <html>.is-scrolling: ui.css tạm dừng hiệu ứng trang trí cho cuộn mượt trên điện thoại; dừng tay ~200ms là chạy lại.
+  const scroller = $('[data-scroll]');
+  if (scroller) {
+    let idle = 0;
+    scroller.addEventListener('scroll', () => {
+      if (!idle) document.documentElement.classList.add('is-scrolling');
+      clearTimeout(idle);
+      idle = setTimeout(() => { idle = 0; document.documentElement.classList.remove('is-scrolling'); }, 200);
+    }, { passive: true });
   }
 
   // Chọn món: nảy nhẹ + rung khẽ (phản hồi "đã nhận" — ngưỡng Doherty).
