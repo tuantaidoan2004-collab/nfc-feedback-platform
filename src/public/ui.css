@@ -104,6 +104,14 @@ mark { background: none; color: var(--gold); }
 .tile.on .tick, .tile:has(input:checked) .tick { background: var(--gold); border-color: var(--gold); }
 .tile.on .tick::after, .tile:has(input:checked) .tick::after { transform: rotate(-45deg) translate(1px, -1px) scale(1); }
 .tile:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
+/* Món còn hàng: viền sáng + ánh chạy quanh viền + quầng vàng nhẹ — nổi hẳn lên so với món hết (chủ yêu cầu 09/10). */
+.tile:not(.off) { border-color: rgba(212, 176, 106, .55); box-shadow: 0 0 0 1px rgba(212, 176, 106, .1), 0 10px 30px -14px rgba(212, 176, 106, .45); }
+.tile:not(.off)::after { content: ''; position: absolute; inset: -1.5px; border-radius: 19.5px; padding: 1.5px; pointer-events: none;
+  background: conic-gradient(from var(--a, 0deg), transparent 0 64%, rgba(255, 236, 190, .95) 80%, transparent 94%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin-a 4.5s linear infinite; }
+.list .tile:nth-child(2)::after { animation-delay: -1.5s; } .list .tile:nth-child(3)::after { animation-delay: -3s; }
+.list .tile:nth-child(4)::after { animation-delay: -.8s; } .list .tile:nth-child(5)::after { animation-delay: -2.3s; }
+.tile.on, .tile:has(input:checked) { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(212, 176, 106, .35), 0 12px 36px -12px rgba(212, 176, 106, .6); }
 /* món hết suất: vẫn là hàng như món còn, nhưng mờ, không chọn được, nhãn "Tạm hết" bên phải */
 .out { margin-top: 22px; }
 .out:first-child { margin-top: 4px; }
@@ -113,8 +121,9 @@ mark { background: none; color: var(--gold); }
 .tile.off:active { transform: none; }
 .out .list { gap: 8px; }
 .tile.off { padding: 9px 12px; gap: 12px; border-radius: 16px; }
-.tile.off .ic { width: 34px; height: 34px; border-radius: 10px; filter: grayscale(1); opacity: .45; }
-.tile.off .ic svg, .tile.off .ic img { width: 19px; height: 19px; }
+/* Xám hoá trên chính logo, không đặt filter/opacity lên ô: Safari iPhone vẽ lệch lớp lọc của ô → dải sáng dưới logo Adobe / Canva. */
+.tile.off .ic { width: 34px; height: 34px; border-radius: 10px; background: rgba(240, 235, 224, .55); }
+.tile.off .ic svg, .tile.off .ic img { width: 19px; height: 19px; filter: grayscale(1) brightness(.7); opacity: .85; }
 .tile.off .tx b { font-size: 16px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sold { flex: none; max-width: 46%; text-align: center; line-height: 1.25; font-size: 12.5px; font-weight: 600; color: var(--text-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 10px; }
 .invite { margin-top: 14px; background: var(--card); border-radius: 18px; padding: 16px; border: 1px solid var(--line); }
@@ -617,7 +626,11 @@ body.q::before { opacity: .5;
 .q .tile.off { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border-color: var(--line-2); }
 .q .tile.off::before { display: none; }
 .q .tile.on, .q .tile:has(input:checked) { background: linear-gradient(165deg, color-mix(in srgb, var(--gold) 16%, var(--q-g1)), var(--q-g2)); }
+.q .tile:not(.off)::before { background: linear-gradient(135deg, var(--gold), rgba(255, 255, 255, .22) 40%, rgba(212, 176, 106, .5) 70%, rgba(255, 255, 255, .6)); padding: 1.3px; }
+.q .tile:not(.off) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 26px -8px rgba(212, 176, 106, .5), 0 24px 48px -26px rgba(0, 0, 0, .75); }
+.q .tile:not(.off)::after { inset: 0; border-radius: inherit; padding: 1.4px; z-index: 0; }
 .q .tile.on::before, .q .tile:has(input:checked)::before { background: linear-gradient(135deg, var(--gold), rgba(255, 255, 255, .1) 45%, var(--gold)); padding: 1.6px; }
+.q .tile.on, .q .tile:has(input:checked) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 34px -6px rgba(212, 176, 106, .7), 0 24px 48px -26px rgba(0, 0, 0, .75); }
 /* viền thẻ bước đang làm có ánh chạy quanh (giống thẻ Tiệm) */
 .q .steps::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; padding: 1.2px; pointer-events: none;
   background: conic-gradient(from var(--a, 0deg), transparent 0 72%, color-mix(in srgb, var(--q-a2) 85%, transparent) 82%, transparent 92%);
@@ -652,6 +665,7 @@ body.q::before { opacity: .5;
 @media (prefers-reduced-motion: reduce) {
   .fall { display: none; }
   .q .steps::after { display: none; }
+  .tile::after { display: none; }
 }
 
 /* ---------- Thẻ tài khoản (trang vé vào thẳng tài khoản, 08/10/2026) ---------- */
