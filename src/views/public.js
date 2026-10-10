@@ -425,7 +425,7 @@ function ticket(ctx, v, sub) {
 const APPS = {
   capcut: { name: 'CapCut', scheme: 'capcut://main/tabbar?index=0', android: 'com.lemon.lvoverseas', ios: 'https://apps.apple.com/app/id1500855883' },
   // Món có app nhận link web của hãng (chủ yêu cầu 08/10/2026 "những nút khác cũng vậy"): iPhone mở link chính chủ → iOS tự bật app nếu đã cài;
-  // Android mở intent:// kèm tên gói, chưa cài thì Chrome tự quay về trang web (browser_fallback_url).
+  // Android mở intent:// kèm tên gói, chưa cài thì app.js mở trang web ở tab mới (không đè tab vé).
   chatgpt: { name: 'ChatGPT', link: 'https://chatgpt.com/', android: 'com.openai.chatgpt', ios: 'https://apps.apple.com/app/id6448311069' },
   claude: { name: 'Claude', link: 'https://claude.ai/', android: 'com.anthropic.claude', ios: 'https://apps.apple.com/app/id6473753684' },
   canva: { name: 'Canva', link: 'https://www.canva.com/', android: 'com.canva.editor', ios: 'https://apps.apple.com/app/id897446215' },
@@ -490,8 +490,9 @@ function accountCard(ctx, v, { rows, code = '', codeFold = '', guide = '' }) {
   // Bớt chữ (chủ yêu cầu 08/10/2026): dòng "đã chép email" chỉ hiện sau khi bấm; tên Slot đã có trên vé nên chỉ hiện link Project nếu có.
   // UI tâm lý (chủ yêu cầu 08/10/2026): 1 nút chính lên đầu; bấm là tự chép email + mở thẳng app; quay lại trang thì dòng kế tiếp (mật khẩu / lấy mã)
   // sáng lên kèm lời nhắc; dòng đã chép có ✓. Bỏ dòng "Chưa có app? Tải … · dùng bản web" (chủ yêu cầu 08/10/2026 — iPhone hỏi "Mở trong app?" làm dòng này hiện nhầm).
+  // Món có Project riêng (ChatGPT / Claude): nhãn Slot ngay đầu thẻ — vé ở trên cuộn khuất là khách không biết ngồi Slot nào (chủ 10/10/2026).
   return html`<section class="steps acc-card" data-acc>
-  <h2>Tài khoản của bạn</h2>
+  <h2 class="acc-h">Tài khoản của bạn${v.workspace ? html`<span class="acc-ws">${v.workspace.name}</span>` : ''}</h2>
   ${guide}
   ${t.login_url ? html`${openBtn(t, 'btn acc-open', false, v.accountEmail || '')}
   <p class="acc-auto" data-acc-auto hidden></p>` : ''}
@@ -508,10 +509,11 @@ const nextHint = (text) => html`<p class="acc-next" data-acc-next hidden>${text}
 
 /** 3 bước luôn hiện cho món đăng nhập bằng mã qua email (ChatGPT, Claude) — chủ yêu cầu 10/10/2026: khách mới vào không biết làm gì trước.
  *  Bước nào xong thì có ✓ (app.js: bấm mở app / chép email → 1, quay lại trang → 2, mã về → 3). Món email + mật khẩu không có khung này. */
-const mailGuide = (t) => html`<ol class="acc-guide" data-guide>
+const mailGuide = (t, ws) => html`<ol class="acc-guide" data-guide>
   <li data-g="1"><span>Bấm <b>Mở app ${appOf(t)?.name || t.name}</b> (tự chép email)</span></li>
   <li data-g="2"><span>Dán email → bấm <b>Tiếp tục</b></span></li>
   <li data-g="3"><span>Quay lại bấm <b>Lấy mã</b> → chép, dán vào</span></li>
+  ${ws ? html`<li data-g="4"><span>Vào Project <b>${ws.name}</b> ở thanh bên → chat trong đó</span></li>` : ''}
 </ol>`;
 
 /** Ghi chú riêng của món (Cài đặt → Công cụ): bỏ câu nói lại điều "Mẹo dùng mượt" đã có (1 máy / email + mật khẩu), khỏi lặp ý. */
@@ -552,7 +554,7 @@ function slotBody(ctx, v) {
   if (t.login_type === 'email_code') {
     rules.push(html`Giữ nguyên email, thông tin tài khoản giúp Tiệm nha`);
     how = accountCard(ctx, v, { rows: html`${copyRow('Email', v.accountEmail, 'email')}${nextHint('Quay lại rồi nè — bấm Lấy mã, mã hiện ngay dưới đây 👇')}`,
-      code: { title: '', body: codeBox(ctx, v, 'mail') }, guide: t.login_url ? mailGuide(t) : '' });
+      code: { title: '', body: codeBox(ctx, v, 'mail') }, guide: t.login_url ? mailGuide(t, v.workspace) : '' });
   } else if (t.login_type === 'password' || t.login_type === 'password_totp') {
     const totp = t.login_type === 'password_totp';
     rules.push(totp ? html`Giữ nguyên mật khẩu, email, 2FA — để ai cũng vào được` : html`Giữ nguyên mật khẩu, email, đừng bật 2FA nha — để ai cũng vào được`);

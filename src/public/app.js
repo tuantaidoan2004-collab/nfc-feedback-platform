@@ -92,8 +92,9 @@
 
   // ---------- Mở app (chủ yêu cầu 08/10/2026: "bấm mở là qua app luôn", mọi món có app) ----------
   // data-app = scheme riêng (CapCut): iPhone mở scheme, Android intent:// kèm tên gói (chưa cài → Play Store).
-  // data-app-link = link chính chủ (ChatGPT, Claude, Canva): iPhone mở link đó cùng thẻ → iOS tự bật app nếu đã cài;
-  //   Android intent://…;scheme=https kèm tên gói, chưa cài thì Chrome quay về trang web (browser_fallback_url).
+  // data-app-link = link chính chủ (ChatGPT, Claude, Canva): iPhone mở link đó ở TAB MỚI → iOS tự bật app nếu đã cài, không thì tab mới;
+  //   Android intent://…;scheme=https kèm tên gói, chưa cài thì mở trang web ở tab mới.
+  //   Không bao giờ mở trên tab vé (chủ 10/10/2026: Chrome iPhone mở chatgpt.com đè lên trang vé → khách không quay lại bấm Lấy mã được).
   // Máy tính / trình duyệt trong Zalo, Facebook (chặn mở app lạ): giữ link web, đổi chữ nút theo data-web-label; trong Zalo nhắc "Mở bằng trình duyệt".
   // data-copy-first: bấm mở là tự chép sẵn email; quay lại trang thì dòng cần làm tiếp sáng lên kèm lời nhắc (UI tâm lý).
   const ua = navigator.userAgent;
@@ -103,7 +104,7 @@
   const canApp = (android || ios) && !inApp;
   $$('a[data-app], a[data-app-link]').forEach((a) => {
     if (!canApp) { a.textContent = a.dataset.webLabel || a.textContent; return; }
-    if (ios && a.dataset.appLink) { a.href = a.dataset.appLink; a.removeAttribute('target'); }
+    if (ios && a.dataset.appLink) { a.href = a.dataset.appLink; a.target = '_blank'; }
   });
   if ((android || ios) && inApp) $$('[data-in-app]').forEach((p) => { p.hidden = false; });
 
@@ -193,7 +194,11 @@
     } else if (android) {
       e.preventDefault();
       const u = new URL(a.dataset.appLink);
-      const go = () => { location.href = `intent://${u.host}${u.pathname}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(a.dataset.appLink)};end`; };
+      // Không dùng browser_fallback_url (Chrome mở trang web đè lên tab vé): app không bật (trang vẫn hiện) → mở web ở tab mới.
+      const go = () => {
+        location.href = `intent://${u.host}${u.pathname}#Intent;scheme=https;package=${pkg};end`;
+        setTimeout(() => { if (document.visibilityState === 'visible' && !away) window.open(a.dataset.appLink, '_blank', 'noopener'); }, 1500);
+      };
       setTimeout(go, a.dataset.copyFirst ? 120 : 0);
     } // iPhone + link chính chủ: để trình duyệt mở link (iOS tự bật app)
   });
